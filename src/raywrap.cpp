@@ -38,44 +38,61 @@ int main(int argc, char *argv[])
   Cloud cloud;
   cloud.load(file);
 
-  ConcaveHull concaveHull(cloud.ends);
-  if (type == "inwards")
-    concaveHull.growInwards(maximumCurvature);
-  else if (type == "outwards")
-    concaveHull.growOutwards(maximumCurvature);
-  else if (type == "upwards")
-    concaveHull.growBottomUp(maximumCurvature);
-  else if (type == "downwards")
-    concaveHull.growTopDown(maximumCurvature);
-  
-  vector<Vector3i> tris;
-  int numBads = 0;
-  for (auto &face: concaveHull.surface)
+  if (overhangs)
   {
-    Vector3d centroid(0,0,0);
-    ConcaveHull::Tetrahedron &tetra = concaveHull.tetrahedra[face.tetrahedron];
-    Vector3i triVerts = concaveHull.triangles[face.triangle].vertices;
-    if (triVerts[0] == -1)
-      cout << "bad vertices in the surface" << endl;
-    if (tetra.vertices[0] != -1)
+    ConcaveHull concaveHull(cloud.ends);
+    if (type == "inwards")
+      concaveHull.growInwards(maximumCurvature);
+    else if (type == "outwards")
+      concaveHull.growOutwards(maximumCurvature);
+    else if (type == "upwards")
+      concaveHull.growBottomUp(maximumCurvature);
+    else if (type == "downwards")
+      concaveHull.growTopDown(maximumCurvature);
+    
+    vector<Vector3i> tris;
+    int numBads = 0;
+    for (auto &face: concaveHull.surface)
     {
-      for (int i = 0; i<4; i++)
-        centroid += concaveHull.vertices[tetra.vertices[i]] / 4.0;
-      Vector3d vs[3];
-      for (int i = 0; i<3; i++)
-        vs[i] = concaveHull.vertices[triVerts[i]];
-      Vector3d normal = (vs[2]-vs[0]).cross(vs[1]-vs[0]);
-      if ((centroid - vs[0]).dot(normal) < 0.0)
-        swap(triVerts[1], triVerts[2]);
+      Vector3d centroid(0,0,0);
+      ConcaveHull::Tetrahedron &tetra = concaveHull.tetrahedra[face.tetrahedron];
+      Vector3i triVerts = concaveHull.triangles[face.triangle].vertices;
+      if (triVerts[0] == -1)
+        cout << "bad vertices in the surface" << endl;
+      if (tetra.vertices[0] != -1)
+      {
+        for (int i = 0; i<4; i++)
+          centroid += concaveHull.vertices[tetra.vertices[i]] / 4.0;
+        Vector3d vs[3];
+        for (int i = 0; i<3; i++)
+          vs[i] = concaveHull.vertices[triVerts[i]];
+        Vector3d normal = (vs[2]-vs[0]).cross(vs[1]-vs[0]);
+        if ((centroid - vs[0]).dot(normal) < 0.0)
+          swap(triVerts[1], triVerts[2]);
+      }
+      else
+        numBads++;
+      tris.push_back(triVerts);
     }
-    else
-      numBads++;
-    tris.push_back(triVerts);
+    if (numBads > 0)
+      cout << "number of surfaces that didn't have enough information to orient: " << numBads << endl;
+    writePlyMesh(file + "_mesh.ply", concaveHull.vertices, tris, true);
   }
-  if (numBads > 0)
-    cout << "number of surfaces that didn't have enough information to orient: " << numBads << endl;
+  else
+  {
+    ConvexHull convexHull(cloud.ends);
+    if (type == "inwards")
+      convexHull.growInwards(maximumCurvature);
+    else if (type == "outwards")
+      convexHull.growOutwards(maximumCurvature);
+    else if (type == "upwards")
+      convexHull.growBottomUp(maximumCurvature);
+    else if (type == "downwards")
+      convexHull.growTopDown(maximumCurvature); 
+    writePlyMesh(file + "_mesh.ply", convexHull.vertices, tris, true);     
+  }
+  
 
-  writePlyMesh(file + "_mesh.ply", concaveHull.vertices, tris, true);
   cout << "Completed, output: " << file << "_mesh.ply" << endl;
 }
 

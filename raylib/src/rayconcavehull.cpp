@@ -1,5 +1,4 @@
-#include "concavehull.h"
-#include "debugdraw.h"
+#include "rayconcavehull.h"
 #include <libqhullcpp/Qhull.h>
 #include <libqhullcpp/QhullPoints.h>
 #include <libqhullcpp/QhullFacet.h>
