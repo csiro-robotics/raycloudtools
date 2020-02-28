@@ -1,5 +1,8 @@
 #pragma once
 
-struct RayReader
+namespace RAY
+{
+struct Reader
 {
 };
+}
