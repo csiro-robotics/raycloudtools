@@ -16,7 +16,7 @@ struct lessThan
 
 using namespace RAY;
 
-void ConvexHull::construct(const vector<Vector3d> &points)
+void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignoreDirection)
 {
   vector<double> coordinates(points.size() * 3);
   for (int i = 0; i < (int)points.size(); i++) 
@@ -35,7 +35,9 @@ void ConvexHull::construct(const vector<Vector3d> &points)
   triangles.reserve(facets.size());
   for (const orgQhull::QhullFacet &f : facets) 
   {
-    if (f.hyperplane().coordinates()[2] < 0)
+    double *c = f.hyperplane().coordinates();
+    Vector3d coords(c[0], c[1], c[2]);
+    if (coords.dot(ignoreDirection) <= 0)
     {
       orgQhull::QhullVertexSet verts = f.vertices();
       Triangle triangle;
@@ -59,24 +61,39 @@ ConvexHull::ConvexHull(const vector<Vector3d> &points)
 void ConvexHull::growOutwards(double maxCurvature)
 {
   this->maxGroundCurvature = maxCurvature;
-}
-// STILL TO DO
-void ConvexHull::growInwards(double maxCurvature)
-{
-  this->maxGroundCurvature = maxCurvature;
 
   for (auto &p: points)
   {
     p /= pow(p.squaredNorm(), curvature*0.5);
   }
 
-  construct(points);
+  construct(points, Vector3d(0,0,0));
 
   for (auto &tri: triangles)
   {
     for (auto &p: tri.vertices)
     {
-      p /= pow(p.squaredNorm(), 1.0/(curvature*0.5));
+      p *= pow(p.squaredNorm(), curvature*0.5);
+    }
+  }
+}
+
+void ConvexHull::growInwards(double maxCurvature)
+{
+  this->maxGroundCurvature = maxCurvature;
+
+  for (auto &p: points)
+  {
+    p *= pow(p.squaredNorm(), curvature*0.5);
+  }
+
+  construct(points, Vector3d(0,0,0));
+
+  for (auto &tri: triangles)
+  {
+    for (auto &p: tri.vertices)
+    {
+      p /= pow(p.squaredNorm(), curvature*0.5);
     }
   }
 }
@@ -94,7 +111,7 @@ void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
     p += dir*flat.squaredNorm();
   }
 
-  construct(points);
+  construct(points, dir);
 
   for (auto &tri: triangles)
   {

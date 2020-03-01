@@ -89,6 +89,10 @@ int main(int argc, char *argv[])
       convexHull.growBottomUp(maximumCurvature);
     else if (type == "downwards")
       convexHull.growTopDown(maximumCurvature); 
+    vector<Vector3i> tris(convexHull.vertices.size());
+    int c = 0;
+    for (int i = 0; i<(int)convexHull.vertices.size(); i++)
+      tris[i] = Vector3i(c++,c++,c++); // TODO: currently the triangles are indexed independently, I need to improve this
     writePlyMesh(file + "_mesh.ply", convexHull.vertices, tris, true);     
   }
   
