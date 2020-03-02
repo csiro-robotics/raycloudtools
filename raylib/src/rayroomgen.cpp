@@ -7,27 +7,62 @@ struct Cuboid
 {
   Cuboid(const Vector3d &minB, const Vector3d &maxB) : minBound(minB), maxBound(maxB) {}
   Vector3d minBound, maxBound;
-}
 
-void rayIntersectBox(const Vector3d &start, const Vector3d &dir, const Cuboid &box, double &depth)
-{
-  double maxDepth = 0.0;
-  Vector3d centre = (box.minBound + box.maxBound)/2.0;
-  Vector3d extent = (box.maxBound - box.minBound)/2.0;
-  Vector3d toCentre = centre - start;
-  for (int ax = 0; ax<3; ax++)
+  bool rayIntersectBox(const Vector3d &start, const Vector3d &dir, double &depth)
   {
-    double d = dir[a]>0.0 ? (toCentre[a] - extent[a])/dir[a] : (toCentre[a] + extent[a])/dir[a];
-    maxDepth = max(maxDepth, d);
-  }
-  if (maxDepth < depth && maxDepth != 0.0)
-    depth = maxDepth;
-}
+    double maxNearD = 0.0;
+    double minFarD = 1e10;
+    Vector3d centre = (minBound + maxBound)/2.0;
+    Vector3d extent = (maxBound - minBound)/2.0;
+    Vector3d toCentre = centre - start;
+    for (int ax = 0; ax<3; ax++)
+    {
+      double s = dir[a] > 0.0 ? 1.0 : -1.0;
+      double nearD = (toCentre[a] - s*extent[a])/(s*dir[a]);
+      double farD = (toCentre[a] + s*extent[a])/(s*dir[a]);
 
-void rayIntersectNegativeBox(const Vector3d &start, const Vector3d &dir, const Cuboid &box, double &depth)
-{
-  // TODO: how on earth do I do this?
-}
+      maxNearD = max(maxNearD, nearD);
+      minFarD = min(minFarD, farD);
+    }
+    if (maxNearD > 0.0 && maxNearD < depth && maxNearD < minFarD)
+    {
+      depth = maxNearD;
+      return true;
+    }
+    return false;
+  }
+
+  bool rayIntersectNegativeBox(const Vector3d &start, const Vector3d &dir, double &depth)
+  {
+    double maxNearD = 0.0;
+    double minFarD = 1e10;
+    Vector3d centre = (minBound + maxBound)/2.0;
+    Vector3d extent = (maxBound - minBound)/2.0;
+    Vector3d toCentre = centre - start;
+    for (int ax = 0; ax<3; ax++)
+    {
+      double s = dir[a] > 0.0 ? 1.0 : -1.0;
+      double nearD = (toCentre[a] - s*extent[a])/(s*dir[a]);
+      double farD = (toCentre[a] + s*extent[a])/(s*dir[a]);
+
+      maxNearD = max(maxNearD, nearD);
+      minFarD = min(minFarD, farD);
+    }
+    if (maxNearD < minFarD && minFarD < depth)
+    {
+      depth = minFarD;
+      return true;
+    }
+    return false;
+  }
+
+  bool intersects(const Vector3d &pos)
+  {
+    return pos[0]>minBound[0] && pos[1]>minBound[1] && pos[2]>minBound[2] &&
+           pos[0]<maxBound[0] && pos[1]<maxBound[1] && pos[2]<maxBound[2];
+  }
+};
+
 
 // A room with a door, window, table and cupboard
 void RoomGen::generate()
@@ -101,11 +136,30 @@ void RoomGen::generate()
     Vector3d dir(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, 1.0));
     dir.normalize();
     const double maxRange = 20.0;
+    vector<Vector3d> hits(negatives.size());
+    for (int i = 0; i<(int)negatives.size(); i++)
+    {
+      double newRange = maxRange;
+      if (negatives[i].rayIntersectNegativeBox(newRange))
+        hits.push_back(start + dir*(newRange + 1e-6));
+    }
     double range = maxRange;
+    for (auto &hit: hits)
+    {
+      bool intersected = false;
+      for (auto &cuboid: negatives)
+      {
+        if (cuboid.intersects(hit))
+        {
+          intersected = true;
+          break;
+        }
+      }
+      if (!intersected)
+        range = min(range, (hit - start).norm());
+    }
     for (auto &cuboid: positives)
-      rayIntersectBox(cuboid, range);
-    for (auto &cuboid: negatives)
-      rayIntersectNegativeBox(cuboid, range);
+      cuboid.rayIntersectBox(range);
 
     const double rangeNoise = 0.03;
     Vector3d end = start + (range + random(-rangeNoise, rangeNoise)) * dir;
