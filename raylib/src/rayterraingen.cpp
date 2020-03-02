@@ -18,7 +18,7 @@ Vector3d trajectoryPos(double time)
   
 }
 
-// Some outdoor hilly terrain including noisy grass areas
+// Some outdoor hilly terrain
 void TerrainGen::generate()
 {
   // 1. build the surface
