@@ -3,8 +3,8 @@ if (!MSVC)
 endif()
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
 
-set(SOURCE_FILES
-	rayreader.cpp
+file(GLOB_RECURSE SOURCE_FILES
+	${CMAKE_SOURCE_DIR}/raylib/src/*.cpp
 )
 
 file(GLOB_RECURSE INCLUDE_FILES

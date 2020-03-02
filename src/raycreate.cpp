@@ -1,6 +1,7 @@
 #include "raycloud.h"
 #include "rayforestgen.h"
 #include "rayroomgen.h"
+#include "rayterraingen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +40,13 @@ int main(int argc, char *argv[])
     roomGen.generate();
     cloud.starts = roomGen.rayStarts;
     cloud.ends = roomGen.rayEnds;
+    double time = 0.0;
+    double timeDelta = 0.01;
+    for (int i = 0; i<(int)cloud.starts.size(); i++)
+    {
+      cloud.times.push_back(time);
+      time += timeDelta;
+    }
   }
   else if (type == "building")
   {
@@ -55,7 +63,7 @@ int main(int argc, char *argv[])
     cloud.ends = treeGen.rayEnds;
     double time = 0.0;
     double timeDelta = 0.01;
-    for (int i = 0; i<(int)tree.rayEnds.size(); i++)
+    for (int i = 0; i<(int)cloud.starts.size(); i++)
     {
       cloud.times.push_back(time);
       time += timeDelta;
@@ -79,6 +87,20 @@ int main(int argc, char *argv[])
         cloud.times.push_back(time);
         time += timeDelta;
       }
+    }
+  }
+  else if (type == "terrain")
+  {
+    TerrainGen terrain;
+    terrain.generate();
+    cloud.starts = terrain.rayStarts;
+    cloud.ends = terrain.rayEnds;
+    double time = 0.0;
+    double timeDelta = 0.01;
+    for (int i = 0; i<(int)cloud.starts.size(); i++)
+    {
+      cloud.times.push_back(time);
+      time += timeDelta;
     }
   }
   else

@@ -107,7 +107,8 @@ void RoomGen::generate()
     for (auto &cuboid: negatives)
       rayIntersectNegativeBox(cuboid, range);
 
-    Vector3d end = start + range * dir;
+    const double rangeNoise = 0.03;
+    Vector3d end = start + (range + random(-rangeNoise, rangeNoise)) * dir;
     Vector3d s = end - Vector3d(roomWidth, roomLength, 0.0)/2.0;
     Vector3d rayEnd = Vector3d(sin(s[0]) + cos(s[1]), cos(s[0]) - sin(s[1]), 0.0) + floorCentre;
     rayStarts.push_back(rayStart);
