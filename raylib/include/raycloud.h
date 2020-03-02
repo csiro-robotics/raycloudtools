@@ -15,15 +15,11 @@ struct Cloud
 
   void save(const std::string &fileName);
   bool load(const std::string &fileName);
+  bool load(const std::string &pointCloud, const std::string &trajFile);
 
   void transform(const Pose &pose, double timeDelta);
   
 protected:  
-  enum CloudType
-  {
-    CT_RayCloudPLY,
-    CT_LAZandTrajFile,
-  } cloudType;
   void calculateStarts(const Trajectory &trajectory);
   bool loadPLY(const string &file);
   bool loadLazTraj(const string &lazFile, const string &trajFile);

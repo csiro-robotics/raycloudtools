@@ -20,18 +20,33 @@ bool Cloud::load(const std::string &fileName)
     return loadLazTraj(fileName + ".laz", fileName + "_traj.txt");
 
   return false;
+}  
+
+bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
+{
+  if (pointCloud.substr(pointCloud.size()-4) == ".ply")
+    readPly(pointCloud, starts, ends, times);
+  else if (pointCloud.substr(pointCloud.size()-4) == ".laz")
+    readLas(pointCloud, ends, times, intensities, 1);    
+  else
+  {
+    cout << "Error converting unknown type: " << pointCloud << endl;
+    return false;
+  }
+
+  Trajectory trajectory;
+  trajectory.load(trajFile);
+  calculateStarts(trajectory);
+  return true;  
 }
 
 bool Cloud::loadPLY(const string &file)
 {
-  cloudType = CT_RayCloudPLY;
   readPly(file, starts, ends, times);
 }
 
 bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)
 {
-  cloudType = CT_LAZandTrajFile;
-
   readLas(lazFile, ends, times, intensities, 1);
   Trajectory trajectory;
   trajectory.load(trajFile);
