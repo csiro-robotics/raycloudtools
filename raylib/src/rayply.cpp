@@ -9,16 +9,17 @@ Vector3d redGreenBlue(double x)
   res[0] = 1.0 - x;
   res[1] = 3.0*x*(1.0-x);
   res[2] = x;
+  return res;
 }
 
 // Save the polygon file to disk
-void writePly(const std::string &fileName, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<times> &times)
+void writePly(const std::string &fileName, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times)
 {
   cout << "saving to " << fileName << endl;
   
   vector<Vector3d> rgb(times.size());
   for (int i= 0; i<(int)rgb.size(); i++)
-    rgb = redGreenBlue(fmod(times[i], 10.0)/10.0);
+    rgb[i] = redGreenBlue(fmod(times[i], 10.0)/10.0);
   vector<uint32_t> RGB(rgb.size());
   for (unsigned int i = 0; i<rgb.size(); i++)
   {
@@ -28,7 +29,7 @@ void writePly(const std::string &fileName, const std::vector<Eigen::Vector3d> &s
     RGB[i] += 255<<24; // i.e. alpha is 255
   }
 
-  vector<Matrix<float, 8, 1> > vertices(points.size()); // 4d to give space for colour
+  vector<Matrix<float, 8, 1> > vertices(ends.size()); // 4d to give space for colour
   for (unsigned int i = 0; i<ends.size(); i++)
   {
     Vector3d n = starts[i] - ends[i];
@@ -371,11 +372,11 @@ bool readPlyMesh(const string &file, vector<Vector3d> &points, vector<Vector3i> 
 
 bool readPly(const std::string &fileName, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times)
 {
-  cout << "reading from " << file << endl;
-  ifstream input(file.c_str());
+  cout << "reading from " << fileName << endl;
+  ifstream input(fileName.c_str());
   if (!input.is_open())
   {
-    cerr << "Couldn't open file: " << file << endl;
+    cerr << "Couldn't open file: " << fileName << endl;
     return false;
   }
   string line;
@@ -410,8 +411,8 @@ bool readPly(const std::string &fileName, std::vector<Eigen::Vector3d> &starts, 
   for (int i = 0; i<size; i++)
   {
     Vector4f b = (Vector4f &)vertices[rowSize*i];
-    Vector3d end(b[0],b[1],b[2]));
-    ends.push_back(Vector3d(end);
+    Vector3d end(b[0],b[1],b[2]);
+    ends.push_back(Vector3d(end));
     times.push_back(b[3]);
     Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
     starts.push_back(end + Vector3d(n[0], n[1], n[2]));

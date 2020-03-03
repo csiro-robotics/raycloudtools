@@ -4,6 +4,7 @@ using namespace Ray;
 using namespace std;
 using namespace Eigen;
 
+#if 0
 void ForestGen::make(double randomFactor)
 {
   double fieldWidth = 10;
@@ -66,3 +67,4 @@ vector<Vector3d> ForestGen::getPointCloud()
 
   return cloud;
 }
+#endif

@@ -9,14 +9,7 @@ struct PlanarWave
   PlanarWave(const Vector2d &dir, double amplitude) : dir(dir), amplitude(amplitude) {}
   Vector2d dir; // includes wave frequency
   double amplitude;
-}
-
-// we assume that the time is 0 to 100 s
-Vector3d trajectoryPos(double time)
-{
-  double phase = time * 2.0*pi / 100.0;
-  
-}
+};
 
 // Some outdoor hilly terrain
 void TerrainGen::generate()
@@ -36,7 +29,7 @@ void TerrainGen::generate()
   {
     // Now generate a trajectory around the landscape
     double phase = time * 2.0*pi / 100.0;
-    Vector3d trajCentre(random(-10.0, 10.0), random(-10.0, 10.0));
+    Vector2d trajCentre(random(-10.0, 10.0), random(-10.0, 10.0));
     double trajRadius = random(5.0, 15.0);
     double radScale = random(0.05, 0.3);
     double trajRadius2 = trajRadius * radScale;
@@ -57,9 +50,10 @@ void TerrainGen::generate()
     for (int i = 0; i<10; i++)
     {
       Vector3d pos = start + range*dir;
+      Vector2d p(pos[0], pos[1]);
       double floorY = 0.0;
       for (auto &wave: waves)
-        floorY += wave.amplitude * sin(pos.dot(wave.dir)); 
+        floorY += wave.amplitude * sin(p.dot(wave.dir)); 
       range += pos[2] - floorY;
     }
 

@@ -2,7 +2,7 @@
 using namespace Ray;
 using namespace std;
 using namespace Eigen;
-
+#if 0
 struct Cuboid
 {
   Cuboid(const Vector3d &minB, const Vector3d &maxB) : minBound(minB), maxBound(maxB) {}
@@ -17,9 +17,9 @@ struct Cuboid
     Vector3d toCentre = centre - start;
     for (int ax = 0; ax<3; ax++)
     {
-      double s = dir[a] > 0.0 ? 1.0 : -1.0;
-      double nearD = (toCentre[a] - s*extent[a])/(s*dir[a]);
-      double farD = (toCentre[a] + s*extent[a])/(s*dir[a]);
+      double s = dir[ax] > 0.0 ? 1.0 : -1.0;
+      double nearD = (toCentre[ax] - s*extent[ax])/(s*dir[ax]);
+      double farD = (toCentre[ax] + s*extent[ax])/(s*dir[ax]);
 
       maxNearD = max(maxNearD, nearD);
       minFarD = min(minFarD, farD);
@@ -41,9 +41,9 @@ struct Cuboid
     Vector3d toCentre = centre - start;
     for (int ax = 0; ax<3; ax++)
     {
-      double s = dir[a] > 0.0 ? 1.0 : -1.0;
-      double nearD = (toCentre[a] - s*extent[a])/(s*dir[a]);
-      double farD = (toCentre[a] + s*extent[a])/(s*dir[a]);
+      double s = dir[ax] > 0.0 ? 1.0 : -1.0;
+      double nearD = (toCentre[ax] - s*extent[ax])/(s*dir[ax]);
+      double farD = (toCentre[ax] + s*extent[ax])/(s*dir[ax]);
 
       maxNearD = max(maxNearD, nearD);
       minFarD = min(minFarD, farD);
@@ -99,11 +99,11 @@ void RoomGen::generate()
   Cuboid outsideWindow(Vector3d(-20.0, -20.0, 0.0), Vector3d(-0.15, 20.0, 20.0));
   negatives.push_back(outsideWindow);
 
-
+  vector<Cuboid> positives;
   double tableWidth = random(0.5, 1.5);
   double tableLength = random(0.5, 1.5);
   double tableHeight = random(0.5, 1.2);
-  Vector3d tablePos(Vector3d(random(0.0, roomWidth - tableWidth - 1.0), Vector3d(0.0, roomLength - tableLength - 1.0), tableHeight);
+  Vector3d tablePos(Vector3d(random(0.0, roomWidth - tableWidth - 1.0), random(0.0, roomLength - tableLength - 1.0), tableHeight);
   Cuboid tableTop(tablePos, tablePos + Vector3d(tableWidth, tableLength, 0.05));
   positives.push_back(tableTop);
   for (int x = 0; x<2; x++)
@@ -121,7 +121,7 @@ void RoomGen::generate()
   double cupboardDepth = random(0.2, 0.8);
   double cupboardHeight = random(1.0, 2.5);
   Vector3d cupboardPos(roomWidth - cupboardDepth, cupboardStart, 0.0);
-  Cuboic cupboard(cupboardPos, cupboardPos + Vector3d(cupboardDepth, cupboardWidth, cupboardHeight));
+  Cuboid cupboard(cupboardPos, cupboardPos + Vector3d(cupboardDepth, cupboardWidth, cupboardHeight));
   positives.push_back(cupboard);
 
 
@@ -132,7 +132,6 @@ void RoomGen::generate()
   int numRays = pointDensity * (roomWidth*roomLength)*2.0 + roomWidth*roomHeight*2.0 + roomLength*roomHeight*2.0;
   for (int i = 0; i<numRays; i++)
   {
-    int face = rand()%3;
     Vector3d dir(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, 1.0));
     dir.normalize();
     const double maxRange = 20.0;
@@ -140,7 +139,7 @@ void RoomGen::generate()
     for (int i = 0; i<(int)negatives.size(); i++)
     {
       double newRange = maxRange;
-      if (negatives[i].rayIntersectNegativeBox(newRange))
+      if (negatives[i].rayIntersectNegativeBox(start, dir, newRange))
         hits.push_back(start + dir*(newRange + 1e-6));
     }
     double range = maxRange;
@@ -159,14 +158,15 @@ void RoomGen::generate()
         range = min(range, (hit - start).norm());
     }
     for (auto &cuboid: positives)
-      cuboid.rayIntersectBox(range);
+      cuboid.rayIntersectBox(start, dir, range);
 
     const double rangeNoise = 0.03;
     Vector3d end = start + (range + random(-rangeNoise, rangeNoise)) * dir;
     Vector3d s = end - Vector3d(roomWidth, roomLength, 0.0)/2.0;
-    Vector3d rayEnd = Vector3d(sin(s[0]) + cos(s[1]), cos(s[0]) - sin(s[1]), 0.0) + floorCentre;
+    Vector3d rayEnd = Vector3d(s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[0]*cos(roomYaw) - s[1]*sin(roomYaw), 0.0) + floorCentre;
     rayStarts.push_back(rayStart);
     rayEnds.push_back(rayEnd);
   }
 }
 
+#endif

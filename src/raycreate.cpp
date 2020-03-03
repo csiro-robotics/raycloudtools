@@ -1,4 +1,5 @@
 #include "raycloud.h"
+#include "rayftreegen.h"
 #include "rayforestgen.h"
 #include "rayroomgen.h"
 #include "rayterraingen.h"
