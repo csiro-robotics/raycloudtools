@@ -17,29 +17,6 @@ struct Trajectory
       this->pose = pose;
       this->time = time;
     }
-
-    /// Operators
-    Node operator *(double scale) const
-    {
-      return Node(pose*scale, time*scale);
-    }
-    Node operator /(double scale) const
-    {
-      ASSERT(scale != 0.0);
-      return Node(pose / scale, time / scale);
-    }
-    Node operator *(const Pose &otherPose) const
-    {
-      return Node(pose*otherPose, time);
-    }
-    Node operator +(const Node &node) const
-    {
-      return Node(pose + node.pose, time + node.time);
-    }
-    Node operator -(const Node &node) const
-    {
-      return Node(pose - node.pose, time - node.time);
-    }
     
     inline void normalise()
     {

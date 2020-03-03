@@ -122,7 +122,5 @@ void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
       p -= dir*flat.squaredNorm();
     }
   }
-
-  // now fill in the vertices structure.
 }
 

@@ -8,10 +8,10 @@ namespace RAY
 
 struct Cloud
 {
-  vector<Eigen::Vector3d> starts;
-  vector<Eigen::Vector3d> ends; 
-  vector<double> times;
-  vector<double> intensities;
+  std::vector<Eigen::Vector3d> starts;
+  std::vector<Eigen::Vector3d> ends; 
+  std::vector<double> times;
+  std::vector<double> intensities;
 
   void save(const std::string &fileName);
   bool load(const std::string &fileName);
@@ -21,8 +21,8 @@ struct Cloud
   
 protected:  
   void calculateStarts(const Trajectory &trajectory);
-  bool loadPLY(const string &file);
-  bool loadLazTraj(const string &lazFile, const string &trajFile);
+  bool loadPLY(const std::string &file);
+  bool loadLazTraj(const std::string &lazFile, const std::string &trajFile);
 };
 
 

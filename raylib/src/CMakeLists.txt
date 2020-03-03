@@ -11,6 +11,10 @@ file(GLOB_RECURSE INCLUDE_FILES
 	${CMAKE_SOURCE_DIR}/raylib/include/*.h
 )
 
+add_compile_options(-std=c++11 -Wall -g)
+find_package(Eigen3 REQUIRED)
+find_package(libLAS REQUIRED)
+
 add_library(raylib ${SOURCE_FILES})
 set_property(TARGET raylib PROPERTY POSITION_INDEPENDENT_CODE ON)
 
@@ -21,6 +25,7 @@ endif()
 target_include_directories(raylib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/raylib/include>
   $<INSTALL_INTERFACE:include/raylib>
+  ${EIGEN3_INCLUDE_DIR}
 )
 set_target_properties(raylib PROPERTIES
 	ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib

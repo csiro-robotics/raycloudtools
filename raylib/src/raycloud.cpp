@@ -1,3 +1,4 @@
+#include "raycloud.h"
 #include "raytrajectory.h"
 using namespace std;
 using namespace RAY;
@@ -64,7 +65,7 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
       while (times[i] > trajectory.nodes[n].time) && n<(int)trajectory.size()-1)
         n++;
       double blend = (times[i] - trajectory.nodes[n-1].time)/(trajectory.nodes[n].time-trajectory.nodes[n-1].time);
-      starts[i] = trajectory.nodes[n-1].position + (trajectory.nodes[n].position - trajectory.nodes[n-1].position)*clamped(blend, 0.0, 1.0);
+      starts[i] = trajectory.nodes[n-1].pose.position + (trajectory.nodes[n].pose.position - trajectory.nodes[n-1].pose.position)*clamped(blend, 0.0, 1.0);
     }
   }
   else
@@ -73,10 +74,10 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
 
 void Cloud::transform(const Pose &pose, double timeDelta)
 {
-  for (int i = 0; i<cloud.starts.size(); i++)
+  for (int i = 0; i<starts.size(); i++)
   {
-    cloud.starts[i] = pose * cloud.starts[i];
-    cloud.ends[i] = pose * cloud.ends[i];
-    cloud.times[i] += timeDelta;
+    starts[i] = pose * starts[i];
+    ends[i] = pose * ends[i];
+    times[i] += timeDelta;
   }  
 }
