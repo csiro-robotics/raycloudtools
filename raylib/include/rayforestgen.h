@@ -8,9 +8,9 @@ struct ForestGen
 {
   void make(double randomFactor = 0.0);
   void generateRays(double rayDensity);
-  vector<Vector3d> getCanopy();
-  vector<Vector3d> getPointCloud();
+  std::vector<Eigen::Vector3d> getCanopy();
+  std::vector<Eigen::Vector3d> getPointCloud();
 
-  vector<TreeGen> trees;
+  std::vector<TreeGen> trees;
 };
 }

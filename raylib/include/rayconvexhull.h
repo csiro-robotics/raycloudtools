@@ -4,6 +4,13 @@
 
 namespace RAY
 {
+struct Triangle
+{
+  Eigen::Vector3i vertexIDs; 
+  Eigen::Vector3d vertices[3];
+  double data;
+};
+
 struct ConvexHull
 {
   ConvexHull(const std::vector<Eigen::Vector3d> &points);
@@ -16,6 +23,8 @@ struct ConvexHull
 
   std::vector<Eigen::Vector3d> points;
   std::vector<Eigen::Vector3d> vertices;
+  std::vector<Triangle> triangles;  
+ 
 protected:
   void construct(const std::vector<Eigen::Vector3d> &points, const Eigen::Vector3d ignoreDirection);
 };

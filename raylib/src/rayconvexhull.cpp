@@ -55,17 +55,16 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
 
 ConvexHull::ConvexHull(const vector<Vector3d> &points)
 {
-  this->centre = mean(points);
   this->points = points;
 }
 
 void ConvexHull::growOutwards(double maxCurvature)
 {
-  this->maxGroundCurvature = maxCurvature;
-
+  Vector3d centre = mean(points);
   for (auto &p: points)
   {
-    p /= pow(p.squaredNorm(), curvature*0.5);
+    p -= centre;
+    p /= pow((p-centre).squaredNorm(), maxCurvature*0.5);
   }
 
   construct(points, Vector3d(0,0,0));
@@ -74,42 +73,40 @@ void ConvexHull::growOutwards(double maxCurvature)
   {
     for (auto &p: tri.vertices)
     {
-      p *= pow(p.squaredNorm(), curvature*0.5);
+      p *= pow(p.squaredNorm(), maxCurvature*0.5);
+      p += centre;
     }
   }
 }
 
 void ConvexHull::growInwards(double maxCurvature)
 {
-  this->maxGroundCurvature = maxCurvature;
-
+  Vector3d centre = mean(points);
   for (auto &p: points)
   {
-    p *= pow(p.squaredNorm(), curvature*0.5);
+    p -= centre;
+    p *= pow(p.squaredNorm(), maxCurvature*0.5);
   }
 
   construct(points, Vector3d(0,0,0));
 
   for (auto &tri: triangles)
-  {
     for (auto &p: tri.vertices)
     {
-      p /= pow(p.squaredNorm(), curvature*0.5);
+      p /= pow(p.squaredNorm(), maxCurvature*0.5);
+      p += centre;
     }
-  }
 }
+
 void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
 {
-  this->maxGroundCurvature = maxCurvature;
-  Vector3d random(1.0,2.0,3.0);
-  Vector3d s1 = random.cross(dir).normalized();
-  Vector3d s2 = s1.cross(dir);
+  Vector3d centre = mean(points);
 
   for (auto &p: points)
   {
     Vector3d flat = p - centre;
     flat -= dir*dir.dot(flat);
-    p += dir*flat.squaredNorm();
+    p += dir*flat.squaredNorm()*maxCurvature;
   }
 
   construct(points, dir);
@@ -119,7 +116,7 @@ void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
     for (auto &p: tri.vertices)
     {
       Vector3d flat = p - centre;
-      flat -= dir*dir.dot(flat);
+      flat -= dir*dir.dot(flat)*maxCurvature;
       p -= dir*flat.squaredNorm();
     }
   }
