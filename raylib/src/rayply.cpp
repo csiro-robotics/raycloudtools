@@ -46,6 +46,224 @@ void writePly(const string &fileName, const vector<Vector3d> &points, const vect
   fclose(fid);  
 }
 
+#if 0 // is this a better save PLY function?
+void savePLY(const std::string &filename, const State &state, const std::vector<PoseEvent> &trajectory, const LaserData &laser, const PointAttributeOptions& options)
+{
+  struct Property
+  {
+    function<void(ofstream&)> writeHeader;
+    function<void(ofstream&, const unsigned int&)> writeData;
+   
+    Property()=default;
+    Property(function<void(ofstream&)> header, function<void(ofstream&, const unsigned int&)> data) : writeHeader(header), writeData(data) {};
+  };
+ 
+  vector<Property> propertyList;
+ 
+  //Covariance
+  if(options.saveCovariance && !laser.times.empty())
+  {
+    vector<double> covariances;
+    for(auto&& covarianceEvent : state.covarianceTrajectory)
+      covariances.push_back(covarianceEvent.covariance.norm());
+    Lookup<double> covarianceLookup (components(state.covarianceTrajectory, time), covariances);
+ 
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property float covariance" << endl;
+          },
+          [&laser, covarianceLookup](ofstream& out, const unsigned int& i)
+          {
+            float value = covarianceLookup.linear(laser.times[i], false);
+            out.write((const char*)&value, sizeof(float));
+          }));
+  }
+ 
+  //Intensity
+  if(options.saveIntensity && !laser.intensities.empty())
+  {
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property ushort intensity" << endl;
+          },
+          [&laser](ofstream& out, const unsigned int& i)
+          {
+            out.write((const char*)&laser.intensities[i], sizeof(uint16_t));
+          }));
+  }
+ 
+  //Normal
+  if(options.saveNormals && !laser.times.empty() && !trajectory.empty())
+  {
+    vector<Vector3d> normals = generateNormals(laser.positions, components(Lookup<PoseEvent>(trajectory).linearInterpolate(laser.times), pose.position));
+   
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property float nx" << endl;
+            out << "property float ny" << endl;
+            out << "property float nz" << endl;
+          },
+          [&laser, normals](ofstream& out, const unsigned int& i)
+          {
+            Vector3f normal = normals[i].cast<float>();
+            out.write((const char*)normal.data(), sizeof(float)*3);
+          }));
+  }
+ 
+  //Angle of incidence
+  if(options.saveIncidenceAngle && !laser.times.empty() && !trajectory.empty())
+  {
+    vector<Vector3d> normals = generateNormals(laser.positions, components(Lookup<PoseEvent>(trajectory).linearInterpolate(laser.times), pose.position));
+    Lookup<PoseEvent> trajLookup (trajectory);
+   
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property float incidence_angle" << endl;
+          },
+          [&laser, normals, trajLookup](ofstream& out, const unsigned int& i)
+          {
+            float incidenceAngle = (180.0/M_PI) * acos(normals[i].dot((trajLookup.linearNormalized(laser.times[i]).pose.position - laser.positions[i]).normalized()));
+            out.write((const char*)&incidenceAngle, sizeof(float));
+          }));
+  }
+ 
+  //Position
+  propertyList.push_back(Property(
+        [](ofstream& out){
+          out << "property double x" << endl;
+          out << "property double y" << endl;
+          out << "property double z" << endl;
+        },
+        [&laser](ofstream& out, const unsigned int& i)
+        {
+          out.write((const char*)laser.positions[i].data(), sizeof(double)*3);
+        }));
+ 
+  //Range
+  if(options.saveRange && !laser.times.empty() && !trajectory.empty())
+  {
+    Lookup<PoseEvent> trajLookup (trajectory);
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property float range" << endl;
+          },
+          [&laser, trajLookup](ofstream& out, const unsigned int& i)
+          {
+            float range = (trajLookup.linearNormalized(laser.times[i]).pose.position - laser.positions[i]).norm();
+            out.write((const char*)&range, sizeof(float));
+          }));
+  }
+ 
+  //Return number
+  if(options.saveReturnNumber && std::any_of(laser.flags.begin(), laser.flags.end(), [](const LaserData::Flags& flag){return !((bool)(flag & LaserData::Flag::SINGLE_RETURN));}))
+  {
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property uchar normalized_return_number" << endl;
+          },
+          [&laser](ofstream& out, const unsigned int& i)
+          {
+            uint8_t value;
+            if(laser.flags[i] & LaserData::Flag::SINGLE_RETURN)//Single return
+              value = 0;
+            else if(laser.flags[i] & LaserData::Flag::FIRST_RETURN)//First return
+              value = 1;
+            else if(laser.flags[i] & LaserData::Flag::LAST_RETURN)//Last return
+              value = numeric_limits<uint8_t>::max();
+            else//Mid return TODO Is the order required?
+              value = numeric_limits<uint8_t>::max()/2;
+           
+            out.write((const char*)&value, sizeof(uint8_t));
+          }));
+  }
+ 
+  //Ring number
+  if(options.saveRingNumber && !laser.rings.empty())
+  {
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property uchar ring_number" << endl;
+          },
+          [&laser](ofstream& out, const unsigned int& i)
+          {
+            out.write((const char*)&laser.rings[i], sizeof(uint8_t));
+          }));
+  }
+ 
+  //Shape
+  if(options.saveShapes && !laser.times.empty() && !trajectory.empty())
+  {
+    vector<Vector3d> shapes = generateShapes(laser.positions, components(Lookup<PoseEvent>(trajectory).linearInterpolate(laser.times), pose.position));
+   
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property uchar planarity" << endl;
+            out << "property uchar sphericity" << endl;
+            out << "property uchar cylindricality" << endl;
+          },
+          [&laser, shapes](ofstream& out, const unsigned int& i)
+          {
+            for(unsigned int j = 0; j < 3; ++j)
+            {
+              uint8_t shape = clamped(shapes[i][j], 0.0, 1.0) * std::numeric_limits<uint8_t>::max();
+              out.write((const char*)&shape, sizeof(uint8_t));
+            }
+          }));
+  }
+ 
+  //Strongest Return
+  if(options.saveStrongestReturn && std::any_of(laser.flags.begin(), laser.flags.end(), [](const LaserData::Flags& flag){return (bool)(flag & LaserData::Flag::STRONGEST_RETURN);}))
+  {
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property uchar strongest_return" << endl;
+          },
+          [&laser](ofstream& out, const unsigned int& i)
+          {
+            uint8_t value = (bool)(laser.flags[i] & LaserData::Flag::STRONGEST_RETURN);
+            out.write((const char*)&value, sizeof(uint8_t));
+          }));
+  }
+ 
+  //Time
+  if(options.saveTime && !laser.times.empty())
+  {
+    propertyList.push_back(Property(
+          [](ofstream& out){
+            out << "property double time" << endl;
+          },
+          [&laser](ofstream& out, const unsigned int& i)
+          {
+            out.write((const char*)&laser.times[i], sizeof(double));
+          }));
+  }
+ 
+  //PLY output
+  {
+    const vector<Property>& properties = propertyList;
+   
+    std::ofstream ply (filename, ios::binary | ios::out);
+   
+    ply << "ply" << endl;
+    ply << "format binary_little_endian 1.0" << endl;
+    ply << "comment nrrslam" << endl; //TODO version
+    ply << "element vertex " << laser.size() << endl;
+    for(auto&& property : properties)
+      property.writeHeader(ply);
+    ply << "element face 0" << endl;
+    ply << "property list uchar int vertex_indices" << endl;
+    ply << "end_header" << endl;
+   
+    //Data
+    for(unsigned int i = 0; i < laser.size(); ++i)
+    {
+      for(auto&& property : properties)
+        property.writeData(ply, i);
+    }
+  }
+}
+#endif
+
 void RAYwritePlyMesh(const string &fileName, const vector<Vector3d> &points, const vector<Vector3i> &indexList, bool flipNormals)
 {
   cout << "saving to " << fileName << endl;

@@ -18,6 +18,37 @@ void usage(bool error=false)
   exit(error);
 }
 
+#if 0 // could be useful for decimate?
+struct Vector3iLess
+{
+  bool operator()(const Vector3i &a, const Vector3i &b) const
+  {
+    if (a[0] != b[0])
+      return a[0] < b[0];
+    if (a[1] != b[1])
+      return a[1] < b[1];
+    return a[2] < b[2];
+  }
+};
+
+vector<int> voxelRandomSubsample(const LaserData &laser, const vector<int> &subset, double voxelWidth)
+{
+  vector<int> indices;
+  set<Vector3i, Vector3iLess> testSet;
+  for (unsigned int j = 0; j<subset.size(); j++)
+  {
+    int i = subset[j];
+    Vector3i places = Vector3i(floor(laser.positions[i][0] / voxelWidth), floor(laser.positions[i][1] / voxelWidth), floor(laser.positions[i][2] / voxelWidth));
+    if (testSet.find(places) == testSet.end())
+    {
+      testSet.insert(places);
+      indices.push_back(i);
+    }
+  }
+  return indices;
+}
+#endif
+
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
