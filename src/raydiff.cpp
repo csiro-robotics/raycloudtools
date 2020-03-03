@@ -1,10 +1,13 @@
 #include "rayutils.h"
+#include "raycloud.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
 using namespace std;
+using namespace Eigen;
+using namespace RAY;
 
 void usage(bool error=false)
 {
@@ -24,11 +27,11 @@ int main(int argc, char *argv[])
   Cloud cloud1, cloud2;
   cloud1.load(file1);
   cloud2.load(file2);
-
+#if 0
   // Firstly get the transform of best fit between the clouds
   double timeShift = 0.0;
   Pose poseChange = getTransformOfBestFit(cloud1, cloud2, timeShift);
-  cout << "Difference in pose: " << poseChange << endl;
+  cout << "Difference in pose: " << poseChange.position.transpose() << ", " << poseChange.rotation << endl;
   // and apply the transform to cloud 2
   cloud2.transform(poseChange);
 
@@ -92,6 +95,6 @@ int main(int argc, char *argv[])
   cout << numErrors << " key differences." << endl;
   cout << "(" << substr(string, 0, string.length()-2) << ")." << endl;
 
-
+#endif
   return true;
 }

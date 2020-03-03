@@ -1,9 +1,15 @@
 #pragma once
 #include "rayutils.h"
 #include "raypose.h"
-
 namespace RAY
 {
+#define pitchAngle (30.0 * pi/180.0) // alternative to above, defined by relative angle of the head of the two branches
+#define splitAngle (45.0 * pi/180.0) // angle in the Y shape, usually around 45 degrees
+#define branchGradient 20.0 // length per radius
+
+double getMainBranchAngle(double covarianceAngle);
+void fillBranchAngleLookup();
+
 struct TreeGen
 {
   std::vector<Eigen::Vector3d> leaves;

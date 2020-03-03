@@ -9,6 +9,9 @@
 #include "rayutils.h"
 #include "rayconcavehull.h"
 #include "rayply.h"
+using namespace std;
+using namespace Eigen;
+using namespace RAY;
 
 void usage(bool error=false)
 {
