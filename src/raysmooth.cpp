@@ -16,7 +16,7 @@ void usage(bool error=false)
   exit(error);
 }
 
- void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, int numNeighbors, int smoothingIterations, int rBar)
+ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, int numNeighbors, int smoothingIterations, double rBar)
 {
   ASSERT(positions.size() == normals.size());
   ASSERT(numNeighbors > 0);
