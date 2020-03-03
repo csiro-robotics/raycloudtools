@@ -1,11 +1,14 @@
 #include "raycloud.h"
 #include "raytrajectory.h"
+#include "rayply.h"
+#include "raylaz.h"
+
 using namespace std;
 using namespace RAY;
 
 void Cloud::save(const std::string &fileName)
 {
-  writePLY(fileName + ".ply", starts, ends, times);
+  writePly(fileName + ".ply", starts, ends, times);
 }
 
 bool Cloud::load(const std::string &fileName)
@@ -43,26 +46,29 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 
 bool Cloud::loadPLY(const string &file)
 {
-  readPly(file, starts, ends, times);
+  return readPly(file, starts, ends, times);
 }
 
 bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)
 {
-  readLas(lazFile, ends, times, intensities, 1);
+  bool success = readLas(lazFile, ends, times, intensities, 1);
+  if (!success)
+    return false;
   Trajectory trajectory;
   trajectory.load(trajFile);
   calculateStarts(trajectory);
+  return true;
 }
 
 void Cloud::calculateStarts(const Trajectory &trajectory)
 {
-  if (trajectory.size()>0)
+  if (trajectory.nodes.size()>0)
   {
     int n = 1;
     starts.resize(ends.size());
     for (int i = 0; i<(int)ends.size(); i++)
     {
-      while (times[i] > trajectory.nodes[n].time) && n<(int)trajectory.size()-1)
+      while ((times[i] > trajectory.nodes[n].time) && n<(int)trajectory.nodes.size()-1)
         n++;
       double blend = (times[i] - trajectory.nodes[n-1].time)/(trajectory.nodes[n].time-trajectory.nodes[n-1].time);
       starts[i] = trajectory.nodes[n-1].pose.position + (trajectory.nodes[n].pose.position - trajectory.nodes[n-1].pose.position)*clamped(blend, 0.0, 1.0);
@@ -74,7 +80,7 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
 
 void Cloud::transform(const Pose &pose, double timeDelta)
 {
-  for (int i = 0; i<starts.size(); i++)
+  for (int i = 0; i<(int)starts.size(); i++)
   {
     starts[i] = pose * starts[i];
     ends[i] = pose * ends[i];

@@ -3,11 +3,22 @@ using namespace std;
 using namespace Eigen;
 using namespace RAY;
 
+Vector3d redGreenBlue(double x)
+{
+  Vector3d res;
+  res[0] = 1.0 - x;
+  res[1] = 3.0*x*(1.0-x);
+  res[2] = x;
+}
+
 // Save the polygon file to disk
-void writePly(const string &fileName, const vector<Vector3d> &points, const vector<Vector3d> &rgb)
+void writePly(const std::string &fileName, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<times> &times)
 {
   cout << "saving to " << fileName << endl;
   
+  vector<Vector3d> rgb(times.size());
+  for (int i= 0; i<(int)rgb.size(); i++)
+    rgb = redGreenBlue(fmod(times[i], 10.0)/10.0);
   vector<uint32_t> RGB(rgb.size());
   for (unsigned int i = 0; i<rgb.size(); i++)
   {
@@ -17,14 +28,16 @@ void writePly(const string &fileName, const vector<Vector3d> &points, const vect
     RGB[i] += 255<<24; // i.e. alpha is 255
   }
 
-  vector<Vector4f> vertices(points.size()); // 4d to give space for colour
-  for (unsigned int i = 0; i<points.size(); i++)
+  vector<Matrix<float, 8, 1> > vertices(points.size()); // 4d to give space for colour
+  for (unsigned int i = 0; i<ends.size(); i++)
   {
-    vertices[i] << (float)points[i][0], (float)points[i][1], (float)points[i][2], (float &)RGB[i];
+    Vector3d n = starts[i] - ends[i];
+    vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)times[i], (float)n[0], (float)n[1], (float)n[2], (float &)RGB[i];
   }
 
-
   FILE *fid = fopen(fileName.c_str(), "w+");
+
+  // do we put the starts in as normals?
 
   fprintf(fid, "ply\n"); 
   fprintf(fid, "format binary_little_endian 1.0\n"); 
@@ -33,6 +46,10 @@ void writePly(const string &fileName, const vector<Vector3d> &points, const vect
   fprintf(fid, "property float x\n"); 
   fprintf(fid, "property float y\n"); 
   fprintf(fid, "property float z\n"); 
+  fprintf(fid, "property float t\n"); 
+  fprintf(fid, "property float nx\n"); 
+  fprintf(fid, "property float ny\n"); 
+  fprintf(fid, "property float nz\n"); 
   fprintf(fid, "property uchar red\n"); 
   fprintf(fid, "property uchar green\n"); 
   fprintf(fid, "property uchar blue\n"); 
@@ -41,7 +58,7 @@ void writePly(const string &fileName, const vector<Vector3d> &points, const vect
   fprintf(fid, "property list uchar int vertex_indices\n"); 
   fprintf(fid, "end_header\n"); 
 
-  fwrite(&vertices[0], sizeof(Vector4f), vertices.size(), fid);
+  fwrite(&vertices[0], sizeof(Matrix<float, 8, 1>), vertices.size(), fid);
 
   fclose(fid);  
 }
@@ -351,7 +368,8 @@ bool readPlyMesh(const string &file, vector<Vector3d> &points, vector<Vector3i> 
   return true;
 }
 
-bool RAYreadPly(const string &file, vector<Vector3d> &points, vector<Vector3d> &normals, int &colourOffset)
+
+bool readPly(const std::string &fileName, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times)
 {
   cout << "reading from " << file << endl;
   ifstream input(file.c_str());
@@ -374,15 +392,10 @@ bool RAYreadPly(const string &file, vector<Vector3d> &points, vector<Vector3d> &
     {
       rowSize += 4;
     }
-    if (line.find("property uchar red") != string::npos)
-    {
-      colourOffset = rowSize;
-    }
     if (line.find("property uchar") != string::npos)
     {
-      rowSize ++;
+      rowSize++;
     }
- //   cout << line << endl;
   }
 
   streampos start = input.tellg();
@@ -396,19 +409,14 @@ bool RAYreadPly(const string &file, vector<Vector3d> &points, vector<Vector3d> &
   input.read((char *)&vertices[0], length);
   for (int i = 0; i<size; i++)
   {
-    Vector3f b = (Vector3f &)vertices[rowSize*i];
-    points.push_back(Vector3d(b[0],b[1],b[2]));
+    Vector4f b = (Vector4f &)vertices[rowSize*i];
+    Vector3d end(b[0],b[1],b[2]));
+    ends.push_back(Vector3d(end);
+    times.push_back(b[3]);
     Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
-    if (n[0] == n[0] && n[1] == n[1] && n[2] == n[2])
-    {
-      normals.push_back(Vector3d(n[0], n[1], n[2]));
-    }
-    else
-    {
-      normals.push_back(Vector3d(1, 0, 0));
-    }
+    starts.push_back(end + Vector3d(n[0], n[1], n[2]));
   }
-  return true;
+  return true; 
 }
 
 
