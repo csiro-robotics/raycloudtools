@@ -6,13 +6,13 @@ namespace RAY
 {
 struct ConcaveHull
 {
-  ConcaveHull(const vector<Vector3d> &points);
+  ConcaveHull(const std::vector<Eigen::Vector3d> &points);
   void growInwards(double maxCurvature);
   void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
   void growOutwards(double maxCurvature);
-  void growInDirection(double maxCurvature, const Vector3d &dir);
-  void growUpwards(double maxCurvature){ growInDirection(maxCurvature, Vector3d(0,0,1)); }
-  void growTopDown(double maxCurvature){ growInDirection(maxCurvature, Vector3d(0,0,-1)); }
+  void growInDirection(double maxCurvature, const Eigen::Vector3d &dir);
+  void growUpwards(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,1)); }
+  void growTopDown(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,-1)); }
 
 
 
@@ -36,15 +36,15 @@ struct ConcaveHull
     Triangle()
     {
       vertices[0] = vertices[1] = vertices[2] = -1;
-      edges = Vector3i(-1,-1,-1);
+      edges = Eigen::Vector3i(-1,-1,-1);
       isSurface = false;
       used = false;
     }
     bool valid(){ return vertices[0] != -1; }
     bool isSurface;
     bool used;
-    Vector3i vertices;
-    Vector3i edges;
+    Eigen::Vector3i vertices;
+    Eigen::Vector3i edges;
     int tetrahedra[2];
     SurfaceFace surfaceFaceCached;
   };
@@ -63,31 +63,31 @@ struct ConcaveHull
     int id;
     bool seen;
   };
-  bool insideTetrahedron(const Vector3d &pos, const Tetrahedron &tetra)
+  bool insideTetrahedron(const Eigen::Vector3d &pos, const Tetrahedron &tetra)
   {
-    Vector3d mid(0,0,0);
+    Eigen::Vector3d mid(0,0,0);
     if (tetra.vertices[0] == -1 || tetra.vertices[1] == -1 || tetra.vertices[2] == -1 || tetra.vertices[3] == -1) // an outer tetrahedron
       return false;
     for (int j = 0; j<4; j++)
       mid += vertices[tetra.vertices[j]] / 4.0;
     for (int i = 0; i<4; i++)
     {
-      Vector3d vs[3];
+      Eigen::Vector3d vs[3];
       for (int j = 0; j<3; j++)
         vs[j] = vertices[triangles[tetra.triangles[i]].vertices[j]]; 
-      Vector3d normal = (vs[1]-vs[0]).cross(vs[2]-vs[0]);
+      Eigen::Vector3d normal = (vs[1]-vs[0]).cross(vs[2]-vs[0]);
       if ((pos - vs[0]).dot(normal) * (mid - vs[0]).dot(normal) < 0)
         return false;
     }
     return true;
   }
-  vector<bool> vertexOnSurface;
-  vector<Vector3d> vertices;
-  vector<Edge> edges;
+  std::vector<bool> vertexOnSurface;
+  std::vector<Eigen::Vector3d> vertices;
+  std::vector<Edge> edges;
 
-  vector<Triangle> triangles;
-  vector<Tetrahedron> tetrahedra;
-  Vector3d centre;
+  std::vector<Triangle> triangles;
+  std::vector<Tetrahedron> tetrahedra;
+  Eigen::Vector3d centre;
   
   struct FaceComp 
   {
@@ -102,7 +102,7 @@ struct ConcaveHull
       return lhs.curvature < rhs.curvature;
     }
   };
-  set<SurfaceFace, FaceComp> surface;
+  std::set<SurfaceFace, FaceComp> surface;
   
 
 protected:

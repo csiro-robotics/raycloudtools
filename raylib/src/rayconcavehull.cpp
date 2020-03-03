@@ -10,7 +10,9 @@
 #include <map>
 #include <unordered_map>
 
+using namespace std;
 using namespace RAY;
+using namespace Eigen;
 
 #ifdef __unix__
 #include <stdio.h>
