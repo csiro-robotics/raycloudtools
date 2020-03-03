@@ -13,7 +13,7 @@ Vector3d redGreenBlue(double x)
 }
 
 // Save the polygon file to disk
-void writePly(const std::string &fileName, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times)
+void writePly(const string &fileName, const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &times)
 {
   cout << "saving to " << fileName << endl;
   
@@ -282,7 +282,7 @@ void savePLY(const std::string &filename, const State &state, const std::vector<
 }
 #endif
 
-void RAYwritePlyMesh(const string &fileName, const vector<Vector3d> &points, const vector<Vector3i> &indexList, bool flipNormals)
+void writePlyMesh(const string &fileName, const vector<Vector3d> &points, const vector<Vector3i> &indexList, bool flipNormals)
 {
   cout << "saving to " << fileName << endl;
   
@@ -370,7 +370,7 @@ bool readPlyMesh(const string &file, vector<Vector3d> &points, vector<Vector3i> 
 }
 
 
-bool readPly(const std::string &fileName, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times)
+bool readPly(const string &fileName, vector<Vector3d> &starts, vector<Vector3d> &ends, vector<double> &times)
 {
   cout << "reading from " << fileName << endl;
   ifstream input(fileName.c_str());

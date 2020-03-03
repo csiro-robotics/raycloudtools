@@ -2,10 +2,17 @@ if (!MSVC)
 add_compile_options(-Wno-deprecated -Wno-write-strings -Wno-unused-result)
 endif()
 add_definitions(-DNDEBUG )
-include_directories(../raylib/inc)
+include_directories(../raylib/include)
 
 set(TARGETS
+	raycreate
+	raydenoise
+	raysmooth
+	raywrap
+	rayconvert
+	raydecimate
 	raydiff
+	raytransform
 )
 foreach(TARGET ${TARGETS})
 	add_executable(${TARGET} ${TARGET}.cpp)

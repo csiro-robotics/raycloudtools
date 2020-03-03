@@ -34,11 +34,11 @@ int main(int argc, char *argv[])
   // Firstly look at adjacent rays by range. We don't want to throw away large changes,
   // instead, the intermediate of 3 adjacent ranges that is too far from both ends...
   Cloud newCloud;
-  for (int i = 1; i<(int)cloud.rayStarts.size()-1; i++)
+  for (int i = 1; i<(int)cloud.starts.size()-1; i++)
   {
-    double range0 = (cloud.rayEnds[i-1]-cloud.rayStarts[i-1]).norm();
-    double range1 = (cloud.rayEnds[i]-cloud.rayStarts[i]).norm();
-    double range2 = (cloud.rayEnds[i+1]-cloud.rayStarts[i+1]).norm();
+    double range0 = (cloud.ends[i-1]-cloud.starts[i-1]).norm();
+    double range1 = (cloud.ends[i]-cloud.starts[i]).norm();
+    double range2 = (cloud.ends[i+1]-cloud.starts[i+1]).norm();
     double minDist = min(abs(range0 - range2), min(abs(range1-range0), abs(range2 - range1)));
     if (minDist > distance)
     {
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 
   for (unsigned int i = 0; i<points.size(); i++)
   {
-    if (dists2(0,i) < INF && dists2(0,i) > sqr(distance))
+    if (dists2(0,i) < 1e10 && dists2(0,i) > sqr(distance))
     {
       cloud.starts.erase(cloud.starts.begin()+i);
       cloud.ends.erase(cloud.ends.begin()+i);

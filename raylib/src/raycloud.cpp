@@ -8,12 +8,12 @@ using namespace RAY;
 
 void Cloud::save(const std::string &fileName)
 {
-  writePly(fileName + ".ply", starts, ends, times);
+ // writePly(fileName + ".ply", starts, ends, times);
 }
 
 bool Cloud::load(const std::string &fileName)
 {
-  // look first for the raycloud PLY
+ /* // look first for the raycloud PLY
   if (ifstream(fileName.c_str(), ios::in))
     return loadPLY(fileName);
   if(ifstream((fileName + ".ply").c_str(), ios::in))
@@ -22,13 +22,13 @@ bool Cloud::load(const std::string &fileName)
   // otherwise, look for a .laz and _traj.txt file by that name
   if (ifstream((fileName + ".laz").c_str(), ios::in) && ifstream((fileName + "_traj.txt").c_str(), ios::in))
     return loadLazTraj(fileName + ".laz", fileName + "_traj.txt");
-
+*/
   return false;
 }  
 
 bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 {
-  if (pointCloud.substr(pointCloud.size()-4) == ".ply")
+ /* if (pointCloud.substr(pointCloud.size()-4) == ".ply")
     readPly(pointCloud, starts, ends, times);
   else if (pointCloud.substr(pointCloud.size()-4) == ".laz")
     readLas(pointCloud, ends, times, intensities, 1);    
@@ -40,23 +40,24 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 
   Trajectory trajectory;
   trajectory.load(trajFile);
-  calculateStarts(trajectory);
+  calculateStarts(trajectory);*/
   return true;  
 }
 
 bool Cloud::loadPLY(const string &file)
 {
-  return readPly(file, starts, ends, times);
+  return false;//readPly(file, starts, ends, times);
 }
 
 bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)
 {
+  /*
   bool success = readLas(lazFile, ends, times, intensities, 1);
   if (!success)
     return false;
   Trajectory trajectory;
   trajectory.load(trajFile);
-  calculateStarts(trajectory);
+  calculateStarts(trajectory);*/
   return true;
 }
 

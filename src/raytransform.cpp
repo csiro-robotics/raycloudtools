@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
   Vector3d axis(stod(argv[5]), stod(argv[6]), stod(argv[7]));
   double angle = axis.norm();
   axis /= angle;
-  pose.rotation = Quaterniond(AngleAxis(angle, axis));
+  pose.rotation = Quaterniond(AngleAxisd(angle, axis));
   double timeDelta = stod(argv[8]);
 
   Cloud cloud;
