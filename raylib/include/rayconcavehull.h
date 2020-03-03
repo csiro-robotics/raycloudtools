@@ -7,13 +7,12 @@ namespace RAY
 struct ConcaveHull
 {
   ConcaveHull(const std::vector<Eigen::Vector3d> &points);
+ 
   void growInwards(double maxCurvature);
- // void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
   void growOutwards(double maxCurvature);
   void growInDirection(double maxCurvature, const Eigen::Vector3d &dir);
   void growUpwards(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,1)); }
   void growTopDown(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,-1)); }
-
 
 
   struct SurfaceFace
@@ -104,10 +103,10 @@ struct ConcaveHull
   };
   std::set<SurfaceFace, FaceComp> surface;
   
-
 protected:
   void growSurface(double maxCurvature);
   bool growFront(double maxCurvature);
   double circumcurvature(const ConcaveHull::Tetrahedron &tetra, int triangleID);
+  void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
 };
 }

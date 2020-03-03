@@ -366,7 +366,7 @@ void ConcaveHull::growSurface(double maxCurvature)
     }
   } while (growFront(maxCurvature));
 }
-/*
+
 // starting with given tetrahedron, grow it outwards to achieve a maximum curvature
 void ConcaveHull::growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature)
 {
@@ -385,7 +385,7 @@ void ConcaveHull::growOutwards(const ConcaveHull::Tetrahedron &tetra, double max
   }
   growSurface(maxCurvature);
 }
-*/
+
 void ConcaveHull::growOutwards(double maxCurvature)
 {
   bool found = false;
@@ -393,7 +393,7 @@ void ConcaveHull::growOutwards(double maxCurvature)
   {
     if (insideTetrahedron(centre, tetra))
     {
-  //    growOutwards(tetra, maxCurvature);
+      growOutwards(tetra, maxCurvature);
       found = true;
     }
   }
