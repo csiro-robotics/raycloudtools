@@ -8,10 +8,10 @@ void Trajectory::save(const string &fileName, double timeOffset)
   ofs.unsetf(std::ios::floatfield);
   ofs.precision(15);
   ofs << "%time x y z q0 q1 q2 q3 userfields" << endl;
-  for (size_t i = 0; i<trajectory.size(); i++)
+  for (size_t i = 0; i<nodes.size(); i++)
   {
     const Pose &pose = nodes[i].pose;
-    ofs << nodes[i].time + timeOffset << " " << pose.position[0] << " " << pose.position[1] << " " << pose.position[2] << " " << pose.rotation.w << " " << pose.rotation.x << " " << pose.rotation.y << " " << pose.rotation.z << " " << endl;
+    ofs << nodes[i].time + timeOffset << " " << pose.position[0] << " " << pose.position[1] << " " << pose.position[2] << " " << pose.rotation.w() << " " << pose.rotation.x() << " " << pose.rotation.y() << " " << pose.rotation.z() << " " << endl;
   }
 }
 

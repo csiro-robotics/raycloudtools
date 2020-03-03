@@ -3,6 +3,7 @@ using namespace Ray;
 using namespace std;
 using namespace Eigen;
 
+#if 0
 struct PlanarWave
 {
   PlanarWave() {}
@@ -67,3 +68,4 @@ void TerrainGen::generate()
 
 }
 
+#endif
