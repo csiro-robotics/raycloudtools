@@ -1,8 +1,8 @@
 #include "rayroomgen.h"
-using namespace Ray;
+using namespace RAY;
 using namespace std;
 using namespace Eigen;
-#if 0
+
 struct Cuboid
 {
   Cuboid(const Vector3d &minB, const Vector3d &maxB) : minBound(minB), maxBound(maxB) {}
@@ -103,7 +103,7 @@ void RoomGen::generate()
   double tableWidth = random(0.5, 1.5);
   double tableLength = random(0.5, 1.5);
   double tableHeight = random(0.5, 1.2);
-  Vector3d tablePos(Vector3d(random(0.0, roomWidth - tableWidth - 1.0), random(0.0, roomLength - tableLength - 1.0), tableHeight);
+  Vector3d tablePos(random(0.0, roomWidth - tableWidth - 1.0), random(0.0, roomLength - tableLength - 1.0), tableHeight);
   Cuboid tableTop(tablePos, tablePos + Vector3d(tableWidth, tableLength, 0.05));
   positives.push_back(tableTop);
   for (int x = 0; x<2; x++)
@@ -168,5 +168,3 @@ void RoomGen::generate()
     rayEnds.push_back(rayEnd);
   }
 }
-
-#endif

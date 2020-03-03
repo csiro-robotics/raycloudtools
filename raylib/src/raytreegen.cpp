@@ -1,11 +1,9 @@
-/* (c) Copyright CSIRO 2013. Author: Thomas Lowe
-   This software is provided under the terms of Schedule 1 of the license agreement between CSIRO, 3DLM and GeoSLAM.
-*/
+#include "raytreegen.h"
 #include <stdio.h>
 #include <fstream>
 #include <stdlib.h>
-#include "raytreegen.h"
-using namespace Ray;
+
+using namespace RAY;
 using namespace std;
 using namespace Eigen;
 
