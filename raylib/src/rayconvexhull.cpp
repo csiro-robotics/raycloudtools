@@ -8,13 +8,14 @@
 #include <libqhullcpp/QhullPointSet.h>
 #include <libqhullcpp/QhullVertexSet.h>
 #include <map>
+using namespace std;
+using namespace Eigen;
+using namespace RAY;
 
 struct lessThan 
 {
   bool operator()(const Vector3d &v1, const Vector3d &v2) const { return v1[0] + pi*v1[1] + pi*pi*v1[2] < v2[0] + pi*v2[1] + pi*pi*v2[2]; }
 };
-
-using namespace RAY;
 
 void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignoreDirection)
 {
@@ -28,7 +29,7 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
 
   orgQhull::Qhull hull;
   hull.setOutputStream(&cout);
-  hull.runQhull("", 3, cloud.size(), coordinates.data(), "Qt");
+  hull.runQhull("", 3, points.size(), coordinates.data(), "Qt");
 
   orgQhull::QhullFacetList facets = hull.facetList();
   cout << "number of triangles: " << facets.size() << endl;

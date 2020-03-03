@@ -8,7 +8,7 @@ struct ConcaveHull
 {
   ConcaveHull(const std::vector<Eigen::Vector3d> &points);
   void growInwards(double maxCurvature);
-  void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
+ // void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
   void growOutwards(double maxCurvature);
   void growInDirection(double maxCurvature, const Eigen::Vector3d &dir);
   void growUpwards(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,1)); }
