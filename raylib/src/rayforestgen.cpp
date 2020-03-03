@@ -34,7 +34,7 @@ void ForestGen::make(double randomFactor)
           }
         }
       }
-      TreeSim tree;
+      TreeGen tree;
       trees.push_back(tree);
       trees.back().make(root, radius, randomFactor);
     }
