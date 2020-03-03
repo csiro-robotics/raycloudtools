@@ -11,6 +11,6 @@ struct ForestGen
   std::vector<Eigen::Vector3d> getCanopy();
   std::vector<Eigen::Vector3d> getPointCloud();
 
-  std::vector<TreeGen> trees;
+  std::vector<Ray::TreeGen> trees;
 };
 }

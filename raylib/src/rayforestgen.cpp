@@ -1,4 +1,5 @@
 #include "rayforestgen.h"
+#include "rayutils.h"
 using namespace Ray;
 using namespace std;
 using namespace Eigen;
