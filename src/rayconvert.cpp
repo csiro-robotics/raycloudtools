@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     usage();
   
   string pointCloudFile = argv[1];
-  string trajectroyFile = argv[2];
+  string trajectoryFile = argv[2];
   Cloud cloud;
   cloud.load(pointCloudFile, trajectoryFile);
 

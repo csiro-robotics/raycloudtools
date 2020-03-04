@@ -20,6 +20,7 @@ void usage(bool error=false)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
+  #if 0
   if (argc != 4)
     usage();
   if (argv[3] != "cm")
@@ -86,6 +87,6 @@ int main(int argc, char *argv[])
     }
   }
   cloud.save(file.substr(0,file.length()-4) + "_denoised.ply");
-
+#endif
   return true;
 }

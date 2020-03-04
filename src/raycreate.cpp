@@ -1,5 +1,5 @@
 #include "raycloud.h"
-#include "rayftreegen.h"
+#include "raytreegen.h"
 #include "rayforestgen.h"
 #include "rayroomgen.h"
 #include "rayterraingen.h"
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     usage();
   
   string type = argv[1];
-  string seed = argv[2];
+  int seed = stoi(argv[2]);
   srand(seed);
 
   Cloud cloud;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     fillBranchAngleLookup();
     TreeGen treeGen;
     treeGen.make(Vector3d(0,0,0), 0.1, 0.25);
-    treeSim.generateRays(500.0);
+    treeGen.generateRays(500.0);
     cloud.starts = treeGen.rayStarts;
     cloud.ends = treeGen.rayEnds;
     double time = 0.0;
