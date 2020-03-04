@@ -10,13 +10,16 @@ using namespace RAY;
 
 void Cloud::save(const std::string &fileName)
 {
-  writePly(fileName, starts, ends, times);
+  string name = fileName;
+  if (name.substr(name.length()-4) != ".ply")
+    name += ".ply";
+  writePly(name, starts, ends, times);
 }
 
 bool Cloud::load(const std::string &fileName)
 {
   // look first for the raycloud PLY
-  if (ifstream(fileName.c_str(), ios::in))
+  if (fileName.substr(fileName.size()-4)==".ply")
     return loadPLY(fileName);
   if(ifstream((fileName + ".ply").c_str(), ios::in))
     return loadPLY(fileName + ".ply");
@@ -48,7 +51,7 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 
 bool Cloud::loadPLY(const string &file)
 {
-  return false;//readPly(file, starts, ends, times);
+  return readPly(file, starts, ends, times);
 }
 
 bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)

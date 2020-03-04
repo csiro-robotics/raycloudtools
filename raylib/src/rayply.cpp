@@ -15,7 +15,7 @@ Vector3d redGreenBlue(double x)
 // Save the polygon file to disk
 void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &times)
 {
-  cout << "saving to " << fileName << endl;
+  cout << "saving to " << fileName << ", " << ends.size() << " rays." << endl;
   
   vector<Vector3d> rgb(times.size());
   for (int i= 0; i<(int)rgb.size(); i++)
@@ -256,7 +256,8 @@ void savePLY(const std::string &filename, const State &state, const std::vector<
           }));
   }
  
-  //PLY output
+  //PLY output  cout << "reading from " << fileName << endl;
+
   {
     const vector<Property>& properties = propertyList;
    
@@ -372,7 +373,6 @@ bool RAY::readPlyMesh(const string &file, vector<Vector3d> &points, vector<Vecto
 
 bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vector3d> &ends, vector<double> &times)
 {
-  cout << "reading from " << fileName << endl;
   ifstream input(fileName.c_str());
   if (!input.is_open())
   {
@@ -404,7 +404,6 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
   int length = input.tellg() - start;
   input.seekg(start);
   int size = length / rowSize;
-  cout << "number of points: " << size << endl;
   vector<unsigned char> vertices(length);
   // read data as a block:
   input.read((char *)&vertices[0], length);
@@ -417,6 +416,7 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
     Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
     starts.push_back(end + Vector3d(n[0], n[1], n[2]));
   }
+  cout << "reading from " << fileName << ", " << size << " rays." << endl;
   return true; 
 }
 
