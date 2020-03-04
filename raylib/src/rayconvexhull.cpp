@@ -34,23 +34,29 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
   orgQhull::QhullFacetList facets = hull.facetList();
   cout << "number of triangles: " << facets.size() << endl;
   triangles.reserve(facets.size());
+  cout << "ignore direction: " << ignoreDirection.transpose() << endl;
+  int count = 0;
   for (const orgQhull::QhullFacet &f : facets) 
   {
     double *c = f.hyperplane().coordinates();
     Vector3d coords(c[0], c[1], c[2]);
-    if (coords.dot(ignoreDirection) <= 0)
+    if (coords.dot(ignoreDirection) <= 0.0)
     {
+      count++;
       orgQhull::QhullVertexSet verts = f.vertices();
       Triangle triangle;
       int i = 0;
       for (const orgQhull::QhullVertex &v : verts) 
       {
         const double *data = v.point().coordinates();
-        triangle.vertices[i++] = Vector3d(data[0], data[1], data[2]);
+        Vector3d vert(data[0], data[1], data[2]);
+        triangle.vertices[i++] = vert;
+//        vertices.push_back(vert);
       }
       triangles.push_back(triangle);
     }
   }
+  cout << "num remaining triangles: " << count << endl;
 }
 
 ConvexHull::ConvexHull(const vector<Vector3d> &points)
@@ -64,7 +70,7 @@ void ConvexHull::growOutwards(double maxCurvature)
   for (auto &p: points)
   {
     p -= centre;
-    p /= pow((p-centre).squaredNorm(), maxCurvature*0.5);
+    p *= pow(p.squaredNorm(), (-1.0/(1.0 + maxCurvature) - 1.0)*0.5);
   }
 
   construct(points, Vector3d(0,0,0));
@@ -73,7 +79,7 @@ void ConvexHull::growOutwards(double maxCurvature)
   {
     for (auto &p: tri.vertices)
     {
-      p *= pow(p.squaredNorm(), maxCurvature*0.5);
+      p *= pow(p.squaredNorm(), -maxCurvature*0.5 - 1.0);
       p += centre;
     }
   }
@@ -85,7 +91,7 @@ void ConvexHull::growInwards(double maxCurvature)
   for (auto &p: points)
   {
     p -= centre;
-    p *= pow(p.squaredNorm(), maxCurvature*0.5);
+    p *= pow(p.squaredNorm(), (1.0/(1.0 + maxCurvature) - 1.0)*0.5);
   }
 
   construct(points, Vector3d(0,0,0));
@@ -93,7 +99,7 @@ void ConvexHull::growInwards(double maxCurvature)
   for (auto &tri: triangles)
     for (auto &p: tri.vertices)
     {
-      p /= pow(p.squaredNorm(), maxCurvature*0.5);
+      p *= pow(p.squaredNorm(), maxCurvature*0.5);
       p += centre;
     }
 }
@@ -116,8 +122,8 @@ void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
     for (auto &p: tri.vertices)
     {
       Vector3d flat = p - centre;
-      flat -= dir*dir.dot(flat)*maxCurvature;
-      p -= dir*flat.squaredNorm();
+      flat -= dir*dir.dot(flat);
+      p -= dir*flat.squaredNorm()*maxCurvature;
     }
   }
 }

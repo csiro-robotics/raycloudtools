@@ -285,7 +285,7 @@ void savePLY(const std::string &filename, const State &state, const std::vector<
 
 void RAY::writePlyMesh(const string &fileName, const vector<Vector3d> &points, const vector<Vector3i> &indexList, bool flipNormals)
 {
-  cout << "saving to " << fileName << endl;
+  cout << "saving to " << fileName << ", " << points.size() << " vertices." << endl;
   
   vector<Vector4f> vertices(points.size()); // 4d to give space for colour
   for (unsigned int i = 0; i<points.size(); i++)

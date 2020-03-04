@@ -72,7 +72,7 @@ void RoomGen::generate()
   double roomLength = random(3.0, 6.0);
   double roomHeight = random(2.75, 3.0);
 
-  Vector3d floorCentre(random(-10.0, 10.0), random(-10.0, 10.0), random(-10.0, 10.0));
+  Vector3d floorCentre(0, 0, -roomHeight*0.5);//random(-10.0, 10.0), random(-10.0, 10.0), random(-10.0, 10.0));
   double roomYaw = random(0.0, 2.0*pi);
 
   vector<Cuboid> negatives;

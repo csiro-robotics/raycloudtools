@@ -42,6 +42,8 @@ int main(int argc, char *argv[])
     
   Cloud cloud;
   cloud.load(file);
+  if (file.substr(file.length()-4)==".ply")
+    file = file.substr(0,file.length()-4);
 
   if (overhangs)
   {
@@ -54,6 +56,9 @@ int main(int argc, char *argv[])
       concaveHull.growUpwards(maximumCurvature);
     else if (type == "downwards")
       concaveHull.growTopDown(maximumCurvature);
+    else
+      usage();
+    
     
     vector<Vector3i> tris;
     int numBads = 0;
@@ -93,12 +98,20 @@ int main(int argc, char *argv[])
     else if (type == "upwards")
       convexHull.growUpwards(maximumCurvature);
     else if (type == "downwards")
-      convexHull.growTopDown(maximumCurvature); 
-    vector<Vector3i> tris(convexHull.vertices.size());
-    int c = 0;
-    for (int i = 0; i<(int)convexHull.vertices.size(); i++)
-      tris[i] = Vector3i(c++,c++,c++); // TODO: currently the triangles are indexed independently, I need to improve this
-    writePlyMesh(file + "_mesh.ply", convexHull.vertices, tris, true);     
+      convexHull.growTopDown(maximumCurvature);
+    else 
+      usage(); 
+
+    vector<Vector3i> tris(convexHull.triangles.size());
+    vector<Vector3d> vertices;
+    for (int i = 0; i<(int)convexHull.triangles.size(); i++)
+    {
+      tris[i] = Vector3i(3*i, 3*i + 1, 3*i + 2); // TODO: currently the triangles are indexed independently, I need to improve this
+      vertices.push_back(convexHull.triangles[i].vertices[0]);
+      vertices.push_back(convexHull.triangles[i].vertices[1]);
+      vertices.push_back(convexHull.triangles[i].vertices[2]);
+    }
+    writePlyMesh(file + "_mesh.ply", vertices, tris, true);     
   }
   
 

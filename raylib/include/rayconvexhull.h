@@ -22,7 +22,7 @@ struct ConvexHull
   void growTopDown(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,-1)); }
 
   std::vector<Eigen::Vector3d> points;
-  std::vector<Eigen::Vector3d> vertices;
+//  std::vector<Eigen::Vector3d> vertices;
   std::vector<Triangle> triangles;  
  
 protected:
