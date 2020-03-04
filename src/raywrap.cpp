@@ -21,7 +21,7 @@ void usage(bool error=false)
   cout << "usage:" << endl;
   cout << "raywrap raycloud upwards 1.0 - wraps raycloud from the bottom upwards, or: downwards, inwards, outwards" << endl;
   cout << "                               the 1.0 is the maximum curvature to bend to" << endl;
-  cout << "--fast                       - a fast method that doesn't account for overhangs." << endl;
+  cout << "--full                       - the full (slower) method accounts for overhangs." << endl;
   exit(error);
 }
 
@@ -36,9 +36,14 @@ int main(int argc, char *argv[])
   string file = argv[1];
   string type = argv[2];
   double maximumCurvature = stod(argv[3]);
-  bool overhangs = true;
-  if (argc == 5 && string(argv[4])=="--fast" or string(argv[4])=="-f")
-    overhangs = false;
+  bool overhangs = false;
+  if (argc == 5)
+  {
+    if (string(argv[4])=="--full" or string(argv[4])=="-f")
+      overhangs = true;
+    else
+      usage();    
+  }
     
   Cloud cloud;
   cloud.load(file);
