@@ -18,6 +18,7 @@ void Trajectory::save(const string &fileName, double timeOffset)
 /**Loads the trajectory into the supplied vector and returns if successful*/
 bool Trajectory::load(const string &fileName)
 {
+  cout << "loading " << fileName << endl;
   string line;
   int size = -1;
   {
@@ -54,6 +55,8 @@ bool Trajectory::load(const string &fileName)
     
     getline(ifs, line);
     istringstream iss(line);
+    iss >> trajectory[i].time >> trajectory[i].pose.position[0] >> trajectory[i].pose.position[1] >> trajectory[i].pose.position[2] >> 
+    trajectory[i].pose.rotation.w() >> trajectory[i].pose.rotation.x() >> trajectory[i].pose.rotation.y() >> trajectory[i].pose.rotation.z(); 
   }
   
   if(!ifs)

@@ -33,9 +33,10 @@ bool Cloud::load(const std::string &fileName)
 
 bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 {
-  if (pointCloud.substr(pointCloud.size()-4) == ".ply")
+  string nameEnd = pointCloud.substr(pointCloud.size()-4);
+  if (nameEnd == ".ply")
     readPly(pointCloud, starts, ends, times);
-  else if (pointCloud.substr(pointCloud.size()-4) == ".laz")
+  else if (nameEnd == ".laz" || nameEnd == ".las")
     readLas(pointCloud, ends, times, intensities, 1);    
   else
   {
