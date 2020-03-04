@@ -18,6 +18,7 @@ struct Cloud
   bool load(const std::string &pointCloud, const std::string &trajFile);
 
   void transform(const Pose &pose, double timeDelta);
+  void decimate(double voxelWidth);
   
 protected:  
   void calculateStarts(const Trajectory &trajectory);

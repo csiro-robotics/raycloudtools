@@ -2,8 +2,10 @@
 #include "raytrajectory.h"
 #include "rayply.h"
 #include "raylaz.h"
+#include <set>
 
 using namespace std;
+using namespace Eigen;
 using namespace RAY;
 
 void Cloud::save(const std::string &fileName)
@@ -86,4 +88,49 @@ void Cloud::transform(const Pose &pose, double timeDelta)
     ends[i] = pose * ends[i];
     times[i] += timeDelta;
   }  
+}
+
+struct Vector3iLess
+{
+  bool operator()(const Vector3i &a, const Vector3i &b) const
+  {
+    if (a[0] != b[0])
+      return a[0] < b[0];
+    if (a[1] != b[1])
+      return a[1] < b[1];
+    return a[2] < b[2];
+  }
+};
+
+vector<int> voxelRandomSubsample(const vector<Vector3d> &points, double voxelWidth)
+{
+  vector<int> indices;
+  set<Vector3i, Vector3iLess> testSet;
+  for (unsigned int i = 0; i<points.size(); i++)
+  {
+    Vector3i place = Vector3i(floor(points[i][0] / voxelWidth), floor(points[i][1] / voxelWidth), floor(points[i][2] / voxelWidth));
+    if (testSet.find(place) == testSet.end())
+    {
+      testSet.insert(place);
+      indices.push_back(i);
+    }
+  }
+  return indices;
+}
+
+void Cloud::decimate(double voxelWidth)
+{
+  vector<int> subsample = voxelRandomSubsample(ends, voxelWidth);
+  for (int i = 0; i<(int)subsample.size(); i++)
+  {
+    int id = subsample[i];
+    starts[i] = starts[id];
+    ends[i] = ends[id];
+    intensities[i] = intensities[id];
+    times[i] = times[id];
+  }
+  starts.resize(subsample.size());
+  ends.resize(subsample.size());
+  intensities.resize(subsample.size());
+  times.resize(subsample.size());
 }
