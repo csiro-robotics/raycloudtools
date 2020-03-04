@@ -21,16 +21,16 @@ void TerrainGen::generate()
     double amplitude = pow(0.8, i);
     Vector2d dir(random(-1.0, 1.0), random(-1.0, 1.0));
     dir.normalize();
-    PlanarWave wave(dir/amplitude, amplitude);
+    PlanarWave wave(0.1*dir/amplitude, amplitude);
     waves.push_back(wave);
   }
 
-  for (double time = 0.0; time < 100.0; time++)
+  for (double time = 0.0; time < 100.0; time+=0.01)
   {
     // Now generate a trajectory around the landscape
     double phase = time * 2.0*pi / 100.0;
     Vector2d trajCentre(random(-10.0, 10.0), random(-10.0, 10.0));
-    double trajRadius = random(5.0, 15.0);
+    double trajRadius = random(10.0, 15.0);
     double radScale = random(0.05, 0.3);
     double trajRadius2 = trajRadius * radScale;
     Vector2d trajPos = trajCentre + trajRadius*Vector2d(sin(phase), cos(phase)) + trajRadius2*Vector2d(sin(phase/radScale), cos(phase/radScale));
@@ -41,7 +41,7 @@ void TerrainGen::generate()
     
     double scanHeight = 1.3;
     Vector3d start(trajPos[0], trajPos[1], floorY + scanHeight);
-    Vector3d dir(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, -0.5));
+    Vector3d dir(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, -0.6));
     dir.normalize();
 
     // now project the ray onto the terrain... how?

@@ -128,7 +128,7 @@ void RoomGen::generate()
   // OK now we ray trace from some random location onto the set of cuboids...
   Vector3d start(random(1.4, roomWidth - 1.4), random(1.4, roomLength - 1.4), random(1.3, 2.0));
   Vector3d s = start - Vector3d(roomWidth, roomLength, 0.0)/2.0;
-  Vector3d rayStart = Vector3d(cos(s[0]) + sin(s[1]), -sin(s[0]) + cos(s[1]), 0.0) + floorCentre;
+  Vector3d rayStart = Vector3d(s[0]*cos(roomYaw) + s[1]*sin(roomYaw), -s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[2]) + floorCentre;
   int numRays = pointDensity * (roomWidth*roomLength)*2.0 + roomWidth*roomHeight*2.0 + roomLength*roomHeight*2.0;
   for (int i = 0; i<numRays; i++)
   {

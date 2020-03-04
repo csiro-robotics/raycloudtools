@@ -16,3 +16,6 @@ The command line tools are placed in the bin directory, and the shared library i
 
 To access the tools from anywhere, place in your ~/bashrc:
   export PATH=$PATH:<source code path>/raycloudtools/bin
+
+
+To visualise rayclouds use meshlab. To view the rays choose Render menu then Show Vertex Normals. In the Tools menu select options and change the Decoration::NormalLength to 0.0025 to render them approximately the correct length. 
