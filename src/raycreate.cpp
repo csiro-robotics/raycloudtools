@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     {
       Vector3d pos(random(boxMin[0], boxMax[0]), random(boxMin[1], boxMax[1]), random(boxMin[2], boxMax[2]));
       cloud.ends.push_back(pos);
-      cloud.starts.push_back(pos - Vector3d(random(-0.1,0.1), random(-0.1,0.1), random(0.1,0.5)));
+      cloud.starts.push_back(pos + Vector3d(random(-0.1,0.1), random(-0.1,0.1), random(0.2,0.5)));
       cloud.times.push_back(time);
       time += timeDelta;
     }
