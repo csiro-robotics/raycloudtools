@@ -54,40 +54,52 @@ int main(int argc, char *argv[])
     // create building...
     cout << "Sorry, building generation not implemented yet" << endl;
   }
-  else if (type == "tree")
+  else if (type == "tree" || type == "forest")
   {
     fillBranchAngleLookup();
-    TreeGen treeGen;
-    treeGen.make(Vector3d(0,0,0), 0.1, 0.25);
-    treeGen.generateRays(500.0);
-    cloud.starts = treeGen.rayStarts;
-    cloud.ends = treeGen.rayEnds;
+    double density = 500.0;
+    Vector3d boxMin(-2.0, -2.0, -0.025), boxMax(2.0,2.0,0.025);
     double time = 0.0;
     double timeDelta = 0.01;
-    for (int i = 0; i<(int)cloud.starts.size(); i++)
+    if (type == "tree")
     {
-      cloud.times.push_back(time);
-      time += timeDelta;
-    }
-  }
-  else if (type == "forest")
-  {
-    fillBranchAngleLookup();
-    ForestGen forestGen;
-    forestGen.make(0.25);
-    forestGen.generateRays(500.0);
-    
-    double time = 0.0;
-    double timeDelta = 0.01;
-    for (auto &tree: forestGen.trees)
-    {
-      cloud.starts.insert(cloud.starts.end(), tree.rayStarts.begin(), tree.rayStarts.end());
-      cloud.ends.insert(cloud.ends.end(), tree.rayEnds.begin(), tree.rayEnds.end());
-      for (int i = 0; i<(int)tree.rayEnds.size(); i++)
+      TreeGen treeGen;
+      treeGen.make(Vector3d(0,0,0), 0.1, 0.25);
+      treeGen.generateRays(density);
+      cloud.starts = treeGen.rayStarts;
+      cloud.ends = treeGen.rayEnds;
+      for (int i = 0; i<(int)cloud.starts.size(); i++)
       {
         cloud.times.push_back(time);
         time += timeDelta;
       }
+    }
+    else if (type == "forest")
+    {
+      ForestGen forestGen;
+      forestGen.make(0.25);
+      forestGen.generateRays(density);
+      for (auto &tree: forestGen.trees)
+      {
+        cloud.starts.insert(cloud.starts.end(), tree.rayStarts.begin(), tree.rayStarts.end());
+        cloud.ends.insert(cloud.ends.end(), tree.rayEnds.begin(), tree.rayEnds.end());
+        for (int i = 0; i<(int)tree.rayEnds.size(); i++)
+        {
+          cloud.times.push_back(time);
+          time += timeDelta;
+        }
+      }
+      boxMin *= 2.5;
+      boxMax *= 2.5;
+    }
+    int num = 0.25*density*(boxMax[0]-boxMin[0])*(boxMax[1]-boxMin[1]);
+    for (int i = 0; i<num; i++)
+    {
+      Vector3d pos(random(boxMin[0], boxMax[0]), random(boxMin[1], boxMax[1]), random(boxMin[2], boxMax[2]));
+      cloud.ends.push_back(pos);
+      cloud.starts.push_back(pos - Vector3d(random(-0.1,0.1), random(-0.1,0.1), random(0.1,0.5)));
+      cloud.times.push_back(time);
+      time += timeDelta;
     }
   }
   else if (type == "terrain")

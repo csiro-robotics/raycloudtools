@@ -10,7 +10,7 @@ using namespace RAY;
 
 void Cloud::save(const std::string &fileName)
 {
-  writePly(fileName + ".ply", starts, ends, times);
+  writePly(fileName, starts, ends, times);
 }
 
 bool Cloud::load(const std::string &fileName)

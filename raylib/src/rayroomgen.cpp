@@ -163,7 +163,7 @@ void RoomGen::generate()
     const double rangeNoise = 0.03;
     Vector3d end = start + (range + random(-rangeNoise, rangeNoise)) * dir;
     Vector3d s = end - Vector3d(roomWidth, roomLength, 0.0)/2.0;
-    Vector3d rayEnd = Vector3d(s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[0]*cos(roomYaw) - s[1]*sin(roomYaw), 0.0) + floorCentre;
+    Vector3d rayEnd = Vector3d(s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[0]*cos(roomYaw) - s[1]*sin(roomYaw), s[2]) + floorCentre;
     rayStarts.push_back(rayStart);
     rayEnds.push_back(rayEnd);
   }
