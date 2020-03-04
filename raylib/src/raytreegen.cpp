@@ -20,7 +20,7 @@ void getBranchInfo(double mainBranchAngle, double &secondaryBranchAngle, double 
 
 static const int branchAngleSize = 400;
 static double branchAngleLookup[branchAngleSize];
-double getMainBranchAngle(double covarianceAngle)
+double RAY::getMainBranchAngle(double covarianceAngle)
 {
   double x = covarianceAngle * (double)branchAngleSize / (0.5*pi);
   int i = max(0, min((int)x, branchAngleSize-2));
@@ -28,7 +28,7 @@ double getMainBranchAngle(double covarianceAngle)
   return branchAngleLookup[i]*(1.0-blend) + branchAngleLookup[i+1]*blend;
 }
 
-void fillBranchAngleLookup()
+void RAY::fillBranchAngleLookup()
 {
   double lastG = 0.0;
   double lastAng1 = 0.0;

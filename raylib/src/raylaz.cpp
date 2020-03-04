@@ -7,7 +7,7 @@ using namespace std;
 using namespace Eigen;
 using namespace RAY;
 
-bool readLas(string fileName, vector<Vector3d> &positions, vector<double> &times, vector<double> &intensities, int decimation)
+bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &times, vector<double> &intensities, int decimation)
 {
   cout << "readLas: filename: " << fileName << endl;
   
@@ -44,7 +44,7 @@ bool readLas(string fileName, vector<Vector3d> &positions, vector<double> &times
   return true;
 }
 
-void writeLas(string fileName, const vector<Vector3d> &points, 
+void RAY::writeLas(string fileName, const vector<Vector3d> &points, 
         const vector<double> &times, const vector<double> &intensities)
 {
   cout << "saving LAZ file" << endl;

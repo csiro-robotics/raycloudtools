@@ -7,7 +7,9 @@
 #include <getopt.h>
 
 #include "rayutils.h"
+#include "raycloud.h"
 #include "rayconcavehull.h"
+#include "rayconvexhull.h"
 #include "rayply.h"
 using namespace std;
 using namespace Eigen;
@@ -49,7 +51,7 @@ int main(int argc, char *argv[])
     else if (type == "outwards")
       concaveHull.growOutwards(maximumCurvature);
     else if (type == "upwards")
-      concaveHull.growBottomUp(maximumCurvature);
+      concaveHull.growUpwards(maximumCurvature);
     else if (type == "downwards")
       concaveHull.growTopDown(maximumCurvature);
     
@@ -89,7 +91,7 @@ int main(int argc, char *argv[])
     else if (type == "outwards")
       convexHull.growOutwards(maximumCurvature);
     else if (type == "upwards")
-      convexHull.growBottomUp(maximumCurvature);
+      convexHull.growUpwards(maximumCurvature);
     else if (type == "downwards")
       convexHull.growTopDown(maximumCurvature); 
     vector<Vector3i> tris(convexHull.vertices.size());
