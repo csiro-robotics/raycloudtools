@@ -10,7 +10,7 @@ struct Cuboid
 
   bool rayIntersectBox(const Vector3d &start, const Vector3d &dir, double &depth)
   {
-    double maxNearD = 0.0;
+    double maxNearD = 0;
     double minFarD = 1e10;
     Vector3d centre = (minBound + maxBound)/2.0;
     Vector3d extent = (maxBound - minBound)/2.0;
@@ -18,8 +18,8 @@ struct Cuboid
     for (int ax = 0; ax<3; ax++)
     {
       double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double nearD = (toCentre[ax] - s*extent[ax])/(s*dir[ax]);
-      double farD = (toCentre[ax] + s*extent[ax])/(s*dir[ax]);
+      double nearD = (toCentre[ax] - s*extent[ax])/dir[ax];
+      double farD = (toCentre[ax] + s*extent[ax])/dir[ax];
 
       maxNearD = max(maxNearD, nearD);
       minFarD = min(minFarD, farD);
@@ -34,7 +34,7 @@ struct Cuboid
 
   bool rayIntersectNegativeBox(const Vector3d &start, const Vector3d &dir, double &depth)
   {
-    double maxNearD = 0.0;
+    double maxNearD = 0;
     double minFarD = 1e10;
     Vector3d centre = (minBound + maxBound)/2.0;
     Vector3d extent = (maxBound - minBound)/2.0;
@@ -42,8 +42,8 @@ struct Cuboid
     for (int ax = 0; ax<3; ax++)
     {
       double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double nearD = (toCentre[ax] - s*extent[ax])/(s*dir[ax]);
-      double farD = (toCentre[ax] + s*extent[ax])/(s*dir[ax]);
+      double nearD = (toCentre[ax] - s*extent[ax])/dir[ax];
+      double farD = (toCentre[ax] + s*extent[ax])/dir[ax];
 
       maxNearD = max(maxNearD, nearD);
       minFarD = min(minFarD, farD);
@@ -81,7 +81,7 @@ void RoomGen::generate()
 
   double doorWidth = 0.7;
   double doorStart = random(0.0, roomWidth-doorWidth);
-  double doorHeight = random(2.2, 2.6);
+  double doorHeight = random(2.2, 2.5);
   Vector3d doorPos = Vector3d(doorStart, -0.2, 0.0);
   Cuboid door(doorPos, doorPos + Vector3d(doorWidth, 0.3, doorHeight));
   negatives.push_back(door);
@@ -128,14 +128,14 @@ void RoomGen::generate()
   // OK now we ray trace from some random location onto the set of cuboids...
   Vector3d start(random(1.4, roomWidth - 1.4), random(1.4, roomLength - 1.4), random(1.3, 2.0));
   Vector3d s = start - Vector3d(roomWidth, roomLength, 0.0)/2.0;
-  Vector3d rayStart = Vector3d(sin(s[0]) + cos(s[1]), cos(s[0]) - sin(s[1]), 0.0) + floorCentre;
+  Vector3d rayStart = Vector3d(cos(s[0]) + sin(s[1]), -sin(s[0]) + cos(s[1]), 0.0) + floorCentre;
   int numRays = pointDensity * (roomWidth*roomLength)*2.0 + roomWidth*roomHeight*2.0 + roomLength*roomHeight*2.0;
   for (int i = 0; i<numRays; i++)
   {
     Vector3d dir(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, 1.0));
     dir.normalize();
     const double maxRange = 20.0;
-    vector<Vector3d> hits(negatives.size());
+    vector<Vector3d> hits;
     for (int i = 0; i<(int)negatives.size(); i++)
     {
       double newRange = maxRange;
@@ -163,7 +163,7 @@ void RoomGen::generate()
     const double rangeNoise = 0.03;
     Vector3d end = start + (range + random(-rangeNoise, rangeNoise)) * dir;
     Vector3d s = end - Vector3d(roomWidth, roomLength, 0.0)/2.0;
-    Vector3d rayEnd = Vector3d(s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[0]*cos(roomYaw) - s[1]*sin(roomYaw), s[2]) + floorCentre;
+    Vector3d rayEnd = Vector3d(s[0]*cos(roomYaw) + s[1]*sin(roomYaw), -s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[2]) + floorCentre;
     rayStarts.push_back(rayStart);
     rayEnds.push_back(rayEnd);
   }
