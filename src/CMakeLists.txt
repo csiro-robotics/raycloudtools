@@ -31,7 +31,8 @@ set(TARGETS
 	rayconvert
 	raydecimate
 	raydiff
-	raytransform
+	raytranslate
+	rayrotate
 )
 foreach(TARGET ${TARGETS})
 	add_executable(${TARGET} ${TARGET}.cpp)
