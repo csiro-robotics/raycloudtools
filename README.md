@@ -12,4 +12,7 @@ cmake ..
 make
 
 
-The command line tools are placed in the bin64 directory, and the shared library is in the raylib/lib folder.
+The command line tools are placed in the bin directory, and the shared library is in the raylib/lib folder.
+
+To access the tools from anywhere, place in your ~/bashrc:
+  export PATH=$PATH:<source code path>/raycloudtools/bin

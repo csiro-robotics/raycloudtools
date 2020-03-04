@@ -129,11 +129,13 @@ void Cloud::decimate(double voxelWidth)
     int id = subsample[i];
     starts[i] = starts[id];
     ends[i] = ends[id];
-    intensities[i] = intensities[id];
+    if (intensities.size() > 0)
+      intensities[i] = intensities[id];
     times[i] = times[id];
   }
   starts.resize(subsample.size());
   ends.resize(subsample.size());
-  intensities.resize(subsample.size());
+  if (intensities.size() > 0)
+    intensities.resize(subsample.size());
   times.resize(subsample.size());
 }

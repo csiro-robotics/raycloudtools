@@ -42,7 +42,8 @@ int main(int argc, char *argv[])
       starts.push_back(cloud.starts[i]);
       ends.push_back(cloud.ends[i]);
       times.push_back(cloud.times[i]);
-      intensities.push_back(cloud.intensities[i]);
+      if (cloud.intensities.size()>0)
+        intensities.push_back(cloud.intensities[i]);
     }
     cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.intensities = intensities;
   }
@@ -57,7 +58,8 @@ int main(int argc, char *argv[])
         starts.push_back(cloud.starts[i]);
         ends.push_back(cloud.ends[i]);
         times.push_back(cloud.times[i]);
-        intensities.push_back(cloud.intensities[i]);
+        if (cloud.intensities.size()>0)
+          intensities.push_back(cloud.intensities[i]);
         while (cloud.times[i] >= lastTime + delta) // in case delta is tiny
           lastTime += delta;
       }
@@ -66,6 +68,9 @@ int main(int argc, char *argv[])
   }
   else 
     usage(false);
-  cloud.save(file);
+  string fileStub = file;
+  if (file.substr(file.length()-4)==".ply")
+    fileStub = file.substr(0,file.length()-4);
+  cloud.save(fileStub + "_decimated.ply");
   return true;
 }
