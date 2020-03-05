@@ -65,21 +65,32 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     triangles[i].tested = false;
     triangles[i].normal = (triangles[i].corners[1]-triangles[i].corners[0]).cross(triangles[i].corners[2]-triangles[i].corners[0]).normalized();
 
-    Vector3d mid = (triangles[i].corners[0] + triangles[i].corners[1]+ triangles[i].corners[2])/3.0;
+    double dir = sgn(offset);
+    Vector3d sides[3];
+    for (int j = 0; j<3; j++)
+      sides[j] = (triangles[i].corners[(j+1)%3] - triangles[i].corners[j]).cross(triangles[i].normal);
     for (int j = 0; j<3; j++)
     {
-      double d = (normals[indexList[i][j]] - triangles[i].normal).dot(triangles[i].corners[j] - mid);
-      if (d > 0.0)
-        triangles[i].corners[j] += normals[indexList[i][j]]*offset;
-      else
-        triangles[i].corners[j] += triangles[i].normal * offset;
+      Vector3d normal = normals[indexList[i][j]];
+      double d1 = normal.dot(sides[j]);
+      double d2 = normal.dot(sides[(j+2)%3]);
+      
+      if (d1*dir < 0.0 && d2*dir < 0.0)
+        normal = triangles[i].normal;
+      else if (d1*dir < 0.0)
+        normal -= sides[j]*d1/sides[j].squaredNorm();
+      else if (d2*dir < 0.0)
+        normal -= sides[(j+2)%3]*d2/sides[(j+2)%3].squaredNorm();
+      normal.normalize();
+      triangles[i].corners[j] += normal * offset;  
       boxMin = minVector(boxMin, triangles[i].corners[j]);
       boxMax = maxVector(boxMax, triangles[i].corners[j]);   
     }
   }
 
+#if 0
   Mesh temp;
-  for (int i = 0; i<triangles.size(); i++)
+  for (int i = 0; i<(int)triangles.size(); i++)
   {
     temp.vertices.push_back(triangles[i].corners[0]);
     temp.vertices.push_back(triangles[i].corners[1]);
@@ -87,6 +98,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     temp.indexList.push_back(Vector3i(3*i,3*i+1,3*i+2));
   }
   writePlyMesh("test.ply", temp);
+#endif
 
   // Thirdly, put the triangles into a grid
   double voxelWidth = 1.0;
@@ -118,10 +130,9 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     {
       Vector3d start = (cloud.ends[r] - boxMin)/voxelWidth;
       Vector3i index(start[0], start[1], start[2]);
-      bool found = false;
-      int endI = dir < 0 ? -1 : grid.dims[2];
+      int endI = dir < 0 ? 1 : grid.dims[2];
       vector<Triangle *> trisTested;
-      for (int z = index[2]; z!=endI; z+=dir)
+      for (int z = index[2]; (z*dir)<endI; z+=dir)
       {
         auto &tris = grid.cell(index[0], index[1], z).data;
         double minDepth = 10.0;
@@ -155,7 +166,13 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
         tri->tested = false;
       if (dir==1)
       {
-        if (outsides > 0 || insides == 0)
+        bool doOutside;
+        if (offset >= 0.0)
+          doOutside = outsides > 0 || insides == 0;
+        else
+          doOutside = insides == 0;
+        
+        if (doOutside)
         {
           outside.starts.push_back(cloud.starts[r]);
           outside.ends.push_back(cloud.ends[r]);
