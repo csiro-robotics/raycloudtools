@@ -283,13 +283,13 @@ void savePLY(const std::string &filename, const State &state, const std::vector<
 }
 #endif
 
-void RAY::writePlyMesh(const string &fileName, const vector<Vector3d> &points, const vector<Vector3i> &indexList, bool flipNormals)
+void RAY::writePlyMesh(const string &fileName, const Mesh &mesh, bool flipNormals)
 {
-  cout << "saving to " << fileName << ", " << points.size() << " vertices." << endl;
+  cout << "saving to " << fileName << ", " << mesh.vertices.size() << " vertices." << endl;
   
-  vector<Vector4f> vertices(points.size()); // 4d to give space for colour
-  for (unsigned int i = 0; i<points.size(); i++)
-    vertices[i] << (float)points[i][0], (float)points[i][1], (float)points[i][2], 1.0;
+  vector<Vector4f> vertices(mesh.vertices.size()); // 4d to give space for colour
+  for (unsigned int i = 0; i<mesh.vertices.size(); i++)
+    vertices[i] << (float)mesh.vertices[i][0], (float)mesh.vertices[i][1], (float)mesh.vertices[i][2], 1.0;
 
 
   FILE *fid = fopen(fileName.c_str(), "w+");
@@ -304,25 +304,25 @@ void RAY::writePlyMesh(const string &fileName, const vector<Vector3d> &points, c
   fprintf(fid, "property uchar green\n"); 
   fprintf(fid, "property uchar blue\n"); 
   fprintf(fid, "property uchar alpha\n"); 
-  fprintf(fid, "element face %d\n", (int)indexList.size()); 
+  fprintf(fid, "element face %d\n", (int)mesh.indexList.size()); 
   fprintf(fid, "property list int int vertex_indices\n"); 
   fprintf(fid, "end_header\n"); 
 
   fwrite(&vertices[0], sizeof(Vector4f), vertices.size(), fid);
 
-  vector<Vector4i> triangles(indexList.size());
+  vector<Vector4i> triangles(mesh.indexList.size());
   if (flipNormals)
-    for (int i = 0; i<(int)indexList.size(); i++)
-      triangles[i] = Vector4i(3, indexList[i][2], indexList[i][1], indexList[i][0]);
+    for (int i = 0; i<(int)mesh.indexList.size(); i++)
+      triangles[i] = Vector4i(3, mesh.indexList[i][2], mesh.indexList[i][1], mesh.indexList[i][0]);
   else
-    for (int i = 0; i<(int)indexList.size(); i++)
-      triangles[i] = Vector4i(3, indexList[i][0], indexList[i][1], indexList[i][2]);
+    for (int i = 0; i<(int)mesh.indexList.size(); i++)
+      triangles[i] = Vector4i(3, mesh.indexList[i][0], mesh.indexList[i][1], mesh.indexList[i][2]);
   fwrite(&triangles[0], sizeof(Vector4i), triangles.size(), fid);
   fclose(fid);   
 }
 
 
-bool RAY::readPlyMesh(const string &file, vector<Vector3d> &points, vector<Vector3i> &indexList)
+bool RAY::readPlyMesh(const string &file, Mesh &mesh)
 {
   cout << "reading from " << file << endl;
   ifstream input(file.c_str());
@@ -358,15 +358,15 @@ bool RAY::readPlyMesh(const string &file, vector<Vector3d> &points, vector<Vecto
   // read data as a block:
   input.read((char *)&vertices[0], sizeof(Vector4f) * vertices.size());
   vector<Vector4i> triangles(numberOfFaces);
-  input.read((char *)&triangles[0], sizeof(Vector4i)*triangles.size());
+  input.read((char *)&triangles[0], sizeof(Vector4i) * triangles.size());
   
-  points.resize(vertices.size());
+  mesh.vertices.resize(vertices.size());
   for (int i = 0; i<(int)vertices.size(); i++)
-    points[i] = Vector3d(vertices[i][0], vertices[i][1], vertices[i][2]);
+    mesh.vertices[i] = Vector3d(vertices[i][0], vertices[i][1], vertices[i][2]);
  
-  indexList.resize(triangles.size());
+  mesh.indexList.resize(triangles.size());
   for (int i = 0; i<(int)triangles.size(); i++)
-    indexList[i] = Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
+    mesh.indexList[i] = Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
   return true;
 }
 

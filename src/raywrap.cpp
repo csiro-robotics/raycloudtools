@@ -64,8 +64,8 @@ int main(int argc, char *argv[])
     else
       usage();
     
-    
-    vector<Vector3i> tris;
+    Mesh mesh;
+    mesh.vertices = concaveHull.vertices;
     int numBads = 0;
     for (auto &face: concaveHull.surface)
     {
@@ -87,11 +87,11 @@ int main(int argc, char *argv[])
       }
       else
         numBads++;
-      tris.push_back(triVerts);
+      mesh.indexList.push_back(triVerts);
     }
     if (numBads > 0)
       cout << "number of surfaces that didn't have enough information to orient: " << numBads << endl;
-    writePlyMesh(file + "_mesh.ply", concaveHull.vertices, tris, true);
+    writePlyMesh(file + "_mesh.ply", mesh, true);
   }
   else
   {
@@ -107,16 +107,17 @@ int main(int argc, char *argv[])
     else 
       usage(); 
 
-    vector<Vector3i> tris(convexHull.triangles.size());
-    vector<Vector3d> vertices;
+    Mesh mesh;
+    mesh.vertices.resize(convexHull.triangles.size()*3);
+    mesh.indexList.resize(convexHull.triangles.size());
     for (int i = 0; i<(int)convexHull.triangles.size(); i++)
     {
-      tris[i] = Vector3i(3*i, 3*i + 1, 3*i + 2); // TODO: currently the triangles are indexed independently, I need to improve this
-      vertices.push_back(convexHull.triangles[i].vertices[0]);
-      vertices.push_back(convexHull.triangles[i].vertices[1]);
-      vertices.push_back(convexHull.triangles[i].vertices[2]);
+      mesh.indexList[i] = Vector3i(3*i, 3*i + 1, 3*i + 2); // TODO: currently the triangles are indexed independently, I need to improve this
+      mesh.vertices[3*i  ] = convexHull.triangles[i].vertices[0];
+      mesh.vertices[3*i+1] = convexHull.triangles[i].vertices[1];
+      mesh.vertices[3*i+2] = convexHull.triangles[i].vertices[2];
     }
-    writePlyMesh(file + "_mesh.ply", vertices, tris, true);     
+    writePlyMesh(file + "_mesh.ply", mesh, true);     
   }
   
 
