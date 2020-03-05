@@ -1,4 +1,5 @@
 #include "raycloud.h"
+#include <nabo/nabo.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +16,7 @@ void usage(bool error=false)
   cout << "raysmooth raycloud" << endl;
   exit(error);
 }
-#if 0
+
 void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, int numNeighbors, int smoothingIterations, double rBar)
 {
   ASSERT(positions.size() == normals.size());
@@ -171,7 +172,7 @@ vector<Vector3d> generateNormals(const vector<Vector3d> &points, const vector<Ve
   }
   return normals;
 }
-#endif
+
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
@@ -181,12 +182,12 @@ int main(int argc, char *argv[])
   string file = argv[1];
   Cloud cloud;
   cloud.load(file);
-/*
+
   vector<Vector3d> normals = generateNormals(cloud.ends, cloud.starts);
 
   smoothPointCloud(cloud.ends, normals, 15, 10, 10);
 
   cloud.save(file.substr(0,file.length()-4) + "_smooth.ply");
-*/
+
   return true;
 }

@@ -3,6 +3,8 @@ if (!MSVC)
 endif()
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
 
+add_compile_options(-std=c++11 -Wall -march=corei7)
+
 file(GLOB_RECURSE SOURCE_FILES
 	${CMAKE_SOURCE_DIR}/raylib/src/*.cpp
 )
@@ -14,6 +16,9 @@ file(GLOB_RECURSE INCLUDE_FILES
 add_compile_options(-std=c++11 -Wall -g)
 find_package(Eigen3 REQUIRED)
 find_package(libLAS REQUIRED)
+find_package(OpenMP REQUIRED)
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS})
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS})
 
 add_library(raylib ${SOURCE_FILES})
 set_property(TARGET raylib PROPERTY POSITION_INDEPENDENT_CODE ON)
