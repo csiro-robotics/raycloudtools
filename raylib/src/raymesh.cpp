@@ -133,7 +133,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
           tri->tested = true;
           trisTested.push_back(tri);
           double depth;
-          if (tri->intersectsRay(cloud.starts[r], cloud.starts[r] + (double)dir*Vector3d(0.0,0.0,1e4), depth))
+          if (tri->intersectsRay(cloud.ends[r], cloud.ends[r] + (double)dir*Vector3d(0.0,0.0,1e4), depth))
           {
             if (depth < minDepth)
             {
