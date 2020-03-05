@@ -324,7 +324,6 @@ void RAY::writePlyMesh(const string &fileName, const Mesh &mesh, bool flipNormal
 
 bool RAY::readPlyMesh(const string &file, Mesh &mesh)
 {
-  cout << "reading from " << file << endl;
   ifstream input(file.c_str());
   if (!input.is_open())
   {
@@ -367,6 +366,7 @@ bool RAY::readPlyMesh(const string &file, Mesh &mesh)
   mesh.indexList.resize(triangles.size());
   for (int i = 0; i<(int)triangles.size(); i++)
     mesh.indexList[i] = Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
+  cout << "reading from " << file << ", " << mesh.indexList.size() << " triangles." << endl;
   return true;
 }
 
