@@ -12,6 +12,7 @@ struct Triangle
 {
   Vector3d corners[3];
   Vector3d normal;
+  bool tested;
   bool intersectsRay(const Vector3d &rayStart, const Vector3d &rayEnd, double &depth)
   {
     // 1. plane test:
@@ -27,7 +28,7 @@ struct Triangle
     for (int i = 0; i<3; i++)
     {
       Vector3d side = (corners[(i+1)%3] - corners[i]).cross(normal);
-      if ((contactPoint - corners[i]).dot(side) < 0.0)
+      if ((contactPoint - corners[i]).dot(side) > 0.0)
         return false;
     }
     return true;
@@ -47,33 +48,48 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     normal.setZero();
   for (auto &index: indexList)
   {
-    Vector3d normal = (vertices[index[1]]-vertices[index[0]]).cross(vertices[index[2]]-vertices[index[0]]).normalized();
+    Vector3d normal = (vertices[index[1]]-vertices[index[0]]).cross(vertices[index[2]]-vertices[index[0]]);
     for (int i = 0; i<3; i++)
       normals[index[i]] += normal;
   }
   for (auto &normal: normals)
     normal.normalize();
 
-  // Secondly, extrude along the normals by offset
-  for (int i = 0; i<(int)vertices.size(); i++)
-    vertices[i] += offset*normals[i];
-  // and convert to separate triangles for convenience
+  // convert to separate triangles for convenience
   vector<Triangle> triangles(indexList.size());
+  Vector3d boxMin(1e10,1e10,1e10), boxMax(-1e10,-1e10,-1e10);
   for (int i = 0; i<(int)indexList.size(); i++)
   {
     for (int j = 0; j<3; j++)
       triangles[i].corners[j] = vertices[indexList[i][j]];
+    triangles[i].tested = false;
     triangles[i].normal = (triangles[i].corners[1]-triangles[i].corners[0]).cross(triangles[i].corners[2]-triangles[i].corners[0]).normalized();
+
+    Vector3d mid = (triangles[i].corners[0] + triangles[i].corners[1]+ triangles[i].corners[2])/3.0;
+    for (int j = 0; j<3; j++)
+    {
+      double d = (normals[indexList[i][j]] - triangles[i].normal).dot(triangles[i].corners[j] - mid);
+      if (d > 0.0)
+        triangles[i].corners[j] += normals[indexList[i][j]]*offset;
+      else
+        triangles[i].corners[j] += triangles[i].normal * offset;
+      boxMin = minVector(boxMin, triangles[i].corners[j]);
+      boxMax = maxVector(boxMax, triangles[i].corners[j]);   
+    }
   }
+
+  Mesh temp;
+  for (int i = 0; i<triangles.size(); i++)
+  {
+    temp.vertices.push_back(triangles[i].corners[0]);
+    temp.vertices.push_back(triangles[i].corners[1]);
+    temp.vertices.push_back(triangles[i].corners[2]);
+    temp.indexList.push_back(Vector3i(3*i,3*i+1,3*i+2));
+  }
+  writePlyMesh("test.ply", temp);
 
   // Thirdly, put the triangles into a grid
   double voxelWidth = 1.0;
-  Vector3d boxMin(1e10,1e10,1e10), boxMax(-1e10,-1e10,-1e10);
-  for (auto &vertex: vertices)
-  {
-    boxMin = minVector(boxMin, vertex);
-    boxMax = maxVector(boxMax, vertex);   
-  }
   Vector3d dimensions = (boxMax - boxMin)/voxelWidth;
   Grid<Triangle *> grid(ceil(dimensions[0]), ceil(dimensions[1]), ceil(dimensions[2]));
   for (auto &tri: triangles)
@@ -96,21 +112,28 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
   // Fourthly, drop each end point downwards to decide whether it is inside or outside..
   for (int r = 0; r<(int)cloud.ends.size(); r++)
   {
+    int insides = 0;
+    int outsides = 0;
     for (int dir = -1; dir<=1; dir += 2)
     {
       Vector3d start = (cloud.ends[r] - boxMin)/voxelWidth;
       Vector3i index(start[0], start[1], start[2]);
       bool found = false;
       int endI = dir < 0 ? -1 : grid.dims[2];
+      vector<Triangle *> trisTested;
       for (int z = index[2]; z!=endI; z+=dir)
       {
-        auto &tris = grid.cell(index[0], index[1], index[2]).data;
+        auto &tris = grid.cell(index[0], index[1], z).data;
         double minDepth = 10.0;
         Vector3d minNormal;
         for (auto &tri: tris)
         {
+          if (tri->tested)
+            continue;
+          tri->tested = true;
+          trisTested.push_back(tri);
           double depth;
-          if (tri->intersectsRay(cloud.starts[r], cloud.starts[r] + (double)dir*Vector3d(0.0,0.0,1e6), depth))
+          if (tri->intersectsRay(cloud.starts[r], cloud.starts[r] + (double)dir*Vector3d(0.0,0.0,1e4), depth))
           {
             if (depth < minDepth)
             {
@@ -121,27 +144,33 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
         }    
         if (minDepth < 10.0)
         {
-          found = true;
           if (minNormal[2]*(double)dir < 0.0)
-          {
-            inside.starts.push_back(cloud.starts[r]);
-            inside.ends.push_back(cloud.ends[r]);
-            inside.times.push_back(cloud.times[r]);
-          }
+            insides++;
           else
-          {
-            outside.starts.push_back(cloud.starts[r]);
-            outside.ends.push_back(cloud.ends[r]);
-            outside.times.push_back(cloud.times[r]);
-          }
+            outsides++;
           break;
         }
       }
-      if (found)
-        break;
+      for (auto &tri: trisTested)
+        tri->tested = false;
+      if (dir==1)
+      {
+        if (outsides > 0 || insides == 0)
+        {
+          outside.starts.push_back(cloud.starts[r]);
+          outside.ends.push_back(cloud.ends[r]);
+          outside.times.push_back(cloud.times[r]);
+        }
+        else
+        {
+          inside.starts.push_back(cloud.starts[r]);
+          inside.ends.push_back(cloud.ends[r]);
+          inside.times.push_back(cloud.times[r]);
+        }     
+      }
     }
   }
-
+  cout << "inside: " << inside.starts.size() << ", outside: "  << outside.starts.size() << ". Total " << outside.starts.size() + inside.starts.size()  << " out of " << cloud.ends.size() << " rays" << endl;
 #if 0
   // Fifthly, split each ray as it crosses each triangle. We count the number of ins and outs to allow overlapping meshes
   for (int r = 0; r<(int)cloud.ends.size(); r++)

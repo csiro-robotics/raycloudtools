@@ -338,7 +338,6 @@ bool RAY::readPlyMesh(const string &file, Mesh &mesh)
   while (line != "end_header\r" && line != "end_header")
   {
     getline(input, line);
- //   cout << line << endl;
     if (line.find("float") != string::npos)
     {
       rowSize += 4;
