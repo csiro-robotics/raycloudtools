@@ -25,16 +25,15 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
   double eps = 0.1;
   double maxRadius = std::numeric_limits<double>::infinity();
 
-  cout << "smooth_pointcloud with " << positions.size() << " points, " << numNeighbors << " neighbors, " << smoothingIterations << " iters, rbar " << rBar << endl;
+  cout << "smooth_pointcloud with " << positions.size() << " points, " << numNeighbors << " neighbours, " << smoothingIterations << " iters, rbar " << rBar << endl;
 
   // Set up structures for search (pNumDims,numPoints)
   MatrixXd data(6, positions.size());
   for (unsigned int i = 0; i<positions.size(); i++)
     data.col(i) << positions[i], normals[i];
 
-  //Eigen::MatrixXd pointsQ;
   Nabo::NNSearchD* nns;
-  Nabo::Parameters params("bucketSize",std::min<unsigned int>(positions.size(), 8));
+  Nabo::Parameters params("bucketSize", std::min<unsigned int>(positions.size(), 8));
   nns = Nabo::NNSearchD::createKDTreeLinearHeap(data, numNeighbors, 0, params);
 
   // Run the search
@@ -164,8 +163,6 @@ vector<Vector3d> generateNormals(const vector<Vector3d> &points, const vector<Ve
 
     Vector3d normal = eigenVector.col(2);
     normal.normalize();
-    double scale = (eigenValue[1] - eigenValue[2]) / eigenValue[1];
-    normal *= scale; // reduce lighting effect when there is less confidence
     if ((points[i] - starts[i]).dot(normal) > 0.0)
       normal = -normal;
     normals.push_back(normal);
