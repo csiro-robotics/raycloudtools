@@ -107,17 +107,7 @@ int main(int argc, char *argv[])
     else 
       usage(); 
 
-    Mesh mesh;
-    mesh.vertices.resize(convexHull.triangles.size()*3);
-    mesh.indexList.resize(convexHull.triangles.size());
-    for (int i = 0; i<(int)convexHull.triangles.size(); i++)
-    {
-      mesh.indexList[i] = Vector3i(3*i, 3*i + 1, 3*i + 2); // TODO: currently the triangles are indexed independently, I need to improve this
-      mesh.vertices[3*i  ] = convexHull.triangles[i].vertices[0];
-      mesh.vertices[3*i+1] = convexHull.triangles[i].vertices[1];
-      mesh.vertices[3*i+2] = convexHull.triangles[i].vertices[2];
-    }
-    writePlyMesh(file + "_mesh.ply", mesh, true);     
+    writePlyMesh(file + "_mesh.ply", convexHull.mesh, true);     
   }
   
 

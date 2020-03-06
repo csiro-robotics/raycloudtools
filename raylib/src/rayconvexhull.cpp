@@ -33,7 +33,7 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
 
   orgQhull::QhullFacetList facets = hull.facetList();
   cout << "number of triangles: " << facets.size() << endl;
-  triangles.reserve(facets.size());
+  mesh.indexList.reserve(facets.size());
   cout << "ignore direction: " << ignoreDirection.transpose() << endl;
   int count = 0;
   for (const orgQhull::QhullFacet &f : facets) 
@@ -44,16 +44,14 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
     {
       count++;
       orgQhull::QhullVertexSet verts = f.vertices();
-      Triangle triangle;
       int i = 0;
+      Vector3i index;
       for (const orgQhull::QhullVertex &v : verts) 
-      {
-        const double *data = v.point().coordinates();
-        Vector3d vert(data[0], data[1], data[2]);
-        triangle.vertices[i++] = vert;
-//        vertices.push_back(vert);
-      }
-      triangles.push_back(triangle);
+        index[i++] = v.point().id();
+      Vector3d norm = (points[index[1]] - points[index[0]]).cross(points[index[2]]-points[index[0]]);
+      if (norm.dot(coords) < 0.0)
+        swap(index[1], index[2]);
+      mesh.indexList.push_back(index);
     }
   }
   cout << "num remaining triangles: " << count << endl;
@@ -61,12 +59,13 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
 
 ConvexHull::ConvexHull(const vector<Vector3d> &points)
 {
-  this->points = points;
+  mesh.vertices = points;
 }
 
 void ConvexHull::growOutwards(double maxCurvature)
 {
-  Vector3d centre = mean(points);
+  Vector3d centre = mean(mesh.vertices);
+  vector<Vector3d> points = mesh.vertices;
   for (auto &p: points)
   {
     p -= centre;
@@ -74,20 +73,12 @@ void ConvexHull::growOutwards(double maxCurvature)
   }
 
   construct(points, Vector3d(0,0,0));
-
-  for (auto &tri: triangles)
-  {
-    for (auto &p: tri.vertices)
-    {
-      p *= pow(p.squaredNorm(), -maxCurvature*0.5 - 1.0);
-      p += centre;
-    }
-  }
 }
 
 void ConvexHull::growInwards(double maxCurvature)
 {
-  Vector3d centre = mean(points);
+  Vector3d centre = mean(mesh.vertices);
+  vector<Vector3d> points = mesh.vertices;
   for (auto &p: points)
   {
     p -= centre;
@@ -95,18 +86,12 @@ void ConvexHull::growInwards(double maxCurvature)
   }
 
   construct(points, Vector3d(0,0,0));
-
-  for (auto &tri: triangles)
-    for (auto &p: tri.vertices)
-    {
-      p *= pow(p.squaredNorm(), maxCurvature*0.5);
-      p += centre;
-    }
 }
 
 void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
 {
-  Vector3d centre = mean(points);
+  Vector3d centre = mean(mesh.vertices);
+  vector<Vector3d> points = mesh.vertices;
 
   for (auto &p: points)
   {
@@ -116,15 +101,5 @@ void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
   }
 
   construct(points, dir);
-
-  for (auto &tri: triangles)
-  {
-    for (auto &p: tri.vertices)
-    {
-      Vector3d flat = p - centre;
-      flat -= dir*dir.dot(flat);
-      p -= dir*flat.squaredNorm()*maxCurvature;
-    }
-  }
 }
 
