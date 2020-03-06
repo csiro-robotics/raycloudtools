@@ -178,15 +178,10 @@ vector<Vector3d> Cloud::generateNormals(int searchSize)
 
     SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
     ASSERT(eigenSolver.info() == Success); 
-    Vector3d eigenValue = eigenSolver.eigenvalues();
+//    Vector3d eigenValue = eigenSolver.eigenvalues();
     Matrix3d eigenVector = eigenSolver.eigenvectors();
 
-    swap(eigenValue[0], eigenValue[2]);
-    Vector3d temp = eigenVector.col(0);
-    eigenVector.col(0) = eigenVector.col(2);
-    eigenVector.col(2) = temp;
-
-    Vector3d normal = eigenVector.col(2);
+    Vector3d normal = eigenVector.col(0);
     normal.normalize();
     if ((ends[i] - starts[i]).dot(normal) > 0.0)
       normal = -normal;
@@ -220,13 +215,25 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double radius, double
   
   // now get the point normals, in order to find the sphere centres...
   vector<Vector3d> normals = generateNormals();
+  
   vector<Event> spheres(ends.size());
   for (int i = 0; i<(int)ends.size(); i++)
   {
     spheres[i].pos = ends[i] - normals[i]*radius;
     spheres[i].time = times[i];
+    spheres[i].transient = false;
   }
   cout << "created normals and spheres" << endl;
+
+#if 0
+  Cloud temp;
+  temp.starts = starts;
+  temp.times = times;
+  temp.ends.resize(spheres.size());
+  for (int i = 0; i<(int)spheres.size(); i++)
+    temp.ends[i] = spheres[i].pos;
+  temp.save("testRoom.ply");
+#endif
 
   // next populate the grid with these sphere centres
   for (auto &sphere: spheres)
@@ -250,7 +257,6 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double radius, double
     Vector3d end = (ends[i] - boxMin)/voxelWidth;
     Vector3i index(start[0], start[1], start[2]);
     Vector3i endIndex(end[0], end[1], end[2]);
-    cout << "ray " << i << " walk from " << index.transpose() << " to " << endIndex.transpose() << endl;
     for (;;)
     {
       auto &spheres = grid.cell(index[0], index[1], index[2]).data;
@@ -270,7 +276,7 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double radius, double
         double dist2 = (sphere->pos - (starts[i] + dir*d)).squaredNorm();
         if (d>0.0 && d<1.0 && dist2<radius*radius) // I require the ray to get half way into the sphere to consider it transient
         {
-          cout << "found transient with d: " << d << " distance: " << sqrt(dist2) << endl;
+//          cout << "found transient with d: " << d << " distance: " << sqrt(dist2) << endl;
           sphere->transient = true;
           // remove it from the list, for speed.
           spheres[j] = spheres.back();
