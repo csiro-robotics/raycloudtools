@@ -14,29 +14,28 @@ void usage(bool error=false)
 {
   cout << "Splits a raycloud into the transient rays and the fixed part" << endl;
   cout << "usage:" << endl;
-  cout << "raytransients raycloud 0.1 m 3 s - splits out points intersected within 0.1m more than 3 seconds before or after" << endl;
+  cout << "raytransients raycloud 3 s - splits out transient points more than 3 seconds apart from the crossing rays" << endl;
   exit(error);
 }
 
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc != 6)
+  if (argc != 4)
     usage();
 
-  if (string(argv[3]) != "m" || string(argv[5]) != "s")
+  if (string(argv[3]) != "s")
     usage();
 
   string file = argv[1];
   Cloud cloud;
   cloud.load(file);
 
-  double radius = stod(argv[2]);
-  double timeDelta = stod(argv[4]);
+  double timeDelta = stod(argv[2]);
 
   Cloud transient;
   Cloud fixed;
-  cloud.findTransients(transient, fixed, radius, timeDelta);
+  cloud.findTransients(transient, fixed, timeDelta);
 
   string fileStub = file;
   if (file.substr(file.length()-4)==".ply")

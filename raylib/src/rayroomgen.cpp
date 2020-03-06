@@ -157,8 +157,11 @@ void RoomGen::generate()
       if (!intersected)
         range = min(range, (hit - start).norm());
     }
-    for (auto &cuboid: positives)
-      cuboid.rayIntersectBox(start, dir, range);
+    if (i > numRays/2)
+    {
+      for (auto &cuboid: positives)
+        cuboid.rayIntersectBox(start, dir, range);
+    }
 
     const double rangeNoise = 0.03;
     Vector3d end = start + (range + random(-rangeNoise, rangeNoise)) * dir;

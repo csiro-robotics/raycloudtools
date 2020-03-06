@@ -190,15 +190,15 @@ vector<Vector3d> Cloud::generateNormals(int searchSize)
   return normals;
 }
 
-
 struct Event
 {
   Vector3d pos;
+  Vector3d vectors[3];
   double time;
   bool transient;
 };
 
-void Cloud::findTransients(Cloud &transient, Cloud &fixed, double radius, double timeDelta)
+void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
 {
   cout << "find transients" << endl;
   Vector3d boxMin(1e10,1e10,1e10);
@@ -208,36 +208,67 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double radius, double
     boxMin = minVector(boxMin, end);
     boxMax = maxVector(boxMax, end);
   }
-  double voxelWidth = 2.0*max(radius, 0.1);
+  double voxelWidth = 0.25;
   Vector3d diff = (boxMax - boxMin)/voxelWidth;
   Grid<Event *> grid(ceil(diff[0]), ceil(diff[1]), ceil(diff[2]));
   cout << "created grid: " << grid.dims.transpose() << endl;
   
-  // now get the point normals, in order to find the sphere centres...
-  vector<Vector3d> normals = generateNormals();
-  
   vector<Event> spheres(ends.size());
-  for (int i = 0; i<(int)ends.size(); i++)
+  // now get the point normals, in order to find the sphere centres...
+
+  // simplest scheme... find 3 nearest neighbours and do cross product
+  int searchSize = 16;
+  Nabo::NNSearchD *nns;
+  Nabo::Parameters params("bucketSize", 8);
+  MatrixXd pointsP(3, ends.size());
+  for (unsigned int i = 0; i<ends.size(); i++)
+    pointsP.col(i) = ends[i];//col.transpose();
+  nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);//, 0, params);
+
+  // Run the search
+  MatrixXi indices;
+  MatrixXd dists2;
+  indices.resize(searchSize, ends.size());
+  dists2.resize(searchSize, ends.size());
+  nns->knn(pointsP, indices, dists2, searchSize, 0.01, 0, 1.0);
+  delete nns;
+
+  for (unsigned int i = 0; i<ends.size(); i++)
   {
-    spheres[i].pos = ends[i] - normals[i]*radius;
+    Matrix3d scatter;
+    scatter.setZero();
+    Vector3d centroid(0,0,0);
+    for (int j = 0; j<searchSize; j++)
+      centroid += ends[indices(j, i)];
+    centroid /= double(searchSize);
+    for (int j = 0; j<searchSize; j++)
+    {
+      Vector3d offset = ends[indices(j,i)] - centroid;
+      scatter += offset * offset.transpose();
+    }
+    scatter /= (double)searchSize;
+
+    SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
+    ASSERT(eigenSolver.info() == Success); 
+
+    Vector3d eigenValue = eigenSolver.eigenvalues();
+    Matrix3d eigenVector = eigenSolver.eigenvectors();
+    
+    spheres[i].pos = centroid;
+    double scale = 1.0; // larger makes more points transient
+    spheres[i].vectors[0] = eigenVector.col(0)/(scale*sqrt(eigenValue[0]));
+    spheres[i].vectors[1] = eigenVector.col(1)/(scale*sqrt(eigenValue[1]));
+    spheres[i].vectors[2] = eigenVector.col(2)/(scale*sqrt(eigenValue[2]));
     spheres[i].time = times[i];
     spheres[i].transient = false;
   }
-  cout << "created normals and spheres" << endl;
 
-#if 0
-  Cloud temp;
-  temp.starts = starts;
-  temp.times = times;
-  temp.ends.resize(spheres.size());
-  for (int i = 0; i<(int)spheres.size(); i++)
-    temp.ends[i] = spheres[i].pos;
-  temp.save("testRoom.ply");
-#endif
+  cout << "created normals and spheres" << endl;
 
   // next populate the grid with these sphere centres
   for (auto &sphere: spheres)
   {
+    double radius = 0.05;
     Vector3d rad(radius,radius,radius);
     Vector3d bMin = (sphere.pos - rad - boxMin)/voxelWidth;
     Vector3d bMax = (sphere.pos + rad - boxMin)/voxelWidth;
@@ -271,12 +302,22 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double radius, double
         }
         if (abs(times[i] - sphere->time)<timeDelta)
           continue;
-        // ray sphere intersection
-        double d = (sphere->pos - starts[i]).dot(dir)/dir.squaredNorm();
-        double dist2 = (sphere->pos - (starts[i] + dir*d)).squaredNorm();
-        if (d>0.0 && d<1.0 && dist2<radius*radius) // I require the ray to get half way into the sphere to consider it transient
+
+        // ray-ellipsoid intersection
+        Vector3d toSphere = sphere->pos - starts[i];
+        Vector3d ray;
+        ray[0] = dir.dot(sphere->vectors[0]);
+        ray[1] = dir.dot(sphere->vectors[1]);
+        ray[2] = dir.dot(sphere->vectors[2]);
+        Vector3d to;
+        to[0] = toSphere.dot(sphere->vectors[0]);
+        to[1] = toSphere.dot(sphere->vectors[1]);
+        to[2] = toSphere.dot(sphere->vectors[2]);
+
+        double d = to.dot(ray)/ray.squaredNorm();
+        double dist2 = (to - ray*d).squaredNorm();
+        if (d>0.0 && d<0.90 && dist2<1.0) // I require the ray to get half way into the sphere to consider it transient
         {
-//          cout << "found transient with d: " << d << " distance: " << sqrt(dist2) << endl;
           sphere->transient = true;
           // remove it from the list, for speed.
           spheres[j] = spheres.back();

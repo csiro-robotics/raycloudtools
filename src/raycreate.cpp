@@ -46,6 +46,8 @@ int main(int argc, char *argv[])
     for (int i = 0; i<(int)cloud.starts.size(); i++)
     {
       cloud.times.push_back(time);
+      if (i == (int)cloud.starts.size()/2)
+        time += 0.5;
       time += timeDelta;
     }
   }

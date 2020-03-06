@@ -44,7 +44,7 @@ struct Cloud
   void decimate(double voxelWidth);
 
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
-  void findTransients(Cloud &transient, Cloud &fixed, double radius, double timeDelta);
+  void findTransients(Cloud &transient, Cloud &fixed, double timeDelta);
   
 protected:  
   void calculateStarts(const Trajectory &trajectory);
