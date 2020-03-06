@@ -195,6 +195,7 @@ struct Event
   Vector3d pos;
   Vector3d vectors[3];
   double time;
+  double size;
   bool transient;
 };
 
@@ -256,19 +257,27 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
     
     spheres[i].pos = centroid;
     double scale = 1.0; // larger makes more points transient
-    spheres[i].vectors[0] = eigenVector.col(0)/(scale*sqrt(eigenValue[0]));
-    spheres[i].vectors[1] = eigenVector.col(1)/(scale*sqrt(eigenValue[1]));
-    spheres[i].vectors[2] = eigenVector.col(2)/(scale*sqrt(eigenValue[2]));
+    eigenValue[0] = scale*sqrt(max(1e-10,eigenValue[0]));
+    eigenValue[1] = scale*sqrt(max(1e-10,eigenValue[1]));
+    eigenValue[2] = scale*sqrt(max(1e-10,eigenValue[2]));
+    spheres[i].vectors[0] = eigenVector.col(0)/eigenValue[0];
+    spheres[i].vectors[1] = eigenVector.col(1)/eigenValue[1];
+    spheres[i].vectors[2] = eigenVector.col(2)/eigenValue[2];
     spheres[i].time = times[i];
+    // TODO: below this 0.5 shouldn't be there but it makes it faster...
+    spheres[i].size = 0.5*max(eigenValue[0], max(eigenValue[1], eigenValue[2]));
+    spheres[i].size = clamped(spheres[i].size, 0.0, 2.0);
     spheres[i].transient = false;
   }
 
   cout << "created normals and spheres" << endl;
 
   // next populate the grid with these sphere centres
+  double avSize = 0.0;
   for (auto &sphere: spheres)
   {
-    double radius = 0.05;
+    avSize += sphere.size;
+    double radius = min(1.0, sphere.size);
     Vector3d rad(radius,radius,radius);
     Vector3d bMin = (sphere.pos - rad - boxMin)/voxelWidth;
     Vector3d bMax = (sphere.pos + rad - boxMin)/voxelWidth;
@@ -277,7 +286,7 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
         for (int z = (int)bMin[2]; z<=(int)bMax[2]; z++)
           grid.cell(x,y,z).data.push_back(&sphere);
   }
-  cout << "grid is populated" << endl;
+  cout << "grid is populated " << avSize/(double)spheres.size() << endl;
 
   // now walk every ray through the grid and mark if transient
   for (int i = 0; i<(int)ends.size(); i++)
