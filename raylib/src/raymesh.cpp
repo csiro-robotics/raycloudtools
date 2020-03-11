@@ -102,8 +102,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
 
   // Thirdly, put the triangles into a grid
   double voxelWidth = 1.0;
-  Vector3d dimensions = (boxMax - boxMin)/voxelWidth;
-  Grid<Triangle *> grid(ceil(dimensions[0]), ceil(dimensions[1]), ceil(dimensions[2]));
+  Grid<Triangle *> grid(boxMin, boxMax, voxelWidth);
   for (auto &tri: triangles)
   {
     Vector3d triMin = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - boxMin)/voxelWidth;

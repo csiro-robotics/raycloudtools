@@ -115,61 +115,6 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
   positions = smoothPoints;
 }
 
-
-
-// starts are required to get the normal the right way around
-vector<Vector3d> generateNormals(const vector<Vector3d> &points, const vector<Vector3d> &starts, int searchSize = 16)
-{
-  // simplest scheme... find 3 nearest neighbours and do cross product
-  Nabo::NNSearchD *nns;
-  Nabo::Parameters params("bucketSize", 8);
-  MatrixXd pointsP(3, points.size());
-  for (unsigned int i = 0; i<points.size(); i++)
-    pointsP.col(i) = points[i];//col.transpose();
-  nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);//, 0, params);
-
-  // Run the search
-  MatrixXi indices;
-  MatrixXd dists2;
-  indices.resize(searchSize, points.size());
-  dists2.resize(searchSize, points.size());
-  nns->knn(pointsP, indices, dists2, searchSize, 0.01, 0, 1.0);
-  delete nns;
-
-  vector<Vector3d> normals;
-  for (unsigned int i = 0; i<points.size(); i++)
-  {
-    Matrix3d scatter;
-    scatter.setZero();
-    Vector3d average(0,0,0);
-    for (int j = 0; j<searchSize; j++)
-      average += points[indices(j, i)];
-    average /= double(searchSize);
-    for (int j = 0; j<searchSize; j++)
-    {
-      Vector3d offset = points[indices(j,i)] - average;
-      scatter += offset * offset.transpose();
-    }
-
-    SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
-    ASSERT(eigenSolver.info() == Success); 
-    Vector3d eigenValue = eigenSolver.eigenvalues();
-    Matrix3d eigenVector = eigenSolver.eigenvectors();
-
-    swap(eigenValue[0], eigenValue[2]);
-    Vector3d temp = eigenVector.col(0);
-    eigenVector.col(0) = eigenVector.col(2);
-    eigenVector.col(2) = temp;
-
-    Vector3d normal = eigenVector.col(2);
-    normal.normalize();
-    if ((points[i] - starts[i]).dot(normal) > 0.0)
-      normal = -normal;
-    normals.push_back(normal);
-  }
-  return normals;
-}
-
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
@@ -180,7 +125,7 @@ int main(int argc, char *argv[])
   Cloud cloud;
   cloud.load(file);
 
-  vector<Vector3d> normals = generateNormals(cloud.ends, cloud.starts);
+  vector<Vector3d> normals = cloud.generateNormals();
 
   smoothPointCloud(cloud.ends, normals, 15, 10, 10);
 

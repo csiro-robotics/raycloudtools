@@ -5,11 +5,25 @@
 
 namespace RAY
 {
+struct Ellipsoid
+{
+  Eigen::Vector3d pos;
+  Eigen::Vector3d vectors[3];
+  double time;
+  double size;
+  bool transient;
+};
+
 template<class T> 
 struct Grid
 {
-  Grid(int dimensionX, int dimensionY, int dimensionZ): dims(dimensionX, dimensionY, dimensionZ)
+  Grid(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth)
   {
+    this->boxMin = boxMin;
+    this->boxMax = boxMax;
+    this->voxelWidth = voxelWidth;
+    Eigen::Vector3d diff = (boxMax - boxMin)/voxelWidth;
+    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil(diff[2]));   
     cells.resize(dims[0]*dims[1]*dims[2]);
   }
   struct Cell
@@ -23,6 +37,8 @@ struct Grid
     return cells[x + dims[0]*y + dims[0]*dims[1]*z];
   }
 
+  Eigen::Vector3d boxMin, boxMax;
+  double voxelWidth;
   Eigen::Vector3i dims;
 protected:
   std::vector<Cell> cells;
@@ -45,7 +61,10 @@ struct Cloud
 
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
   void findTransients(Cloud &transient, Cloud &fixed, double timeDelta);
-  
+  void combine(std::vector<Cloud> &clouds, Cloud &differences);
+  void markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta);
+  void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
+
 protected:  
   void calculateStarts(const Trajectory &trajectory);
   bool loadPLY(const std::string &file);

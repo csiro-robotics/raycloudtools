@@ -190,41 +190,15 @@ vector<Vector3d> Cloud::generateNormals(int searchSize)
   return normals;
 }
 
-struct Event
+void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
 {
-  Vector3d pos;
-  Vector3d vectors[3];
-  double time;
-  double size;
-  bool transient;
-};
-
-void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
-{
-  cout << "find transients" << endl;
-  Vector3d boxMin(1e10,1e10,1e10);
-  Vector3d boxMax(-1e10,-1e10,-1e10);
-  for (auto &end: ends)
-  {
-    boxMin = minVector(boxMin, end);
-    boxMax = maxVector(boxMax, end);
-  }
-  double voxelWidth = 0.25;
-  Vector3d diff = (boxMax - boxMin)/voxelWidth;
-  Grid<Event *> grid(ceil(diff[0]), ceil(diff[1]), ceil(diff[2]));
-  cout << "created grid: " << grid.dims.transpose() << endl;
-  
-  vector<Event> spheres(ends.size());
-  // now get the point normals, in order to find the sphere centres...
-
-  // simplest scheme... find 3 nearest neighbours and do cross product
   int searchSize = 16;
   Nabo::NNSearchD *nns;
   Nabo::Parameters params("bucketSize", 8);
   MatrixXd pointsP(3, ends.size());
   for (unsigned int i = 0; i<ends.size(); i++)
-    pointsP.col(i) = ends[i];//col.transpose();
-  nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);//, 0, params);
+    pointsP.col(i) = ends[i];
+  nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);
 
   // Run the search
   MatrixXi indices;
@@ -255,88 +229,87 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
     Vector3d eigenValue = eigenSolver.eigenvalues();
     Matrix3d eigenVector = eigenSolver.eigenvectors();
     
-    spheres[i].pos = centroid;
+    ellipsoids[i].pos = centroid;
     double scale = 1.0; // larger makes more points transient
     eigenValue[0] = scale*sqrt(max(1e-10,eigenValue[0]));
     eigenValue[1] = scale*sqrt(max(1e-10,eigenValue[1]));
     eigenValue[2] = scale*sqrt(max(1e-10,eigenValue[2]));
-    spheres[i].vectors[0] = eigenVector.col(0)/eigenValue[0];
-    spheres[i].vectors[1] = eigenVector.col(1)/eigenValue[1];
-    spheres[i].vectors[2] = eigenVector.col(2)/eigenValue[2];
-    spheres[i].time = times[i];
-    // TODO: below this 0.5 shouldn't be there but it makes it faster...
-    spheres[i].size = 0.5*max(eigenValue[0], max(eigenValue[1], eigenValue[2]));
-    spheres[i].size = clamped(spheres[i].size, 0.0, 2.0);
-    spheres[i].transient = false;
+    ellipsoids[i].vectors[0] = eigenVector.col(0)/eigenValue[0];
+    ellipsoids[i].vectors[1] = eigenVector.col(1)/eigenValue[1];
+    ellipsoids[i].vectors[2] = eigenVector.col(2)/eigenValue[2];
+    ellipsoids[i].time = times[i];
+    ellipsoids[i].size = max(eigenValue[0], max(eigenValue[1], eigenValue[2]));
+    ellipsoids[i].size = clamped(ellipsoids[i].size, 0.0, 2.0);
+    ellipsoids[i].transient = false;
   }
+}
 
-  cout << "created normals and spheres" << endl;
-
-  // next populate the grid with these sphere centres
-  double avSize = 0.0;
-  for (auto &sphere: spheres)
+void fillGrid(Grid<Ellipsoid *> &grid, vector<Ellipsoid> &ellipsoids)
+{
+  // next populate the grid with these ellipsoid centres
+  for (auto &ellipsoid: ellipsoids)
   {
-    avSize += sphere.size;
-    double radius = min(1.0, sphere.size);
+    double radius = min(1.0, ellipsoid.size);
     Vector3d rad(radius,radius,radius);
-    Vector3d bMin = (sphere.pos - rad - boxMin)/voxelWidth;
-    Vector3d bMax = (sphere.pos + rad - boxMin)/voxelWidth;
+    Vector3d bMin = (ellipsoid.pos - rad - grid.boxMin)/grid.voxelWidth;
+    Vector3d bMax = (ellipsoid.pos + rad - grid.boxMin)/grid.voxelWidth;
     for (int x = (int)bMin[0]; x<=(int)bMax[0]; x++)
       for (int y = (int)bMin[1]; y<=(int)bMax[1]; y++)
         for (int z = (int)bMin[2]; z<=(int)bMax[2]; z++)
-          grid.cell(x,y,z).data.push_back(&sphere);
+          grid.cell(x,y,z).data.push_back(&ellipsoid);
   }
-  cout << "grid is populated " << avSize/(double)spheres.size() << endl;
+}
 
-  // now walk every ray through the grid and mark if transient
+void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta)
+{
   for (int i = 0; i<(int)ends.size(); i++)
   {
     Vector3d dir = ends[i] - starts[i];
     Vector3d dirSign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
-    Vector3d start = (starts[i] - boxMin)/voxelWidth;
-    Vector3d end = (ends[i] - boxMin)/voxelWidth;
+    Vector3d start = (starts[i] - grid.boxMin)/grid.voxelWidth;
+    Vector3d end = (ends[i] - grid.boxMin)/grid.voxelWidth;
     Vector3i index(start[0], start[1], start[2]);
     Vector3i endIndex(end[0], end[1], end[2]);
     for (;;)
     {
-      auto &spheres = grid.cell(index[0], index[1], index[2]).data;
-      for (int j = (int)spheres.size()-1; j>=0; j--)
+      auto &ellipsoids = grid.cell(index[0], index[1], index[2]).data;
+      for (int j = (int)ellipsoids.size()-1; j>=0; j--)
       {
-        Event *sphere = spheres[j];
-        if (sphere->transient)
+        Ellipsoid *ellipsoid = ellipsoids[j];
+        if (ellipsoid->transient)
         {
-          spheres[j] = spheres.back();
-          spheres.pop_back();
+          ellipsoids[j] = ellipsoids.back();
+          ellipsoids.pop_back();
           continue;          
         }
-        if (abs(times[i] - sphere->time)<timeDelta)
+        if (abs(times[i] - ellipsoid->time)<timeDelta)
           continue;
 
         // ray-ellipsoid intersection
-        Vector3d toSphere = sphere->pos - starts[i];
+        Vector3d toSphere = ellipsoid->pos - starts[i];
         Vector3d ray;
-        ray[0] = dir.dot(sphere->vectors[0]);
-        ray[1] = dir.dot(sphere->vectors[1]);
-        ray[2] = dir.dot(sphere->vectors[2]);
+        ray[0] = dir.dot(ellipsoid->vectors[0]);
+        ray[1] = dir.dot(ellipsoid->vectors[1]);
+        ray[2] = dir.dot(ellipsoid->vectors[2]);
         Vector3d to;
-        to[0] = toSphere.dot(sphere->vectors[0]);
-        to[1] = toSphere.dot(sphere->vectors[1]);
-        to[2] = toSphere.dot(sphere->vectors[2]);
+        to[0] = toSphere.dot(ellipsoid->vectors[0]);
+        to[1] = toSphere.dot(ellipsoid->vectors[1]);
+        to[2] = toSphere.dot(ellipsoid->vectors[2]);
 
         double d = to.dot(ray)/ray.squaredNorm();
         double dist2 = (to - ray*d).squaredNorm();
         if (d>0.0 && d<0.90 && dist2<1.0) // I require the ray to get half way into the sphere to consider it transient
         {
-          sphere->transient = true;
+          ellipsoid->transient = true;
           // remove it from the list, for speed.
-          spheres[j] = spheres.back();
-          spheres.pop_back();
+          ellipsoids[j] = ellipsoids.back();
+          ellipsoids.pop_back();
         }
       }
       if (index == endIndex)
         break;
-      Vector3d mid = boxMin + voxelWidth*Vector3d(index[0]+0.5, index[1]+0.5, index[2]+0.5);
-      Vector3d nextBoundary = mid + 0.5*voxelWidth*dirSign;
+      Vector3d mid = grid.boxMin + grid.voxelWidth*Vector3d(index[0]+0.5, index[1]+0.5, index[2]+0.5);
+      Vector3d nextBoundary = mid + 0.5*grid.voxelWidth*dirSign;
       Vector3d delta = nextBoundary - starts[i];
       Vector3d d(delta[0]/dir[0], delta[1]/dir[1], delta[2]/dir[2]);
       if (d[0] < d[1] && d[0]<d[2])
@@ -347,12 +320,39 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
         index[2] += dirSign[2];
     }
   }
+}
+
+static double voxelWidth = 0.25;
+
+void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
+{
+  cout << "find transients" << endl;
+  Vector3d boxMin(1e10,1e10,1e10);
+  Vector3d boxMax(-1e10,-1e10,-1e10);
+  for (auto &end: ends)
+  {
+    boxMin = minVector(boxMin, end);
+    boxMax = maxVector(boxMax, end);
+  }
+  
+  vector<Ellipsoid> ellipsoids(ends.size());
+  generateEllipsoids(ellipsoids);
+
+  cout << "created normals and spheres" << endl;
+
+  Grid<Ellipsoid *> grid(boxMin, boxMax, voxelWidth);
+  fillGrid(grid, ellipsoids);
+
+  cout << "grid is populated" << endl;
+
+  // now walk every ray through the grid and mark if transient
+  markIntersectedEllipsoids(grid, timeDelta);
 
   cout << "generating two clouds from flags" << endl;
   // Lastly, generate the new ray clouds from this sphere information
-  for (int i = 0; i<(int)spheres.size(); i++)
+  for (int i = 0; i<(int)ellipsoids.size(); i++)
   {
-    if (spheres[i].transient)
+    if (ellipsoids[i].transient)
     {
       transient.starts.push_back(starts[i]);
       transient.ends.push_back(ends[i]);
@@ -363,6 +363,61 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
       fixed.starts.push_back(starts[i]);
       fixed.ends.push_back(ends[i]);
       fixed.times.push_back(times[i]);
+    }
+  }
+}
+
+void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences)
+{
+  Vector3d boxMin(1e10,1e10,1e10);
+  Vector3d boxMax(-1e10,-1e10,-1e10);
+  for (auto &cloud: clouds)
+  {
+    for (auto &end: cloud.ends)
+    {
+      boxMin = minVector(boxMin, end);
+      boxMax = maxVector(boxMax, end);
+    }
+  }
+  // now for each cloud, look for other clouds that penetrate it
+  for (int c = 0; c<(int)clouds.size(); c++)
+  {
+    Cloud &cloud = clouds[c];
+  
+    // first generate all ellipsoids and grids containing them, for each cloud
+    vector<Ellipsoid> ellipsoids;
+    ellipsoids.resize(cloud.ends.size());
+    cout << "generating ellipsoids" << endl;
+    cloud.generateEllipsoids(ellipsoids);
+    cout << "generating grid" << endl;
+    Grid<Ellipsoid *> grid(boxMin, boxMax, voxelWidth);
+    cout << "filling grid" << endl;
+    fillGrid(grid, ellipsoids);
+    
+    for (int d = 0; d<(int)clouds.size(); d++)
+    {
+      if (d==c)
+        continue;
+      Cloud &other = clouds[d];
+      cout << "marking intersected ellipsoids" << endl;
+      other.markIntersectedEllipsoids(grid, 0.0);
+    }
+
+    cout << "filling in ray cloud file" << endl;
+    for (int i = 0; i<(int)cloud.ends.size(); i++)
+    {
+      if (ellipsoids[i].transient)
+      {
+        differences.starts.push_back(cloud.starts[i]);
+        differences.ends.push_back(cloud.ends[i]);
+        differences.times.push_back(cloud.times[i]);
+      }
+      else
+      {
+        starts.push_back(cloud.starts[i]);
+        ends.push_back(cloud.ends[i]);
+        times.push_back(cloud.times[i]);
+      }
     }
   }
 }

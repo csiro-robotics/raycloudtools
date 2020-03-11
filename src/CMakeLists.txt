@@ -36,6 +36,7 @@ set(TARGETS
 	rayrotate
   raysplit
   raytransients
+  raycombine
 )
 foreach(TARGET ${TARGETS})
 	add_executable(${TARGET} ${TARGET}.cpp)
