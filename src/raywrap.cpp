@@ -1,6 +1,8 @@
-/* (c) Copyright CSIRO 2013. Author: Thomas Lowe
-   This software is provided under the terms of Schedule 1 of the license agreement between CSIRO, 3DLM and GeoSLAM.
-*/
+// Copyright (c) 2020
+// Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+// ABN 41 687 119 230
+//
+// Author: Thomas Lowe
 #include <stdio.h>
 #include <fstream>
 #include <stdlib.h>
