@@ -267,7 +267,7 @@ void fillGrid(Grid<Ellipsoid *> &grid, vector<Ellipsoid> &ellipsoids)
           grid.cell(x,y,z).data.push_back(&ellipsoid);
   }
 }
-static int scount = 0;
+
 void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta, bool maximal)
 {
   for (int i = 0; i<(int)ends.size(); i++)
@@ -346,7 +346,7 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta,
 
 static double voxelWidth = 0.25;
 
-void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
+void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta, bool maximal)
 {
   cout << "find transients" << endl;
   Vector3d boxMin(1e10,1e10,1e10);
@@ -368,17 +368,18 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
   cout << "grid is populated" << endl;
 
   // now walk every ray through the grid and mark if transient
-  markIntersectedEllipsoids(grid, timeDelta);
+  markIntersectedEllipsoids(grid, timeDelta, maximal);
 
   cout << "generating two clouds from flags" << endl;
+
   // Lastly, generate the new ray clouds from this sphere information
   for (int i = 0; i<(int)ellipsoids.size(); i++)
   {
-    if (ellipsoids[i].transient)
+    if ((maximal && times[i] < 0.0) || (!maximal && ellipsoids[i].transient))
     {
       transient.starts.push_back(starts[i]);
       transient.ends.push_back(ends[i]);
-      transient.times.push_back(times[i]);
+      transient.times.push_back(abs(times[i]));
     }
     else
     {
