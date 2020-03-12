@@ -12,38 +12,30 @@ using namespace RAY;
 
 void usage(bool error=false)
 {
-  cout << "Combines multiple ray clouds as a union of the volumes. Outputs the combined cloud and the residual cloud of differences." << endl;
+  cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to the merge type specified." << endl;
+  cout << "Outputs the combined cloud and the residual cloud of differences." << endl;
   cout << "usage:" << endl;
-  cout << "raycombine raycloud1 raycloud2 ... raycloudN - combines into one cloud" << endl;
-  cout << "                               --intersect - combines as an intersection rather than union." << endl;
-  cout << "                               --concat    - combines as a simple concatenation, with all rays remaining." << endl;
+  cout << "raycombine min raycloud1 raycloud2 ... raycloudN - combines into one cloud with minimal objects at differences" << endl;
+  cout << "           max    - maximal objects included. This is a form of volume intersection (rather than min: union)." << endl;
+  cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << endl;
+  cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << endl;
+  cout << "           all    - combines as a simple concatenation, with all rays remaining." << endl;
   exit(error);
 }
 
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc < 2)
+  if (argc < 3)
     usage();
   vector<string> files;
   int numFiles = argc-1;
-  bool maximal = false;
-  bool concatenate = false;
-  if (string(argv[argc-1]) == "--intersect" || string(argv[argc-1]) == "-i")
+  string mergeType = argv[1];
+  bool concatenate = mergeType == "all";
+
+  for (int i = 2; i<argc; i++)
   {
-    numFiles--;
-    maximal = true;
-  }
-  else if (string(argv[argc-1]) == "--concatenate" || string(argv[argc-1]) == "--concat" || string(argv[argc-1]) == "-c")
-  {
-    numFiles--;
-    concatenate = true;
-  }
-  if (numFiles < 2)
-    usage();
-  for (int i = 0; i<numFiles; i++)
-  {
-    files.push_back(string(argv[i+1]));
+    files.push_back(string(argv[i]));
     ifstream f(files.back().c_str());
     if (!f.good())
     {
@@ -73,7 +65,7 @@ int main(int argc, char *argv[])
   else
   {
     Cloud differences;
-    combined.combine(clouds, differences, maximal);
+    combined.combine(clouds, differences, mergeType);
     differences.save(fileStub + "_differences.ply");
   }
   combined.save(fileStub + "_combined.ply");

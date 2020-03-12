@@ -60,9 +60,9 @@ struct Cloud
   void decimate(double voxelWidth);
 
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
-  void findTransients(Cloud &transient, Cloud &fixed, double timeDelta, bool maximal);
-  void combine(std::vector<Cloud> &clouds, Cloud &differences, bool maximal);
-  void markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta, bool maximal = false);
+  void findTransients(Cloud &transient, Cloud &fixed, double timeDelta, const std::string &mergeType);
+  void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType);
+  void markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta, const std::string &mergeType);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
 
 protected:  

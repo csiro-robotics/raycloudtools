@@ -14,37 +14,32 @@ void usage(bool error=false)
 {
   cout << "Splits a raycloud into the transient rays and the fixed part" << endl;
   cout << "usage:" << endl;
-  cout << "raytransients raycloud 3 s - splits out transient points more than 3 seconds apart from the crossing rays" << endl;
-  cout << "              --intersect  - intersection rather than union, this removes negative transients, like " << endl;
-  cout << "                             hallways that are temporarily exposed when a door opens. " << endl;
+  cout << "raytransients min raycloud 3 s - splits out transient points more than 3 seconds apart from the crossing rays" << endl;
+  cout << "              max    - finds negative transients, such as a hallway exposed when a door opens." << endl;
+  cout << "              oldest - keeps the oldest geometry when there is a difference over time." << endl;
+  cout << "              newest - uses the newest geometry when there is a difference over time." << endl;
   exit(error);
 }
 
-// Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc != 4 && argc != 5)
+  if (argc != 5)
     usage();
 
-  if (string(argv[3]) != "s")
+  if (string(argv[4]) != "s")
     usage();
-  bool maximal = false;
-  if (argc == 5)
-  {
-    if (string(argv[4]) != "--intersect" && string(argv[4]) != "-i")
-      usage();
-    maximal = true;
-  }
-
-  string file = argv[1];
+  string mergeType = argv[1];
+  if (mergeType != "min" && mergeType != "max" && mergeType != "oldest" && mergeType != "newest")
+    usage();
+  string file = argv[2];
   Cloud cloud;
   cloud.load(file);
 
-  double timeDelta = stod(argv[2]);
+  double timeDelta = stod(argv[3]);
 
   Cloud transient;
   Cloud fixed;
-  cloud.findTransients(transient, fixed, timeDelta, maximal);
+  cloud.findTransients(transient, fixed, timeDelta, mergeType);
 
   string fileStub = file;
   if (file.substr(file.length()-4)==".ply")
