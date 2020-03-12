@@ -57,7 +57,7 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
       Vector3d normal = normals[i];
       Matrix3d scatter = normal * normal.transpose();
      
-      for (int j = 0; j<numNeighbors; ++j)
+      for (int j = 0; j<numNeighbors && indices(j,i)>-1; ++j)
       {
         int k = indices(j, i);
         double d = 1.0 - (normals[k].dot(normal));
@@ -96,7 +96,7 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
     {
       double totalDistance = 0;
       double totalWeight = 1.0;
-      for (j=0; j<numNeighbors; ++j)
+      for (j=0; j<numNeighbors && indices(j,i)>-1; ++j)
       {
         k = indices(j,i);
         if (normal.dot(normals[k]) < cos(45./180. * pi))

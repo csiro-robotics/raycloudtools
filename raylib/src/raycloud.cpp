@@ -167,10 +167,14 @@ vector<Vector3d> Cloud::generateNormals(int searchSize)
     Matrix3d scatter;
     scatter.setZero();
     Vector3d average(0,0,0);
-    for (int j = 0; j<searchSize; j++)
+    double numNeighbours = 0;
+    for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
+    {
       average += ends[indices(j, i)];
-    average /= double(searchSize);
-    for (int j = 0; j<searchSize; j++)
+      numNeighbours++;
+    }
+    average /= numNeighbours;
+    for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
     {
       Vector3d offset = ends[indices(j,i)] - average;
       scatter += offset * offset.transpose();
@@ -213,15 +217,19 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     Matrix3d scatter;
     scatter.setZero();
     Vector3d centroid(0,0,0);
-    for (int j = 0; j<searchSize; j++)
+    double numNeighbours = 0.0;
+    for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
+    {
       centroid += ends[indices(j, i)];
-    centroid /= double(searchSize);
-    for (int j = 0; j<searchSize; j++)
+      numNeighbours++;
+    }
+    centroid /= numNeighbours;
+    for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
     {
       Vector3d offset = ends[indices(j,i)] - centroid;
       scatter += offset * offset.transpose();
     }
-    scatter /= (double)searchSize;
+    scatter /= numNeighbours;
 
     SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
     ASSERT(eigenSolver.info() == Success); 
@@ -259,11 +267,13 @@ void fillGrid(Grid<Ellipsoid *> &grid, vector<Ellipsoid> &ellipsoids)
           grid.cell(x,y,z).data.push_back(&ellipsoid);
   }
 }
-
-void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta)
+static int scount = 0;
+void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta, bool maximal)
 {
   for (int i = 0; i<(int)ends.size(); i++)
   {
+    if (times[i] < 0.0)
+      continue;
     Vector3d dir = ends[i] - starts[i];
     Vector3d dirSign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Vector3d start = (starts[i] - grid.boxMin)/grid.voxelWidth;
@@ -273,6 +283,7 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta)
     for (;;)
     {
       auto &ellipsoids = grid.cell(index[0], index[1], index[2]).data;
+      bool found = false;
       for (int j = (int)ellipsoids.size()-1; j>=0; j--)
       {
         Ellipsoid *ellipsoid = ellipsoids[j];
@@ -300,12 +311,23 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta)
         double dist2 = (to - ray*d).squaredNorm();
         if (d>0.0 && d<0.90 && dist2<1.0) // I require the ray to get half way into the sphere to consider it transient
         {
-          ellipsoid->transient = true;
-          // remove it from the list, for speed.
-          ellipsoids[j] = ellipsoids.back();
-          ellipsoids.pop_back();
+          if (maximal)
+          {
+            times[i] = -abs(times[i]); // signal to remove this ray
+            found = true;
+            break; // we're just removing the ray at the moment, not cropping it, so we can break here
+          }
+          else
+          {
+            ellipsoid->transient = true;
+            // remove it from the list, for speed.
+            ellipsoids[j] = ellipsoids.back();
+            ellipsoids.pop_back();
+          }
         }
       }
+      if (found)
+        break;
       if (index == endIndex)
         break;
       Vector3d mid = grid.boxMin + grid.voxelWidth*Vector3d(index[0]+0.5, index[1]+0.5, index[2]+0.5);
@@ -367,7 +389,7 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta)
   }
 }
 
-void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences)
+void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, bool maximal)
 {
   Vector3d boxMin(1e10,1e10,1e10);
   Vector3d boxMax(-1e10,-1e10,-1e10);
@@ -389,9 +411,7 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences)
     ellipsoids.resize(cloud.ends.size());
     cout << "generating ellipsoids" << endl;
     cloud.generateEllipsoids(ellipsoids);
-    cout << "generating grid" << endl;
     Grid<Ellipsoid *> grid(boxMin, boxMax, voxelWidth);
-    cout << "filling grid" << endl;
     fillGrid(grid, ellipsoids);
     
     for (int d = 0; d<(int)clouds.size(); d++)
@@ -400,24 +420,57 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences)
         continue;
       Cloud &other = clouds[d];
       cout << "marking intersected ellipsoids" << endl;
-      other.markIntersectedEllipsoids(grid, 0.0);
+      other.markIntersectedEllipsoids(grid, 0.0, maximal);
     }
 
-    cout << "filling in ray cloud file" << endl;
-    for (int i = 0; i<(int)cloud.ends.size(); i++)
+    if (!maximal)
     {
-      if (ellipsoids[i].transient)
+      int t = 0;
+      int f = 0;
+      for (int i = 0; i<(int)cloud.ends.size(); i++)
       {
-        differences.starts.push_back(cloud.starts[i]);
-        differences.ends.push_back(cloud.ends[i]);
-        differences.times.push_back(cloud.times[i]);
+        if (ellipsoids[i].transient)
+        {
+          t++;
+          differences.starts.push_back(cloud.starts[i]);
+          differences.ends.push_back(cloud.ends[i]);
+          differences.times.push_back(cloud.times[i]);
+        }
+        else
+        {
+          f++;
+          starts.push_back(cloud.starts[i]);
+          ends.push_back(cloud.ends[i]);
+          times.push_back(cloud.times[i]);
+        }
       }
-      else
+      cout << t << " transients, " << f << " fixed rays." << endl;
+    }
+  }
+  if (maximal)
+  {
+    for (auto &cloud: clouds)
+    {
+      int t = 0;
+      int f = 0;
+      for (int i = 0; i<(int)cloud.ends.size(); i++)
       {
-        starts.push_back(cloud.starts[i]);
-        ends.push_back(cloud.ends[i]);
-        times.push_back(cloud.times[i]);
-      }
+        if (cloud.times[i] < 0.0)
+        {
+          t++;
+          differences.starts.push_back(cloud.starts[i]);
+          differences.ends.push_back(cloud.ends[i]);
+          differences.times.push_back(-cloud.times[i]);
+        }
+        else
+        {
+          f++;
+          starts.push_back(cloud.starts[i]);
+          ends.push_back(cloud.ends[i]);
+          times.push_back(cloud.times[i]);
+        }
+      }      
+      cout << t << " transients, " << f << " fixed rays." << endl;
     }
   }
 }

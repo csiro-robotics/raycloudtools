@@ -21,13 +21,21 @@ void usage(bool error=false)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc < 3)
+  if (argc < 2)
     usage();
-
   vector<string> files;
-  for (int i = 1; i<argc; i++)
+  int numFiles = argc-1;
+  bool maximal = false;
+  if (string(argv[argc-1]) == "--max" || string(argv[argc-1]) == "-m")
   {
-    files.push_back(string(argv[i]));
+    numFiles--;
+    maximal = true;
+  }
+  if (numFiles < 2)
+    usage();
+  for (int i = 0; i<numFiles; i++)
+  {
+    files.push_back(string(argv[i+1]));
     ifstream f(files.back().c_str());
     if (!f.good())
     {
@@ -42,7 +50,7 @@ int main(int argc, char *argv[])
 
   Cloud combined;
   Cloud differences;
-  combined.combine(clouds, differences);
+  combined.combine(clouds, differences, maximal);
 
   string fileStub = files[0];
   if (fileStub.substr(fileStub.length()-4)==".ply")
