@@ -119,7 +119,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
         for (int z = (int)triMin[2]; z<=(int)triMax[2]; z++)
         {
           if (tri.intersectsCube(boxMin + voxelWidth*Vector3d(x,y,z), voxelWidth))
-            grid.cell(x,y,z).data.push_back(&tri);
+            grid.insert(x,y,z, &tri);
         }
       }
     }

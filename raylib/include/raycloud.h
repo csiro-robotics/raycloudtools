@@ -7,6 +7,7 @@
 #include "rayutils.h"
 #include "raypose.h"
 #include "raytrajectory.h"
+#include "raygrid.h"
 
 namespace RAY
 {
@@ -17,37 +18,6 @@ struct Ellipsoid
   double time;
   double size;
   bool transient;
-};
-
-template<class T> 
-struct Grid
-{
-  Grid(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth)
-  {
-    this->boxMin = boxMin;
-    this->boxMax = boxMax;
-    this->voxelWidth = voxelWidth;
-    Eigen::Vector3d diff = (boxMax - boxMin)/voxelWidth;
-    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil(diff[2]));   
-    cells.resize(dims[0]*dims[1]*dims[2]);
-  }
-  struct Cell
-  {
-    std::vector<T> data;
-  };
-  Cell &cell(int x, int y, int z)
-  {
-    if (x<0 || x>=dims[0] || y<0 || y>= dims[1] || z<0 || z>=dims[2])
-      return nullCell;
-    return cells[x + dims[0]*y + dims[0]*dims[1]*z];
-  }
-
-  Eigen::Vector3d boxMin, boxMax;
-  double voxelWidth;
-  Eigen::Vector3i dims;
-protected:
-  std::vector<Cell> cells;
-  Cell nullCell;
 };
 
 struct Cloud

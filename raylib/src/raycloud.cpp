@@ -269,14 +269,14 @@ void fillGrid(Grid<Ellipsoid *> &grid, vector<Ellipsoid> &ellipsoids)
     for (int x = (int)bMin[0]; x<=(int)bMax[0]; x++)
       for (int y = (int)bMin[1]; y<=(int)bMax[1]; y++)
         for (int z = (int)bMin[2]; z<=(int)bMax[2]; z++)
-          grid.cell(x,y,z).data.push_back(&ellipsoid);
+          grid.insert(x,y,z, &ellipsoid);
   }
+  grid.report();
 }
 
 void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta, const string &mergeType)
 {
   int type = mergeType == "oldest" ? 0 : (mergeType == "newest" ? 1 : (mergeType == "min" ? 2 : 3));
-  cout << "type: " << type << endl;
   for (int i = 0; i<(int)ends.size(); i++)
   {
 //    if (times[i] < 0.0)
