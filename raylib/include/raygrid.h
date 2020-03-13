@@ -5,7 +5,7 @@
 // Author: Thomas Lowe
 #pragma once
 #include "rayutils.h"
-//#define HASH_LOOKUP
+#define HASH_LOOKUP
 
 namespace RAY
 {
@@ -119,6 +119,8 @@ struct Grid
   }
   inline void insert(int x, int y, int z, const T &value)
   {
+    if (x<0 || x>=dims[0] || y<0 || y>= dims[1] || z<0 || z>=dims[2])
+      std::cout << "warning: bad input coordinates: " << x << ", " << y << ", " << z << std::endl;
     cell(x, y, z).data.push_back(value);
   }
   void report()

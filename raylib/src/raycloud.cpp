@@ -266,9 +266,11 @@ void fillGrid(Grid<Ellipsoid *> &grid, vector<Ellipsoid> &ellipsoids)
     Vector3d rad(radius,radius,radius);
     Vector3d bMin = (ellipsoid.pos - rad - grid.boxMin)/grid.voxelWidth;
     Vector3d bMax = (ellipsoid.pos + rad - grid.boxMin)/grid.voxelWidth;
-    for (int x = (int)bMin[0]; x<=(int)bMax[0]; x++)
-      for (int y = (int)bMin[1]; y<=(int)bMax[1]; y++)
-        for (int z = (int)bMin[2]; z<=(int)bMax[2]; z++)
+    Vector3i bmin = maxVector(Vector3i(0,0,0), Vector3i(bMin[0], bMin[1], bMin[2]));
+    Vector3i bmax = minVector(Vector3i(bMax[0], bMax[1], bMax[2]), Vector3i(grid.dims[0]-1, grid.dims[1]-1, grid.dims[2]-1));
+    for (int x = bmin[0]; x<=bmax[0]; x++)
+      for (int y = bmin[1]; y<=bmax[1]; y++)
+        for (int z = bmin[2]; z<=bmax[2]; z++)
           grid.insert(x,y,z, &ellipsoid);
   }
   grid.report();
