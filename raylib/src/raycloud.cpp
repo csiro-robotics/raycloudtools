@@ -279,8 +279,8 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta,
   cout << "type: " << type << endl;
   for (int i = 0; i<(int)ends.size(); i++)
   {
-    if (times[i] < 0.0)
-      continue;
+//    if (times[i] < 0.0)
+//      continue;
     Vector3d dir = ends[i] - starts[i];
     Vector3d dirSign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Vector3d start = (starts[i] - grid.boxMin)/grid.voxelWidth;
