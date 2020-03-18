@@ -31,6 +31,11 @@ struct Covariance
   double score;
 };
 
+double crossCorrelate(const vector<double> &p1, const vector<double> &p2)
+{
+  return 0.0;
+}
+
 /*
 void getClosestVectors(vector<Vector)
 {
@@ -302,7 +307,7 @@ int main(int argc, char *argv[])
       for (int i = 0; i<(int)shapes1.size(); i++)
         shapes1[i] = list1[i].pos;
       vector<Covariance> &list2 = t==0 ? floorLists[c] : cornerLists[c];
-      vector<Vector4d> shapes2(list2.size());
+      vector<Vector3d> shapes2(list2.size());
       for (int i = 0; i<(int)shapes2.size(); i++)
         shapes2[i] = list2[i].pos;
       
@@ -331,7 +336,7 @@ int main(int argc, char *argv[])
   Vector3d bestTranslation(0,0,0);
   double bestRotation = 0.0;
 
-  for (auto &pair: wallPairs[a])
+  for (auto &pair: wallPairs)
   {
     Vector3d translation = wallLists[a][pair[0]].pos - wallLists[b][pair[0]].pos;
     Vector3d norm1 = wallLists[a][pair[0]].vectors[0];
@@ -352,7 +357,7 @@ int main(int argc, char *argv[])
         for (int j = 0; j<neighbourSize && nearestFloors(j,i)>-1; j++)
         {
           int id = nearestFloors(j,i);  
-          points[c] = floorLists[c][id].pos[2];
+          points[c].push_back(floorLists[c][id].pos[2]);
         } 
       }
       double heightOffset = crossCorrelate(points[0], points[1]);
@@ -373,12 +378,12 @@ int main(int argc, char *argv[])
         for (int j = 0; j<neighbourSize && nearestCorners(j,i)>-1; j++)
         {
           int id = nearestCorners(j,i);  
-          points[c] = cornerLists[c][id].pos.dot(sides[l]);
+          points[c].push_back(cornerLists[c][id].pos.dot(sides[l]));
         } 
       }
       double sideOffset = crossCorrelate(points[0], points[1]);
-      cout << "height offset: " << heightOffset << endl;
-      translation[2] += sideOffset*sides[0];
+      cout << "side offset: " << sideOffset << endl;
+      translation += sideOffset*sides[0];
     }
 
     // now rotate all the corners by the transform, and get a metric of how close they are, using closest points again!
@@ -391,8 +396,8 @@ int main(int argc, char *argv[])
     for (unsigned int i = 0; i<list1Size; i++)
       pointsQ.col(i) = cornerLists[a][i].pos;
     int list2Size = cornerLists[b].size();
-    MatrixXd pointsP(3, list2Size.size());
-    for (unsigned int i = 0; i<list2Size.size(); i++)
+    MatrixXd pointsP(3, list2Size);
+    for (unsigned int i = 0; i<list2Size; i++)
       pointsP.col(i) = cornerLists[b][i].pos; // transform!
 //    nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 4);
     nns = Nabo::NNSearchD::createBruteForce(pointsP, 3); // supposedly better for finding just the one closest neighbour
@@ -415,7 +420,7 @@ int main(int argc, char *argv[])
   }
 
   // finally, apply the transformation to the correct ray cloud and save it out. 
-  Cloud newCloud = clouds[0];
+/*  Cloud newCloud = clouds[0];
   Pose pose(bestTranslation, Quaterniond(AngleAxisd(bestRotation, Vector3d(0,0,1))));
   newCloud.transform(pose, 0.0);
 
@@ -423,6 +428,6 @@ int main(int argc, char *argv[])
   if (fileStub.substr(fileStub.length()-4)==".ply")
     fileStub = fileStub.substr(0,fileStub.length()-4);
   newCloud.save(fileStub + "_aligned.ply");  
-
+*/
   return true;
 }
