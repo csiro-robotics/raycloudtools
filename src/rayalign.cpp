@@ -351,8 +351,6 @@ int main(int argc, char *argv[])
     }
 
     // now rotate all the corners by the transform, and get a metric of how close they are, using closest points again!
-
-
     int list1Size = cornerLists[a].size();
     MatrixXd pointsQ(3, list1Size);
     for (unsigned int i = 0; i<list1Size; i++)
@@ -376,14 +374,14 @@ int main(int argc, char *argv[])
   }
 
   // finally, apply the transformation to the correct ray cloud and save it out. 
-/*  Cloud newCloud = clouds[0];
+  Cloud newCloud = cloud[0];
   Pose pose(bestTranslation, Quaterniond(AngleAxisd(bestRotation, Vector3d(0,0,1))));
   newCloud.transform(pose, 0.0);
 
-  string fileStub = files[0];
+  string fileStub = fileA;
   if (fileStub.substr(fileStub.length()-4)==".ply")
     fileStub = fileStub.substr(0,fileStub.length()-4);
   newCloud.save(fileStub + "_aligned.ply");  
-*/
+
   return true;
 }
