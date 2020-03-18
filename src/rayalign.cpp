@@ -36,26 +36,20 @@ double crossCorrelate(const vector<double> &p1, const vector<double> &p2)
   return 0.0;
 }
 
-/*
-void getClosestVectors(vector<Vector)
+
+void getClosestVectors(const MatrixXd &pointsQ, const MatrixXd &pointsP, MatrixXi &indices, MatrixXd &dist2, int maxNeighbours, double maxDistance)
 {
   Nabo::NNSearchD *nns;
   Nabo::Parameters params("bucketSize", 8);
-  MatrixXd pointsQ(3, shapes1.size());
-  for (unsigned int i = 0; i<shapes1.size(); i++)
-    pointsQ.col(i) = shapes1[i];
-  MatrixXd pointsP(3, shapes2.size());
-  for (unsigned int i = 0; i<shapes2.size(); i++)
-    pointsP.col(i) = shapes2[i];
-  nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);
-
-  // Run the search
-  MatrixXd dists2;
-  indices[t][c].resize(neighbourSize, shapes1.size());
-  dists2.resize(neighbourSize, shapes1.size());
-  nns->knn(pointsQ, indices[t][c], dists2, neighbourSize, 0.01, Nabo::NNSearchD::SORT_RESULTS, 10.0);
+  if (maxNeighbours == 1)
+    nns = Nabo::NNSearchD::createBruteForce(pointsP, pointsQ.rows());
+  else
+    nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, pointsQ.rows());
+  indices.resize(maxNeighbours, pointsQ.cols());
+  dist2.resize(maxNeighbours, pointsQ.cols());
+  nns->knn(pointsQ, indices, dist2, maxNeighbours, 0.01, Nabo::NNSearchD::SORT_RESULTS, maxDistance);
   delete nns;
-}*/
+}
 
 
 int main(int argc, char *argv[])
@@ -222,42 +216,27 @@ int main(int argc, char *argv[])
     // well, we could make it the distance at the top of the ellipsoid... so in the same space... OK.
 
     vector<Covariance> &list1 = wallLists[a];
-    vector<Vector4d> shapes1(list1.size());
-    for (int i = 0; i<(int)shapes1.size(); i++)
+    vector<Covariance> &list2 = wallLists[b];
+
+    int searchSize = 1;
+    MatrixXd pointsQ(4, list1.size());
+    for (unsigned int i = 0; i<list1.size(); i++)
     {
       double tiltDistance = abs(list1[i].vectors[0][2])*list1[i].values.norm();
-      shapes1[i] = Vector4d(list1[i].values[0], list1[i].values[1], list1[i].values[2], tiltDistance);
+      pointsQ.col(i) = Vector4d(list1[i].values[0], list1[i].values[1], list1[i].values[2], tiltDistance);
     }
-    vector<Covariance> &list2 = wallLists[b];
-    vector<Vector4d> shapes2(list2.size());
-    for (int i = 0; i<(int)shapes2.size(); i++)
+    MatrixXd pointsP(4, list2.size());
+    for (unsigned int i = 0; i<list2.size(); i++)
     {
       double tiltDistance = abs(list2[i].vectors[0][2])*list2[i].values.norm();
-      shapes2[i] = Vector4d(list2[i].values[0], list2[i].values[1], list2[i].values[2], tiltDistance);
+      pointsP.col(i) = Vector4d(list2[i].values[0], list2[i].values[1], list2[i].values[2], tiltDistance);
     }
-    
-    int searchSize = 1;
-    Nabo::NNSearchD *nns;
-    Nabo::Parameters params("bucketSize", 8);
-    MatrixXd pointsQ(4, shapes1.size());
-    for (unsigned int i = 0; i<shapes1.size(); i++)
-      pointsQ.col(i) = shapes1[i];
-    MatrixXd pointsP(4, shapes2.size());
-    for (unsigned int i = 0; i<shapes2.size(); i++)
-      pointsP.col(i) = shapes2[i];
-//    nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 4);
-    nns = Nabo::NNSearchD::createBruteForce(pointsP, 4); // supposedly better for finding just the one closest neighbour
-
-    // Run the search
     MatrixXi indices;
-    MatrixXd dists2;
-    indices.resize(searchSize, shapes1.size());
-    dists2.resize(searchSize, shapes1.size());
-    nns->knn(pointsQ, indices, dists2, searchSize, 0.01, Nabo::NNSearchD::SORT_RESULTS, 1.0);
-    delete nns;
+    MatrixXd dist2;
+    getClosestVectors(pointsQ, pointsP, indices, dist2, 1, 1.0);
 
     // now we need to iterate through to see matching pairs
-    for (unsigned int i = 0; i<shapes1.size(); i++)
+    for (unsigned int i = 0; i<list1.size(); i++)
     {
       vector<Vector3d> centres(2), radii(2);
       vector<Matrix3d> mats(2);
@@ -283,7 +262,7 @@ int main(int argc, char *argv[])
 
         // here's where we now use the floor and corners to guide us...
         // first we need to get the closest floor ellipsoids to each wall ellipsoid.
-        wallPairs.push_back(Vector3i(i, id, 10000.0*(shapes2[id]-shapes1[i]).norm()));
+        wallPairs.push_back(Vector3i(i, id, 10000.0*sqrt(dist2(0,i))));
       }
   //    cin.get();
     }
@@ -303,31 +282,16 @@ int main(int argc, char *argv[])
     {
       int c = l==0 ? a : b;
       vector<Covariance> &list1 = wallLists[c];
-      vector<Vector3d> shapes1(list1.size());
-      for (int i = 0; i<(int)shapes1.size(); i++)
-        shapes1[i] = list1[i].pos;
       vector<Covariance> &list2 = t==0 ? floorLists[c] : cornerLists[c];
-      vector<Vector3d> shapes2(list2.size());
-      for (int i = 0; i<(int)shapes2.size(); i++)
-        shapes2[i] = list2[i].pos;
-      
-//      getClosestVectors(shapes1, shapes2, indices[t][c], neighbourSize, 10.0);
-      Nabo::NNSearchD *nns;
-      Nabo::Parameters params("bucketSize", 8);
-      MatrixXd pointsQ(3, shapes1.size());
-      for (unsigned int i = 0; i<shapes1.size(); i++)
-        pointsQ.col(i) = shapes1[i];
-      MatrixXd pointsP(3, shapes2.size());
-      for (unsigned int i = 0; i<shapes2.size(); i++)
-        pointsP.col(i) = shapes2[i];
-      nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);
+      MatrixXd pointsQ(3, list1.size());
+      for (unsigned int i = 0; i<list1.size(); i++)
+        pointsQ.col(i) = list1[i].pos;
+      MatrixXd pointsP(3, list2.size());
+      for (unsigned int i = 0; i<list2.size(); i++)
+        pointsP.col(i) = list2[i].pos;
 
-      // Run the search
-      MatrixXd dists2;
-      indices[t][c].resize(neighbourSize, shapes1.size());
-      dists2.resize(neighbourSize, shapes1.size());
-      nns->knn(pointsQ, indices[t][c], dists2, neighbourSize, 0.01, Nabo::NNSearchD::SORT_RESULTS, 10.0);
-      delete nns;
+      MatrixXd dist2;
+      getClosestVectors(pointsQ, pointsP, indices[t][c], dist2, neighbourSize, 10.0);
     }    
   }
 
@@ -388,9 +352,7 @@ int main(int argc, char *argv[])
 
     // now rotate all the corners by the transform, and get a metric of how close they are, using closest points again!
 
-    int searchSize = 1;
-    Nabo::NNSearchD *nns;
-    Nabo::Parameters params("bucketSize", 8);
+
     int list1Size = cornerLists[a].size();
     MatrixXd pointsQ(3, list1Size);
     for (unsigned int i = 0; i<list1Size; i++)
@@ -399,15 +361,9 @@ int main(int argc, char *argv[])
     MatrixXd pointsP(3, list2Size);
     for (unsigned int i = 0; i<list2Size; i++)
       pointsP.col(i) = cornerLists[b][i].pos; // transform!
-//    nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 4);
-    nns = Nabo::NNSearchD::createBruteForce(pointsP, 3); // supposedly better for finding just the one closest neighbour
-
     MatrixXi indices;
     MatrixXd dists2;
-    indices.resize(searchSize, list1Size);
-    dists2.resize(searchSize, list1Size);
-    nns->knn(pointsQ, indices, dists2, searchSize, 0.01, Nabo::NNSearchD::SORT_RESULTS, 1.0);
-    delete nns;
+    getClosestVectors(pointsQ, pointsP, indices, dists2, 1, 1.0);
     double proximity = 0.0;
     for (int i = 0; i<list1Size; i++)
       if (indices(0,i)>-1)
