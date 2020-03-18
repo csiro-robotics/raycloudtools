@@ -2,9 +2,14 @@ if (!MSVC)
 add_compile_options(-Wno-deprecated -Wno-write-strings -Wno-unused-result)
 endif()
 add_definitions(-DNDEBUG )
-include_directories(../raylib/include)
+find_package(catkin REQUIRED COMPONENTS
+roscpp
+message_generation
+std_msgs
+)
 find_package(libLAS REQUIRED)
 find_package(libnabo REQUIRED)
+include_directories(../raylib/include ${catkin_INCLUDE_DIRS})
 
 # qhull
 find_path(TRAVERSIBILITY_QHULL_INCLUDE_DIR libqhullcpp/Qhull.h)
@@ -25,6 +30,7 @@ SET(qhullLibs qhullcpp qhull_r)
 
 
 set(TARGETS
+  rayalign
 	raycreate
 	raydenoise
 	raysmooth
@@ -43,7 +49,7 @@ foreach(TARGET ${TARGETS})
 endforeach(TARGET)
 
 foreach(TARGET ${TARGETS})
-	target_link_libraries(${TARGET} raylib ${libLAS_LIBRARIES} ${libnabo_LIBRARIES} ${qhullLibs})
+	target_link_libraries(${TARGET} raylib ${catkin_LIBRARIES} ${libLAS_LIBRARIES} ${libnabo_LIBRARIES} ${qhullLibs})
 	set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../bin)
 	set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME ${TARGET})
 	install(TARGETS ${TARGET} RUNTIME DESTINATION bin)

@@ -14,6 +14,11 @@ file(GLOB_RECURSE INCLUDE_FILES
 )
 
 add_compile_options(-std=c++11 -Wall -g)
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  message_generation
+  std_msgs
+)
 find_package(Eigen3 REQUIRED)
 find_package(libLAS REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -31,13 +36,14 @@ target_include_directories(raylib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/raylib/include>
   $<INSTALL_INTERFACE:include/raylib>
   ${EIGEN3_INCLUDE_DIR}
+  ${catkin_INCLUDE_DIRS}
 )
 set_target_properties(raylib PROPERTIES
 	ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib
 	LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib
 	RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib
 )
-
+target_link_libraries(raylib ${catkin_LIBRARIES})
 if(MSVC)
    target_compile_options(raylib PRIVATE /Zi)
 

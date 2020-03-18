@@ -34,6 +34,7 @@ struct Cloud
   void transform(const Pose &pose, double timeDelta);
   void decimate(double voxelWidth);
 
+ // std::vector<Ellipsoid> generateEllipsoids(int searchSize = 16);
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
   void findTransients(Cloud &transient, Cloud &fixed, double timeDelta, const std::string &mergeType);
   void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType);
