@@ -33,12 +33,14 @@ struct Covariance
 
 double crossCorrelate(const vector<double> &p1, const vector<double> &p2)
 {
-  return 0.0;
+  // I'll do least squares for now, then later do reweighted least squares for better robustness
+  return mean(p2) - mean(p1);
 }
 
 
 void getClosestVectors(const MatrixXd &pointsQ, const MatrixXd &pointsP, MatrixXi &indices, MatrixXd &dist2, int maxNeighbours, double maxDistance)
 {
+  cout << "get closest vectors. Vector length: " << pointsQ.rows() << ", number of points: " << pointsQ.cols() << endl;
   Nabo::NNSearchD *nns;
   Nabo::Parameters params("bucketSize", 8);
   if (maxNeighbours == 1)
@@ -49,6 +51,7 @@ void getClosestVectors(const MatrixXd &pointsQ, const MatrixXd &pointsP, MatrixX
   dist2.resize(maxNeighbours, pointsQ.cols());
   nns->knn(pointsQ, indices, dist2, maxNeighbours, 0.01, Nabo::NNSearchD::SORT_RESULTS, maxDistance);
   delete nns;
+  cout << "get closest vectors complete" << endl;
 }
 
 
@@ -246,7 +249,7 @@ int main(int argc, char *argv[])
       mats[0].col(1) = list1[i].vectors[1];
       mats[0].col(2) = list1[i].vectors[2];
       radii[0] = list1[i].values;
-
+      cout << " i: " << i << endl;
       if (indices(0,i)>-1)
       {
         // TODO: check that it is actually sorting the list
@@ -266,18 +269,24 @@ int main(int argc, char *argv[])
       }
   //    cin.get();
     }
+    cout << "finished generating wall pairs" << endl;
     struct 
     {
       bool operator()(const Vector3i &a, const Vector3i &b) const { return a[3] < b[3]; } 
     } lessDifference;
     sort(wallPairs.begin(), wallPairs.end(), lessDifference);
   }
+  cin.get();
 
   // now find the closest floor and corners to the wall ellipsoids:
   MatrixXi indices[2][2];
   int neighbourSize = 5;
   for (int t = 0; t<2; t++) // ellipsoid type (floor or corner)
   {
+    if (t==0)
+      cout << "finding closest floors to wall points" << endl;
+    else
+      cout << "finding closest corners to wall points" << endl;
     for (int l = 0; l<2; l++) // cloud 
     {
       int c = l==0 ? a : b;
@@ -299,7 +308,8 @@ int main(int argc, char *argv[])
   double bestProximity = 0.0;
   Vector3d bestTranslation(0,0,0);
   double bestRotation = 0.0;
-
+  cin.get();
+  cout << "iterating through wall pairs, there are " << wallPairs.size() << endl;
   for (auto &pair: wallPairs)
   {
     Vector3d translation = wallLists[a][pair[0]].pos - wallLists[b][pair[0]].pos;
@@ -307,7 +317,7 @@ int main(int argc, char *argv[])
     Vector3d norm2 = wallLists[b][pair[1]].vectors[0];
     norm1[2] = 0.0;
     norm2[2] = 0.0;
-    double rotation = atan2(norm1.dot(norm2), norm1.cross(norm2)[2]);
+    double rotation = atan2(norm1.cross(norm2)[2], norm1.dot(norm2));
     cout << "translation: " << translation.transpose() << ", rotation: " << rotation << endl;
 
     // first, floors:
@@ -326,9 +336,10 @@ int main(int argc, char *argv[])
       }
       double heightOffset = crossCorrelate(points[0], points[1]);
       cout << "height offset: " << heightOffset << endl;
-      translation[2] += heightOffset;
+      translation[2] = heightOffset;
     }
 
+    // TODO: I have got to here... actually 2.8 might be right for this...
     // then corners:
     {
       vector<double> points[2];
@@ -349,7 +360,8 @@ int main(int argc, char *argv[])
       cout << "side offset: " << sideOffset << endl;
       translation += sideOffset*sides[0];
     }
-
+    cin.get();
+    cout << "now finding closest after applying the transform" << endl;
     // now rotate all the corners by the transform, and get a metric of how close they are, using closest points again!
     int list1Size = cornerLists[a].size();
     MatrixXd pointsQ(3, list1Size);
