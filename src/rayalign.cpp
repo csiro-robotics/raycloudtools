@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     Nabo::NNSearchD *nns;
     Nabo::Parameters params("bucketSize", 8);
     MatrixXd pointsP(3, ends.size());
-    for (unsigned int i = 0; i<ends.size(); i++)
+    for (int i = 0; i<(int)ends.size(); i++)
       pointsP.col(i) = ends[i];
     cout << "creating linear heap" << endl;
     nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
     delete nns;
 
     cout << "iterating: " << ends.size() << " points" << endl;
-    for (unsigned int i = 0; i<(int)ends.size(); i++)
+    for (int i = 0; i<(int)ends.size(); i++)
     {
       Matrix3d scatter;
       scatter.setZero();
@@ -202,7 +202,6 @@ int main(int argc, char *argv[])
     cornerLists[c].resize(listSize);
 
     // now draw it...
-    vector<Covariance> *lists[3] = {&wallLists[c], &floorLists[c], &cornerLists[c]};
     Vector3d colours[3] = {Vector3d(1,0,0), Vector3d(0,1,0), Vector3d(0,0,1)};
     for (int l = 0; l<3; l++)
     {
@@ -235,15 +234,14 @@ int main(int argc, char *argv[])
     vector<Covariance> &list2 = wallLists[1];
 
     // TODO: shall we add an extra factor here? how about mean abs height diff?
-    int searchSize = 1;
     MatrixXd pointsQ(4, list1.size());
-    for (unsigned int i = 0; i<(int)list1.size(); i++)
+    for (int i = 0; i<(int)list1.size(); i++)
     {
       double tiltDistance = abs(list1[i].vectors[0][2])*list1[i].values.norm();
       pointsQ.col(i) = Vector4d(list1[i].values[0], list1[i].values[1], list1[i].values[2], tiltDistance);
     }
     MatrixXd pointsP(4, list2.size());
-    for (unsigned int i = 0; i<(int)list2.size(); i++)
+    for (int i = 0; i<(int)list2.size(); i++)
     {
       double tiltDistance = abs(list2[i].vectors[0][2])*list2[i].values.norm();
       pointsP.col(i) = Vector4d(list2[i].values[0], list2[i].values[1], list2[i].values[2], tiltDistance);
@@ -253,7 +251,7 @@ int main(int argc, char *argv[])
     getClosestVectors(pointsQ, pointsP, indices, dist2, 1, 1.0);
 
     // now we need to iterate through to see matching pairs
-    for (unsigned int i = 0; i<(int)list1.size(); i++)
+    for (int i = 0; i<(int)list1.size(); i++)
       if (indices(0,i)>-1)
         wallPairs.push_back(Vector3i(i, indices(0,i), 10000.0*sqrt(dist2(0,i))));
     cout << "finished generating wall pairs" << endl;
@@ -262,7 +260,7 @@ int main(int argc, char *argv[])
       bool operator()(const Vector3i &a, const Vector3i &b) const { return a[3] < b[3]; } 
     } lessDifference;
     cout << "sorting" << endl;
-  //  sort(wallPairs.begin(), wallPairs.end(), lessDifference);
+    sort(wallPairs.begin(), wallPairs.end(), lessDifference);
     cout << "finished sorting" << endl;
   }
 
@@ -280,10 +278,10 @@ int main(int argc, char *argv[])
       vector<Covariance> &list1 = wallLists[c];
       vector<Covariance> &list2 = t==0 ? floorLists[c] : cornerLists[c];
       MatrixXd pointsQ(3, list1.size());
-      for (unsigned int i = 0; i<list1.size(); i++)
+      for (int i = 0; i<(int)list1.size(); i++)
         pointsQ.col(i) = list1[i].pos;
       MatrixXd pointsP(3, list2.size());
-      for (unsigned int i = 0; i<list2.size(); i++)
+      for (int i = 0; i<(int)list2.size(); i++)
         pointsP.col(i) = list2[i].pos;
 
       MatrixXd dist2;
@@ -356,11 +354,11 @@ int main(int argc, char *argv[])
     // now rotate all the corners by the transform, and get a metric of how close they are, using closest points again!
     int list1Size = cornerLists[0].size();
     MatrixXd pointsQ(3, list1Size);
-    for (unsigned int i = 0; i<list1Size; i++)
+    for (int i = 0; i<list1Size; i++)
       pointsQ.col(i) = transform * cornerLists[0][i].pos; // transform the smaller cloud (faster)
     int list2Size = cornerLists[1].size();
     MatrixXd pointsP(3, list2Size);
-    for (unsigned int i = 0; i<list2Size; i++)
+    for (int i = 0; i<list2Size; i++)
       pointsP.col(i) = cornerLists[1][i].pos; 
     MatrixXi indices;
     MatrixXd dists2;
