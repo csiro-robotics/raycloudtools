@@ -1,0 +1,41 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/home/parallels/code/demining/demine_ros/devel/include/**",
+                "/home/parallels/code/gator_core/devel/include/**",
+                "/opt/ros/melodic/include/**",
+                "/home/parallels/code/gator_core/src/core/ackermann_local_planner/include/**",
+                "/home/parallels/code/gator_core/src/core/ackermannize_global_planner/include/**",
+                "/home/parallels/code/gator_core/src/drivers/advantys/include/**",
+                "/home/parallels/code/gator_core/src/core/wakeup/agv_localizer/agv_localizer/include/**",
+                "/home/parallels/code/gator_core/src/core/controller/include/**",
+                "/home/parallels/code/gator_core/src/core/wakeup/eigen_checks/include/**",
+                "/home/parallels/code/demining/demine_ros/src/line_detect/include/**",
+                "/home/parallels/code/demining/demine_ros/src/line_follow/include/**",
+                "/home/parallels/code/gator_core/src/core/map_restricter/include/**",
+                "/home/parallels/code/gator_core/src/drivers/microstrain_3dmgx2_imu/include/**",
+                "/home/parallels/code/gator_core/src/core/wakeup/agv_localizer/rem_core/include/**",
+                "/home/parallels/code/gator_core/src/core/wakeup/agv_localizer/rem_extraction/include/**",
+                "/home/parallels/code/gator_core/src/core/wakeup/agv_localizer/rem_relocation/include/**",
+                "/home/parallels/code/demining/demine_ros/src/simulator/include/**",
+                "/home/parallels/code/gator_core/src/drivers/smartmotor/include/**",
+                "/home/parallels/code/gator_core/src/core/gator_teb_local_planner/include/**",
+                "/home/parallels/code/gator_core/src/drivers/velodyne/velodyne_driver/include/**",
+                "/home/parallels/code/gator_core/src/drivers/velodyne/velodyne_pointcloud/include/**",
+                "/home/parallels/code/gator_core/src/core/waypoint_manager/include/**",
+                "/usr/include/**"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}

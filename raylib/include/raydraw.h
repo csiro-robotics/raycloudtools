@@ -24,6 +24,6 @@ struct DebugDraw
   ros::Publisher cloudPublisher[2];
   ros::Publisher linePublisher;
   ros::Publisher cylinderPublisher[2];
-  ros::Publisher ellipsoidPublisher[3];
+  ros::Publisher ellipsoidPublisher[6];
 };
 }

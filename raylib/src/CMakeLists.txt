@@ -1,9 +1,7 @@
-if (!MSVC)
-	add_compile_options(-Wno-deprecated -Wno-write-strings -Wno-unused-result -std=c++11)
-endif()
+#if (!MSVC)
+	add_compile_options(-g) # -std=c++11 -Wall -march=corei7)
+#endif()
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
-
-add_compile_options(-std=c++11 -Wall -march=corei7)
 
 file(GLOB_RECURSE SOURCE_FILES
 	${CMAKE_SOURCE_DIR}/raylib/src/*.cpp
@@ -13,7 +11,6 @@ file(GLOB_RECURSE INCLUDE_FILES
 	${CMAKE_SOURCE_DIR}/raylib/include/*.h
 )
 
-add_compile_options(-std=c++11 -Wall -g)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   message_generation

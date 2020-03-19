@@ -209,7 +209,6 @@ int main(int argc, char *argv[])
       vector<Covariance> &list = l==0 ? wallLists[c] : (l==1 ? floorLists[c] : cornerLists[c]);
       vector<Vector3d> centres(listSize), radii(listSize);
       vector<Matrix3d> matrices(listSize);
-      vector<Vector3d> p2s(listSize);
       for (int i = 0; i<listSize; i++)
       {
         centres[i] = list[i].pos;
@@ -217,12 +216,9 @@ int main(int argc, char *argv[])
         matrices[i].col(1) = list[i].vectors[1];
         matrices[i].col(2) = list[i].vectors[2];
         radii[i] = list[i].values;
-        p2s[i] = list[i].pos + list[i].vectors[0];
       }
-      draw.drawEllipsoids(centres, matrices, radii, colours[l], l);
-  //    draw.drawLines(centres, p2s);
+      draw.drawEllipsoids(centres, matrices, radii, colours[l], l+3*c);
     }
-    cin.get();
   }
 
   // next get the closest wallLists in cloud b to cloud a, by shape...
@@ -241,13 +237,13 @@ int main(int argc, char *argv[])
     // TODO: shall we add an extra factor here? how about mean abs height diff?
     int searchSize = 1;
     MatrixXd pointsQ(4, list1.size());
-    for (unsigned int i = 0; i<list1.size(); i++)
+    for (unsigned int i = 0; i<(int)list1.size(); i++)
     {
       double tiltDistance = abs(list1[i].vectors[0][2])*list1[i].values.norm();
       pointsQ.col(i) = Vector4d(list1[i].values[0], list1[i].values[1], list1[i].values[2], tiltDistance);
     }
     MatrixXd pointsP(4, list2.size());
-    for (unsigned int i = 0; i<list2.size(); i++)
+    for (unsigned int i = 0; i<(int)list2.size(); i++)
     {
       double tiltDistance = abs(list2[i].vectors[0][2])*list2[i].values.norm();
       pointsP.col(i) = Vector4d(list2[i].values[0], list2[i].values[1], list2[i].values[2], tiltDistance);
@@ -257,44 +253,18 @@ int main(int argc, char *argv[])
     getClosestVectors(pointsQ, pointsP, indices, dist2, 1, 1.0);
 
     // now we need to iterate through to see matching pairs
-    for (unsigned int i = 0; i<list1.size(); i++)
-    {
-      vector<Vector3d> centres(2), radii(2);
-      vector<Matrix3d> mats(2);
-
-      centres[0] = list1[i].pos;
-      mats[0].col(0) = list1[i].vectors[0];
-      mats[0].col(1) = list1[i].vectors[1];
-      mats[0].col(2) = list1[i].vectors[2];
-      radii[0] = list1[i].values;
-      cout << " i: " << i << endl;
+    for (unsigned int i = 0; i<(int)list1.size(); i++)
       if (indices(0,i)>-1)
-      {
-        // TODO: check that it is actually sorting the list
-        int id = indices(0,i);
-
-        centres[1] = list2[id].pos;
-        mats[1].col(0) = list2[id].vectors[0];
-        mats[1].col(1) = list2[id].vectors[1];
-        mats[1].col(2) = list2[id].vectors[2];
-        radii[1] = list2[id].values;
-      
-        draw.drawEllipsoids(centres, mats, radii, Vector3d(1,1,1), 0);
-
-        // here's where we now use the floor and corners to guide us...
-        // first we need to get the closest floor ellipsoids to each wall ellipsoid.
-        wallPairs.push_back(Vector3i(i, id, 10000.0*sqrt(dist2(0,i))));
-      }
-  //    cin.get();
-    }
+        wallPairs.push_back(Vector3i(i, indices(0,i), 10000.0*sqrt(dist2(0,i))));
     cout << "finished generating wall pairs" << endl;
     struct 
     {
       bool operator()(const Vector3i &a, const Vector3i &b) const { return a[3] < b[3]; } 
     } lessDifference;
-    sort(wallPairs.begin(), wallPairs.end(), lessDifference);
+    cout << "sorting" << endl;
+  //  sort(wallPairs.begin(), wallPairs.end(), lessDifference);
+    cout << "finished sorting" << endl;
   }
-  cin.get();
 
   // now find the closest floor and corners to the wall ellipsoids:
   MatrixXi indices[2][2];
@@ -324,10 +294,10 @@ int main(int argc, char *argv[])
   // next, iterate through wallPairs
   double bestProximity = 0.0;
   Pose bestTransform;
-  cin.get();
   cout << "iterating through wall pairs, there are " << wallPairs.size() << endl;
   for (auto &pair: wallPairs)
   {
+    vector<Vector3d> pairStarts, pairEnds;
     Pose poses[2];
     for (int i = 0; i<2; i++)
     {
@@ -336,6 +306,8 @@ int main(int argc, char *argv[])
       poses[i].position = wallLists[i][pair[i]].pos;
       cout << "pose: " << poses[i] << endl;
     }
+    pairStarts.push_back(wallLists[0][pair[0]].pos);
+    pairEnds.push_back(wallLists[1][pair[1]].pos);
 
     // first, floors:
     {
@@ -348,6 +320,8 @@ int main(int argc, char *argv[])
         {
           int id = nearestFloors(j,i);  
           points[c].push_back(floorLists[c][id].pos[2]);
+          pairStarts.push_back(wallLists[c][pair[c]].pos);
+          pairEnds.push_back(floorLists[c][id].pos);
         } 
       }
       double heightOffset = crossCorrelate(points[0], points[1]);
@@ -355,27 +329,28 @@ int main(int argc, char *argv[])
       poses[1].position[2] = poses[0].position[2] + heightOffset;
     }
 
-    // TODO: I have got to here... actually 2.8 might be right for this...
     // then corners:
     {
       vector<double> points[2];
       Vector3d sides[2];
       for (int c = 0; c<2; c++)
       {
-        MatrixXi &nearestCorners = indices[0][c];
+        MatrixXi &nearestCorners = indices[1][c];
         int i = pair[c];
         sides[c] = wallLists[c][pair[c]].vectors[0].cross(Vector3d(0,0,1));
         for (int j = 0; j<neighbourSize && nearestCorners(j,i)>-1; j++)
         {
           int id = nearestCorners(j,i);  
-          points[c].push_back(cornerLists[c][id].pos.dot(sides[c]));
+          points[c].push_back((cornerLists[c][id].pos - wallLists[c][pair[c]].pos).dot(sides[c]));
+          pairStarts.push_back(wallLists[c][pair[c]].pos);
+          pairEnds.push_back(cornerLists[c][id].pos);
         } 
       }
       double sideOffset = crossCorrelate(points[0], points[1]);
       cout << "side offset: " << sideOffset << endl;
       poses[1].position += sideOffset*sides[1];
     }
-    cin.get();
+    draw.drawLines(pairStarts, pairEnds);
     Pose transform = poses[1] * ~poses[0];
     cout << "now finding closest after applying the transform: " << transform << endl;
     // now rotate all the corners by the transform, and get a metric of how close they are, using closest points again!
@@ -395,7 +370,10 @@ int main(int argc, char *argv[])
       if (indices(0,i)>-1)
         proximity += 1.0 / (0.1 + dists2(0,i));
     if (proximity > bestProximity)
+    {
+      bestProximity = proximity;
       bestTransform = transform;
+    }
   }
 
   // finally, apply the transformation to the correct ray cloud and save it out. 

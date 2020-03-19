@@ -17,6 +17,9 @@ DebugDraw::DebugDraw(const string& fixedFrameId)
   ellipsoidPublisher[0] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids", 3, true);
   ellipsoidPublisher[1] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids2", 3, true);
   ellipsoidPublisher[2] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids3", 3, true);
+  ellipsoidPublisher[3] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids4", 3, true);
+  ellipsoidPublisher[4] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
+  ellipsoidPublisher[5] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
 }
 
 void setField2(sensor_msgs::PointField &field, const string &name, int offset, int type, int count)
