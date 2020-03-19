@@ -257,7 +257,7 @@ int main(int argc, char *argv[])
     cout << "finished generating wall pairs" << endl;
     struct 
     {
-      bool operator()(const Vector3i &a, const Vector3i &b) const { return a[3] < b[3]; } 
+      bool operator()(const Vector3i &a, const Vector3i &b) const { return a[2] < b[2]; } 
     } lessDifference;
     cout << "sorting" << endl;
     sort(wallPairs.begin(), wallPairs.end(), lessDifference);
@@ -373,7 +373,7 @@ int main(int argc, char *argv[])
       bestTransform = transform;
     }
   }
-
+  cout << "best proximity: " << bestProximity << " with transformation: " << bestTransform << endl;
   // finally, apply the transformation to the correct ray cloud and save it out. 
   if (swapped)
     bestTransform = ~bestTransform;
