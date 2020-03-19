@@ -7,6 +7,7 @@
 #include "rayutils.h"
 #include <string>
 #include <Eigen/Geometry>
+#include <ostream>
 
 namespace RAY
 {
@@ -89,5 +90,9 @@ struct Pose
     return Pose(Eigen::Vector3d(0,0,0), Eigen::Quaterniond(0,0,0,0));
   }
 };
-
+inline std::ostream& operator<<(std::ostream& os, const Pose& pose)
+{
+  os << "x,y,z: " << pose.position.transpose() << ", qw,qx,qy,qz: " << pose.rotation.w() << ", " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z();
+  return os;
+}
 }

@@ -29,6 +29,21 @@ struct Covariance
   Vector3d vectors[3];
   Vector3d values;
   double score;
+
+  double getWidth() // trying to get the widest horizontal width of the ellipsoid
+  {
+    // do it as a weighted average for each vector pair.
+    double weights[3];
+    double widths[3];
+    for (int i = 0; i<3; i++)
+    {
+      int j = (i+1)%3;
+      widths[i] = max(values[i], values[j]);
+      weights[i] = 1.0/(1e-4 + max(abs(vectors[i][2]), abs(vectors[j][2])));
+    }
+
+    return (widths[0]*weights[0] + widths[1]*weights[1] + widths[2]*weights[2])/(weights[0] + weights[1] + weights[2]);
+  }
 };
 
 double crossCorrelate(const vector<double> &p1, const vector<double> &p2)
@@ -63,11 +78,15 @@ int main(int argc, char *argv[])
     usage();
 
   string fileA = argv[1];
-  Cloud cloud[2];
-  cloud[0].load(fileA);
-
   string fileB = argv[2];
-  cloud[1].load(fileB);
+  Cloud cloudA, cloudB;
+  cloudA.load(fileA);
+  cloudB.load(fileB);
+
+  Cloud *cloud[2] = {&cloudA, &cloudB};
+  if (cloudA.ends.size() > cloudB.ends.size())
+    swap(cloud[0], cloud[1]);
+  bool swapped = cloud[0] == &cloudB;
 
   // This is a tricky algorithm, it should go like so:
   // 1. decimate
@@ -88,7 +107,7 @@ int main(int argc, char *argv[])
   vector<Covariance> wallLists[2], floorLists[2], cornerLists[2];
   for (int c = 0; c<2; c++)
   {
-    vector<Vector3d> &ends = cloud[c].ends;
+    vector<Vector3d> &ends = cloud[c]->ends;
     draw.drawCloud(ends, 1.0, 0);
     int searchSize = 20;
     Nabo::NNSearchD *nns;
@@ -155,7 +174,7 @@ int main(int argc, char *argv[])
       // these are the heuristics for being a wall, floor or corner
       double wallScore = 1.0/(eps + abs(covariance.vectors[0][2] * covariance.values[0] * centroidDelta));
       double floorScore = sqr(covariance.vectors[0][2]);
-      double cornerScore = centroidDelta * covariance.values[0]/covariance.values[1];
+      double cornerScore = 1.0/covariance.getWidth(); // * covariance.values[0]/covariance.values[1];
 
       // now enter them in each list
       covariance.score = wallScore;
@@ -206,8 +225,6 @@ int main(int argc, char *argv[])
     cin.get();
   }
 
-  int a = cloud[0].ends.size() < cloud[1].ends.size() ? 0 : 1;
-  int b = 1-a;
   // next get the closest wallLists in cloud b to cloud a, by shape...
 
   // then find the candidate pairs
@@ -218,9 +235,10 @@ int main(int argc, char *argv[])
     // Answer: by only values... normal[2] could be close to zero for most buildings
     // well, we could make it the distance at the top of the ellipsoid... so in the same space... OK.
 
-    vector<Covariance> &list1 = wallLists[a];
-    vector<Covariance> &list2 = wallLists[b];
+    vector<Covariance> &list1 = wallLists[0];
+    vector<Covariance> &list2 = wallLists[1];
 
+    // TODO: shall we add an extra factor here? how about mean abs height diff?
     int searchSize = 1;
     MatrixXd pointsQ(4, list1.size());
     for (unsigned int i = 0; i<list1.size(); i++)
@@ -287,9 +305,8 @@ int main(int argc, char *argv[])
       cout << "finding closest floors to wall points" << endl;
     else
       cout << "finding closest corners to wall points" << endl;
-    for (int l = 0; l<2; l++) // cloud 
+    for (int c = 0; c<2; c++) // cloud 
     {
-      int c = l==0 ? a : b;
       vector<Covariance> &list1 = wallLists[c];
       vector<Covariance> &list2 = t==0 ? floorLists[c] : cornerLists[c];
       MatrixXd pointsQ(3, list1.size());
@@ -306,28 +323,27 @@ int main(int argc, char *argv[])
 
   // next, iterate through wallPairs
   double bestProximity = 0.0;
-  Vector3d bestTranslation(0,0,0);
-  double bestRotation = 0.0;
+  Pose bestTransform;
   cin.get();
   cout << "iterating through wall pairs, there are " << wallPairs.size() << endl;
   for (auto &pair: wallPairs)
   {
-    Vector3d translation = wallLists[a][pair[0]].pos - wallLists[b][pair[0]].pos;
-    Vector3d norm1 = wallLists[a][pair[0]].vectors[0];
-    Vector3d norm2 = wallLists[b][pair[1]].vectors[0];
-    norm1[2] = 0.0;
-    norm2[2] = 0.0;
-    double rotation = atan2(norm1.cross(norm2)[2], norm1.dot(norm2));
-    cout << "translation: " << translation.transpose() << ", rotation: " << rotation << endl;
+    Pose poses[2];
+    for (int i = 0; i<2; i++)
+    {
+      Vector3d &n = wallLists[i][pair[i]].vectors[0];
+      poses[i].rotation = Quaterniond(AngleAxisd(atan2(n[0], n[1]), Vector3d(0,0,1)));
+      poses[i].position = wallLists[i][pair[i]].pos;
+      cout << "pose: " << poses[i] << endl;
+    }
 
     // first, floors:
     {
       vector<double> points[2];
-      for (int l = 0; l<2; l++)
+      for (int c = 0; c<2; c++)
       {
-        int c = l==0 ? a : b;
-        MatrixXi &nearestFloors = indices[0][l];
-        int i = pair[l];
+        MatrixXi &nearestFloors = indices[0][c];
+        int i = pair[c];
         for (int j = 0; j<neighbourSize && nearestFloors(j,i)>-1; j++)
         {
           int id = nearestFloors(j,i);  
@@ -336,7 +352,7 @@ int main(int argc, char *argv[])
       }
       double heightOffset = crossCorrelate(points[0], points[1]);
       cout << "height offset: " << heightOffset << endl;
-      translation[2] = heightOffset;
+      poses[1].position[2] = poses[0].position[2] + heightOffset;
     }
 
     // TODO: I have got to here... actually 2.8 might be right for this...
@@ -344,33 +360,33 @@ int main(int argc, char *argv[])
     {
       vector<double> points[2];
       Vector3d sides[2];
-      for (int l = 0; l<2; l++)
+      for (int c = 0; c<2; c++)
       {
-        int c = l==0 ? a : b;
-        MatrixXi &nearestCorners = indices[0][l];
-        int i = pair[l];
-        sides[l] = wallLists[c][pair[l]].vectors[0].cross(Vector3d(0,0,1));
+        MatrixXi &nearestCorners = indices[0][c];
+        int i = pair[c];
+        sides[c] = wallLists[c][pair[c]].vectors[0].cross(Vector3d(0,0,1));
         for (int j = 0; j<neighbourSize && nearestCorners(j,i)>-1; j++)
         {
           int id = nearestCorners(j,i);  
-          points[c].push_back(cornerLists[c][id].pos.dot(sides[l]));
+          points[c].push_back(cornerLists[c][id].pos.dot(sides[c]));
         } 
       }
       double sideOffset = crossCorrelate(points[0], points[1]);
       cout << "side offset: " << sideOffset << endl;
-      translation += sideOffset*sides[0];
+      poses[1].position += sideOffset*sides[1];
     }
     cin.get();
-    cout << "now finding closest after applying the transform" << endl;
+    Pose transform = poses[1] * ~poses[0];
+    cout << "now finding closest after applying the transform: " << transform << endl;
     // now rotate all the corners by the transform, and get a metric of how close they are, using closest points again!
-    int list1Size = cornerLists[a].size();
+    int list1Size = cornerLists[0].size();
     MatrixXd pointsQ(3, list1Size);
     for (unsigned int i = 0; i<list1Size; i++)
-      pointsQ.col(i) = cornerLists[a][i].pos;
-    int list2Size = cornerLists[b].size();
+      pointsQ.col(i) = transform * cornerLists[0][i].pos; // transform the smaller cloud (faster)
+    int list2Size = cornerLists[1].size();
     MatrixXd pointsP(3, list2Size);
     for (unsigned int i = 0; i<list2Size; i++)
-      pointsP.col(i) = cornerLists[b][i].pos; // transform!
+      pointsP.col(i) = cornerLists[1][i].pos; 
     MatrixXi indices;
     MatrixXd dists2;
     getClosestVectors(pointsQ, pointsP, indices, dists2, 1, 1.0);
@@ -379,21 +395,18 @@ int main(int argc, char *argv[])
       if (indices(0,i)>-1)
         proximity += 1.0 / (0.1 + dists2(0,i));
     if (proximity > bestProximity)
-    {
-      bestTranslation = translation;
-      bestRotation = rotation;
-    }
+      bestTransform = transform;
   }
 
   // finally, apply the transformation to the correct ray cloud and save it out. 
-  Cloud newCloud = cloud[0];
-  Pose pose(bestTranslation, Quaterniond(AngleAxisd(bestRotation, Vector3d(0,0,1))));
-  newCloud.transform(pose, 0.0);
+  if (swapped)
+    bestTransform = ~bestTransform;
+  cloudA.transform(bestTransform, 0.0);
 
   string fileStub = fileA;
   if (fileStub.substr(fileStub.length()-4)==".ply")
     fileStub = fileStub.substr(0,fileStub.length()-4);
-  newCloud.save(fileStub + "_aligned.ply");  
+  cloudA.save(fileStub + "_aligned.ply");  
 
   return true;
 }
