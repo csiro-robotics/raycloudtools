@@ -77,12 +77,13 @@ int main(int argc, char *argv[])
     // OK cool, so next I need to re-map the two arrays into 2x1 grids...
     int maxRad = max(array.dims[0], array.dims[1])/2;
     Vector3i polarDims = Vector3i(4*maxRad, maxRad, array.dims[2]);
+    cout << "polar dims: " << polarDims.transpose() << endl;
     vector<Array1D> polars[2]; // 2D grid of Array1Ds
     for (int c = 0; c<2; c++)
     {
       Array3D &a = arrays[c];
       vector<Array1D> &polar = polars[c];
-      polar.resize(maxRad * array.dims[2]);
+      polar.resize(polarDims[1] * polarDims[2]);
       for (int j = 0; j<polarDims[1]; j++)
         for (int k = 0; k<polarDims[2]; k++)
           polar[j + polarDims[1]*k].init(polarDims[0]);
@@ -93,7 +94,7 @@ int main(int argc, char *argv[])
         double angle = 2.0*pi*(double)i/(double)polarDims[0];
         for (int j = 0; j<polarDims[1]; j++)
         {
-          double radius = (double)maxRad * (double)j/(double)polarDims[1];
+          double radius = (double)maxRad * (0.5+(double)j)/(double)polarDims[1];
           Vector2d pos = radius * Vector2d(sin(angle), cos(angle));
           if (pos[0] < 0.0)
             pos[0] += 2.0*maxRad;
@@ -119,9 +120,11 @@ int main(int argc, char *argv[])
 
     vector<Array1D> &polar = polars[0];
     // now get the inverse fft in place:
+    cout << "max reals: " << endl;
     for (int i = 0; i<(int)polar.size(); i++)
     {
       polar[i].cwiseProductInplace(polars[1][i].conjugateInplace()).ifft(); 
+      cout << " " << polar[i].maxRealIndex() << endl;
       if (i>0)
         polar[0] += polar[i]; // add all the results together into the first array
     }
