@@ -6,6 +6,8 @@
 #include "raycloud.h"
 #include "raydraw.h"
 #include "rayalignment.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "imagewrite.h"
 #include <nabo/nabo.h>
 
 #include <stdio.h>
@@ -17,7 +19,11 @@ using namespace std;
 using namespace Eigen;
 using namespace RAY;
 typedef complex<double> Complex;
-
+struct Col
+{
+  unsigned char r,g,b,a;
+};
+static bool debugImageOutput = true;
 
 void usage(bool error=false)
 {
@@ -68,16 +74,47 @@ int main(int argc, char *argv[])
     for (auto &point: clouds[c].ends)
       arrays[c](point) += Complex(1,0);  
     arrays[c].fft();
-  }
-  Array3D &array = arrays[0];
 
+    if (debugImageOutput)
+    {
+      int width = arrays[c].dims[0];
+      int height = arrays[c].dims[1];
+      vector<Col> pixels(width*height);
+      for (int x = 0; x<width; x++)
+      {
+        for (int y = 0; y<height; y++)
+        {
+          Vector3d colour(0,0,0);
+          for (int z = 0; z<arrays[c].dims[2]; z++)
+          {
+            double h = (double)z / (double)arrays[c].dims[2];
+            Vector3d col;
+            col[0] = 1.0 - h;
+            col[2] = h;
+            col[1] = col[0]*col[2];
+            colour += abs(arrays[c](x,y,z)) * col/(double)arrays[c].dims[2];
+          }
+          colour *= 255.0 / 400.0;
+          Col col;
+          col.r = clamped((int)colour[0], 0, 255);
+          col.g = clamped((int)colour[1], 0, 255);
+          col.b = clamped((int)colour[2], 0, 255);
+          col.a = 255;
+          pixels[(x+width/2)%width + width*((y+height/2)%height)] = col;
+        }
+      }
+      string fileNames[2] = {"translationInvariant1.png", "translationInvariant2.png"};
+      stbi_write_png(fileNames[c].c_str(), width, height, 4, (void *)&pixels[0], 4*width);
+    }
+  }
+
+  Array3D &array = arrays[0];
   bool rotationToEstimate = true; // If we know there is no rotation between the clouds then we can save some cost
   if (rotationToEstimate)
   {
     // OK cool, so next I need to re-map the two arrays into 2x1 grids...
     int maxRad = max(array.dims[0], array.dims[1])/2;
     Vector3i polarDims = Vector3i(4*maxRad, maxRad, array.dims[2]);
-    cout << "polar dims: " << polarDims.transpose() << endl;
     vector<Array1D> polars[2]; // 2D grid of Array1Ds
     for (int c = 0; c<2; c++)
     {
@@ -107,24 +144,85 @@ int main(int argc, char *argv[])
           for (int z = 0; z<polarDims[2]; z++)
           {
             // bilinear interpolation
-            double val = a(x,y,z).real() * (1.0-blendX)*(1.0-blendY) + a(x+1,y,z).real() * blendX*(1.0-blendY)
-                      + a(x,y+1,z).real()*(1.0-blendX)*blendY       + a(x+1,y+1,z).real()*blendX*blendY;
+            double val = abs(a(x,y,z)) * (1.0-blendX)*(1.0-blendY) + abs(a(x+1,y,z)) * blendX*(1.0-blendY)
+                      + abs(a(x,y+1,z))*(1.0-blendX)*blendY       + abs(a(x+1,y+1,z))*blendX*blendY;
             polar[j + polarDims[1]*z](i) = Complex(radius*val, 0);
           }
         }
       }
+      if (debugImageOutput)
+      {
+        int width = polarDims[0];
+        int height = polarDims[1];
+        vector<Col> pixels(width*height);
+        for (int x = 0; x<width; x++)
+        {
+          for (int y = 0; y<height; y++)
+          {
+            Vector3d colour(0,0,0);
+            for (int z = 0; z<polarDims[2]; z++)
+            {
+              double h = (double)z / (double)polarDims[2];
+              Vector3d col;
+              col[0] = 1.0 - h;
+              col[2] = h;
+              col[1] = col[0]*col[2];
+              colour += abs(polar[y + polarDims[1]*z](x)) * col/(double)polarDims[2];
+            }
+            colour *= 255.0 / 10000.0;
+            Col col;
+            col.r = clamped((int)colour[0], 0, 255);
+            col.g = clamped((int)colour[1], 0, 255);
+            col.b = clamped((int)colour[2], 0, 255);
+            col.a = 255;
+            pixels[(x+width/2)%width + width*y] = col;
+          }
+        }
+        string fileNames[2] = {"translationInvPolar1.png", "translationInvPolar2.png"};
+        stbi_write_png(fileNames[c].c_str(), width, height, 4, (void *)&pixels[0], 4*width);
+      }
       for (int j = 0; j<polarDims[1]; j++)
         for (int k = 0; k<polarDims[2]; k++)
           polar[j + polarDims[1]*k].fft();
+
+      if (debugImageOutput)
+      {
+        int width = polarDims[0];
+        int height = polarDims[1];
+        vector<Col> pixels(width*height);
+        for (int x = 0; x<width; x++)
+        {
+          for (int y = 0; y<height; y++)
+          {
+            Vector3d colour(0,0,0);
+            for (int z = 0; z<polarDims[2]; z++)
+            {
+              double h = (double)z / (double)polarDims[2];
+              Vector3d col;
+              col[0] = 1.0 - h;
+              col[2] = h;
+              col[1] = col[0]*col[2];
+              colour += abs(polar[y + polarDims[1]*z](x)) * col/(double)polarDims[2];
+            }
+            colour *= 255.0 / 150000.0;
+            Col col;
+            col.r = clamped((int)colour[0], 0, 255);
+            col.g = clamped((int)colour[1], 0, 255);
+            col.b = clamped((int)colour[2], 0, 255);
+            col.a = 255;
+            pixels[(x+width/2)%width + width*y] = col;
+          }
+        }
+        string fileNames[2] = {"euclideanInvariant1.png", "euclideanInvariant2.png"};
+        stbi_write_png(fileNames[c].c_str(), width, height, 4, (void *)&pixels[0], 4*width);
+      }
     }
 
     vector<Array1D> &polar = polars[0];
     // now get the inverse fft in place:
-    cout << "max reals: " << endl;
     for (int i = 0; i<(int)polar.size(); i++)
     {
       polar[i].cwiseProductInplace(polars[1][i].conjugateInplace()).ifft(); 
-      cout << " " << polar[i].maxRealIndex() << endl;
       if (i>0)
         polar[0] += polar[i]; // add all the results together into the first array
     }
@@ -143,7 +241,7 @@ int main(int argc, char *argv[])
     // but the FFT wraps around, so:
     if (angle > dim / 2)
       angle -= dim;
-    angle *= -2.0*pi/(double)polarDims[0];
+    angle *= 2.0*pi/(double)polarDims[0];
     cout << "found angle: " << angle << endl;
 
     // ok, so let's rotate A towards B, and re-run the translation FFT
