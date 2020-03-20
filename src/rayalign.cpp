@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
   if (argc != 3)
     usage();
 
+  const double voxelWidth = 0.5;
   string fileA = argv[1];
   string fileB = argv[2];
   Cloud clouds[2];
@@ -63,7 +64,6 @@ int main(int argc, char *argv[])
   // Now fill in the arrays with point density
   for (int c = 0; c<2; c++)
   {
-    const double voxelWidth = 0.5;
     arrays[c].init(boxMins[c], boxMins[c] + boxWidth, voxelWidth);
     for (auto &point: clouds[c].ends)
       arrays[c](point) += Complex(1,0);  
@@ -172,7 +172,49 @@ int main(int argc, char *argv[])
   resultAngle = angle;
 #endif
 
-  Pose transform(translation, Quaterniond(AngleAxisd(resultAngle, Vector3d(0,0,1))));
+/****************************************************************************************************/
+  {
+
+  // ok, so let's rotate A towards B, and re-run the translation FFT
+  clouds[0].transform(Pose(Vector3d(0,0,0), Quaterniond(AngleAxisd(resultAngle, Vector3d(0,0,1)))), 0.0);
+
+  boxMins[0] = Vector3d(1e10,1e10,1e10);
+  for (auto &point: clouds[0].ends)
+    boxMins[0] = minVector(boxMins[0], point);
+  arrays[0].cells.clear();
+  arrays[0].init(boxMins[0], boxMins[0]+boxWidth, voxelWidth);
+
+  for (auto &point: clouds[0].ends)
+    arrays[0](point) += Complex(1,0);  // TODO: this could go out of bounds!
+  arrays[0].fft();
+  // now get the inverse fft in place:
+  arrays[0].cwiseProductInplace(arrays[1].conjugateInplace()).ifft();  
+
+  // find the peak
+  Vector3i index = array.maxRealIndex();
+  // add a little bit of sub-pixel accuracy:
+  Vector3d pos;
+  for (int axis = 0; axis<3; axis++)
+  {
+    Vector3i back = index, fwd = index;
+    int &dim = array.dims[axis];
+    back[axis] = (index[axis]+dim-1)%dim;
+    fwd[axis] = (index[axis]+1)%dim;
+    double y0 = array(back).real();
+    double y1 = array(index).real();
+    double y2 = array(fwd).real();
+    pos[axis] = index[axis] + 0.5*(y0 - y2)/(y0 + y2 - 2.0*y1); // just a quadratic maximum -b/2a for heights y0,y1,y2
+    // but the FFT wraps around, so:
+    if (pos[axis] > dim / 2)
+      pos[axis] -= dim;
+  }
+  pos *= -array.voxelWidth;
+  cout << "translation: " << pos.transpose() << " plus boxMin difference: " << (boxMins[1]-boxMins[0]).transpose() << " gives: " << (pos + boxMins[1]-boxMins[0]).transpose() << endl;
+  pos += boxMins[1]-boxMins[0];
+  translation = pos;
+  }
+
+  Pose transform(translation, Quaterniond::Identity());
   clouds[0].transform(transform, 0.0);
 
   string fileStub = fileA;
