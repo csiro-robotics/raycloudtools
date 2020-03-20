@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
   }
     
     // temporarily making the box square, to make it simple with the polar part...
-    boxWidth = Vector3d(max(boxWidth[0], boxWidth[1]), max(boxWidth[0], boxWidth[1]), boxWidth[2]);
+ //   boxWidth = Vector3d(max(boxWidth[0], boxWidth[1]), max(boxWidth[0], boxWidth[1]), boxWidth[2]);
   
   // Now fill in the arrays with point density
   for (int c = 0; c<2; c++)
@@ -112,6 +112,9 @@ int main(int argc, char *argv[])
   bool rotationToEstimate = true; // If we know there is no rotation between the clouds then we can save some cost
   if (rotationToEstimate)
   {
+    // TODO: the arrays are skew symmetric so... we only need to look at half of the data....
+    // however, the data is now perfectly skew symmetric for some reason...
+
     // OK cool, so next I need to re-map the two arrays into 2x1 grids...
     int maxRad = max(array.dims[0], array.dims[1])/2;
     Vector3i polarDims = Vector3i(4*maxRad, maxRad, array.dims[2]);
@@ -131,12 +134,12 @@ int main(int argc, char *argv[])
         double angle = 2.0*pi*(double)i/(double)polarDims[0];
         for (int j = 0; j<polarDims[1]; j++)
         {
-          double radius = (double)maxRad * (0.5+(double)j)/(double)polarDims[1];
-          Vector2d pos = radius * Vector2d(sin(angle), cos(angle));
+          double radius = (0.5+(double)j)/(double)polarDims[1];
+          Vector2d pos = radius*0.5*Vector2d((double)a.dims[0]*sin(angle), (double)a.dims[1]*cos(angle));
           if (pos[0] < 0.0)
-            pos[0] += 2.0*maxRad;
+            pos[0] += a.dims[0];
           if (pos[1] < 0.0)
-            pos[1] += 2.0*maxRad;
+            pos[1] += a.dims[1];
           int x = pos[0]; 
           int y = pos[1];
           double blendX = pos[0] - (double)x;
@@ -146,7 +149,7 @@ int main(int argc, char *argv[])
             // bilinear interpolation
             double val = abs(a(x,y,z)) * (1.0-blendX)*(1.0-blendY) + abs(a(x+1,y,z)) * blendX*(1.0-blendY)
                       + abs(a(x,y+1,z))*(1.0-blendX)*blendY       + abs(a(x+1,y+1,z))*blendX*blendY;
-            polar[j + polarDims[1]*z](i) = Complex(radius*val, 0);
+            polar[j + polarDims[1]*z](i) = Complex((double)a.dims[0]*radius*val, 0);
           }
         }
       }
