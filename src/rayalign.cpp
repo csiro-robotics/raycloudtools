@@ -4,7 +4,6 @@
 //
 // Author: Thomas Lowe
 #include "raycloud.h"
-#include "raydraw.h"
 #include "rayalignment.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "imagewrite.h"
@@ -35,8 +34,11 @@ void usage(bool error=false)
 
 int main(int argc, char *argv[])
 {
-  ros::init(argc, argv, "rayalign");
-  DebugDraw draw;
+  // TODO: This method works when there is more than 30% overlap. 
+  // For less, we can additionally repeat this procedure for small scale cubic sections (perhaps 20% of map width)
+  // then use the fft power spectrum (low res) as a descriptor into the knn to find matching locations, 
+  // then pick the best match.
+  
   if (argc != 3)
     usage();
 
@@ -149,7 +151,7 @@ int main(int argc, char *argv[])
             // bilinear interpolation
             double val = abs(a(x,y,z)) * (1.0-blendX)*(1.0-blendY) + abs(a(x+1,y,z)) * blendX*(1.0-blendY)
                       + abs(a(x,y+1,z))*(1.0-blendX)*blendY       + abs(a(x+1,y+1,z))*blendX*blendY;
-            polar[j + polarDims[1]*z](i) = Complex((double)a.dims[0]*radius*val, 0);
+            polar[j + polarDims[1]*z](i) = Complex(radius*val, 0);
           }
         }
       }
@@ -172,7 +174,7 @@ int main(int argc, char *argv[])
               col[1] = col[0]*col[2];
               colour += abs(polar[y + polarDims[1]*z](x)) * col/(double)polarDims[2];
             }
-            colour *= 255.0 / 10000.0;
+            colour *= 255.0 / 200.0;
             Col col;
             col.r = clamped((int)colour[0], 0, 255);
             col.g = clamped((int)colour[1], 0, 255);
@@ -207,7 +209,7 @@ int main(int argc, char *argv[])
               col[1] = col[0]*col[2];
               colour += abs(polar[y + polarDims[1]*z](x)) * col/(double)polarDims[2];
             }
-            colour *= 255.0 / 150000.0;
+            colour *= 255.0 / 1500.0;
             Col col;
             col.r = clamped((int)colour[0], 0, 255);
             col.g = clamped((int)colour[1], 0, 255);
@@ -245,7 +247,7 @@ int main(int argc, char *argv[])
     if (angle > dim / 2)
       angle -= dim;
     angle *= 2.0*pi/(double)polarDims[0];
-    cout << "found angle: " << angle << endl;
+    cout << "estimated yaw rotation: " << angle << endl;
 
     // ok, so let's rotate A towards B, and re-run the translation FFT
     clouds[0].transform(Pose(Vector3d(0,0,0), Quaterniond(AngleAxisd(angle, Vector3d(0,0,1)))), 0.0);
@@ -284,8 +286,8 @@ int main(int argc, char *argv[])
       pos[axis] -= dim;
   }
   pos *= -array.voxelWidth;
-  cout << "translation: " << pos.transpose() << " plus boxMin difference: " << (boxMins[1]-boxMins[0]).transpose() << " gives: " << (pos + boxMins[1]-boxMins[0]).transpose() << endl;
   pos += boxMins[1]-boxMins[0];
+  cout << "estimated translation: " << pos.transpose() << endl;
 
   Pose transform(pos, Quaterniond::Identity());
   clouds[0].transform(transform, 0.0);
