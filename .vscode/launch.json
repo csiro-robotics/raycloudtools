@@ -9,7 +9,7 @@
           "type": "cppdbg",
           "request": "launch",
           "program": "${workspaceFolder}/bin/rayalign",
-          "args": ["bin/forest.ply", "bin/forest2.ply"],
+          "args": ["bin/room.ply", "bin/room2.ply"],
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",
           "environment": [],

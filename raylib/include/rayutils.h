@@ -31,12 +31,12 @@ inline std::vector<std::string> split(const std::string &s, char delim)
 }
 
 template <class T>
-inline T maxVector(const T &a, const T &b)
+inline const T maxVector(const T &a, const T &b)
 {
   return T(std::max(a[0], b[0]), std::max(a[1], b[1]), std::max(a[2], b[2]));
 }
 template <class T>
-inline T minVector(const T &a, const T &b)
+inline const T minVector(const T &a, const T &b)
 {
   return T(std::min(a[0], b[0]), std::min(a[1], b[1]), std::min(a[2], b[2]));
 }
