@@ -22,6 +22,29 @@ To visualise rayclouds use meshlab. To view the rays choose Render menu then Sho
 
 Usage:
 
+<img
+src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster"
+alt="Subject Pronouns"
+style="margin-right: 10px;"
+/>
+
+<img
+src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster"
+raw=true
+alt="Subject Pronouns"
+style="margin-right: 10px;"
+/>
+
+<img
+src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/browse/pics/room1.png"
+raw=true
+alt="Subject Pronouns"
+style="margin-right: 10px;"
+/>
+
+<img width="640" alt="blahe" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/browse/pics/room1.png">
+
+
 ![room1](https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster)
 
 ![room2](https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room2.png?at=refs%2Fheads%2Fmaster)
