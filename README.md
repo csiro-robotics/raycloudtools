@@ -57,7 +57,7 @@ In this raycloud the table and cupboard appear only after the empty room has bee
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients2.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients3.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
 
-    Original cloud                        The fixed (untransient) raycloud                            the remaining transient rays are also save out
+         Original cloud                                    The fixed (untransient) raycloud                             the remaining transient rays are also save out
 
 **raycombine all room.ply room2.ply**  Combine room and its transformed version together, keeping ***all*** rays.
 
