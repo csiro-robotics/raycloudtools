@@ -72,7 +72,7 @@ struct Cuboid
 // A room with a door, window, table and cupboard
 void RoomGen::generate()
 {
-  double pointDensity = 500.0; 
+  double pointDensity = 750.0; 
   double roomWidth = random(3.0, 6.0);
   double roomLength = random(3.0, 6.0);
   double roomHeight = random(2.75, 3.0);

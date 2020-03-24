@@ -19,3 +19,11 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 
 To visualise rayclouds use meshlab. To view the rays choose Render menu then Show Vertex Normals. In the Tools menu select options and change the Decoration::NormalLength to 0.0025 to render them approximately the correct length. 
+
+Usage:
+
+![Room](ssh://git@bitbucket.csiro.au:7999/asr/raycloudtools/pics/room1.png)
+
+![room again](ssh://git@bitbucket.csiro.au:7999/asr/raycloudtools/pics/room1.png)
+
+
