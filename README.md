@@ -22,7 +22,7 @@ To access the tools from anywhere, place in your ~/bashrc:
   <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room3.png?at=refs%2Fheads%2Fmaster"/>
   <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room2.png?at=refs%2Fheads%2Fmaster"/>
 </p>
-    You can visualise the rays in meshlab with Render | Show Vertex Normals. The ray lengths need to be scaled: Tools | Options | NormalLength roughly 0.025 (smaller for larger clouds)
+&nbsp;&nbsp;&nbsp; You can visualise the rays in meshlab with Render | Show Vertex Normals. The ray lengths need to be scaled: Tools | Options | NormalLength roughly 0.025 (smaller for larger clouds)
 
 **raydecimate room.ply 10 cm** &nbsp;&nbsp;&nbsp; Spatially decimate cloud to one point every cubic 10 cm.
 
@@ -51,9 +51,9 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 **raytransients min room.ply 0.5 s** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when re-observed more than 0.5 seconds later or before. 
 
-  Leaving the minimum of geometry when transient.
+&nbsp;&nbsp;&nbsp; Leaving the minimum of geometry when transient.
 
-  In this raycloud the table and cupboard appear only after the empty room has been scanned for several seconds, so we can isolate these transient objects.
+&nbsp;&nbsp;&nbsp; In this raycloud the table and cupboard appear only after the empty room has been scanned for several seconds, so we can isolate these transient objects.
 
 <p align="center">
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients1.png?at=refs%2Fheads%2Fmaster"/>
@@ -69,7 +69,7 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 **raycombine min room.ply room2.ply** &nbsp;&nbsp;&nbsp; Combine the two ray clouds keeping only the ***minimum*** of geometry where there is a difference. 
 
-    This is a form of union of the two volumes. 
+&nbsp;&nbsp;&nbsp; This is a form of union of the two volumes. 
 
 <p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
