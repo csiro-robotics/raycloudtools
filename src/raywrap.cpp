@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
     
   Cloud cloud;
   cloud.load(file);
+  cloud.removeUnboundedRays();
   if (file.substr(file.length()-4)==".ply")
     file = file.substr(0,file.length()-4);
 

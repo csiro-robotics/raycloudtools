@@ -56,10 +56,13 @@ int main(int argc, char *argv[])
   for (int c = 0; c<2; c++)
   {
     Vector3d boxMin(-1,-1,-1)/*1e10,1e10,1e10)*/, boxMax(-1e10,-1e10,-1e10);
-    for (auto &point: clouds[c].ends)
+    for (int i = 0; i<(int)clouds[c].ends.size(); i++)
     {
-      boxMin = minVector(boxMin, point);
-      boxMax = maxVector(boxMax, point);
+      if (clouds[c].rayBounded(i))
+      {
+        boxMin = minVector(boxMin, clouds[c].ends[i]);
+        boxMax = maxVector(boxMax, clouds[c].ends[i]);
+      }
     }
     boxMins[c] = boxMin;
     Vector3d width = boxMax - boxMin;
@@ -73,8 +76,9 @@ int main(int argc, char *argv[])
   for (int c = 0; c<2; c++)
   {
     arrays[c].init(boxMins[c], boxMins[c] + boxWidth, voxelWidth);
-    for (auto &point: clouds[c].ends)
-      arrays[c](point) += Complex(1,0);  
+    for (int i = 0; i<(int)clouds[c].ends.size(); i++)
+      if (clouds[c].rayBounded(i))
+        arrays[c](clouds[c].ends[i]) += Complex(1,0);  
     arrays[c].fft();
 
     if (debugImageOutput)
@@ -253,13 +257,15 @@ int main(int argc, char *argv[])
     clouds[0].transform(Pose(Vector3d(0,0,0), Quaterniond(AngleAxisd(angle, Vector3d(0,0,1)))), 0.0);
 
     boxMins[0] = Vector3d(1e10,1e10,1e10);
-    for (auto &point: clouds[0].ends)
-      boxMins[0] = minVector(boxMins[0], point);
+    for (int i = 0; i<(int)clouds[0].ends.size(); i++)
+      if (clouds[0].rayBounded(i))
+        boxMins[0] = minVector(boxMins[0], clouds[0].ends[i]);
     arrays[0].cells.clear();
     arrays[0].init(boxMins[0], boxMins[0]+boxWidth, voxelWidth);
 
-    for (auto &point: clouds[0].ends)
-      arrays[0](point) += Complex(1,0);  // TODO: this could go out of bounds!
+    for (int i = 0; i<(int)clouds[0].ends.size(); i++)
+      if (clouds[0].rayBounded(i))
+        arrays[0](clouds[0].ends[i]) += Complex(1,0);  // TODO: this could go out of bounds!
     arrays[0].fft();
   }
 

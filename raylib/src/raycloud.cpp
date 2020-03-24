@@ -19,7 +19,7 @@ void Cloud::save(const std::string &fileName)
   string name = fileName;
   if (name.substr(name.length()-4) != ".ply")
     name += ".ply";
-  writePly(name, starts, ends, times);
+  writePly(name, starts, ends, times, intensities, colours);
 }
 
 bool Cloud::load(const std::string &fileName)
@@ -41,9 +41,14 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 {
   string nameEnd = pointCloud.substr(pointCloud.size()-4);
   if (nameEnd == ".ply")
-    readPly(pointCloud, starts, ends, times);
+    readPly(pointCloud, starts, ends, times, intensities, colours);
   else if (nameEnd == ".laz" || nameEnd == ".las")
-    readLas(pointCloud, ends, times, intensities, 1);    
+  {
+    readLas(pointCloud, ends, times, intensities, 1);   
+    colours.resize(ends.size());
+    for (int i = 0; i<colours.size(); i++)
+      colours[i] = i;
+  } 
   else
   {
     cout << "Error converting unknown type: " << pointCloud << endl;
@@ -58,12 +63,16 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 
 bool Cloud::loadPLY(const string &file)
 {
-  return readPly(file, starts, ends, times);
+  return readPly(file, starts, ends, times, intensities, colours);
 }
 
 bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)
 {
   bool success = readLas(lazFile, ends, times, intensities, 1);
+  colours.resize(ends.size());
+  for (int i = 0; i<colours.size(); i++)
+    colours[i] = i;
+    
   if (!success)
     return false;
   Trajectory trajectory;
@@ -128,6 +137,27 @@ vector<int> voxelRandomSubsample(const vector<Vector3d> &points, double voxelWid
   return indices;
 }
 
+void Cloud::removeUnboundedRays()
+{
+  vector<int> valids;
+  for (int i = 0; i<(int)ends.size(); i++)
+    if (rayBounded(i))
+      valids.push_back(i);
+  for (int i = 0; i<(int)valids.size(); i++)
+  {
+    starts[i] = starts[valids[i]];
+    ends[i] = ends[valids[i]];
+    times[i] = times[valids[i]];
+    intensities[i] = intensities[valids[i]];
+    colours[i] = colours[valids[i]];
+  }
+  starts.resize(valids.size());
+  ends.resize(valids.size());
+  times.resize(valids.size());
+  intensities.resize(valids.size());
+  colours.resize(valids.size());
+}
+
 void Cloud::decimate(double voxelWidth)
 {
   vector<int> subsample = voxelRandomSubsample(ends, voxelWidth);
@@ -136,14 +166,14 @@ void Cloud::decimate(double voxelWidth)
     int id = subsample[i];
     starts[i] = starts[id];
     ends[i] = ends[id];
-    if (intensities.size() > 0)
-      intensities[i] = intensities[id];
+    intensities[i] = intensities[id];
+    colours[i] = colours[id];
     times[i] = times[id];
   }
   starts.resize(subsample.size());
   ends.resize(subsample.size());
-  if (intensities.size() > 0)
-    intensities.resize(subsample.size());
+  intensities.resize(subsample.size());
+  colours.resize(subsample.size());
   times.resize(subsample.size());
 }
 
@@ -219,20 +249,34 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
 
   for (unsigned int i = 0; i<ends.size(); i++)
   {
+    if (!rayBounded(i))
+    {
+      ellipsoids[i].transient = false;
+      ellipsoids[i].size = 0.0;
+      continue;
+    }
     Matrix3d scatter;
     scatter.setZero();
     Vector3d centroid(0,0,0);
-    double numNeighbours = 0.0;
+    double numNeighbours = 1e-10;
     for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
     {
-      centroid += ends[indices(j, i)];
-      numNeighbours++;
+      int index = indices(j, i);
+      if (rayBounded(index))
+      {
+        centroid += ends[index];
+        numNeighbours++;
+      }
     }
     centroid /= numNeighbours;
     for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
     {
-      Vector3d offset = ends[indices(j,i)] - centroid;
-      scatter += offset * offset.transpose();
+      int index = indices(j, i);
+      if (rayBounded(index))
+      {
+        Vector3d offset = ends[index] - centroid;
+        scatter += offset * offset.transpose();
+      }
     }
     scatter /= numNeighbours;
 
@@ -262,6 +306,8 @@ void fillGrid(Grid<Ellipsoid *> &grid, vector<Ellipsoid> &ellipsoids)
   // next populate the grid with these ellipsoid centres
   for (auto &ellipsoid: ellipsoids)
   {
+    if (ellipsoid.size == 0.0)
+      continue;
     double radius = min(1.0, ellipsoid.size);
     Vector3d rad(radius,radius,radius);
     Vector3d bMin = (ellipsoid.pos - rad - grid.boxMin)/grid.voxelWidth;
@@ -281,8 +327,6 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta,
   int type = mergeType == "oldest" ? 0 : (mergeType == "newest" ? 1 : (mergeType == "min" ? 2 : 3));
   for (int i = 0; i<(int)ends.size(); i++)
   {
-//    if (times[i] < 0.0)
-//      continue;
     Vector3d dir = ends[i] - starts[i];
     Vector3d dirSign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Vector3d start = (starts[i] - grid.boxMin)/grid.voxelWidth;
@@ -327,7 +371,7 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta,
             removeRay = ellipsoid->time < abs(times[i]);
           if (removeRay) 
           {
-            times[i] = -abs(times[i]); // signal to remove this ray
+            times[i] = -abs(times[i]); // HACK! signal to remove this ray
             found = true;
             break; // we're just removing the ray at the moment, not cropping it, so we can break here
           }
@@ -394,12 +438,16 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta, con
       transient.starts.push_back(starts[i]);
       transient.ends.push_back(ends[i]);
       transient.times.push_back(abs(times[i]));
+      transient.intensities.push_back(intensities[i]);
+      transient.colours.push_back(colours[i]);
     }
     else
     {
       fixed.starts.push_back(starts[i]);
       fixed.ends.push_back(ends[i]);
       fixed.times.push_back(times[i]);
+      fixed.intensities.push_back(intensities[i]);
+      fixed.colours.push_back(colours[i]);
     }
   }
 }
@@ -456,6 +504,8 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string
         differences.starts.push_back(cloud.starts[i]);
         differences.ends.push_back(cloud.ends[i]);
         differences.times.push_back(-cloud.times[i]);
+        differences.intensities.push_back(cloud.intensities[i]);
+        differences.colours.push_back(cloud.colours[i]);
       }
       else
       {
@@ -463,6 +513,8 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string
         starts.push_back(cloud.starts[i]);
         ends.push_back(cloud.ends[i]);
         times.push_back(cloud.times[i]);
+        intensities.push_back(cloud.intensities[i]);
+        colours.push_back(cloud.colours[i]);
       }
     }      
     cout << t << " transients, " << f << " fixed rays." << endl;

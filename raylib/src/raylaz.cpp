@@ -79,8 +79,7 @@ void RAY::writeLas(string fileName, const vector<Vector3d> &points,
   {
     point.SetCoordinates(points[i][0], points[i][1], points[i][2]);
     point.SetIntensity(intensities[i]);
-    if (!times.empty()) 
-      point.SetTime(times[i]);
+    point.SetTime(times[i]);
     writer.WritePoint(point);
   }
 }

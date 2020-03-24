@@ -174,5 +174,6 @@ void RoomGen::generate()
     Vector3d rayEnd = Vector3d(s[0]*cos(roomYaw) + s[1]*sin(roomYaw), -s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[2]) + floorCentre;
     rayStarts.push_back(rayStart);
     rayEnds.push_back(rayEnd);
+    intensities.push_back(range == maxRange ? 0.0 : 1.0);
   }
 }

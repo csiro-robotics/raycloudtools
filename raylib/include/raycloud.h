@@ -26,6 +26,8 @@ struct Cloud
   std::vector<Eigen::Vector3d> ends; 
   std::vector<double> times;
   std::vector<double> intensities;
+  std::vector<uint32_t> colours; 
+  inline bool rayBounded(int i){ return intensities[i] > 0.0; }
 
   void save(const std::string &fileName);
   bool load(const std::string &fileName);
@@ -34,7 +36,7 @@ struct Cloud
   void transform(const Pose &pose, double timeDelta);
   void decimate(double voxelWidth);
 
- // std::vector<Ellipsoid> generateEllipsoids(int searchSize = 16);
+  void removeUnboundedRays();
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
   void findTransients(Cloud &transient, Cloud &fixed, double timeDelta, const std::string &mergeType);
   void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType);

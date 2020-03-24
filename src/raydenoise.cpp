@@ -46,12 +46,12 @@ int main(int argc, char *argv[])
     if (rangeDistance < 0.01)
       usage();
     
-    vector<Vector3d> starts, ends;
-    vector<double> times, intensities;
-    starts.reserve(cloud.starts.size());
-    ends.reserve(cloud.ends.size());
-    times.reserve(cloud.times.size());
-    intensities.reserve(cloud.intensities.size());
+    Cloud newCloud;
+    newCloud.starts.reserve(cloud.starts.size());
+    newCloud.ends.reserve(cloud.ends.size());
+    newCloud.times.reserve(cloud.times.size());
+    newCloud.intensities.reserve(cloud.intensities.size());
+    newCloud.colours.reserve(cloud.colours.size());
     // Firstly look at adjacent rays by range. We don't want to throw away large changes,
     // instead, the intermediate of 3 adjacent ranges that is too far from both ends...
     for (int i = 1; i<(int)cloud.starts.size()-1; i++)
@@ -60,20 +60,17 @@ int main(int argc, char *argv[])
       double range1 = (cloud.ends[i]-cloud.starts[i]).norm();
       double range2 = (cloud.ends[i+1]-cloud.starts[i+1]).norm();
       double minDist = min(abs(range0 - range2), min(abs(range1-range0), abs(range2 - range1)));
-      if (minDist < rangeDistance)
+      if (!cloud.rayBounded(i) || minDist < rangeDistance)
       {
-        starts.push_back(cloud.starts[i]);
-        ends.push_back(cloud.ends[i]);
-        times.push_back(cloud.times[i]);
-        if (cloud.intensities.size() > 0)
-          intensities.push_back(cloud.intensities[i]);
+        newCloud.starts.push_back(cloud.starts[i]);
+        newCloud.ends.push_back(cloud.ends[i]);
+        newCloud.times.push_back(cloud.times[i]);
+        newCloud.intensities.push_back(cloud.intensities[i]);
+        newCloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size()-starts.size() << " rays removed with range gaps > " << rangeDistance*100.0 << " cm." << endl;
-    cloud.starts = starts;
-    cloud.ends = ends;
-    cloud.times = times;
-    cloud.intensities = intensities;
+    cout << cloud.starts.size()-newCloud.starts.size() << " rays removed with range gaps > " << rangeDistance*100.0 << " cm." << endl;
+    cloud = newCloud;
   }
 
   // Next, look at spatially isolated points:
@@ -97,32 +94,25 @@ int main(int argc, char *argv[])
     nns->knn(pointsP, indices, dists2, searchSize, 0.01, 0, 1.0);
     delete nns;
 
-    vector<char> ignoreList(points.size());
-    memset(&ignoreList[0], 0, sizeof(bool) * ignoreList.size());
-    int ignored = 0;
-
-    vector<Vector3d> starts, ends;
-    vector<double> times, intensities;
-    starts.reserve(cloud.starts.size());
-    ends.reserve(cloud.ends.size());
-    times.reserve(cloud.times.size());
-    intensities.reserve(cloud.intensities.size());
-    for (int i = 0; i<points.size(); i++)
+    Cloud newCloud;
+    newCloud.starts.reserve(cloud.starts.size());
+    newCloud.ends.reserve(cloud.ends.size());
+    newCloud.times.reserve(cloud.times.size());
+    newCloud.intensities.reserve(cloud.intensities.size());
+    newCloud.colours.reserve(cloud.colours.size());
+    for (int i = 0; i<(int)points.size(); i++)
     {
-      if (dists2(0,i) < 1e10 && dists2(0,i) < sqr(distance))
+      if (!cloud.rayBounded(i) || (dists2(0,i) < 1e10 && dists2(0,i) < sqr(distance)))
       {
-        starts.push_back(cloud.starts[i]);
-        ends.push_back(cloud.ends[i]);
-        times.push_back(cloud.times[i]);
-        if (cloud.intensities.size() > 0)
-          intensities.push_back(cloud.intensities[i]);
+        newCloud.starts.push_back(cloud.starts[i]);
+        newCloud.ends.push_back(cloud.ends[i]);
+        newCloud.times.push_back(cloud.times[i]);
+        newCloud.intensities.push_back(cloud.intensities[i]);
+        newCloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size()-starts.size() << " rays removed with ends further than " << distance*100.0 << " cm from any other." << endl;
-    cloud.starts = starts;
-    cloud.ends = ends;
-    cloud.times = times;
-    cloud.intensities = intensities;
+    cout << cloud.starts.size()-newCloud.starts.size() << " rays removed with ends further than " << distance*100.0 << " cm from any other." << endl;
+    cloud = newCloud;
   }
 
   cloud.save(file.substr(0,file.length()-4) + "_denoised.ply");

@@ -33,6 +33,7 @@ int main(int argc, char *argv[])
   Cloud cloud;
   cloud.load(file);
   vector<Vector3d> starts, ends;
+  vector<uint32_t> colours;
   vector<double> times, intensities;
   string type = argv[3];
   if (type=="cm")
@@ -42,34 +43,34 @@ int main(int argc, char *argv[])
   else if (type == "rays")
   {
     int decimation = stoi(argv[2]);
-    for (int i = 0; i<cloud.ends.size(); i+=decimation)
+    for (int i = 0; i<(int)cloud.ends.size(); i+=decimation)
     {
       starts.push_back(cloud.starts[i]);
       ends.push_back(cloud.ends[i]);
       times.push_back(cloud.times[i]);
-      if (cloud.intensities.size()>0)
-        intensities.push_back(cloud.intensities[i]);
+      intensities.push_back(cloud.intensities[i]);
+      colours.push_back(cloud.colours[i]);
     }
-    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.intensities = intensities;
+    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.intensities = intensities; cloud.colours = colours;
   }
   else if (type == "seconds" || type == "s")
   {
     double delta = stod(argv[2]);
     double lastTime = cloud.times[0];
-    for (int i = 0; i<cloud.ends.size(); i++)
+    for (int i = 0; i<(int)cloud.ends.size(); i++)
     {
       if (cloud.times[i] >= lastTime + delta)
       {
         starts.push_back(cloud.starts[i]);
         ends.push_back(cloud.ends[i]);
         times.push_back(cloud.times[i]);
-        if (cloud.intensities.size()>0)
-          intensities.push_back(cloud.intensities[i]);
+        intensities.push_back(cloud.intensities[i]);
+        colours.push_back(cloud.colours[i]);
         while (cloud.times[i] >= lastTime + delta) // in case delta is tiny
           lastTime += delta;
       }
     }
-    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.intensities = intensities;
+    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.intensities = intensities; cloud.colours = colours;
   }
   else 
     usage(false);

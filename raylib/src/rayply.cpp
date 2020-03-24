@@ -17,34 +17,49 @@ Vector3d redGreenBlue(double x)
   return res;
 }
 
+void redGreenBlueGradient(const vector<double> &values, vector<uint32_t> &gradient)
+{
+  gradient.resize(values.size());
+  vector<Vector3d> rgb(values.size());
+  for (int i= 0; i<(int)rgb.size(); i++)
+    rgb[i] = redGreenBlue(fmod(values[i], 10.0)/10.0);
+  for (unsigned int i = 0; i<rgb.size(); i++)
+  {
+    gradient[i] = 0;
+    for (int j = 0; j<3; j++)
+      gradient[i] += uint32_t(rgb[i][j] * 255.0) << (j*8);
+    gradient[i] += 255<<24; // i.e. alpha is 255
+  }
+}
+
 // Save the polygon file to disk
-void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &times)
+void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &times, const vector<double> &intensities, const vector<unsigned int> &colours)
 {
   cout << "saving to " << fileName << ", " << ends.size() << " rays." << endl;
   
-  vector<Vector3d> rgb(times.size());
-  for (int i= 0; i<(int)rgb.size(); i++)
-    rgb[i] = redGreenBlue(fmod(times[i], 10.0)/10.0);
-  vector<uint32_t> RGB(rgb.size());
-  for (unsigned int i = 0; i<rgb.size(); i++)
-  {
-    RGB[i] = 0;
-    for (int j = 0; j<3; j++)
-      RGB[i] += uint32_t(rgb[i][j] * 255.0) << (j*8);
-    RGB[i] += 255<<24; // i.e. alpha is 255
-  }
+  vector<uint32_t> RGB(times.size());
+  if (colours.size() > 0)
+    RGB = colours;
+  else
+    redGreenBlueGradient(times, RGB);
 
-  vector<Matrix<float, 8, 1> > vertices(ends.size()); // 4d to give space for colour
+  vector<Matrix<float, 10, 1> > vertices(ends.size()); // 4d to give space for colour
   for (unsigned int i = 0; i<ends.size(); i++)
   {
     Vector3d n = starts[i] - ends[i];
-    vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)times[i], (float)n[0], (float)n[1], (float)n[2], (float &)RGB[i];
+    union U // TODO: this is nasty, better to just make vertices an unsigned char vector
+    {
+      float f[2];
+      double d;
+    };
+    U u;
+    u.d = times[i];
+    vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)u.f[0], (float)u.f[1], (float)n[0], (float)n[1], (float)n[2], (float &)RGB[i], (float)intensities[i];
   }
 
   FILE *fid = fopen(fileName.c_str(), "w+");
 
   // do we put the starts in as normals?
-
   fprintf(fid, "ply\n"); 
   fprintf(fid, "format binary_little_endian 1.0\n"); 
   fprintf(fid, "comment SDK generated\n"); // TODO: add version here
@@ -52,7 +67,7 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
   fprintf(fid, "property float x\n"); 
   fprintf(fid, "property float y\n"); 
   fprintf(fid, "property float z\n"); 
-  fprintf(fid, "property float t\n"); 
+  fprintf(fid, "property double time\n"); 
   fprintf(fid, "property float nx\n"); 
   fprintf(fid, "property float ny\n"); 
   fprintf(fid, "property float nz\n"); 
@@ -60,233 +75,133 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
   fprintf(fid, "property uchar green\n"); 
   fprintf(fid, "property uchar blue\n"); 
   fprintf(fid, "property uchar alpha\n"); 
+  fprintf(fid, "property float intensity\n"); 
   fprintf(fid, "element face 0\n"); 
   fprintf(fid, "property list uchar int vertex_indices\n"); 
   fprintf(fid, "end_header\n"); 
 
-  fwrite(&vertices[0], sizeof(Matrix<float, 8, 1>), vertices.size(), fid);
+  fwrite(&vertices[0], sizeof(Matrix<float, 10, 1>), vertices.size(), fid);
 
   fclose(fid);  
 }
 
-#if 0 // is this a better save PLY function?
-void savePLY(const std::string &filename, const State &state, const std::vector<PoseEvent> &trajectory, const LaserData &laser, const PointAttributeOptions& options)
+bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vector3d> &ends, vector<double> &times, vector<double> &intensities, vector<uint32_t> &colours)
 {
-  struct Property
+  ifstream input(fileName.c_str());
+  if (!input.is_open())
   {
-    function<void(ofstream&)> writeHeader;
-    function<void(ofstream&, const unsigned int&)> writeData;
-   
-    Property()=default;
-    Property(function<void(ofstream&)> header, function<void(ofstream&, const unsigned int&)> data) : writeHeader(header), writeData(data) {};
-  };
- 
-  vector<Property> propertyList;
- 
-  //Covariance
-  if(options.saveCovariance && !laser.times.empty())
-  {
-    vector<double> covariances;
-    for(auto&& covarianceEvent : state.covarianceTrajectory)
-      covariances.push_back(covarianceEvent.covariance.norm());
-    Lookup<double> covarianceLookup (components(state.covarianceTrajectory, time), covariances);
- 
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property float covariance" << endl;
-          },
-          [&laser, covarianceLookup](ofstream& out, const unsigned int& i)
-          {
-            float value = covarianceLookup.linear(laser.times[i], false);
-            out.write((const char*)&value, sizeof(float));
-          }));
+    cerr << "Couldn't open file: " << fileName << endl;
+    return false;
   }
- 
-  //Intensity
-  if(options.saveIntensity && !laser.intensities.empty())
+  string line;
+  int rowSize = 0;
+  int offset = -1, normalOffset = -1, intensityOffset = -1, timeOffset = -1, colourOffset = -1;
+  bool timeIsFloat = false;
+  while (line != "end_header\r" && line != "end_header")
   {
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property ushort intensity" << endl;
-          },
-          [&laser](ofstream& out, const unsigned int& i)
-          {
-            out.write((const char*)&laser.intensities[i], sizeof(uint16_t));
-          }));
-  }
- 
-  //Normal
-  if(options.saveNormals && !laser.times.empty() && !trajectory.empty())
-  {
-    vector<Vector3d> normals = generateNormals(laser.positions, components(Lookup<PoseEvent>(trajectory).linearInterpolate(laser.times), pose.position));
-   
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property float nx" << endl;
-            out << "property float ny" << endl;
-            out << "property float nz" << endl;
-          },
-          [&laser, normals](ofstream& out, const unsigned int& i)
-          {
-            Vector3f normal = normals[i].cast<float>();
-            out.write((const char*)normal.data(), sizeof(float)*3);
-          }));
-  }
- 
-  //Angle of incidence
-  if(options.saveIncidenceAngle && !laser.times.empty() && !trajectory.empty())
-  {
-    vector<Vector3d> normals = generateNormals(laser.positions, components(Lookup<PoseEvent>(trajectory).linearInterpolate(laser.times), pose.position));
-    Lookup<PoseEvent> trajLookup (trajectory);
-   
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property float incidence_angle" << endl;
-          },
-          [&laser, normals, trajLookup](ofstream& out, const unsigned int& i)
-          {
-            float incidenceAngle = (180.0/M_PI) * acos(normals[i].dot((trajLookup.linearNormalized(laser.times[i]).pose.position - laser.positions[i]).normalized()));
-            out.write((const char*)&incidenceAngle, sizeof(float));
-          }));
-  }
- 
-  //Position
-  propertyList.push_back(Property(
-        [](ofstream& out){
-          out << "property double x" << endl;
-          out << "property double y" << endl;
-          out << "property double z" << endl;
-        },
-        [&laser](ofstream& out, const unsigned int& i)
-        {
-          out.write((const char*)laser.positions[i].data(), sizeof(double)*3);
-        }));
- 
-  //Range
-  if(options.saveRange && !laser.times.empty() && !trajectory.empty())
-  {
-    Lookup<PoseEvent> trajLookup (trajectory);
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property float range" << endl;
-          },
-          [&laser, trajLookup](ofstream& out, const unsigned int& i)
-          {
-            float range = (trajLookup.linearNormalized(laser.times[i]).pose.position - laser.positions[i]).norm();
-            out.write((const char*)&range, sizeof(float));
-          }));
-  }
- 
-  //Return number
-  if(options.saveReturnNumber && std::any_of(laser.flags.begin(), laser.flags.end(), [](const LaserData::Flags& flag){return !((bool)(flag & LaserData::Flag::SINGLE_RETURN));}))
-  {
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property uchar normalized_return_number" << endl;
-          },
-          [&laser](ofstream& out, const unsigned int& i)
-          {
-            uint8_t value;
-            if(laser.flags[i] & LaserData::Flag::SINGLE_RETURN)//Single return
-              value = 0;
-            else if(laser.flags[i] & LaserData::Flag::FIRST_RETURN)//First return
-              value = 1;
-            else if(laser.flags[i] & LaserData::Flag::LAST_RETURN)//Last return
-              value = numeric_limits<uint8_t>::max();
-            else//Mid return TODO Is the order required?
-              value = numeric_limits<uint8_t>::max()/2;
-           
-            out.write((const char*)&value, sizeof(uint8_t));
-          }));
-  }
- 
-  //Ring number
-  if(options.saveRingNumber && !laser.rings.empty())
-  {
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property uchar ring_number" << endl;
-          },
-          [&laser](ofstream& out, const unsigned int& i)
-          {
-            out.write((const char*)&laser.rings[i], sizeof(uint8_t));
-          }));
-  }
- 
-  //Shape
-  if(options.saveShapes && !laser.times.empty() && !trajectory.empty())
-  {
-    vector<Vector3d> shapes = generateShapes(laser.positions, components(Lookup<PoseEvent>(trajectory).linearInterpolate(laser.times), pose.position));
-   
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property uchar planarity" << endl;
-            out << "property uchar sphericity" << endl;
-            out << "property uchar cylindricality" << endl;
-          },
-          [&laser, shapes](ofstream& out, const unsigned int& i)
-          {
-            for(unsigned int j = 0; j < 3; ++j)
-            {
-              uint8_t shape = clamped(shapes[i][j], 0.0, 1.0) * std::numeric_limits<uint8_t>::max();
-              out.write((const char*)&shape, sizeof(uint8_t));
-            }
-          }));
-  }
- 
-  //Strongest Return
-  if(options.saveStrongestReturn && std::any_of(laser.flags.begin(), laser.flags.end(), [](const LaserData::Flags& flag){return (bool)(flag & LaserData::Flag::STRONGEST_RETURN);}))
-  {
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property uchar strongest_return" << endl;
-          },
-          [&laser](ofstream& out, const unsigned int& i)
-          {
-            uint8_t value = (bool)(laser.flags[i] & LaserData::Flag::STRONGEST_RETURN);
-            out.write((const char*)&value, sizeof(uint8_t));
-          }));
-  }
- 
-  //Time
-  if(options.saveTime && !laser.times.empty())
-  {
-    propertyList.push_back(Property(
-          [](ofstream& out){
-            out << "property double time" << endl;
-          },
-          [&laser](ofstream& out, const unsigned int& i)
-          {
-            out.write((const char*)&laser.times[i], sizeof(double));
-          }));
-  }
- 
-  //PLY output  cout << "reading from " << fileName << endl;
-
-  {
-    const vector<Property>& properties = propertyList;
-   
-    std::ofstream ply (filename, ios::binary | ios::out);
-   
-    ply << "ply" << endl;
-    ply << "format binary_little_endian 1.0" << endl;
-    ply << "comment nrrslam" << endl; //TODO version
-    ply << "element vertex " << laser.size() << endl;
-    for(auto&& property : properties)
-      property.writeHeader(ply);
-    ply << "element face 0" << endl;
-    ply << "property list uchar int vertex_indices" << endl;
-    ply << "end_header" << endl;
-   
-    //Data
-    for(unsigned int i = 0; i < laser.size(); ++i)
+    getline(input, line);
+    if (line.find("property float x") != string::npos)
+      offset = rowSize;
+    if (line.find("property float nx") != string::npos)
+      normalOffset = rowSize;
+    if (line.find("property float intensity") != string::npos)
+      intensityOffset = rowSize;
+    if (line.find("time") != string::npos)
     {
-      for(auto&& property : properties)
-        property.writeData(ply, i);
+      timeOffset = rowSize;
+      if (line.find("float") != string::npos)
+        timeIsFloat = true;
+    }
+    if (line.find("property uchar red") != string::npos)
+      colourOffset = rowSize;
+    if (line.find("float") != string::npos)
+      rowSize += sizeof(float);
+    if (line.find("double") != string::npos)
+      rowSize += sizeof(double);
+    if (line.find("property uchar") != string::npos)
+      rowSize += sizeof(unsigned char);
+  }
+  if (offset == -1)
+  {
+    cerr << "could not find position properties of file: " << fileName << endl;
+    return false;
+  }
+  if (normalOffset == -1)
+  {
+    cerr << "could not find normal properties of file: " << fileName << endl;
+    return false;
+  }
+
+  streampos start = input.tellg();
+  input.seekg(0, input.end);
+  int length = input.tellg() - start;
+  input.seekg(start);
+  int size = length / rowSize;
+  vector<unsigned char> vertices(length);
+  // read data as a block:
+  input.read((char *)&vertices[0], length);
+  bool warningIssued = false;
+  int numBounded = 0;
+  int numUnbounded = 0;
+  for (int i = 0; i<size; i++)
+  {
+    Vector3f b = (Vector3f &)vertices[rowSize*i + offset];
+    Vector3d end(b[0],b[1],b[2]);
+    ends.push_back(Vector3d(end));
+    if (timeOffset != -1)
+    {
+      double time;
+      if (timeIsFloat)
+        time = (double)((float &)vertices[rowSize*i + timeOffset]);
+      else
+        time = (double &)vertices[rowSize*i + timeOffset];
+      if (times.size() > 0 && times.back() > time && !warningIssued)
+      {
+        cout << "warning, ray times are not in order. Many functions assume chronological ordering" << endl;
+        cout << "i: " << i << ", offset: " << timeOffset << ", timeIsFloat" << timeIsFloat << ", last time: " << times.back() << ", this time: " << time << endl;
+        warningIssued = true;
+      }
+      times.push_back(time);
+    }
+    Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
+    starts.push_back(end + Vector3d(n[0], n[1], n[2]));
+    if (intensityOffset != -1)
+    {
+      float intensity = (float &)vertices[rowSize*i + intensityOffset];
+      intensities.push_back(intensity);
+      if (intensity > 0)
+        numBounded++;
+      else
+        numUnbounded++;
+    }
+    if (colourOffset != -1)
+    {
+      uint32_t colour = (uint32_t &)vertices[rowSize*i + colourOffset];
+      colours.push_back(colour);
     }
   }
+  if (intensities.size() == 0)
+  {
+    cout << "warning: no intensity information found in " << fileName << ", setting to 1, and assuming no out of range rays" << endl;
+    intensities.resize(ends.size());
+    for (auto &intensity: intensities)
+      intensity = 1.0;
+  }
+  if (times.size() == 0)
+  {
+    cout << "warning: no time information found in " << fileName << ", setting times at 1 second intervals per ray" << endl;
+    times.resize(ends.size());
+    for (int i = 0; i<times.size(); i++)
+      times[i] = (double)i;
+  }
+  if (colours.size() == 0)
+  {
+    cout << "warning: no colour information found in " << fileName << ", setting colours red->green->blue based on time" << endl;
+    redGreenBlueGradient(times, colours);
+  }
+  cout << "reading from " << fileName << ", " << size << " rays, of which " << numBounded << " bounded and " << numUnbounded << " unbounded" << endl;
+  return true; 
 }
-#endif
 
 void RAY::writePlyMesh(const string &fileName, const Mesh &mesh, bool flipNormals)
 {
@@ -373,56 +288,5 @@ bool RAY::readPlyMesh(const string &file, Mesh &mesh)
   cout << "reading from " << file << ", " << mesh.indexList.size() << " triangles." << endl;
   return true;
 }
-
-
-bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vector3d> &ends, vector<double> &times)
-{
-  ifstream input(fileName.c_str());
-  if (!input.is_open())
-  {
-    cerr << "Couldn't open file: " << fileName << endl;
-    return false;
-  }
-  string line;
-  int rowSize = 0;
-  int normalOffset = 0;
-  while (line != "end_header\r" && line != "end_header")
-  {
-    getline(input, line);
-    if (line.find("property float nx") != string::npos)
-    {
-      normalOffset = rowSize;
-    }
-    if (line.find("float") != string::npos)
-    {
-      rowSize += 4;
-    }
-    if (line.find("property uchar") != string::npos)
-    {
-      rowSize++;
-    }
-  }
-
-  streampos start = input.tellg();
-  input.seekg(0, input.end);
-  int length = input.tellg() - start;
-  input.seekg(start);
-  int size = length / rowSize;
-  vector<unsigned char> vertices(length);
-  // read data as a block:
-  input.read((char *)&vertices[0], length);
-  for (int i = 0; i<size; i++)
-  {
-    Vector4f b = (Vector4f &)vertices[rowSize*i];
-    Vector3d end(b[0],b[1],b[2]);
-    ends.push_back(Vector3d(end));
-    times.push_back(b[3]);
-    Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
-    starts.push_back(end + Vector3d(n[0], n[1], n[2]));
-  }
-  cout << "reading from " << fileName << ", " << size << " rays." << endl;
-  return true; 
-}
-
 
 
