@@ -23,29 +23,32 @@ To access the tools from anywhere, place in your ~/bashrc:
 </p>
 You can visualise the rays in meshlab with Render | Show Vertex Normals. The ray lengths need to be scaled: Tools | Options | NormalLength roughly 0.025 (smaller for larger clouds)
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room2.png?at=refs%2Fheads%2Fmaster" style="margin-right: 100px;"/>
+<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room2.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **raydecimate room.ply 10 cm**  Spatially decimate cloud to one point every cubic 10 cm.
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_decimated.png?at=refs%2Fheads%2Fmaster" style="margin-right: 200px;"/>
+<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_decimated.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **raytranslate room.ply 3 0 0**  Translate the ray cloud 3 metres along the x axis.
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_translate.png?at=refs%2Fheads%2Fmaster" style="margin-right: 50px;"/>
+<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_translate.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **rayrotate room.ply 0 0 30**  Rotate the ray cloud 30 degrees around the z axis.
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_rotate.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
+<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_rotate.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **raydenoise room.ply 10 cm**  Remove rays with isolated end points more than 10 cm from any other, not including unbounded rays.
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_denoise1.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_denoise2.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
+<p align="center">
+<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_denoise1.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_denoise2.png?at=refs%2Fheads%2Fmaster"/>
 
 **raysmooth room.ply**  Move ray end points onto the nearest surface, to smooth the resulting cloud.
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_smooth1.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_smooth2.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
+<p align="center">
+<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_smooth1.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_smooth2.png?at=refs%2Fheads%2Fmaster"/>
+</p>
 
 **raytransients min room.ply 0.5 s**  Segment out moving or moved objects during the scan, when re-observed more than 0.5 seconds later or before. 
 
@@ -53,20 +56,22 @@ Leaving the minimum of geometry when transient.
 
 In this raycloud the table and cupboard appear only after the empty room has been scanned for several seconds, so we can isolate these transient objects.
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients1.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients2.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients3.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
+<p align="center">
+<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients1.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients2.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients3.png?at=refs%2Fheads%2Fmaster"/>
+</p>
 
          Original cloud                                    The fixed (untransient) raycloud                             the remaining transient rays are also saved out
 
 **raycombine all room.ply room2.ply**  Combine room and its transformed version together, keeping ***all*** rays.
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_all.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
+<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_all.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **raycombine min room.ply room2.ply**  Combine the two ray clouds keeping only the ***minimum*** of geometry where there is a difference. 
 
 This is a form of union of the two volumes. 
 
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster" style="margin-right: 10px;"/>
+<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
 
