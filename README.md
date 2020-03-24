@@ -22,8 +22,8 @@ To visualise rayclouds use meshlab. To view the rays choose Render menu then Sho
 
 Usage:
 
-![Room](ssh://git@bitbucket.csiro.au:7999/asr/raycloudtools/pics/room1.png)
+![Room](https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/browse/pics/room1.png)
 
-![room again](ssh://git@bitbucket.csiro.au:7999/asr/raycloudtools/pics/room1.png)
+![room again](ssh://git@bitbucket.csiro.au:7999/asr/raycloudtools/browse/pics/room1.png)
 
 
