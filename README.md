@@ -24,6 +24,6 @@ Usage:
 
 ![Room](https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/browse/pics/room1.png)
 
-![room again](ssh://git@bitbucket.csiro.au:7999/asr/raycloudtools/browse/pics/room1.png)
+![room again](https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster)
 
 
