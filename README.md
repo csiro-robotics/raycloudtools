@@ -61,9 +61,7 @@ To access the tools from anywhere, place in your ~/bashrc:
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients3.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Original cloud 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The fixed (untransient) raycloud 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; the remaining transient rays are also saved out
+&nbsp;&nbsp;&nbsp; Left: original cloud. Middle: the fixed (untransient) raycloud. Right: the remaining transient rays are also saved.
 
 **raycombine all room.ply room2.ply** &nbsp;&nbsp;&nbsp; Combine room and its transformed version together, keeping ***all*** rays.
 
