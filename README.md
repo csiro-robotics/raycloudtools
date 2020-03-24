@@ -14,18 +14,17 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 ## Examples:
 
-**rayconvert forest.laz forest_traj.ply**  Convert point cloud and trajectory to a single raycloud file: forest.ply
+**rayconvert forest.laz forest_traj.ply**    Convert point cloud and trajectory to a single raycloud file: forest.ply
 
-**raycreate room 0**  Generate a single room with a window and door (or other environments), using random seed 0.
+**raycreate room 0**     Generate a single room with a window and door (or other environments), using random seed 0.
 <p align="center">
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster"/>
   <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room3.png?at=refs%2Fheads%2Fmaster"/>
+  <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room2.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 You can visualise the rays in meshlab with Render | Show Vertex Normals. The ray lengths need to be scaled: Tools | Options | NormalLength roughly 0.025 (smaller for larger clouds)
 
-<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room2.png?at=refs%2Fheads%2Fmaster"/></p>
-
-**raydecimate room.ply 10 cm**  Spatially decimate cloud to one point every cubic 10 cm.
+**raydecimate room.ply 10 cm** &nbsp;&nbsp; Spatially decimate cloud to one point every cubic 10 cm.
 
 <p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_decimated.png?at=refs%2Fheads%2Fmaster"/></p>
 
