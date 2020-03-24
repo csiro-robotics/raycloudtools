@@ -191,7 +191,7 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
   {
     cout << "warning: no time information found in " << fileName << ", setting times at 1 second intervals per ray" << endl;
     times.resize(ends.size());
-    for (int i = 0; i<times.size(); i++)
+    for (int i = 0; i<(int)times.size(); i++)
       times[i] = (double)i;
   }
   if (colours.size() == 0)

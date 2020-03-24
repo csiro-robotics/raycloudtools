@@ -46,7 +46,7 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
   {
     readLas(pointCloud, ends, times, intensities, 1);   
     colours.resize(ends.size());
-    for (int i = 0; i<colours.size(); i++)
+    for (int i = 0; i<(int)colours.size(); i++)
       colours[i] = i;
   } 
   else
@@ -70,7 +70,7 @@ bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)
 {
   bool success = readLas(lazFile, ends, times, intensities, 1);
   colours.resize(ends.size());
-  for (int i = 0; i<colours.size(); i++)
+  for (int i = 0; i<(int)colours.size(); i++)
     colours[i] = i;
     
   if (!success)

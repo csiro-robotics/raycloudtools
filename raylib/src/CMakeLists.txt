@@ -1,6 +1,5 @@
-#if (!MSVC)
-	add_compile_options(-g) # -std=c++11 -Wall -march=corei7)
-#endif()
+
+add_compile_options(-g -O3 -Wall -fopenmp)
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
 
 file(GLOB_RECURSE SOURCE_FILES

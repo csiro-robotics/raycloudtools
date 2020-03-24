@@ -36,11 +36,11 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
   MatrixXd data(6, positions.size());
   for (unsigned int i = 0; i<positions.size(); i++)
     data.col(i) << positions[i], normals[i];
-
+ 
   Nabo::NNSearchD* nns;
   Nabo::Parameters params("bucketSize", std::min<unsigned int>(positions.size(), 8));
   nns = Nabo::NNSearchD::createKDTreeLinearHeap(data, numNeighbors, 0, params);
-
+ 
   // Run the search
   Eigen::MatrixXi indices;
   Eigen::MatrixXd dists2;
@@ -49,7 +49,7 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
   nns->knn(data, indices, dists2, numNeighbors, eps, 0, maxRadius);
 
   // Set up data structures for output
-
+ 
   vector<Vector3d> smoothNormals = normals;
 
   const double rbar2 = sqr(rBar);

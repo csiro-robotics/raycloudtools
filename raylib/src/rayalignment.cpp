@@ -117,7 +117,7 @@ Array1D &Array1D::ifft()
 
 int Array1D::maxRealIndex() const
 {
-  int index;
+  int index = 0;
   double highest = numeric_limits<double>::lowest();
   for (int i = 0; i<(int)cells.size(); i++)
   {
