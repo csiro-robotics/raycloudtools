@@ -16,7 +16,7 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 **rayconvert forest.laz forest_traj.ply** &nbsp;&nbsp;&nbsp; Convert point cloud and trajectory to a single raycloud file: forest.ply
 
-**raycreate room 0** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door (or other environments), using random seed 0.
+**raycreate room 0** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 0.
 <p align="center">
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster"/>
   <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room3.png?at=refs%2Fheads%2Fmaster"/>
@@ -51,7 +51,7 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 **raytransients min room.ply 0.5 s** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when re-observed more than 0.5 seconds later or before. 
 
-&nbsp;&nbsp;&nbsp; Leaving the minimum of geometry when transient.
+&nbsp;&nbsp;&nbsp; Leaving the ***minimum*** of geometry when transient.
 
 &nbsp;&nbsp;&nbsp; In this raycloud the table and cupboard appear only after the empty room has been scanned for several seconds, so we can isolate these transient objects.
 
