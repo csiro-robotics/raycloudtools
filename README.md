@@ -15,9 +15,11 @@ To access the tools from anywhere, place in your ~/bashrc:
 **Dependencies:**
 
 Eigen (needed by all): sudo apt-get install Eigen3 should do it
+
 LibNabo (needed for most): git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
 
 **Optional dependencies:**
+
 For rayconvert to work from .laz/.las files:
 
 * git clone https://github.com/libLAS/libLAS.git, then follow build and install instructions in its README.md. Possible alternative: sudo apt-get install liblas-dev ?  You will also need lasZip.
