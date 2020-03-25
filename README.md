@@ -4,7 +4,7 @@ A set of command line tools for processing ray clouds, together with an associat
 To access the tools from anywhere, place in your ~/bashrc:
   export PATH=$PATH:'source code path'/raycloudtools/bin
 
-**Dependencies:**
+###Dependencies:
 
 Eigen: sudo apt-get install Eigen3 should do it
 
@@ -72,7 +72,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 <p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
 
-**Optional build dependencies:**
+###Optional build dependencies:
 
 For rayconvert to work from .laz files:
 
