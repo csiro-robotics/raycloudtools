@@ -5,7 +5,9 @@
 // Author: Thomas Lowe
 #pragma once
 #include "rayutils.h"
+#if defined USE_ROS
 #include <ros/ros.h>
+#endif
 
 namespace RAY
 {
@@ -19,11 +21,13 @@ struct DebugDraw
   void drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &radii, int id);
   void drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses, const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id);
   std::string fixedFrameId_;
-  
+
+  #if defined(USE_ROS)
   ros::NodeHandle n;
   ros::Publisher cloudPublisher[2];
   ros::Publisher linePublisher;
   ros::Publisher cylinderPublisher[2];
   ros::Publisher ellipsoidPublisher[6];
+  #endif
 };
 }

@@ -1,14 +1,21 @@
 
 add_compile_options(-g -O3 -Wall -fopenmp)
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
+
 IF(USE_LAS)
   message("raylib: USE_LAS enabled")
 add_definitions(-DUSE_LAS)
 ENDIF(USE_LAS)
+
 IF(USE_QHULL)
   message("raylib: USE_QHULL enabled")
   add_definitions(-DUSE_QHULL)
 ENDIF(USE_QHULL)
+
+IF(USE_ROS)
+  message("raylib: USE_ROS enabled")
+  add_definitions(-DUSE_ROS)
+ENDIF(USE_ROS)
 
 file(GLOB_RECURSE SOURCE_FILES
 	${CMAKE_SOURCE_DIR}/raylib/src/*.cpp

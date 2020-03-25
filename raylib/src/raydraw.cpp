@@ -1,7 +1,9 @@
 #include "raydraw.h"
+#if defined(USE_ROS)
 #include <eigen3/Eigen/Geometry>
 #include <visualization_msgs/MarkerArray.h>
 #include <sensor_msgs/PointCloud2.h>
+#endif
 using namespace RAY;
 using namespace std;
 using namespace Eigen;
@@ -9,6 +11,7 @@ using namespace Eigen;
 DebugDraw::DebugDraw(const string& fixedFrameId)
 {
   fixedFrameId_ = fixedFrameId;
+  #if defined(USE_ROS)
   cloudPublisher[0] = n.advertise<sensor_msgs::PointCloud2>("point_cloud1", 3, true);
   cloudPublisher[1] = n.advertise<sensor_msgs::PointCloud2>("point_cloud2", 3, true);
   linePublisher = n.advertise<visualization_msgs::Marker>("lines", 3, true);
@@ -20,8 +23,10 @@ DebugDraw::DebugDraw(const string& fixedFrameId)
   ellipsoidPublisher[3] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids4", 3, true);
   ellipsoidPublisher[4] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
   ellipsoidPublisher[5] = n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
+  #endif
 }
 
+#if defined(USE_ROS)
 void setField2(sensor_msgs::PointField &field, const string &name, int offset, int type, int count)
 {
   field.name = name;
@@ -29,9 +34,11 @@ void setField2(sensor_msgs::PointField &field, const string &name, int offset, i
   field.datatype = type;
   field.count = count;
 }
+#endif
 
 void DebugDraw::drawCloud(const vector<Vector3d> &points, const vector<double> &pointShade, int id)
 {
+  #if defined(USE_ROS)
   sensor_msgs::PointCloud2 pointCloud;
   pointCloud.header.frame_id = fixedFrameId_;
   pointCloud.header.stamp = ros::Time();
@@ -86,10 +93,12 @@ void DebugDraw::drawCloud(const vector<Vector3d> &points, const vector<double> &
   
   if (pointCloud.width > 0)
     cloudPublisher[id].publish(pointCloud);
+  #endif
 }
 
 void DebugDraw::drawLines(const vector<Vector3d> &starts, const vector<Vector3d> &ends)
 {
+  #if defined(USE_ROS)
   visualization_msgs::Marker points;
   points.header.frame_id = fixedFrameId_;
   points.header.stamp = ros::Time::now();
@@ -130,10 +139,12 @@ void DebugDraw::drawLines(const vector<Vector3d> &starts, const vector<Vector3d>
 
   // Publish the marker
   linePublisher.publish(points);
+  #endif
 }
 
 void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &radii, int id)
 {
+  #if defined(USE_ROS)
   visualization_msgs::MarkerArray markerArray;
   for (int i = 0; i<(int)starts.size(); i++)
   {
@@ -177,10 +188,12 @@ void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vecto
     markerArray.markers.push_back(marker);
   }
   cylinderPublisher[id].publish(markerArray);
+  #endif
 }
 
 void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Matrix3d> &poses, const vector<Vector3d> &radii, const Vector3d &colour, int id)
 {
+  #if defined(USE_ROS)
   visualization_msgs::MarkerArray markerArray;
   for (int i = 0; i<(int)centres.size(); i++)
   {
@@ -230,4 +243,5 @@ void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Mat
   }
 
   ellipsoidPublisher[id].publish(markerArray);
+  #endif
 }

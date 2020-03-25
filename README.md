@@ -1,34 +1,14 @@
 ## Ray Cloud Tools
-A set of command line tools for processing ray clouds, together with an associated C++ library.
-
-1. `$ mkdir build`
-
-2. `$ cd build`
-
-3. `$ cmake ..`
-
-4. `$ make`
+A set of command line tools for processing ray clouds, together with an associated C++ library. cmake .. from buid directory.
 
 To access the tools from anywhere, place in your ~/bashrc:
   export PATH=$PATH:'source code path'/raycloudtools/bin
 
 **Dependencies:**
 
-Eigen (needed by all): sudo apt-get install Eigen3 should do it
+Eigen: sudo apt-get install Eigen3 should do it
 
-LibNabo (needed for most): git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
-
-**Optional dependencies:**
-
-For rayconvert to work from .laz/.las files:
-
-* git clone https://github.com/libLAS/libLAS.git, then follow build and install instructions in its README.md. Possible alternative: sudo apt-get install liblas-dev ?  You will also need lasZip.
-* cmake .. -DUSE_LAS  (or ccmake .. to turn on/off USE_LAS)
-
-For raywrap:
-
-* http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it into a folder parallel to raycloudtools. So there is xxx/raycloudtools and xxx/qhull-2019-1. In qhull, cd build cmake .., make and sudo make install. 
-* cmake .. -DUSE_QHULL (or ccmake .. to turn on/off USE_QHULL)
+LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
 
 ## Examples:
 
@@ -92,3 +72,14 @@ For raywrap:
 <p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
 
+**Optional build dependencies:**
+
+For rayconvert to work from .laz files:
+
+* git clone https://github.com/libLAS/libLAS.git, then follow build and install instructions in its README.md. Possible alternative: sudo apt-get install liblas-dev ?  You will also need lasZip.
+* cmake .. -DUSE_LAS  (or ccmake .. to turn on/off USE_LAS)
+
+For raywrap:
+
+* http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it into a folder parallel to raycloudtools. So there is xxx/raycloudtools and xxx/qhull-2019-1. In qhull, cd build cmake .., make and sudo make install. 
+* cmake .. -DUSE_QHULL (or ccmake .. to turn on/off USE_QHULL)

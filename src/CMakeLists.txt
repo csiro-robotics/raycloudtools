@@ -4,7 +4,7 @@ OPTION(USE_LAS
   "Build the project using LAS"
   OFF)
 IF(USE_LAS)
-  message("LAS enabled")
+  message("USE_LAS enabled")
   add_definitions(-DUSE_LAS)
 ENDIF(USE_LAS)
 
@@ -12,10 +12,17 @@ OPTION(USE_QHULL
 "Build the project using QHull"
 OFF)
 IF(USE_QHULL)
-  message("qhull enabled")
+  message("USE_QHULL enabled")
   add_definitions(-DUSE_QHULL)
 ENDIF(USE_QHULL)
 
+OPTION(USE_ROS
+  "Build the project using LAS"
+  OFF)
+IF(USE_ROS)
+  message("USE_ROS enabled")
+  add_definitions(-DUSE_ROS)
+ENDIF(USE_ROS)
 
 add_definitions(-DNDEBUG )
 find_package(catkin REQUIRED COMPONENTS
