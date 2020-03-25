@@ -14,11 +14,19 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 **Dependencies:**
 
-LibLAS, lasZip (needed for rayconvert): git clone https://github.com/libLAS/libLAS.git, then follow build and install instructions in its README.md. Possible alternative: sudo apt-get install liblas-dev ? 
-
-Qhull (needed for raywrap): http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it into a folder parallel to raycloudtools. So there is xxx/raycloudtools and xxx/qhull-2019-1. In qhull, cd build cmake .., make and sudo make install. 
-
+Eigen (needed by all): sudo apt-get install Eigen3 should do it
 LibNabo (needed for most): git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
+
+**Optional dependencies:**
+For rayconvert to work from .laz/.las files:
+
+* git clone https://github.com/libLAS/libLAS.git, then follow build and install instructions in its README.md. Possible alternative: sudo apt-get install liblas-dev ?  You will also need lasZip.
+* cmake .. -DUSE_LAS  (or ccmake .. to turn on/off USE_LAS)
+
+For raywrap:
+
+* http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it into a folder parallel to raycloudtools. So there is xxx/raycloudtools and xxx/qhull-2019-1. In qhull, cd build cmake .., make and sudo make install. 
+* cmake .. -DUSE_QHULL (or ccmake .. to turn on/off USE_QHULL)
 
 ## Examples:
 
