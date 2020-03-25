@@ -7,6 +7,7 @@
 #include "rayutils.h"
 #include "raymesh.h"
 #include <set>
+#if defined(USE_QHULL)
 
 namespace RAY
 {
@@ -26,3 +27,4 @@ protected:
   void construct(const std::vector<Eigen::Vector3d> &points, const Eigen::Vector3d ignoreDirection);
 };
 }
+#endif

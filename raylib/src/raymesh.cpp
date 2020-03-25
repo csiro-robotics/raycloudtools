@@ -140,7 +140,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
       {
         auto &tris = grid.cell(index[0], index[1], z).data;
         double minDepth = 10.0;
-        Vector3d minNormal;
+        Vector3d minNormal(0,0,0);
         for (auto &tri: tris)
         {
           if (tri->tested)

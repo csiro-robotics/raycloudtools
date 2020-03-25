@@ -1,6 +1,21 @@
-#if (!MSVC)
 add_compile_options(-g -Wall -O3 -fopenmp)
-#endif()
+
+OPTION(USE_LAS
+  "Build the project using LAS"
+  OFF)
+IF(USE_LAS)
+  message("LAS enabled")
+  add_definitions(-DUSE_LAS)
+ENDIF(USE_LAS)
+
+OPTION(USE_QHULL
+"Build the project using QHull"
+OFF)
+IF(USE_QHULL)
+  message("qhull enabled")
+  add_definitions(-DUSE_QHULL)
+ENDIF(USE_QHULL)
+
 
 add_definitions(-DNDEBUG )
 find_package(catkin REQUIRED COMPONENTS
@@ -8,7 +23,10 @@ roscpp
 message_generation
 std_msgs
 )
-find_package(libLAS REQUIRED)
+if (USE_LAS)
+  find_package(libLAS REQUIRED)
+endif()
+
 find_package(libnabo REQUIRED)
 include_directories(../raylib/include ${catkin_INCLUDE_DIRS})
 
@@ -17,22 +35,23 @@ set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS})
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS})
 
 # qhull
-find_path(TRAVERSIBILITY_QHULL_INCLUDE_DIR libqhullcpp/Qhull.h)
-if (NOT TRAVERSIBILITY_QHULL_INCLUDE_DIR)
-   message(FATAL_ERROR "Unable to find libqhullcpp/Qhull.h")
+if (USE_QHULL)
+  find_path(TRAVERSIBILITY_QHULL_INCLUDE_DIR libqhullcpp/Qhull.h)
+  if (NOT TRAVERSIBILITY_QHULL_INCLUDE_DIR)
+    message(FATAL_ERROR "Unable to find libqhullcpp/Qhull.h")
+  endif()
+  find_library(TRAVERSIBILITY_LIBQHULLCPP qhullcpp libqhullcpp)
+  if (NOT TRAVERSIBILITY_LIBQHULLCPP)
+    message(FATAL_ERROR "You need to have the qhull cpp library installed.")
+  endif()
+  SET(qhullDir ../qhull-2019.1)
+  INCLUDE_DIRECTORIES(${qhullDir}/src/libqhullcpp)
+  INCLUDE_DIRECTORIES(${qhullDir}/src)
+  LINK_DIRECTORIES(${qhullDir}/build)
+  INCLUDE_DIRECTORIES(${qhullDir}/src/libqhullcpp)
+  INCLUDE_DIRECTORIES(include)
+  SET(qhullLibs qhullcpp qhull_r)
 endif()
-find_library(TRAVERSIBILITY_LIBQHULLCPP qhullcpp libqhullcpp)
-if (NOT TRAVERSIBILITY_LIBQHULLCPP)
-   message(FATAL_ERROR "You need to have the qhull cpp library installed.")
-endif()
-SET(qhullDir ../qhull-2019.1)
-INCLUDE_DIRECTORIES(${qhullDir}/src/libqhullcpp)
-INCLUDE_DIRECTORIES(${qhullDir}/src)
-LINK_DIRECTORIES(${qhullDir}/build)
-INCLUDE_DIRECTORIES(${qhullDir}/src/libqhullcpp)
-INCLUDE_DIRECTORIES(include)
-SET(qhullLibs qhullcpp qhull_r)
-
 
 set(TARGETS
   rayalign

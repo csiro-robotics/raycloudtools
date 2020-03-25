@@ -1,6 +1,14 @@
 
 add_compile_options(-g -O3 -Wall -fopenmp)
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
+IF(USE_LAS)
+  message("raylib: USE_LAS enabled")
+add_definitions(-DUSE_LAS)
+ENDIF(USE_LAS)
+IF(USE_QHULL)
+  message("raylib: USE_QHULL enabled")
+  add_definitions(-DUSE_QHULL)
+ENDIF(USE_QHULL)
 
 file(GLOB_RECURSE SOURCE_FILES
 	${CMAKE_SOURCE_DIR}/raylib/src/*.cpp
@@ -16,7 +24,9 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 )
 find_package(Eigen3 REQUIRED)
-find_package(libLAS REQUIRED)
+if (USE_LAS)
+  find_package(libLAS REQUIRED)
+endif()
 find_package(OpenMP REQUIRED)
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS})
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS})

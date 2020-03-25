@@ -29,6 +29,7 @@ void usage(bool error=false)
 
 int main(int argc, char *argv[])
 {
+#if defined(USE_QHULL) 
   if (argc < 4 || argc>5)
     usage();
 
@@ -115,6 +116,11 @@ int main(int argc, char *argv[])
   
 
   cout << "Completed, output: " << file << "_mesh.ply" << endl;
+  return 1;
+#else
+  cerr << "raywrap: qhull not enabled, you can set the flag with: cmake .. -DUSE_QHULL=true" << endl;
+  return 0;
+#endif
 }
 
 

@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "rayconvexhull.h"
+#if defined(USE_QHULL)
 #include <libqhullcpp/Qhull.h>
 #include <libqhullcpp/QhullPoints.h>
 #include <libqhullcpp/QhullFacet.h>
@@ -107,4 +108,4 @@ void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
 
   construct(points, dir);
 }
-
+#endif

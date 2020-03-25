@@ -7,6 +7,7 @@
 #include "rayutils.h"
 #include <set>
 
+#if defined(USE_QHULL)
 namespace RAY
 {
 struct ConcaveHull
@@ -115,3 +116,4 @@ protected:
   void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
 };
 }
+#endif
