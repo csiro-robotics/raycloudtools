@@ -12,6 +12,14 @@ A set of command line tools for processing ray clouds, together with an associat
 To access the tools from anywhere, place in your ~/bashrc:
   export PATH=$PATH:'source code path'/raycloudtools/bin
 
+**Dependencies:**
+
+LibLAS, lasZip (needed for rayconvert): git clone https://github.com/libLAS/libLAS.git, then follow build and install instructions in its README.md. Possible alternative: sudo apt-get install liblas-dev ? 
+
+Qhull (needed for raywrap): http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it into a folder parallel to raycloudtools. So there is xxx/raycloudtools and xxx/qhull-2019-1. In qhull, cd build cmake .., make and sudo make install. 
+
+LibNabo (needed for most): git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
+
 ## Examples:
 
 **rayconvert forest.laz forest_traj.ply** &nbsp;&nbsp;&nbsp; Convert point cloud and trajectory to a single raycloud file: forest.ply
