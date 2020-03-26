@@ -81,7 +81,7 @@ struct Array1D
 
 struct AlignTranslationYaw
 {
-  void alignCloud0ToCloud1(double voxelWidth);
+  void alignCloud0ToCloud1(double voxelWidth, bool verbose=false);
   Cloud clouds[2];
 };
 

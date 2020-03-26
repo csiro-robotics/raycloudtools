@@ -20,7 +20,8 @@ void usage(bool error=false)
 {
   cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << endl;
   cout << "usage:" << endl;
-  cout << "rayalign raycloudA raycloudB." << endl;
+  cout << "rayalign raycloudA raycloudB" << endl;
+  cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << endl;
   exit(error);
 }
 
@@ -64,8 +65,15 @@ int main(int argc, char *argv[])
   #endif
     DebugDraw draw;
 
-  if (argc != 3)
+  if (argc != 3 && argc != 4)
     usage();
+  bool verbose = false;
+  if (argc == 4)
+  {
+    if (string(argv[3]) != "--verbose" && string(argv[3]) != "-v")
+      usage();
+    verbose = true;
+  }
 
   string fileA = argv[1];
   string fileB = argv[2];
@@ -74,7 +82,12 @@ int main(int argc, char *argv[])
   aligner.clouds[0].load(fileA);
   aligner.clouds[1].load(fileB);
   
-  aligner.alignCloud0ToCloud1(0.5);
+  aligner.alignCloud0ToCloud1(0.5, verbose);
+  string fileStub = fileA;
+  if (fileStub.substr(fileStub.length()-4)==".ply")
+    fileStub = fileStub.substr(0,fileStub.length()-4);
+  if (verbose)
+    aligner.clouds[0].save(fileStub + "_coarse_aligned.ply");  
 
   // Next we need a fine grained alignment. 
   // Method: 
@@ -297,9 +310,6 @@ int main(int argc, char *argv[])
     aligner.clouds[0].transform(pose, 0.0);
   }
 
-  string fileStub = fileA;
-  if (fileStub.substr(fileStub.length()-4)==".ply")
-    fileStub = fileStub.substr(0,fileStub.length()-4);
   aligner.clouds[0].save(fileStub + "_aligned.ply");  
 
   return true;

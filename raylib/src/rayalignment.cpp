@@ -19,7 +19,6 @@ struct Col
 {
   unsigned char r,g,b,a;
 };
-static bool debugImageOutput = true;
 
 void Array3D::init(const Vector3d &boxMin, const Vector3d &boxMax, double voxelWidth)
 {
@@ -131,9 +130,6 @@ int Array1D::maxRealIndex() const
 /************************************************************************************/
 void drawArray(const Array3D &array, const Vector3i &dims, const string &fileName, int index)
 {
-  if (!debugImageOutput)
-    return;
-
   int width = dims[0];
   int height = dims[1];
   double maxVal = 0.0;
@@ -179,9 +175,6 @@ void drawArray(const Array3D &array, const Vector3i &dims, const string &fileNam
 
 void drawArray(const vector<Array1D> &arrays, const Vector3i &dims, const string &fileName, int index)
 {
-  if (!debugImageOutput)
-    return;
-
   int width = dims[0];
   int height = dims[1];
   double maxVal = 0.0;
@@ -225,7 +218,7 @@ void drawArray(const vector<Array1D> &arrays, const Vector3i &dims, const string
   stbi_write_png(str.str().c_str(), width, height, 4, (void *)&pixels[0], 4*width);
 }
 
-void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth)
+void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
 {
   Array3D arrays[2]; 
   // first we need to decimate the clouds into intensity grids..
@@ -258,7 +251,8 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth)
       if (clouds[c].rayBounded(i))
         arrays[c](clouds[c].ends[i]) += Complex(1,0);  
     arrays[c].FFT();
-    drawArray(arrays[c], arrays[c].dims, "translationInvariant", c);
+    if (verbose) 
+      drawArray(arrays[c], arrays[c].dims, "translationInvariant", c);
   }
 
   Array3D &array = arrays[0];
@@ -306,13 +300,15 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth)
           }
         }
       }
-      drawArray(polar, polarDims, "translationInvPolar", c);
+      if (verbose)
+        drawArray(polar, polarDims, "translationInvPolar", c);
 
       for (int j = 0; j<polarDims[1]; j++)
         for (int k = 0; k<polarDims[2]; k++)
           polar[j + polarDims[1]*k].FFT();
 
-      drawArray(polar, polarDims, "euclideanInvariant", c);
+      if (verbose)
+        drawArray(polar, polarDims, "euclideanInvariant", c);
     }
 
     vector<Array1D> &polar = polars[0];
