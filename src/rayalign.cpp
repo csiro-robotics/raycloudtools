@@ -31,37 +31,25 @@ void getMeanAndNormal(const vector<Vector3d> &points, const vector<int> &ids, Ve
     total += points[id];
   centroid = total / (double)ids.size();
 
-  width = Vector3d(0.01, 1.0, 1.0);
-  if (mat)
-    *mat = Matrix3d::Identity();
-  if (vec)
-    *vec = Vector3d(1,1,1)*0.01;
-  if (ids.size() <= 2)
-    normal.setZero();
-  else if (ids.size() == 3)
-    normal = (points[ids[2]]-points[ids[0]]).cross(points[ids[1]]-points[ids[0]]).normalized();
-  else
+  Matrix3d scatter;
+  scatter.setZero();
+  for (auto &id: ids)
   {
-    Matrix3d scatter;
-    scatter.setZero();
-    for (auto &id: ids)
-    {
-      Vector3d offset = points[id] - centroid;
-      scatter += offset * offset.transpose();
-    }
-    scatter / (double)ids.size();
+    Vector3d offset = points[id] - centroid;
+    scatter += offset * offset.transpose();
+  }
+  scatter / (double)ids.size();
 
-    SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
-    ASSERT(eigenSolver.info() == Success); 
-    normal = eigenSolver.eigenvectors().col(0);
-    width = eigenSolver.eigenvalues();
-    if (mat)
-      *mat = eigenSolver.eigenvectors();
-    if (vec)
-    {
-      *vec = eigenSolver.eigenvalues();
-      *vec = maxVector(*vec, Vector3d(1e-5,1e-5,1e-5));
-    }
+  SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
+  ASSERT(eigenSolver.info() == Success); 
+  normal = eigenSolver.eigenvectors().col(0);
+  width = eigenSolver.eigenvalues();
+  if (mat)
+    *mat = eigenSolver.eigenvectors();
+  if (vec)
+  {
+    *vec = eigenSolver.eigenvalues();
+    *vec = maxVector(*vec, Vector3d(1e-5,1e-5,1e-5));
   }
 }
 
@@ -149,19 +137,22 @@ int main(int argc, char *argv[])
     nns->knn(pointsQ, indices, dists2, searchSize, 0.01, 0, 1.0);
     delete nns;
 
-    centroids[c].resize(qSize);
-    normals[c].resize(qSize);
-    widths[c].resize(qSize);
-    matrices[c].resize(qSize);
-    radii[c].resize(qSize);
+    centroids[c].reserve(qSize);
+    normals[c].reserve(qSize);
+    widths[c].reserve(qSize);
+    matrices[c].reserve(qSize);
+    radii[c].reserve(qSize);
     vector<int> ids;
     ids.reserve(searchSize);
+    const int minPointsPerEllipsoid = 5;
     for (int i = 0; i<qSize; i++)
     {
       ids.clear();
       for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
         ids.push_back(indices(j,i));
-      
+      if (ids.size() < minPointsPerEllipsoid) // not dense enough
+        continue; 
+
       Vector3d normal;
       Vector3d centroid;
       Vector3d width;
@@ -178,12 +169,20 @@ int main(int argc, char *argv[])
           ids.pop_back();
         }
       }
-      getMeanAndNormal(decimatedPoints, ids, centroid, normal, width, &matrices[c][i], &radii[c][i]);
+      if (ids.size() < minPointsPerEllipsoid) // not dense enough
+        continue; 
+      Matrix3d mat;
+      Vector3d radius;
+      getMeanAndNormal(decimatedPoints, ids, centroid, normal, width, &mat, &radius);
+      if (width[0]/width[1] > sqr(0.5)) // not planar enough
+        continue;
       if ((centroid - candidateStarts[i]).dot(normal) > 0.0)
         normal = -normal;     
-      centroids[c][i] = centroid;
-      normals[c][i] = normal;       
-      widths[c][i] = width;  
+      matrices[c].push_back(mat);
+      radii[c].push_back(radius);
+      centroids[c].push_back(centroid);
+      normals[c].push_back(normal);       
+      widths[c].push_back(width);  
     }
     Vector3d cols[2] = {Vector3d(1,0,0), Vector3d(0,1,0)};
     draw.drawEllipsoids(centroids[c], matrices[c], radii[c], cols[c], c);
@@ -229,9 +228,6 @@ int main(int argc, char *argv[])
       // shall we pick only two-way matches? Not for now...
       for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
       {
-        Vector3d shape = widths[0][i] + widths[1][indices(j,i)];
-        if (shape[0]/shape[1] > sqr(0.5)) // not planar enough
-          continue;
         lineStarts.push_back(centroids[0][i]);
         lineEnds.push_back(centroids[1][indices(j,i)]);
         Match match;
