@@ -38,15 +38,21 @@ struct Array3D
 //    ASSERT(x<0 || x>=dims[0] || y<0 || y>= dims[1] || z<0 || z>=dims[2]);
     return (*this)(index[0], index[1], index[2]);
   }  
-  inline Complex &operator()(const Eigen::Vector3d &pos)
+  Complex &operator()(const Eigen::Vector3d &pos)
   {
     Eigen::Vector3d index = (pos - boxMin)/voxelWidth;
-    return (*this)(index[0], index[1], index[2]);
+    if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && 
+        index[0] < (double)dims[0] && index[1] < (double)dims[1] && index[2] < (double)dims[2])
+      return (*this)(index[0], index[1], index[2]);
+    return nullCell;
   }  
-  inline const Complex &operator()(const Eigen::Vector3d &pos) const
+  const Complex &operator()(const Eigen::Vector3d &pos) const
   {
     Eigen::Vector3d index = (pos - boxMin)/voxelWidth;
-    return (*this)(index[0], index[1], index[2]);
+    if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && 
+        index[0] < (double)dims[0] && index[1] < (double)dims[1] && index[2] < (double)dims[2])
+      return (*this)(index[0], index[1], index[2]);
+    return nullCell;
   }
   void conjugate();
   Eigen::Vector3i maxRealIndex() const;
@@ -55,6 +61,7 @@ struct Array3D
   double voxelWidth;
   Eigen::Vector3i dims;
   std::vector<Complex> cells;
+  Complex nullCell;
 };
 
 struct Array1D

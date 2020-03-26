@@ -31,6 +31,7 @@ void Array3D::init(const Vector3d &boxMin, const Vector3d &boxMax, double voxelW
     dims[i] = 1 << (int)ceil(log2(ceil(diff[i]))); // next power of two larger than diff
   cells.resize(dims[0]*dims[1]*dims[2]);
   memset(&cells[0], 0, cells.size()*sizeof(Complex));
+  nullCell = 0;
 }
 
 void Array3D::operator *=(const Array3D &other)
@@ -278,7 +279,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
       // now map...
       for (int i = 0; i<polarDims[0]; i++)
       {
-        double angle = 2.0*pi*(double)i/(double)polarDims[0];
+        double angle = 2.0*pi*(double)(i+0.5)/(double)polarDims[0];
         for (int j = 0; j<polarDims[1]; j++)
         {
           double radius = (0.5+(double)j)/(double)polarDims[1];
@@ -289,13 +290,15 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
             pos[1] += a.dims[1];
           int x = pos[0]; 
           int y = pos[1];
+          int x2 = (x+1)%a.dims[0];
+          int y2 = (y+1)%a.dims[1];
           double blendX = pos[0] - (double)x;
           double blendY = pos[1] - (double)y;
           for (int z = 0; z<polarDims[2]; z++)
           {
             // bilinear interpolation
-            double val = abs(a(x,y,z)) * (1.0-blendX)*(1.0-blendY) + abs(a(x+1,y,z)) * blendX*(1.0-blendY)
-                       + abs(a(x,y+1,z))*(1.0-blendX)*blendY       + abs(a(x+1,y+1,z))*blendX*blendY;
+            double val = abs(a(x,y,z)) * (1.0-blendX)*(1.0-blendY) + abs(a(x2,y,z)) * blendX*(1.0-blendY)
+                       + abs(a(x,y2,z))*(1.0-blendX)*blendY       + abs(a(x2,y2,z))*blendX*blendY;
             polar[j + polarDims[1]*z](i) = Complex(radius*val, 0);
           }
         }
@@ -351,7 +354,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
 
     for (int i = 0; i<(int)clouds[0].ends.size(); i++)
       if (clouds[0].rayBounded(i))
-        arrays[0](clouds[0].ends[i]) += Complex(1,0);  // TODO: this could go out of bounds!
+        arrays[0](clouds[0].ends[i]) += Complex(1,0);  
     arrays[0].FFT();
   }
 

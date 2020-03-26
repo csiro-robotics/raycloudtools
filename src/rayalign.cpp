@@ -263,10 +263,10 @@ int main(int argc, char *argv[])
     // with these matches we now run the iterative reweighted least squares..
     Pose pose = Pose::identity();
     int maxIterations = 5;
+#if 0  // option 1: only Euclidean. 
     for (int it = 0; it<maxIterations; it++)
     {
       double d = 10.0*(double)it/(double)maxIterations;
-      // stage 1: only Euclidean. 
       const int stateSize = 6;
       Matrix<double, stateSize, stateSize> AtA;
       AtA.setZero();
@@ -308,6 +308,64 @@ int main(int argc, char *argv[])
       cout << "pose: " << pose << endl;
     }
     aligner.clouds[0].transform(pose, 0.0);
+#else
+    for (int it = 0; it<maxIterations; it++)
+    {
+      double d = 10.0*(double)it/(double)maxIterations;
+      const int stateSize = 8;
+      Matrix<double, stateSize, stateSize> AtA;
+      AtA.setZero();
+      Matrix<double, stateSize, 1> AtB;
+      AtB.setZero();
+      double squareError = 0.0;
+      for (auto &match: matches)
+      {
+        double error = (match.pos[1] - match.pos[0]).dot(match.normal);
+        double weight = /*match.weight **/ pow(max(1.0 - sqr(error/maxRange), 0.0), d*d);
+        squareError += sqr(error);
+        Matrix<double, stateSize, 1> At; // error with respect
+
+        for (int i = 0; i<3; i++) // change in error with change in raycloud translation
+          At[i] = match.normal[i];
+        for (int i = 0; i<3; i++) // change in error with change in raycloud orientation
+        {
+          Vector3d axis(0,0,0);
+          axis[i] = 1.0;
+          At[3+i] = -(match.pos[0].cross(axis)).dot(match.normal);
+        }
+        At[6] = sqr(match.pos[0][1]) * match.normal[0];
+        At[7] = sqr(match.pos[0][0]) * match.normal[1];
+
+        AtA += At*weight*At.transpose();
+        AtB += At*weight*error;
+      }
+      Matrix<double, stateSize, 1> x = AtA.ldlt().solve(AtB);
+      cout << "rmse: " << sqrt(squareError/(double)matches.size()) << endl;
+      cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4] << ", " << x[5] << ", bend: " << x[6] << ", " << x[7] << endl;
+      Vector3d rot(x[3], x[4], x[5]);
+      double angle = rot.norm();
+      Vector3d bend(x[6], x[7], 0);
+      Vector3d side(x[7], -x[6], 0);
+      side.normalize();
+      rot.normalize();
+      Quaterniond halfRot(AngleAxisd(angle/2.0, rot));
+      Pose shift(Vector3d(x[0], x[1], x[2]), Quaterniond(AngleAxisd(angle, rot)));
+      pose = shift * pose;
+      for (auto &match: matches)
+      {
+        match.pos[0] += bend * sqr(match.pos[0].dot(side));
+        match.pos[0] = shift*match.pos[0];
+        match.normal = halfRot * match.normal;
+      }
+      for (auto &end: aligner.clouds[0].ends)
+      {
+        end += bend * sqr(end.dot(side));
+        end = shift*end;      
+      }
+      cout << "pose: " << pose << endl;
+    }
+ //   aligner.clouds[0].transform(pose, 0.0);
+#endif
   }
 
   aligner.clouds[0].save(fileStub + "_aligned.ply");  

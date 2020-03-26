@@ -38,7 +38,14 @@ int main(int argc, char *argv[])
 
   Cloud cloud;
   cloud.load(file);
+  #if 0 // test bending
+  Vector3d bend(pose.position[0], pose.position[1], 0.0);
+  Vector3d side = Vector3d(bend[1], -bend[0], 0).normalized();
+  for (auto &end: cloud.ends)
+    end += bend*sqr(end.dot(side));
+  #else
   cloud.transform(pose, timeDelta);
+  #endif
   cloud.save(file);
   return true;
 }
