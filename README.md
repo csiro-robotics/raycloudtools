@@ -4,7 +4,7 @@ A set of command line tools for processing ray clouds, together with an associat
 To access the tools from anywhere, place in your ~/bashrc:
   export PATH=$PATH:'source code path'/raycloudtools/bin
 
-###Dependencies:
+*Dependencies:*
 
 Eigen: sudo apt-get install Eigen3 should do it
 

@@ -43,6 +43,9 @@ struct Cloud
   void markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta, const std::string &mergeType);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
 
+  Eigen::Vector3d calcMinBound();
+  Eigen::Vector3d calcMaxBound();
+
 protected:  
   void calculateStarts(const Trajectory &trajectory);
   bool loadPLY(const std::string &file);

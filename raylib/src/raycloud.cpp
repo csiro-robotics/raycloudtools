@@ -99,6 +99,28 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
     cout << "can only recalculate when a trajectory is available" << endl;
 }
 
+Vector3d Cloud::calcMinBound()
+{
+  Vector3d minV(1e10, 1e10, 1e10);
+  for (int i = 0; i<(int)ends.size(); i++)
+  {
+    if (rayBounded(i))
+      minV = minVector(minV, ends[i]);
+  }
+  return minV;
+}
+
+Vector3d Cloud::calcMaxBound()
+{
+  Vector3d maxV(-1e10, -1e10, -1e10);
+  for (int i = 0; i<(int)ends.size(); i++)
+  {
+    if (rayBounded(i))
+      maxV = maxVector(maxV, ends[i]);
+  }
+  return maxV;
+}
+
 void Cloud::transform(const Pose &pose, double timeDelta)
 {
   for (int i = 0; i<(int)starts.size(); i++)
@@ -107,34 +129,6 @@ void Cloud::transform(const Pose &pose, double timeDelta)
     ends[i] = pose * ends[i];
     times[i] += timeDelta;
   }  
-}
-
-struct Vector3iLess
-{
-  bool operator()(const Vector3i &a, const Vector3i &b) const
-  {
-    if (a[0] != b[0])
-      return a[0] < b[0];
-    if (a[1] != b[1])
-      return a[1] < b[1];
-    return a[2] < b[2];
-  }
-};
-
-vector<int> voxelRandomSubsample(const vector<Vector3d> &points, double voxelWidth)
-{
-  vector<int> indices;
-  set<Vector3i, Vector3iLess> testSet;
-  for (unsigned int i = 0; i<points.size(); i++)
-  {
-    Vector3i place = Vector3i(floor(points[i][0] / voxelWidth), floor(points[i][1] / voxelWidth), floor(points[i][2] / voxelWidth));
-    if (testSet.find(place) == testSet.end())
-    {
-      testSet.insert(place);
-      indices.push_back(i);
-    }
-  }
-  return indices;
 }
 
 void Cloud::removeUnboundedRays()
@@ -160,7 +154,7 @@ void Cloud::removeUnboundedRays()
 
 void Cloud::decimate(double voxelWidth)
 {
-  vector<int> subsample = voxelRandomSubsample(ends, voxelWidth);
+  vector<int> subsample = voxelSubsample(ends, voxelWidth);
   for (int i = 0; i<(int)subsample.size(); i++)
   {
     int id = subsample[i];
@@ -217,11 +211,8 @@ vector<Vector3d> Cloud::generateNormals(int searchSize)
 
     SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
     ASSERT(eigenSolver.info() == Success); 
-//    Vector3d eigenValue = eigenSolver.eigenvalues();
     Matrix3d eigenVector = eigenSolver.eigenvectors();
-
     Vector3d normal = eigenVector.col(0);
-    normal.normalize();
     if ((ends[i] - starts[i]).dot(normal) > 0.0)
       normal = -normal;
     normals.push_back(normal);

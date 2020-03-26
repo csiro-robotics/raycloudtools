@@ -13,6 +13,7 @@
 #include <numeric>
 #include <fstream>
 #include <assert.h>
+#include <set>
 #include <Eigen/Dense>
 
 namespace RAY
@@ -65,50 +66,31 @@ inline double random(double min, double max)
   return min + (max - min) * (double(rand()) / double(RAND_MAX));
 }
 
-template<typename T>
-void writePlainOldData(std::ofstream &out, const T &t)
+inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxelWidth)
 {
-  out.write(reinterpret_cast<const char*>(&t), sizeof(T));
-}
-
-template<typename T>
-void readPlainOldData(std::ifstream &in, T &t)
-{
-  in.read(reinterpret_cast<char*>(&t), sizeof(T));
-}
-
-template<typename T>
-void writePlainOldDataArray(std::ofstream &out, const std::vector<T> &array)
-{
-  unsigned int size = array.size();
-  out.write(reinterpret_cast<char*>(&size), sizeof(unsigned int));
-  for (unsigned int i = 0; i<size; i++)
-    writePlainOldData(out, array[i]);
-}
-
-template<typename T>
-void readPlainOldDataArray(std::ifstream &in, std::vector<T> &array)
-{
-  unsigned int size;
-  in.read(reinterpret_cast<char*>(&size), sizeof(unsigned int));
-  array.resize(size);
-  for (unsigned int i = 0; i<size; i++)
-    readPlainOldData(in, array[i]);
-}
-
-template<typename T>
-void readPlainOldDataArray(std::ifstream &in, std::vector<T> &array, int decimation)
-{
-  unsigned int size;
-  in.read(reinterpret_cast<char*>(&size), sizeof(unsigned int));
-  array.resize(size/decimation);
-  for (unsigned int i = 0; i<size; i++)
+  struct Vector3iLess
   {
-    T dat;
-    readPlainOldData(in, dat);
-    if ((i%decimation)==0)
-      array[i/decimation] = dat;
+    bool operator()(const Eigen::Vector3i &a, const Eigen::Vector3i &b) const
+    {
+      if (a[0] != b[0])
+        return a[0] < b[0];
+      if (a[1] != b[1])
+        return a[1] < b[1];
+      return a[2] < b[2];
+    }
+  };
+  std::vector<int> indices;
+  std::set<Eigen::Vector3i, Vector3iLess> testSet;
+  for (unsigned int i = 0; i<points.size(); i++)
+  {
+    Eigen::Vector3i place(floor(points[i][0] / voxelWidth), floor(points[i][1] / voxelWidth), floor(points[i][2] / voxelWidth));
+    if (testSet.find(place) == testSet.end())
+    {
+      testSet.insert(place);
+      indices.push_back(i);
+    }
   }
+  return indices;
 }
 
 /// Square a value
