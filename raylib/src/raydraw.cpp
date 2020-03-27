@@ -202,24 +202,25 @@ void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Mat
     marker.id = i;
     marker.type = marker.SPHERE;
     marker.action = marker.ADD;
-    marker.scale.z = 2.0*radii[i][0]; 
-    double wid = (radii[i][2] + radii[i][1])/2.0;
-    marker.scale.x = 2.0*wid; 
-    marker.scale.y = 2.0*wid; 
+
+    double q1 = radii[i][0]/radii[i][1];
+    double q2 = radii[i][1]/radii[i][2];
+
+    int ind = q1<q2 ? 0 : 2;
+    marker.scale.z = radii[i][ind]; 
+    marker.scale.x = radii[i][(ind + 1)%3]; 
+    marker.scale.y = radii[i][(ind+2)%3]; 
     marker.color.a = 1.0;
     marker.color.r = colour[0];
     marker.color.g = colour[1];
     marker.color.b = colour[2];
 
-    Vector3d len = poses[i].col(0);
-
+    Vector3d len = poses[i].col(ind);
     Vector3d ax = len.cross(Vector3d(0,0,1));
     double angle = atan2(ax.norm(), len[2]);
     Vector3d rotVector = ax.normalized() * -angle;
     Quaterniond q(AngleAxisd(rotVector.norm(), rotVector.normalized()));  
     
-       // Quat q(poses[i]);
-  //  Quaterniond q(poses[i]);
     q.normalize();
     if (!(abs(q.squaredNorm()-1.0) < 0.001))
     {

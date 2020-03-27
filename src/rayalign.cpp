@@ -26,7 +26,7 @@ void usage(bool error=false)
   exit(error);
 }
 
-void getMeanAndNormal(const vector<Vector3d> &points, const vector<int> &ids, Vector3d &centroid, Vector3d &normal, Vector3d &width, Matrix3d *mat=NULL, Vector3d *vec = NULL)
+void getSurfel(const vector<Vector3d> &points, const vector<int> &ids, Vector3d &centroid, Vector3d &width, Matrix3d &mat)
 {
   Vector3d total(0,0,0);
   for (auto &id: ids)
@@ -44,15 +44,9 @@ void getMeanAndNormal(const vector<Vector3d> &points, const vector<int> &ids, Ve
 
   SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
   ASSERT(eigenSolver.info() == Success); 
-  normal = eigenSolver.eigenvectors().col(0);
-  width = eigenSolver.eigenvalues();
-  if (mat)
-    *mat = eigenSolver.eigenvectors();
-  if (vec)
-  {
-    *vec = eigenSolver.eigenvalues();
-    *vec = maxVector(*vec, Vector3d(1e-5,1e-5,1e-5));
-  }
+  width = maxVector(eigenSolver.eigenvalues(), Vector3d(1e-5,1e-5,1e-5));
+  width = Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
+  mat = eigenSolver.eigenvectors();
 }
 
 int main(int argc, char *argv[])
@@ -94,19 +88,21 @@ int main(int argc, char *argv[])
   if (verbose)
     aligner.clouds[0].save(fileStub + "_coarse_aligned.ply");  
 
-  // Next we need a fine grained alignment. 
+  // Next the fine grained alignment. 
   // Method: 
-  // grid the points and pick one point from each grid cell
-  // then (using the 7 neighbours), find the points within a radius of just these.... (or should I use NABO?)
-  // then, get ellipsoid for each point.
-  // finally, run it-reweighted-least-squares to fit to the bend model
+  // 1. for each cloud: decimate the cloud to make it even, but still quite detailed, e.g. one point per cubic 10cm
+  // 2. decimate again to pick one point per cubic 1m (for instance)
+  // 3. now match the closest X points in 1 to those in 2, and generate surfel per point in 2.
+  // 4. repeatedly: match surfels in cloud0 to those in cloud1
+  // 5. solve a weighted least squares to find the transform of best fit
+  // 6. apply the transform to cloud0 and save it out.
 
   vector<Matrix3d> matrices[2];
-  vector<Vector3d> radii[2];
 
   vector<Vector3d> centroids[2];
   vector<Vector3d> normals[2];
   vector<Vector3d> widths[2];
+  vector<bool> isPlane[2];
   for (int c = 0; c<2; c++)
   {
     // 1. decimate quite fine
@@ -159,7 +155,7 @@ int main(int argc, char *argv[])
     normals[c].reserve(qSize);
     widths[c].reserve(qSize);
     matrices[c].reserve(qSize);
-    radii[c].reserve(qSize);
+    isPlane[c].reserve(qSize);    
     vector<int> ids;
     ids.reserve(searchSize);
     const int minPointsPerEllipsoid = 5;
@@ -171,87 +167,125 @@ int main(int argc, char *argv[])
       if (ids.size() < minPointsPerEllipsoid) // not dense enough
         continue; 
 
-      Vector3d normal;
       Vector3d centroid;
       Vector3d width;
-      getMeanAndNormal(decimatedPoints, ids, centroid, normal, width);
-      if ((centroid - candidateStarts[i]).dot(normal) > 0.0)
-        normal = -normal;     
-      // now repeat but removing back facing points. This deals better with double walls, which are quite common
-      for (int j = (int)ids.size()-1; j>=0; j--)
+      Matrix3d mat;
+      getSurfel(decimatedPoints, ids, centroid, width, mat);
+      double q1 = width[0]/width[1];
+      double q2 = width[1]/width[2];
+      if (q2 < q1) // cylindrical
       {
-        int id = ids[j];
-        if ((decimatedPoints[id] - decimatedStarts[id]).dot(normal) > 0.0)
+        if (q2 > 0.5) // not cylinderical enough
+          continue;
+        // register two ellipsoids as the normal is ambiguous
+        matrices[c].push_back(mat);
+        centroids[c].push_back(centroid);
+        normals[c].push_back(mat.col(2));       
+        widths[c].push_back(width);  
+        isPlane[c].push_back(false);
+        if (c==1)
         {
-          ids[j] = ids.back();
-          ids.pop_back();
+          matrices[c].push_back(mat);
+          centroids[c].push_back(centroid);
+          normals[c].push_back(-mat.col(2));       
+          widths[c].push_back(width);
+          isPlane[c].push_back(false);  
         }
       }
-      if (ids.size() < minPointsPerEllipsoid) // not dense enough
-        continue; 
-      Matrix3d mat;
-      Vector3d radius;
-      getMeanAndNormal(decimatedPoints, ids, centroid, normal, width, &mat, &radius);
-      if (width[0]/width[1] > sqr(0.5)) // not planar enough
-        continue;
-      if ((centroid - candidateStarts[i]).dot(normal) > 0.0)
-        normal = -normal;     
-      matrices[c].push_back(mat);
-      radii[c].push_back(radius);
-      centroids[c].push_back(centroid);
-      normals[c].push_back(normal);       
-      widths[c].push_back(width);  
+      else
+      {
+        Vector3d normal = mat.col(0);
+        if ((centroid - candidateStarts[i]).dot(normal) > 0.0)
+          normal = -normal;     
+        // now repeat but removing back facing points. This deals better with double walls, which are quite common
+        for (int j = (int)ids.size()-1; j>=0; j--)
+        {
+          int id = ids[j];
+          if ((decimatedPoints[id] - decimatedStarts[id]).dot(normal) > 0.0)
+          {
+            ids[j] = ids.back();
+            ids.pop_back();
+          }
+        }
+        if (ids.size() < minPointsPerEllipsoid) // not dense enough
+          continue; 
+        getSurfel(decimatedPoints, ids, centroid, width, mat);
+        normal = mat.col(0);
+        double q1 = width[0]/width[1];
+        
+        if (q1 > 0.5) // not planar enough
+          continue;
+        if ((centroid - candidateStarts[i]).dot(normal) > 0.0)
+          normal = -normal;     
+        matrices[c].push_back(mat);
+        centroids[c].push_back(centroid);
+        normals[c].push_back(normal);       
+        widths[c].push_back(width);  
+        isPlane[c].push_back(true);
+      }
     }
-    Vector3d cols[2] = {Vector3d(1,0,0), Vector3d(0,1,0)};
-    draw.drawEllipsoids(centroids[c], matrices[c], radii[c], cols[c], c);
+    draw.drawCloud(decimatedPoints, 0.5 + 0.4*(double)c, c);
   }
-  
+  draw.drawEllipsoids(centroids[1], matrices[1], widths[1], Vector3d(0,1,0), 1);
+  // Next I need to prevent cylinders and planes from matching.
+  // I could do two knns, with two sets of data, or... I could specify something about the shape in the match descriptor
+  // it is currently already confusing to have translation and normal in the same descriptor, so I don't think I want to add shape...
+  // unless I just add the boolean 0, 1... so they're out of range
+
+
   // Now we have the ellipsoids, we need to do a nearest neighbour on this set of data, trying to match orientation as well as location
   struct Match
   {
     int ids[2];
+    Vector3d normal;
   };
   vector<Match> matches;
   {
     // OK, what else can I do?
     // 1. two-way matches
     // 2. weight based on thinness  // doesn't seem to help!
-    // 3. reweight based on orientation difference too
+    // 3. reweight based on orientation difference too?
     // 4. match cylinders differently
     // 5. match spheres differently
-    // 6. or at least ignore non-planars // doesn't seem to help in this case, but left in at 0.5 eccentricity
-    // 7. re-run the matching every few iterations
-    // 8. can we bend the normals according to the bend equations?
+    // 8. can we bend the normals according to the bend equations? 
 
     // with these matches we now run the iterative reweighted least squares..
     Pose pose = Pose::identity();
     int maxIterations = 8;
-    const double maxRange = 1.0;
+    const double translationWeight = 0.4; // smaller finds matches further away
+    const double maxNormalDifference = 0.5;
     for (int it = 0; it<maxIterations; it++)
     {
-      if (it < 3) // the distribution of re-matching within the iterations is open to adjustment
+   //   if (it < 3) // the distribution of re-matching within the iterations is open to adjustment
       {
         vector<Vector3d> lineStarts;
         vector<Vector3d> lineEnds;
         int searchSize = 1;
         int qSize = centroids[0].size();
         int pSize = centroids[1].size();
-
         Nabo::NNSearchD *nns;
-        MatrixXd pointsQ(6, qSize);
+        MatrixXd pointsQ(7, qSize);
         for (int i = 0; i<qSize; i++)
-          pointsQ.col(i) << centroids[0][i], normals[0][i];
-        MatrixXd pointsP(6, pSize);
+        {
+          Vector3d p = centroids[0][i]*translationWeight;
+          p[2] *= 2.0; // doen't make much difference...
+          pointsQ.col(i) << p, normals[0][i], isPlane[0][i]?1.0:0.0;
+        }
+        MatrixXd pointsP(7, pSize);
         for (int i = 0; i<pSize; i++)
-          pointsP.col(i) << centroids[1][i], normals[1][i];
-        nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 6);
+        {
+          Vector3d p = centroids[1][i]*translationWeight;
+          p[2] *= 2.0;
+          pointsP.col(i) << p, normals[1][i], isPlane[1][i]?1.0:0.0;
+        }
+        nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 7);
 
         // Run the search
         MatrixXi indices;
         MatrixXd dists2;
         indices.resize(searchSize, qSize);
         dists2.resize(searchSize, qSize);
-        nns->knn(pointsQ, indices, dists2, searchSize, 0.01, 0, maxRange);
+        nns->knn(pointsQ, indices, dists2, searchSize, 0.01, 0, maxNormalDifference);
         delete nns;
         matches.clear();
 
@@ -260,53 +294,78 @@ int main(int argc, char *argv[])
           // shall we pick only two-way matches? Not for now...
           for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
           {
-            lineStarts.push_back(centroids[0][i]);
-            lineEnds.push_back(centroids[1][indices(j,i)]);
             Match match;
             match.ids[0] = i;
             match.ids[1] = indices(j,i);
-            matches.push_back(match);
+            bool plane = isPlane[0][i];
+            if (plane != isPlane[1][indices(j,i)])
+              continue;
+            Vector3d midNorm = (normals[0][i] + normals[1][indices(j,i)]).normalized();
+            if (isPlane)
+            {
+              match.normal = midNorm;
+              matches.push_back(match);
+            }
+            else
+            {
+              // a cylinder is like two normal constraints
+              match.normal = midNorm.cross(Vector3d(1,2,3)).normalized();
+              matches.push_back(match);
+              match.normal = midNorm.cross(match.normal);
+              matches.push_back(match);
+            }
+            lineStarts.push_back(centroids[0][i]);
+            lineEnds.push_back(centroids[1][indices(j,i)]);
           }
         }
         draw.drawLines(lineStarts, lineEnds);
+        draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Vector3d(1,0,0), 0);
       }
 
-      double d = 10.0*(double)it/(double)maxIterations;
+      double d = 20.0*(double)it/(double)maxIterations;
       const int stateSize = 12;
       Matrix<double, stateSize, stateSize> AtA;
       AtA.setZero();
       Matrix<double, stateSize, 1> AtB;
       AtB.setZero();
       double squareError = 0.0;
-      for (auto &match: matches)
+      for (int i = 0; i<(int)matches.size(); i++)
       {
+        auto &match = matches[i];
         Vector3d pos[2] = {centroids[0][match.ids[0]], centroids[1][match.ids[1]]};
-        Vector3d normal[2] = {normals[0][match.ids[0]], normals[1][match.ids[1]]};
-        Vector3d midNormal = (normal[0] + normal[1])/2.0;
-        double error = (pos[1] - pos[0]).dot(midNormal);
-        double weight = pow(max(1.0 - sqr(error/maxRange), 0.0), d*d);
+        double error = (pos[1] - pos[0]).dot(match.normal); // mahabolonis instead?
+        double errorMag;
+        if (isPlane[0][match.ids[0]])
+          errorMag = error;
+        else
+        {
+          Vector3d flat = pos[1] - pos[0];
+          Vector3d norm = normals[0][match.ids[0]];
+          flat -= norm * flat.dot(norm);
+          errorMag = flat.norm();
+        }
+        double weight = pow(max(1.0 - sqr(errorMag*translationWeight/maxNormalDifference), 0.0), d*d);
         squareError += sqr(error);
         Matrix<double, stateSize, 1> At; // the Jacobian
         At.setZero();
 
         for (int i = 0; i<3; i++) // change in error with change in raycloud translation
-          At[i] = midNormal[i];
+          At[i] = match.normal[i];
         for (int i = 0; i<3; i++) // change in error with change in raycloud orientation
         {
           Vector3d axis(0,0,0);
           axis[i] = 1.0;
-          At[3+i] = -(pos[0].cross(axis)).dot(midNormal);
+          At[3+i] = -(pos[0].cross(axis)).dot(match.normal);
         }
-        if (!rigidOnly && it>0) // give the aligner a chance to rigidly align first
+        if (!rigidOnly) // give the aligner a chance to rigidly align first
         {
-          At[6] = sqr(pos[0][0]) * midNormal[0];
-          At[7] = sqr(pos[0][0]) * midNormal[1];
-          At[8] = sqr(pos[0][1]) * midNormal[0];
-          At[9] = sqr(pos[0][1]) * midNormal[1];
-          At[10] = pos[0][0]*pos[0][1] * midNormal[0];
-          At[11] = pos[0][0]*pos[0][1] * midNormal[1];
+          At[6] = sqr(pos[0][0]) * match.normal[0];
+          At[7] = sqr(pos[0][0]) * match.normal[1];
+          At[8] = sqr(pos[0][1]) * match.normal[0];
+          At[9] = sqr(pos[0][1]) * match.normal[1];
+          At[10] = pos[0][0]*pos[0][1] * match.normal[0];
+          At[11] = pos[0][0]*pos[0][1] * match.normal[1];
         }
-
         AtA += At*weight*At.transpose();
         AtB += At*weight*error;
       }
@@ -325,8 +384,13 @@ int main(int argc, char *argv[])
         if (!rigidOnly)
           pos += a*sqr(pos[0]) + b*sqr(pos[1]) + c*pos[0]*pos[1];
         pos = shift*pos;
-        normals[0][i] = shift.rotation * normals[0][i];
       }
+      Quaterniond halfRot(AngleAxisd(angle/2.0, rot));
+      for (auto &match: matches)
+        match.normal = halfRot * match.normal;
+      
+      // TODO: transforming the whole cloud each time is a bit slow,
+      // we should be able to concatenate these transforms and only apply them once at the end
       for (auto &end: aligner.clouds[0].ends)
       {
         if (!rigidOnly)
@@ -334,10 +398,8 @@ int main(int argc, char *argv[])
         end = shift*end;      
       }
     }
- //   aligner.clouds[0].transform(pose, 0.0);
   }
 
   aligner.clouds[0].save(fileStub + "_aligned.ply");  
-
   return true;
 }
