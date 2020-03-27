@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
     usage();
   bool verbose = false;
   bool rigidOnly = false;
-  bool found = false;
   for (int a = 3; a<argc; a++)
   {
     if (string(argv[a]) == "--verbose" || string(argv[a]) == "-v")
@@ -208,56 +207,12 @@ int main(int argc, char *argv[])
   }
   
   // Now we have the ellipsoids, we need to do a nearest neighbour on this set of data, trying to match orientation as well as location
+  struct Match
   {
-    vector<Vector3d> lineStarts;
-    vector<Vector3d> lineEnds;
-    int searchSize = 1;
-    int qSize = centroids[0].size();
-    int pSize = centroids[1].size();
-
-    Nabo::NNSearchD *nns;
-    MatrixXd pointsQ(6, qSize);
-    for (int i = 0; i<qSize; i++)
-      pointsQ.col(i) << centroids[0][i], normals[0][i];
-    MatrixXd pointsP(6, pSize);
-    for (int i = 0; i<pSize; i++)
-      pointsP.col(i) << centroids[1][i], normals[1][i];
-    nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 6);
-
-    // Run the search
-    double maxRange = 1.0;
-    MatrixXi indices;
-    MatrixXd dists2;
-    indices.resize(searchSize, qSize);
-    dists2.resize(searchSize, qSize);
-    nns->knn(pointsQ, indices, dists2, searchSize, 0.01, 0, maxRange);
-    delete nns;
-
-    struct Match
-    {
-      Vector3d pos[2];
-      Vector3d normal;
-      double weight;
-    };
-    vector<Match> matches;
-    vector<int> ids;
-    ids.reserve(searchSize);
-    for (int i = 0; i<qSize; i++)
-    {
-      // shall we pick only two-way matches? Not for now...
-      for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
-      {
-        lineStarts.push_back(centroids[0][i]);
-        lineEnds.push_back(centroids[1][indices(j,i)]);
-        Match match;
-        match.pos[0] = centroids[0][i];
-        match.pos[1] = centroids[1][indices(j,i)];
-        match.normal = (normals[0][i] + normals[1][indices(j,i)]).normalized();
-        match.weight = 1.0/(0.03 + sqrt(widths[0][i][0] + widths[1][i][0]));
-        matches.push_back(match);
-      }
-    }
-    draw.drawLines(lineStarts, lineEnds);
+    int ids[2];
+  };
+  vector<Match> matches;
+  {
     // OK, what else can I do?
     // 1. two-way matches
     // 2. weight based on thinness  // doesn't seem to help!
@@ -265,12 +220,57 @@ int main(int argc, char *argv[])
     // 4. match cylinders differently
     // 5. match spheres differently
     // 6. or at least ignore non-planars // doesn't seem to help in this case, but left in at 0.5 eccentricity
+    // 7. re-run the matching every few iterations
+    // 8. can we bend the normals according to the bend equations?
 
     // with these matches we now run the iterative reweighted least squares..
     Pose pose = Pose::identity();
-    int maxIterations = 5;
+    int maxIterations = 8;
+    const double maxRange = 1.0;
     for (int it = 0; it<maxIterations; it++)
     {
+      if (it < 3) // the distribution of re-matching within the iterations is open to adjustment
+      {
+        vector<Vector3d> lineStarts;
+        vector<Vector3d> lineEnds;
+        int searchSize = 1;
+        int qSize = centroids[0].size();
+        int pSize = centroids[1].size();
+
+        Nabo::NNSearchD *nns;
+        MatrixXd pointsQ(6, qSize);
+        for (int i = 0; i<qSize; i++)
+          pointsQ.col(i) << centroids[0][i], normals[0][i];
+        MatrixXd pointsP(6, pSize);
+        for (int i = 0; i<pSize; i++)
+          pointsP.col(i) << centroids[1][i], normals[1][i];
+        nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 6);
+
+        // Run the search
+        MatrixXi indices;
+        MatrixXd dists2;
+        indices.resize(searchSize, qSize);
+        dists2.resize(searchSize, qSize);
+        nns->knn(pointsQ, indices, dists2, searchSize, 0.01, 0, maxRange);
+        delete nns;
+        matches.clear();
+
+        for (int i = 0; i<qSize; i++)
+        {
+          // shall we pick only two-way matches? Not for now...
+          for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
+          {
+            lineStarts.push_back(centroids[0][i]);
+            lineEnds.push_back(centroids[1][indices(j,i)]);
+            Match match;
+            match.ids[0] = i;
+            match.ids[1] = indices(j,i);
+            matches.push_back(match);
+          }
+        }
+        draw.drawLines(lineStarts, lineEnds);
+      }
+
       double d = 10.0*(double)it/(double)maxIterations;
       const int stateSize = 12;
       Matrix<double, stateSize, stateSize> AtA;
@@ -280,28 +280,31 @@ int main(int argc, char *argv[])
       double squareError = 0.0;
       for (auto &match: matches)
       {
-        double error = (match.pos[1] - match.pos[0]).dot(match.normal);
-        double weight = /*match.weight **/ pow(max(1.0 - sqr(error/maxRange), 0.0), d*d);
+        Vector3d pos[2] = {centroids[0][match.ids[0]], centroids[1][match.ids[1]]};
+        Vector3d normal[2] = {normals[0][match.ids[0]], normals[1][match.ids[1]]};
+        Vector3d midNormal = (normal[0] + normal[1])/2.0;
+        double error = (pos[1] - pos[0]).dot(midNormal);
+        double weight = pow(max(1.0 - sqr(error/maxRange), 0.0), d*d);
         squareError += sqr(error);
         Matrix<double, stateSize, 1> At; // the Jacobian
         At.setZero();
 
         for (int i = 0; i<3; i++) // change in error with change in raycloud translation
-          At[i] = match.normal[i];
+          At[i] = midNormal[i];
         for (int i = 0; i<3; i++) // change in error with change in raycloud orientation
         {
           Vector3d axis(0,0,0);
           axis[i] = 1.0;
-          At[3+i] = -(match.pos[0].cross(axis)).dot(match.normal);
+          At[3+i] = -(pos[0].cross(axis)).dot(midNormal);
         }
-        if (!rigidOnly)
+        if (!rigidOnly && it>0) // give the aligner a chance to rigidly align first
         {
-          At[6] = sqr(match.pos[0][0]) * match.normal[0];
-          At[7] = sqr(match.pos[0][0]) * match.normal[1];
-          At[8] = sqr(match.pos[0][1]) * match.normal[0];
-          At[9] = sqr(match.pos[0][1]) * match.normal[1];
-          At[10] = match.pos[0][0]*match.pos[0][1] * match.normal[0];
-          At[11] = match.pos[0][0]*match.pos[0][1] * match.normal[1];
+          At[6] = sqr(pos[0][0]) * midNormal[0];
+          At[7] = sqr(pos[0][0]) * midNormal[1];
+          At[8] = sqr(pos[0][1]) * midNormal[0];
+          At[9] = sqr(pos[0][1]) * midNormal[1];
+          At[10] = pos[0][0]*pos[0][1] * midNormal[0];
+          At[11] = pos[0][0]*pos[0][1] * midNormal[1];
         }
 
         AtA += At*weight*At.transpose();
@@ -311,18 +314,18 @@ int main(int argc, char *argv[])
       cout << "rmse: " << sqrt(squareError/(double)matches.size()) << endl;
       cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4] << ", " << x[5] << endl;
       Vector3d rot(x[3], x[4], x[5]);
+      Vector3d a(x[6],x[7],0), b(x[8],x[9],0), c(x[10],x[11],0);
       double angle = rot.norm();
       rot.normalize();
-      Quaterniond halfRot(AngleAxisd(angle/2.0, rot));
       Pose shift(Vector3d(x[0], x[1], x[2]), Quaterniond(AngleAxisd(angle, rot)));
       pose = shift * pose;
-      Vector3d a(x[6],x[7],0), b(x[8],x[9],0), c(x[10],x[11],0);
-      for (auto &match: matches)
+      for (int i = 0; i<(int)centroids[0].size(); i++)
       {
+        Vector3d &pos = centroids[0][i];
         if (!rigidOnly)
-          match.pos[0] += a*sqr(match.pos[0][0]) + b*sqr(match.pos[0][1]) + c*match.pos[0][0]*match.pos[0][1];
-        match.pos[0] = shift*match.pos[0];
-        match.normal = halfRot * match.normal;
+          pos += a*sqr(pos[0]) + b*sqr(pos[1]) + c*pos[0]*pos[1];
+        pos = shift*pos;
+        normals[0][i] = shift.rotation * normals[0][i];
       }
       for (auto &end: aligner.clouds[0].ends)
       {
@@ -330,7 +333,6 @@ int main(int argc, char *argv[])
           end += a*sqr(end[0]) + b*sqr(end[1]) + c*end[0]*end[1];
         end = shift*end;      
       }
-      cout << "pose: " << pose << endl;
     }
  //   aligner.clouds[0].transform(pose, 0.0);
   }
