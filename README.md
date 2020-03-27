@@ -71,6 +71,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 
 <p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
+**rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
 
 ###Optional build dependencies:
 
