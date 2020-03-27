@@ -322,6 +322,7 @@ int main(int argc, char *argv[])
         draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Vector3d(1,0,0), 0);
       }
 
+      // don't go above 30*... or below 10*...
       double d = 20.0*(double)it/(double)maxIterations;
       const int stateSize = 12;
       Matrix<double, stateSize, stateSize> AtA;
@@ -334,17 +335,19 @@ int main(int argc, char *argv[])
         auto &match = matches[i];
         Vector3d pos[2] = {centroids[0][match.ids[0]], centroids[1][match.ids[1]]};
         double error = (pos[1] - pos[0]).dot(match.normal); // mahabolonis instead?
-        double errorMag;
+        double errorSqr;
         if (isPlane[0][match.ids[0]])
-          errorMag = error;
+          errorSqr = sqr(error*translationWeight);
         else
         {
           Vector3d flat = pos[1] - pos[0];
           Vector3d norm = normals[0][match.ids[0]];
           flat -= norm * flat.dot(norm);
-          errorMag = flat.norm();
+          errorSqr = (flat*translationWeight).squaredNorm();
         }
-        double weight = pow(max(1.0 - sqr(errorMag*translationWeight/maxNormalDifference), 0.0), d*d);
+        // the normal difference is part of the error, 
+        errorSqr += (normals[0][match.ids[0]] - normals[1][match.ids[1]]).squaredNorm();
+        double weight = pow(max(1.0 - errorSqr/sqr(maxNormalDifference), 0.0), d*d);
         squareError += sqr(error);
         Matrix<double, stateSize, 1> At; // the Jacobian
         At.setZero();
@@ -384,6 +387,7 @@ int main(int argc, char *argv[])
         if (!rigidOnly)
           pos += a*sqr(pos[0]) + b*sqr(pos[1]) + c*pos[0]*pos[1];
         pos = shift*pos;
+        normals[0][i] = shift.rotation * normals[0][i];
       }
       Quaterniond halfRot(AngleAxisd(angle/2.0, rot));
       for (auto &match: matches)
