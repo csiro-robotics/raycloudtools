@@ -227,11 +227,6 @@ int main(int argc, char *argv[])
     draw.drawCloud(decimatedPoints, 0.5 + 0.4*(double)c, c);
   }
   draw.drawEllipsoids(centroids[1], matrices[1], widths[1], Vector3d(0,1,0), 1);
-  // Next I need to prevent cylinders and planes from matching.
-  // I could do two knns, with two sets of data, or... I could specify something about the shape in the match descriptor
-  // it is currently already confusing to have translation and normal in the same descriptor, so I don't think I want to add shape...
-  // unless I just add the boolean 0, 1... so they're out of range
-
 
   // Now we have the ellipsoids, we need to do a nearest neighbour on this set of data, trying to match orientation as well as location
   struct Match
@@ -241,14 +236,6 @@ int main(int argc, char *argv[])
   };
   vector<Match> matches;
   {
-    // OK, what else can I do?
-    // 1. two-way matches
-    // 2. weight based on thinness  // doesn't seem to help!
-    // 3. reweight based on orientation difference too?
-    // 4. match cylinders differently
-    // 5. match spheres differently
-    // 8. can we bend the normals according to the bend equations? 
-
     // with these matches we now run the iterative reweighted least squares..
     Pose pose = Pose::identity();
     int maxIterations = 8;
