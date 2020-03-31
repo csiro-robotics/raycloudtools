@@ -288,7 +288,7 @@ int main(int argc, char *argv[])
             if (plane != isPlane[1][indices(j,i)])
               continue;
             Vector3d midNorm = (normals[0][i] + normals[1][indices(j,i)]).normalized();
-            if (isPlane)
+            if (plane)
             {
               match.normal = midNorm;
               matches.push_back(match);
