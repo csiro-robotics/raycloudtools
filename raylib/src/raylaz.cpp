@@ -32,6 +32,7 @@ bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &
 
   unsigned int size = header.GetPointRecordsCount();
  
+  int numIntensities = 0;
   for(unsigned int i=0; i<size; i++)
   {
     reader.ReadNextPoint();
@@ -45,9 +46,16 @@ bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &
       position[2] = point.GetZ();
       positions.push_back(position);
       times.push_back(point.GetTime());
-      intensities.push_back(point.GetIntensity());
+      double intensity = point.GetIntensity();
+      if (intensity > 0.0)
+        numIntensities++;
+      intensities.push_back(intensity);
     }
   }
+  if (numIntensities == 0)
+    for (auto &i: intensities)
+      i = 1.0;
+  cout << "loaded " << fileName << " with " << positions.size() << " points" << endl;
   return true;
 #else
   cerr << "readLas: cannot read file as USE_LAS not enabled. Enable using: cmake .. -DUSE_LAS=true" << endl;
