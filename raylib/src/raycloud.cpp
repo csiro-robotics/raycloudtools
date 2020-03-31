@@ -318,12 +318,16 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta,
   int type = mergeType == "oldest" ? 0 : (mergeType == "newest" ? 1 : (mergeType == "min" ? 2 : 3));
   for (int i = 0; i<(int)ends.size(); i++)
   {
+    if (!(i%1000))
+      cout << i << "/" << ends.size() << endl;
     Vector3d dir = ends[i] - starts[i];
     Vector3d dirSign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Vector3d start = (starts[i] - grid.boxMin)/grid.voxelWidth;
     Vector3d end = (ends[i] - grid.boxMin)/grid.voxelWidth;
-    Vector3i index(start[0], start[1], start[2]);
+    Vector3i startIndex(start[0], start[1], start[2]);
     Vector3i endIndex(end[0], end[1], end[2]);
+    double lengthSqr = (endIndex - startIndex).squaredNorm();
+    Vector3i index = startIndex;
     for (;;)
     {
       auto &ellipsoids = grid.cell(index[0], index[1], index[2]).data;
@@ -377,7 +381,7 @@ void Cloud::markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta,
       }
       if (found)
         break;
-      if (index == endIndex)
+      if (index == endIndex || (index - startIndex).squaredNorm()>lengthSqr)
         break;
       Vector3d mid = grid.boxMin + grid.voxelWidth*Vector3d(index[0]+0.5, index[1]+0.5, index[2]+0.5);
       Vector3d nextBoundary = mid + 0.5*grid.voxelWidth*dirSign;
