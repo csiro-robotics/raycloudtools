@@ -1,5 +1,5 @@
 
-add_compile_options(-g -O3 -Wall -fopenmp)
+add_compile_options(-g -O3 -Wall -fopenmp -std=c++11)
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
 
 IF(USE_LAS)
@@ -15,6 +15,11 @@ ENDIF(USE_QHULL)
 IF(USE_ROS)
   message("raylib: USE_ROS enabled")
   add_definitions(-DUSE_ROS)
+  find_package(catkin REQUIRED COMPONENTS
+    roscpp
+    message_generation
+    std_msgs 
+  )
 ENDIF(USE_ROS)
 
 file(GLOB_RECURSE SOURCE_FILES
@@ -25,14 +30,10 @@ file(GLOB_RECURSE INCLUDE_FILES
 	${CMAKE_SOURCE_DIR}/raylib/include/*.h
 )
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  message_generation
-  std_msgs
-)
+find_package(libnabo REQUIRED NAMES libnabo nabo)
 find_package(Eigen3 REQUIRED)
 if (USE_LAS)
-  find_package(libLAS REQUIRED)
+  find_package(liblas REQUIRED NAMES liblas libLAS)
 endif()
 find_package(OpenMP REQUIRED)
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS})
@@ -50,13 +51,15 @@ target_include_directories(raylib PUBLIC
   $<INSTALL_INTERFACE:include/raylib>
   ${EIGEN3_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
+  ${liblas_INCLUDE_DIRS}
+  ${libnabo_INCLUDE_DIRS}
 )
 set_target_properties(raylib PROPERTIES
 	ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib
 	LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib
 	RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../lib
 )
-target_link_libraries(raylib ${catkin_LIBRARIES})
+target_link_libraries(raylib ${catkin_LIBRARIES} ${liblas_LIBRARIES} ${libnabo_LIBRARIES})
 if(MSVC)
    target_compile_options(raylib PRIVATE /Zi)
 

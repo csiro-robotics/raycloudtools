@@ -1,4 +1,4 @@
-add_compile_options(-g -Wall -O3 -fopenmp)
+add_compile_options(-g -Wall -O3 -fopenmp -std=c++11)
 
 OPTION(USE_LAS
   "Build the project using LAS"
@@ -17,25 +17,26 @@ IF(USE_QHULL)
 ENDIF(USE_QHULL)
 
 OPTION(USE_ROS
-  "Build the project using LAS"
+  "Build the project using ROS"
   OFF)
 IF(USE_ROS)
   message("USE_ROS enabled")
   add_definitions(-DUSE_ROS)
+  find_package(catkin REQUIRED COMPONENTS
+    roscpp
+    message_generation
+    std_msgs
+  )
 ENDIF(USE_ROS)
 
 add_definitions(-DNDEBUG )
-find_package(catkin REQUIRED COMPONENTS
-roscpp
-message_generation
-std_msgs
-)
+
 if (USE_LAS)
-  find_package(libLAS REQUIRED)
+  find_package(liblas REQUIRED NAMES liblas libLAS)
 endif()
 
-find_package(libnabo REQUIRED)
-include_directories(../raylib/include ${catkin_INCLUDE_DIRS})
+find_package(nabo REQUIRED NAMES nabo libnabo)
+include_directories(../raylib/include ${catkin_INCLUDE_DIRS} ${liblas_INCLUDE_DIRS} ${nabo_INCLUDE_DIRS})
 
 find_package(OpenMP REQUIRED)
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS})
@@ -80,7 +81,7 @@ foreach(TARGET ${TARGETS})
 endforeach(TARGET)
 
 foreach(TARGET ${TARGETS})
-	target_link_libraries(${TARGET} raylib ${catkin_LIBRARIES} ${libLAS_LIBRARIES} ${libnabo_LIBRARIES} ${qhullLibs})
+	target_link_libraries(${TARGET} raylib ${catkin_LIBRARIES} ${liblas_LIBRARIES} ${nabo_LIBRARIES} ${qhullLibs})
 	set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../bin)
 	set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME ${TARGET})
 	install(TARGETS ${TARGET} RUNTIME DESTINATION bin)
