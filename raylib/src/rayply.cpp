@@ -17,18 +17,19 @@ Vector3d redGreenBlue(double x)
   return res;
 }
 
-void redGreenBlueGradient(const vector<double> &values, vector<uint32_t> &gradient)
+void redGreenBlueGradient(const vector<double> &values, const vector<double> &intensities, vector<uint32_t> &gradient)
 {
   gradient.resize(values.size());
   vector<Vector3d> rgb(values.size());
   for (int i= 0; i<(int)rgb.size(); i++)
     rgb[i] = redGreenBlue(fmod(values[i], 10.0)/10.0);
+
   for (unsigned int i = 0; i<rgb.size(); i++)
   {
     gradient[i] = 0;
     for (int j = 0; j<3; j++)
       gradient[i] += uint32_t(rgb[i][j] * 255.0) << (j*8);
-    gradient[i] += 255<<24; // i.e. alpha is 255
+    gradient[i] += (intensities[i]>0 ? 255 : 0)<<24; // i.e. alpha is 255 unless it is a non-return ray
   }
 }
 
@@ -41,7 +42,7 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
   if (colours.size() > 0)
     RGB = colours;
   else
-    redGreenBlueGradient(times, RGB);
+    redGreenBlueGradient(times, intensities, RGB);
 
   vector<Matrix<float, 10, 1> > vertices(ends.size()); // 4d to give space for colour
   for (unsigned int i = 0; i<ends.size(); i++)
@@ -197,7 +198,7 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
   if (colours.size() == 0)
   {
     cout << "warning: no colour information found in " << fileName << ", setting colours red->green->blue based on time" << endl;
-    redGreenBlueGradient(times, colours);
+    redGreenBlueGradient(times, intensities, colours);
   }
   cout << "reading from " << fileName << ", " << size << " rays, of which " << numBounded << " bounded and " << numUnbounded << " unbounded" << endl;
   return true; 
