@@ -342,7 +342,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
       }
     }
     boxMins[c] = boxMin;
-    Vector3d width = boxMax = boxMin;
+    Vector3d width = boxMax - boxMin;
     boxWidth = maxVector(boxWidth, width);
   }
     
@@ -350,12 +350,12 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
  //   boxWidth = Vector3d(max(boxWidth[0], boxWidth[1]), max(boxWidth[0], boxWidth[1]), boxWidth[2]);
   
   Array3D arrays[2]; 
-  Array3D weights[2];
 #if defined(WEIGHTED_ALIGN)
   // very small below 1 and this will find small areas of overlap, very large above 1 and it is
   // like the unweighted Fourier-Mellin, which maximises the overlap for all points
   const double stability = 0.1; 
   double maxWeights[2] = {0,0};
+  Array3D weights[2];
 #endif
   // Now fill in the arrays with point density
   for (int c = 0; c<2; c++)
@@ -379,7 +379,6 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
       drawArray(arrays[c], arrays[c].dims, "translationInvariant", c);
   }
 
-  Array3D &array = arrays[0];
   bool rotationToEstimate = true; // If we know there is no rotation between the clouds then we can save some cost
   if (rotationToEstimate)
   {
@@ -448,6 +447,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
   #endif
 
   // find the peak
+  Array3D &array = arrays[0];
   Vector3i ind = array.maxRealIndex();
   // add a little bit of sub-pixel accuracy:
   Vector3d pos;
