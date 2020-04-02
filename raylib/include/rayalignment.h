@@ -56,8 +56,29 @@ struct Array3D
   }
   inline void stableDivideBy(const Array3D &other, double factor)
   {
+ /*   double avg = 0.0, avg2 = 0;
+    double count = 0.0;
+    int numNeg = 0;
+    double maxVal = 0.0;
     for (int i = 0; i<(int)cells.size(); i++)
-      cells[i] /= factor + other.cells[i].real(); 
+    {
+      double w = other.cells[i].real(); 
+      if (w < 0.0)
+        numNeg++;
+      maxVal = std::max(maxVal, w);
+      if (w > 0)
+      {
+        avg += w;
+        avg2 += w*w;
+        count++;
+      }
+    }
+    avg2 /= avg;
+    avg /= count;
+    std::cout << "factor supplied: " << factor << ", max weight: " << maxVal << ", average weight: " << avg << ", average weigthed weight: " << avg2 << ", num negative weights: " << numNeg << "/" << cells.size() << std::endl;
+  */
+    for (int i = 0; i<(int)cells.size(); i++)
+      cells[i] /= factor + std::max(0.0, other.cells[i].real()); 
   }
   void conjugate();
   Eigen::Vector3i maxRealIndex() const;
@@ -88,7 +109,7 @@ struct Array1D
   inline void stableDivideBy(const Array1D &other, double factor)
   {
     for (int i = 0; i<(int)cells.size(); i++)
-      cells[i] /= factor + other.cells[i].real(); 
+      cells[i] /= factor + std::max(0.0, other.cells[i].real()); 
   }
   void polarCrossCorrelation(const Array3D *arrays, bool verbose, double *maxWeights = NULL);
 
