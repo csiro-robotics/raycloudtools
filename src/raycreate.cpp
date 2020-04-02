@@ -46,7 +46,6 @@ int main(int argc, char *argv[])
     roomGen.generate();
     cloud.starts = roomGen.rayStarts;
     cloud.ends = roomGen.rayEnds;
-    cloud.intensities = roomGen.intensities;
     double time = 0.0;
     double timeDelta = 0.01;
     for (int i = 0; i<(int)cloud.starts.size(); i++)
@@ -56,6 +55,9 @@ int main(int argc, char *argv[])
         time += 0.5;
       time += timeDelta;
     }
+    redGreenBlueGradient(cloud.times, cloud.colours);
+    for (int i = 0; i<(int)cloud.colours.size(); i++)
+      cloud.colours[i].alpha = roomGen.rayBounded[i] ? 255 : 0;
   }
   else if (type == "building")
   {
@@ -80,8 +82,8 @@ int main(int argc, char *argv[])
       {
         cloud.times.push_back(time);
         time += timeDelta;
-        cloud.intensities.push_back(1.0);
       }
+      redGreenBlueGradient(cloud.times, cloud.colours);
     }
     else if (type == "forest")
     {
@@ -96,7 +98,6 @@ int main(int argc, char *argv[])
         {
           cloud.times.push_back(time);
           time += timeDelta;
-          cloud.intensities.push_back(1.0);
         }
       }
       boxMin *= 2.5;
@@ -109,9 +110,9 @@ int main(int argc, char *argv[])
       cloud.ends.push_back(pos);
       cloud.starts.push_back(pos + Vector3d(random(-0.1,0.1), random(-0.1,0.1), random(0.2,0.5)));
       cloud.times.push_back(time);
-      cloud.intensities.push_back(1.0);
       time += timeDelta;
     }
+    redGreenBlueGradient(cloud.times, cloud.colours);
   }
   else if (type == "terrain")
   {
@@ -124,9 +125,9 @@ int main(int argc, char *argv[])
     for (int i = 0; i<(int)cloud.starts.size(); i++)
     {
       cloud.times.push_back(time);
-      cloud.intensities.push_back(1.0);
       time += timeDelta;
     }
+    redGreenBlueGradient(cloud.times, cloud.colours);
   }
   else
     usage();

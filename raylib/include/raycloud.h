@@ -25,9 +25,9 @@ struct Cloud
   std::vector<Eigen::Vector3d> starts;
   std::vector<Eigen::Vector3d> ends; 
   std::vector<double> times;
-  std::vector<double> intensities;
-  std::vector<uint32_t> colours; 
-  inline bool rayBounded(int i){ return intensities[i] > 0.0; }
+  std::vector<RGBA> colours; 
+  inline bool rayBounded(int i){ return colours[i].alpha > 0; }
+  inline uint8_t rayIntensity(int i){ return colours[i].alpha; }
 
   void save(const std::string &fileName);
   bool load(const std::string &fileName);

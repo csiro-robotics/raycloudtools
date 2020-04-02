@@ -64,7 +64,6 @@ int main(int argc, char *argv[])
       combined.starts.insert(combined.starts.end(), cloud.starts.begin(), cloud.starts.end());
       combined.ends.insert(combined.ends.end(), cloud.ends.begin(), cloud.ends.end());
       combined.times.insert(combined.times.end(), cloud.times.begin(), cloud.times.end());
-      combined.intensities.insert(combined.intensities.end(), cloud.intensities.begin(), cloud.intensities.end());
       combined.colours.insert(combined.colours.end(), cloud.colours.begin(), cloud.colours.end());
     }
   }

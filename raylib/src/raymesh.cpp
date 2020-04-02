@@ -181,7 +181,6 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
           outside.starts.push_back(cloud.starts[r]);
           outside.ends.push_back(cloud.ends[r]);
           outside.times.push_back(cloud.times[r]);
-          outside.intensities.push_back(cloud.intensities[r]);
           outside.colours.push_back(cloud.colours[r]);
         }
         else
@@ -189,7 +188,6 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
           inside.starts.push_back(cloud.starts[r]);
           inside.ends.push_back(cloud.ends[r]);
           inside.times.push_back(cloud.times[r]);
-          inside.intensities.push_back(cloud.intensities[r]);
           inside.colours.push_back(cloud.colours[r]);
         }     
       }

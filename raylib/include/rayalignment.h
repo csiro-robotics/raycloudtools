@@ -54,8 +54,14 @@ struct Array3D
       return (*this)(index[0], index[1], index[2]);
     return nullCell;
   }
+  inline void stableDivideBy(const Array3D &other, double factor)
+  {
+    for (int i = 0; i<(int)cells.size(); i++)
+      cells[i] /= factor + other.cells[i].real(); 
+  }
   void conjugate();
   Eigen::Vector3i maxRealIndex() const;
+  void fillWithRays(const Cloud &cloud);
 
   Eigen::Vector3d boxMin, boxMax;
   double voxelWidth;
@@ -79,6 +85,12 @@ struct Array1D
     for (int i = 0; i<(int)cells.size(); i++)
       cells[i] += other.cells[i];
   }
+  inline void stableDivideBy(const Array1D &other, double factor)
+  {
+    for (int i = 0; i<(int)cells.size(); i++)
+      cells[i] /= factor + other.cells[i].real(); 
+  }
+  void polarCrossCorrelation(const Array3D *arrays, bool verbose, double *maxWeights = NULL);
 
   int maxRealIndex() const;
   void conjugate();

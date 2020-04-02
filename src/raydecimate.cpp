@@ -33,8 +33,8 @@ int main(int argc, char *argv[])
   Cloud cloud;
   cloud.load(file);
   vector<Vector3d> starts, ends;
-  vector<uint32_t> colours;
-  vector<double> times, intensities;
+  vector<RGBA> colours;
+  vector<double> times;
   string type = argv[3];
   if (type=="cm")
   {
@@ -48,10 +48,9 @@ int main(int argc, char *argv[])
       starts.push_back(cloud.starts[i]);
       ends.push_back(cloud.ends[i]);
       times.push_back(cloud.times[i]);
-      intensities.push_back(cloud.intensities[i]);
       colours.push_back(cloud.colours[i]);
     }
-    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.intensities = intensities; cloud.colours = colours;
+    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.colours = colours;
   }
   else if (type == "seconds" || type == "s")
   {
@@ -64,13 +63,12 @@ int main(int argc, char *argv[])
         starts.push_back(cloud.starts[i]);
         ends.push_back(cloud.ends[i]);
         times.push_back(cloud.times[i]);
-        intensities.push_back(cloud.intensities[i]);
         colours.push_back(cloud.colours[i]);
         while (cloud.times[i] >= lastTime + delta) // in case delta is tiny
           lastTime += delta;
       }
     }
-    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.intensities = intensities; cloud.colours = colours;
+    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.colours = colours;
   }
   else 
     usage(false);

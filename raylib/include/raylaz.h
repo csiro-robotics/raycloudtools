@@ -8,5 +8,5 @@
 
 namespace RAY
 {
-bool readLas(std::string fileName, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<double> &intensities, int decimation);
+bool readLas(std::string fileName, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<RGBA> &colours, int decimation);
 }

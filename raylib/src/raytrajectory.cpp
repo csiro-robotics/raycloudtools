@@ -6,6 +6,7 @@
 #include "raytrajectory.h"
 using namespace std;
 using namespace RAY;
+using namespace Eigen;
 
 void Trajectory::save(const string &fileName, double timeOffset)
 {

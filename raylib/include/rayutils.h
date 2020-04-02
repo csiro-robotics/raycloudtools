@@ -158,4 +158,24 @@ inline std::vector <T> component_list(const std::vector<U> &list, const T &compo
   return subList;
 }
 
+struct RGBA
+{
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+  uint8_t alpha;
+};
+
+inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient)
+{
+  gradient.resize(values.size());
+  for (unsigned int i = 0; i<values.size(); i++)
+  {
+    double x = fmod(values[i], 10.0)/10.0;
+    gradient[i].red = 255.0*(1.0 - x);
+    gradient[i].green = 255.0*(3.0*x*(1.0-x));
+    gradient[i].blue = 255.0*x;
+    gradient[i].alpha = 255;
+  }
+}
 }

@@ -12,6 +12,6 @@ struct RoomGen
 {
   void generate();
   std::vector<Eigen::Vector3d> rayStarts, rayEnds;
-  std::vector<double> intensities;
+  std::vector<bool> rayBounded;
 };
 }

@@ -19,7 +19,7 @@ void Cloud::save(const std::string &fileName)
   string name = fileName;
   if (name.substr(name.length()-4) != ".ply")
     name += ".ply";
-  writePly(name, starts, ends, times, intensities, colours);
+  writePly(name, starts, ends, times, colours);
 }
 
 bool Cloud::load(const std::string &fileName)
@@ -41,14 +41,9 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 {
   string nameEnd = pointCloud.substr(pointCloud.size()-4);
   if (nameEnd == ".ply")
-    readPly(pointCloud, starts, ends, times, intensities, colours);
+    readPly(pointCloud, starts, ends, times, colours);
   else if (nameEnd == ".laz" || nameEnd == ".las")
-  {
-    readLas(pointCloud, ends, times, intensities, 1);   
-    colours.resize(ends.size());
-    for (int i = 0; i<(int)colours.size(); i++)
-      colours[i] = i;
-  } 
+    readLas(pointCloud, ends, times, colours, 1);   
   else
   {
     cout << "Error converting unknown type: " << pointCloud << endl;
@@ -63,16 +58,12 @@ bool Cloud::load(const std::string &pointCloud, const std::string &trajFile)
 
 bool Cloud::loadPLY(const string &file)
 {
-  return readPly(file, starts, ends, times, intensities, colours);
+  return readPly(file, starts, ends, times, colours);
 }
 
 bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)
 {
-  bool success = readLas(lazFile, ends, times, intensities, 1);
-  colours.resize(ends.size());
-  for (int i = 0; i<(int)colours.size(); i++)
-    colours[i] = i;
-    
+  bool success = readLas(lazFile, ends, times, colours, 1);
   if (!success)
     return false;
   Trajectory trajectory;
@@ -83,6 +74,7 @@ bool Cloud::loadLazTraj(const string &lazFile, const string &trajFile)
 
 void Cloud::calculateStarts(const Trajectory &trajectory)
 {
+  // Aha!, problem in calculating starts when times are not ordered.
   if (trajectory.nodes.size()>0)
   {
     int n = 1;
@@ -142,13 +134,11 @@ void Cloud::removeUnboundedRays()
     starts[i] = starts[valids[i]];
     ends[i] = ends[valids[i]];
     times[i] = times[valids[i]];
-    intensities[i] = intensities[valids[i]];
     colours[i] = colours[valids[i]];
   }
   starts.resize(valids.size());
   ends.resize(valids.size());
   times.resize(valids.size());
-  intensities.resize(valids.size());
   colours.resize(valids.size());
 }
 
@@ -160,13 +150,11 @@ void Cloud::decimate(double voxelWidth)
     int id = subsample[i];
     starts[i] = starts[id];
     ends[i] = ends[id];
-    intensities[i] = intensities[id];
     colours[i] = colours[id];
     times[i] = times[id];
   }
   starts.resize(subsample.size());
   ends.resize(subsample.size());
-  intensities.resize(subsample.size());
   colours.resize(subsample.size());
   times.resize(subsample.size());
 }
@@ -433,7 +421,6 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta, con
       transient.starts.push_back(starts[i]);
       transient.ends.push_back(ends[i]);
       transient.times.push_back(abs(times[i]));
-      transient.intensities.push_back(intensities[i]);
       transient.colours.push_back(colours[i]);
     }
     else
@@ -441,7 +428,6 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, double timeDelta, con
       fixed.starts.push_back(starts[i]);
       fixed.ends.push_back(ends[i]);
       fixed.times.push_back(times[i]);
-      fixed.intensities.push_back(intensities[i]);
       fixed.colours.push_back(colours[i]);
     }
   }
@@ -499,7 +485,6 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string
         differences.starts.push_back(cloud.starts[i]);
         differences.ends.push_back(cloud.ends[i]);
         differences.times.push_back(-cloud.times[i]);
-        differences.intensities.push_back(cloud.intensities[i]);
         differences.colours.push_back(cloud.colours[i]);
       }
       else
@@ -508,7 +493,6 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string
         starts.push_back(cloud.starts[i]);
         ends.push_back(cloud.ends[i]);
         times.push_back(cloud.times[i]);
-        intensities.push_back(cloud.intensities[i]);
         colours.push_back(cloud.colours[i]);
       }
     }      

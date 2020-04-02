@@ -50,7 +50,6 @@ int main(int argc, char *argv[])
     newCloud.starts.reserve(cloud.starts.size());
     newCloud.ends.reserve(cloud.ends.size());
     newCloud.times.reserve(cloud.times.size());
-    newCloud.intensities.reserve(cloud.intensities.size());
     newCloud.colours.reserve(cloud.colours.size());
     // Firstly look at adjacent rays by range. We don't want to throw away large changes,
     // instead, the intermediate of 3 adjacent ranges that is too far from both ends...
@@ -65,7 +64,6 @@ int main(int argc, char *argv[])
         newCloud.starts.push_back(cloud.starts[i]);
         newCloud.ends.push_back(cloud.ends[i]);
         newCloud.times.push_back(cloud.times[i]);
-        newCloud.intensities.push_back(cloud.intensities[i]);
         newCloud.colours.push_back(cloud.colours[i]);
       }
     }
@@ -98,7 +96,6 @@ int main(int argc, char *argv[])
     newCloud.starts.reserve(cloud.starts.size());
     newCloud.ends.reserve(cloud.ends.size());
     newCloud.times.reserve(cloud.times.size());
-    newCloud.intensities.reserve(cloud.intensities.size());
     newCloud.colours.reserve(cloud.colours.size());
     for (int i = 0; i<(int)points.size(); i++)
     {
@@ -107,7 +104,6 @@ int main(int argc, char *argv[])
         newCloud.starts.push_back(cloud.starts[i]);
         newCloud.ends.push_back(cloud.ends[i]);
         newCloud.times.push_back(cloud.times[i]);
-        newCloud.intensities.push_back(cloud.intensities[i]);
         newCloud.colours.push_back(cloud.colours[i]);
       }
     }

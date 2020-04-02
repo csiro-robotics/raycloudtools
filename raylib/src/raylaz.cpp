@@ -13,9 +13,10 @@ using namespace std;
 using namespace Eigen;
 using namespace RAY;
 
-bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &times, vector<double> &intensities, int decimation)
+bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &times, vector<RGBA> &colours, int decimation)
 {
 #if defined(USE_LAS)
+  vector<double> intensities;
   cout << "readLas: filename: " << fileName << endl;
   
   std::ifstream ifs;
@@ -55,6 +56,10 @@ bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &
   if (numIntensities == 0)
     for (auto &i: intensities)
       i = 1.0;
+  redGreenBlueGradient(times, colours);
+  for (int i = 0; i<(int)colours.size(); i++) // add intensity into alhpa channel
+    colours[i].alpha = 255.0*clamped(intensities[i], 0.0, 1.0);
+  
   cout << "loaded " << fileName << " with " << positions.size() << " points" << endl;
   return true;
 #else
