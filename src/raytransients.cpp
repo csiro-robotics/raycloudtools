@@ -6,6 +6,7 @@
 #include "raycloud.h"
 #include "raymesh.h"
 #include "rayply.h"
+#include "raydraw.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,7 +29,10 @@ void usage(bool error=false)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 5)
+  #if defined(USE_ROS)
+    ros::init(argc, argv, "raytransients");
+  #endif
+    if (argc != 5)
     usage();
 
   if (string(argv[4]) != "s")
