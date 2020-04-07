@@ -14,7 +14,7 @@ using namespace Eigen;
 using namespace RAY;
 
 typedef complex<double> Complex;
-// #define WEIGHTED_ALIGN
+//#define WEIGHTED_ALIGN
 
 struct Col
 {

@@ -40,13 +40,13 @@ struct Cloud
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
   void findTransients(Cloud &transient, Cloud &fixed, double timeDelta, const std::string &mergeType);
   void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType);
-  void markIntersectedEllipsoids(Grid<Ellipsoid *> &grid, double timeDelta, const std::string &mergeType);
+  void markIntersectedEllipsoids(Grid<int> &grid, std::vector<Ellipsoid> &ellipsoids, const std::string &mergeType);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
 
   Eigen::Vector3d calcMinBound();
   Eigen::Vector3d calcMaxBound();
 
-protected:  
+private:  
   void calculateStarts(const Trajectory &trajectory);
   bool loadPLY(const std::string &file);
   bool loadLazTraj(const std::string &lazFile, const std::string &trajFile);
