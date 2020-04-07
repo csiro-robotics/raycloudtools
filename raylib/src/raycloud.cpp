@@ -267,7 +267,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     Matrix3d eigenVector = eigenSolver.eigenvectors();
     
     ellipsoids[i].pos = centroid;
-    double scale = 2.0; // larger makes more points transient
+    double scale = 1.732; // larger makes more points transient
     eigenValue[0] = scale*sqrt(max(1e-10,eigenValue[0]));
     eigenValue[1] = scale*sqrt(max(1e-10,eigenValue[1]));
     eigenValue[2] = scale*sqrt(max(1e-10,eigenValue[2]));
@@ -325,12 +325,8 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
   int type = mergeType == "oldest" ? 0 : (mergeType == "newest" ? 1 : (mergeType == "min" ? 2 : 3));
   vector<bool> rayTested(ellipsoids.size());
   fill(begin(rayTested), end(rayTested), false);
-  for (int x = 0; x<(int)ellipsoids.size(); x++)
+  for (auto &ellipsoid: ellipsoids)
   {
-    auto &ellipsoid = ellipsoids[x];
-  
-//  for (auto &ellipsoid: ellipsoids)
-//  {
     if (ellipsoid.transient) // a previous ellipsoid could have removed the ray that represents this ellipsoid
       continue; 
     // get all the rays that overlap this ellipsoid
@@ -341,20 +337,7 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
     Vector3i bmin = maxVector(Vector3i(0,0,0), Vector3i(bMin[0], bMin[1], bMin[2]));
     Vector3i bmax = minVector(Vector3i(bMax[0], bMax[1], bMax[2]), Vector3i(grid.dims[0]-1, grid.dims[1]-1, grid.dims[2]-1));
     
-      if (false)//x==10877 || x==11473)
-      {
-        vector<Matrix3d> mats(1);
-        vector<Vector3d> radii(1);
-        vector<Vector3d> centres(1);
-        centres[0] = ellipsoid.pos;
-//        cout << "found transient ellipsoid, radii: " << 1.0/ellipsoid.vectors[0].norm() << ", " << 1.0/ellipsoid.vectors[1].norm() << ", " << 1.0/ellipsoid.vectors[2].norm() << endl;
-//        cout << hits << " hits, " << misses << " misses inside, plus " << numBefore << " misses before and " << numAfter << " misses after" << endl;
-        radii[0] = 2.0*Vector3d(1.0/ellipsoid.vectors[0].norm(), 1.0/ellipsoid.vectors[1].norm(), 1.0/ellipsoid.vectors[2].norm());
-        mats[0] << ellipsoid.vectors[0].normalized(), ellipsoid.vectors[1].normalized(), ellipsoid.vectors[2].normalized();
-        draw.drawEllipsoids(centres, mats, radii, Vector3d(1,0,0), 0);
-      }
     vector<int> rayIDs;
-    fill(begin(rayTested), end(rayTested), false); // TODO: REMOVE!
     for (int x = bmin[0]; x<=bmax[0]; x++)
     {
       for (int y = bmin[1]; y<=bmax[1]; y++)
@@ -372,6 +355,8 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
         }
       }
     }
+    for (auto &rayID: rayIDs)
+      rayTested[rayID] = 0;
 
     double firstIntersectionTime = 1e10;
     double lastIntersectionTime = -1e10;
@@ -463,8 +448,6 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
     else     // max
       removeEllipsoid = false; // remove numBefore and numAfter rays
 
-    for (auto &rayID: rayIDs)
-      rayTested[rayID] = 0;
     if (removeEllipsoid) 
       ellipsoid.transient = true;
     else // if we don't remove the ellipsoid then we should remove numBefore and numAfter rays if they're greater than sequence length
