@@ -297,8 +297,7 @@ void fillGrid(Grid<int> &grid, const vector<Vector3d> &starts, const vector<Vect
     Vector3i index = startIndex;
     for (;;)
     {
-      auto &list = grid.cell(index[0], index[1], index[2]).data;
-      list.push_back(i);
+      grid.insert(index[0], index[1], index[2], i);
 
       if (index == endIndex || (index - startIndex).squaredNorm()>lengthSqr)
         break;
@@ -391,7 +390,8 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
         lastIntersectionTime = max(lastIntersectionTime, times[i]);
       }
     }
-
+    if (hits == 0) // if nothing hits this ellipsoid, that's pretty weird, though technically it might just be possible
+      continue;
     // now get some density stats...
     int misses = 0, numBefore = 0, numAfter = 0;
     for (auto &i: passThroughIDs)
@@ -408,7 +408,7 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
     // with more than this many hits per pass through, it will mark the object ass transient with just 1 pass through after
     const double minDensity = 3.0; // larger values create fewer transients
     int sequenceLength = (int)(missesPerHit * minDensity);
-    if (numBefore <= sequenceLength || numAfter <= sequenceLength) // not a merge conflict, no transient here
+    if (numBefore <= sequenceLength && numAfter <= sequenceLength) // not a merge conflict, no transient here
       continue;
 
     int removeEllipsoid = false;

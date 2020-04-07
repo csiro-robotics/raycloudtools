@@ -1,4 +1,4 @@
-add_compile_options(-g -Wall -O3 -fopenmp -std=c++11)
+add_compile_options(-g -Wall -O0 -fopenmp -std=c++11)
 
 OPTION(USE_LAS
   "Build the project using LAS"
