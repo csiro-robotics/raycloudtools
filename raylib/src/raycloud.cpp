@@ -267,7 +267,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     Matrix3d eigenVector = eigenSolver.eigenvectors();
     
     ellipsoids[i].pos = centroid;
-    double scale = 1.732; // larger makes more points transient
+    double scale = 1.5; // this scale roughly matches the dimensions of a uniformly dense ellipsoid
     eigenValue[0] = scale*sqrt(max(1e-10,eigenValue[0]));
     eigenValue[1] = scale*sqrt(max(1e-10,eigenValue[1]));
     eigenValue[2] = scale*sqrt(max(1e-10,eigenValue[2]));
@@ -364,6 +364,8 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
     for (auto &i: rayIDs)
     {
       Vector3d dir = ends[i] - starts[i];
+      const double passDistance = 0.05;
+      double ratio = passDistance / dir.norm();
       // ray-ellipsoid intersection
       Vector3d toSphere = ellipsoid.pos - starts[i];
       Vector3d ray;
@@ -406,7 +408,7 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
       double alongDist = sqrt(1.0 - dist2);
       if (rayLength < d - alongDist) // doesn't reach the ellipsoid
         continue; 
-      bool passThrough = rayLength > d + alongDist + 2; // last number requires rays to pass some way past the object
+      bool passThrough = rayLength*(1.0-ratio) > d + alongDist; // last number requires rays to pass some way past the object
       if (passThrough)
         passThroughIDs.push_back(i);
       else
