@@ -267,7 +267,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     Matrix3d eigenVector = eigenSolver.eigenvectors();
     
     ellipsoids[i].pos = centroid;
-    double scale = 1.5; // this scale roughly matches the dimensions of a uniformly dense ellipsoid
+    double scale = 1.3; // 1.5; // this scale roughly matches the dimensions of a uniformly dense ellipsoid
     eigenValue[0] = scale*sqrt(max(1e-10,eigenValue[0]));
     eigenValue[1] = scale*sqrt(max(1e-10,eigenValue[1]));
     eigenValue[2] = scale*sqrt(max(1e-10,eigenValue[2]));
@@ -324,8 +324,11 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
   int type = mergeType == "oldest" ? 0 : (mergeType == "newest" ? 1 : (mergeType == "min" ? 2 : 3));
   vector<bool> rayTested(ellipsoids.size());
   fill(begin(rayTested), end(rayTested), false);
+  int cnt = 0;
   for (auto &ellipsoid: ellipsoids)
   {
+    if ((cnt++)%1000 == 0)
+      cout << cnt << "/" << ellipsoids.size() << endl;
     if (ellipsoid.transient) // a previous ellipsoid could have removed the ray that represents this ellipsoid
       continue; 
     if (ellipsoid.extents == Vector3d::Zero()) // unbounded rays cannot be a transient object
@@ -364,7 +367,7 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
     for (auto &i: rayIDs)
     {
       Vector3d dir = ends[i] - starts[i];
-      const double passDistance = 0.05;
+      const double passDistance = 0.1; //0.05
       double ratio = passDistance / dir.norm();
       // ray-ellipsoid intersection
       Vector3d toSphere = ellipsoid.pos - starts[i];
@@ -408,7 +411,7 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
       double alongDist = sqrt(1.0 - dist2);
       if (rayLength < d - alongDist) // doesn't reach the ellipsoid
         continue; 
-      bool passThrough = rayLength*(1.0-ratio) > d + alongDist; // last number requires rays to pass some way past the object
+      bool passThrough = rayLength*(1.0-ratio) > d + alongDist + 2.0; // last number requires rays to pass some way past the object
       if (passThrough)
         passThroughIDs.push_back(i);
       else
@@ -433,9 +436,11 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
         misses++;
     }
     double missesPerHit = (double)misses/(double)hits;
-    // with more than this many hits per pass through, it will mark the object ass transient with just 1 pass through after
-    const double minDensity = 3.0; // larger values create fewer transients
-    int sequenceLength = (int)(missesPerHit * minDensity);
+    // with more than this many hits per pass through, it will mark the object as transient with just 1 pass through after
+    const double minDensity = 20.0; // larger values create fewer transients
+    int sequenceLength = 2+(int)(missesPerHit * minDensity);
+    if (misses > 0) // can't be a transient
+      continue;
     if (numBefore <= sequenceLength && numAfter <= sequenceLength) // not a merge conflict, no transient here
       continue;
 

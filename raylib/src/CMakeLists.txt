@@ -1,5 +1,5 @@
 
-add_compile_options(-g -O0 -Wall -fopenmp -std=c++11)
+add_compile_options(-g -O3 -Wall -fopenmp -std=c++11)
 add_definitions(-DNDEBUG -DUNORDERED -DHAVE_UNORDERED_MAP)
 
 IF(USE_LAS)
