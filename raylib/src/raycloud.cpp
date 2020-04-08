@@ -232,7 +232,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     if (!rayBounded(i))
     {
       ellipsoids[i].transient = false;
-      ellipsoids[i].size = 0.0;
+      ellipsoids[i].extents.setZero();
       continue;
     }
     Matrix3d scatter;
@@ -274,9 +274,8 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     ellipsoids[i].vectors[0] = eigenVector.col(0)/eigenValue[0];
     ellipsoids[i].vectors[1] = eigenVector.col(1)/eigenValue[1];
     ellipsoids[i].vectors[2] = eigenVector.col(2)/eigenValue[2];
-    ellipsoids[i].time = abs(times[i]);
-    ellipsoids[i].size = max(eigenValue[0], max(eigenValue[1], eigenValue[2]));
-    ellipsoids[i].size = clamped(ellipsoids[i].size, 0.0, 2.0);
+    ellipsoids[i].time = times[i];
+    ellipsoids[i].setExtents(eigenVector, eigenValue);
     ellipsoids[i].transient = false;
   }
 }
@@ -329,11 +328,11 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
   {
     if (ellipsoid.transient) // a previous ellipsoid could have removed the ray that represents this ellipsoid
       continue; 
+    if (ellipsoid.extents == Vector3d::Zero()) // unbounded rays cannot be a transient object
+      continue;
     // get all the rays that overlap this ellipsoid
-    double radius = min(1.0, ellipsoid.size);
-    Vector3d rad(radius,radius,radius);
-    Vector3d bMin = (ellipsoid.pos - rad - grid.boxMin)/grid.voxelWidth;
-    Vector3d bMax = (ellipsoid.pos + rad - grid.boxMin)/grid.voxelWidth;
+    Vector3d bMin = (ellipsoid.pos - ellipsoid.extents - grid.boxMin)/grid.voxelWidth;
+    Vector3d bMax = (ellipsoid.pos + ellipsoid.extents - grid.boxMin)/grid.voxelWidth;
     Vector3i bmin = maxVector(Vector3i(0,0,0), Vector3i(bMin[0], bMin[1], bMin[2]));
     Vector3i bmax = minVector(Vector3i(bMax[0], bMax[1], bMax[2]), Vector3i(grid.dims[0]-1, grid.dims[1]-1, grid.dims[2]-1));
     

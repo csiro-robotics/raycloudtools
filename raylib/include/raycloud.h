@@ -16,7 +16,17 @@ struct Ellipsoid
   Eigen::Vector3d pos;
   Eigen::Vector3d vectors[3];
   double time;
-  double size;
+  Eigen::Vector3d extents;
+  inline void setExtents(const Eigen::Matrix3d &vecs, const Eigen::Vector3d &vals)
+  {
+    double maxR = std::max(vals[0], std::max(vals[1], vals[2]));
+    const Eigen::Vector3d &x = vecs.col(0);
+    const Eigen::Vector3d &y = vecs.col(1);
+    const Eigen::Vector3d &z = vecs.col(2);
+    extents[0] = std::min(maxR, abs(x[0])*vals[0] + abs(y[0])*vals[1] + abs(z[0])*vals[2]);
+    extents[1] = std::min(maxR, abs(x[1])*vals[0] + abs(y[1])*vals[1] + abs(z[1])*vals[2]);
+    extents[2] = std::min(maxR, abs(x[2])*vals[0] + abs(y[2])*vals[1] + abs(z[2])*vals[2]);
+  }
   bool transient;
 };
 
