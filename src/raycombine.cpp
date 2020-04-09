@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
   else
   {
     Cloud differences;
-    combined.combine(clouds, differences, mergeType);
+    combined.combine(clouds, differences, mergeType, 20);
     differences.save(fileStub + "_differences.ply");
   }
   combined.save(fileStub + "_combined.ply");

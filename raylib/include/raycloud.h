@@ -17,6 +17,10 @@ struct Ellipsoid
   Eigen::Vector3d vectors[3];
   double time;
   Eigen::Vector3d extents;
+  double opacity;
+  double planarity;
+  int numRays;
+  int numGone;
   inline void setExtents(const Eigen::Matrix3d &vecs, const Eigen::Vector3d &vals)
   {
     double maxR = std::max(vals[0], std::max(vals[1], vals[2]));
@@ -26,6 +30,10 @@ struct Ellipsoid
     extents[0] = std::min(maxR, abs(x[0])*vals[0] + abs(y[0])*vals[1] + abs(z[0])*vals[2]);
     extents[1] = std::min(maxR, abs(x[1])*vals[0] + abs(y[1])*vals[1] + abs(z[1])*vals[2]);
     extents[2] = std::min(maxR, abs(x[2])*vals[0] + abs(y[2])*vals[1] + abs(z[2])*vals[2]);
+  }
+  void setPlanarity(const Eigen::Vector3d &vals)
+  {
+    planarity = (vals[1]-vals[0])/vals[1];
   }
   bool transient;
 };
@@ -48,9 +56,9 @@ struct Cloud
 
   void removeUnboundedRays();
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
-  void findTransients(Cloud &transient, Cloud &fixed, double timeDelta, const std::string &mergeType);
-  void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType);
-  void markIntersectedEllipsoids(Grid<int> &grid, std::vector<Ellipsoid> &ellipsoids, const std::string &mergeType);
+  void findTransients(Cloud &transient, Cloud &fixed, const std::string &mergeType, double numRays, bool colourCloud);
+  void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType, double numRays);
+  void markIntersectedEllipsoids(Grid<int> &grid, std::vector<Ellipsoid> &ellipsoids, const std::string &mergeType, double numRays);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
 
   Eigen::Vector3d calcMinBound();
