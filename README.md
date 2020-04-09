@@ -73,7 +73,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 
 **rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
 
-###Optional build dependencies:
+*Optional build dependencies:*
 
 For rayconvert to work from .laz files:
 
