@@ -211,6 +211,8 @@ vector<Vector3d> Cloud::generateNormals(int searchSize)
 
 void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
 {
+  cout << "generating " << ends.size() << " ellipsoids" << endl;
+  ellipsoids.resize(ends.size());
   int searchSize = 16;
   Nabo::NNSearchD *nns;
   Nabo::Parameters params("bucketSize", 8);
@@ -229,9 +231,9 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
 
   for (unsigned int i = 0; i<ends.size(); i++)
   {
+    ellipsoids[i].transient = false;
     if (!rayBounded(i))
     {
-      ellipsoids[i].transient = false;
       ellipsoids[i].extents.setZero();
       continue;
     }
@@ -277,12 +279,12 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     ellipsoids[i].time = times[i];
     ellipsoids[i].setExtents(eigenVector, eigenValue);
     ellipsoids[i].setPlanarity(eigenValue);
-    ellipsoids[i].transient = false;
   }
 }
 
 void fillGrid(Grid<int> &grid, const vector<Vector3d> &starts, const vector<Vector3d> &ends)
 {
+  cout << "filling grid with " << ends.size() << " rays" << endl;
   // next populate the grid with these ellipsoid centres
   for (int i = 0; i<(int)ends.size(); i++)
   {
@@ -318,27 +320,33 @@ void fillGrid(Grid<int> &grid, const vector<Vector3d> &starts, const vector<Vect
   grid.report();
 }
 
-void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellipsoids, const string &mergeType, double numRays)
+void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellipsoids, const string &mergeType, double numRays, bool selfTransient)
 {
   cout << "mark intersected ellipsoids, numRays: " << numRays << ", mergeType: " << mergeType << endl;
   DebugDraw draw;
   draw.drawCloud(ends, 1.0, 0);
   int type = mergeType == "oldest" ? 0 : (mergeType == "newest" ? 1 : (mergeType == "min" ? 2 : 3));
-  vector<bool> rayTested(ellipsoids.size());
+  vector<bool> rayTested(ends.size());
   fill(begin(rayTested), end(rayTested), false);
   int cnt = 0;
   for (auto &ellipsoid: ellipsoids)
   {
     if ((cnt++)%20000 == 0)
       cout << cnt << "/" << ellipsoids.size() << endl;
+
+//    if (numRays>0 && (ellipsoid.pos - Vector3d(2,-0.5,0.5)).norm() < 0.2)
+//      cout << "point" << endl;
     if (ellipsoid.transient) // a previous ellipsoid could have removed the ray that represents this ellipsoid
       continue; 
     if (ellipsoid.extents == Vector3d::Zero()) // unbounded rays cannot be a transient object
       continue;
-    ellipsoid.transient = false;
     // get all the rays that overlap this ellipsoid
     Vector3d bMin = (ellipsoid.pos - ellipsoid.extents - grid.boxMin)/grid.voxelWidth;
     Vector3d bMax = (ellipsoid.pos + ellipsoid.extents - grid.boxMin)/grid.voxelWidth;
+    if (bMax[0] < 0.0 || bMax[1] < 0.0 || bMax[2] < 0.0)
+      continue;
+    if (bMin[0] > (double)grid.dims[0]-1.0 || bMin[1] > (double)grid.dims[1]-1.0 || bMin[2] > (double)grid.dims[2]-1.0)
+      continue;
     Vector3i bmin = maxVector(Vector3i(0,0,0), Vector3i(bMin[0], bMin[1], bMin[2]));
     Vector3i bmax = minVector(Vector3i(bMax[0], bMax[1], bMax[2]), Vector3i(grid.dims[0]-1, grid.dims[1]-1, grid.dims[2]-1));
     
@@ -393,6 +401,7 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
       double alongDist = sqrt(1.0 - dist2);
       if (rayLength < d - alongDist) // doesn't reach the ellipsoid
         continue; 
+
       bool passThrough = rayLength*(1.0-ratio) > d + alongDist; // last number requires rays to pass some way past the object
       if (passThrough)
         passThroughIDs.push_back(i);
@@ -403,26 +412,41 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
         lastIntersectionTime = max(lastIntersectionTime, times[i]);
       }
     }
+    double numBefore = 0, numAfter = 0;
     ellipsoid.numRays = hits + passThroughIDs.size();
-    ellipsoid.opacity = 0.0;
-    ellipsoid.numGone = passThroughIDs.size();
-    if (hits == 0) // if nothing hits this ellipsoid, that's pretty weird, though technically it might just be possible
+    if (numRays == 0 || selfTransient)
+      ellipsoid.opacity = (double)hits / ((double)hits + (double)passThroughIDs.size());
+    if (ellipsoid.numRays == 0 || ellipsoid.opacity == 0 || numRays == 0) 
       continue;
-    // now get some density stats...
-    double misses = 0, numBefore = 0, numAfter = 0;
-    for (auto &i: passThroughIDs)
+    if (selfTransient) 
     {
-      double time = times[i];
-      if (time > lastIntersectionTime)
-        numAfter++;
-      else if (time < firstIntersectionTime)
-        numBefore++;
-      else
-        misses++;
+      ellipsoid.numGone = passThroughIDs.size();
+      // now get some density stats...
+      double misses = 0;
+      for (auto &i: passThroughIDs)
+      {
+        double time = times[i];
+        if (time > lastIntersectionTime)
+          numAfter++;
+        else if (time < firstIntersectionTime)
+          numBefore++;
+        else
+          misses++;
+      }
+      double h = hits + 1e-8 - 1.0; // subtracting 1 gives an unbiased opacity estimate
+      ellipsoid.opacity = h/(h + misses);
+      ellipsoid.numGone = numBefore + numAfter;
     }
-    double h = hits + 1e-8 - 1.0; // subtracting 1 gives an unbiased opacity estimate
-    ellipsoid.opacity = h/(h + misses);
-    ellipsoid.numGone = numBefore + numAfter;
+    else // compare to other cloud
+    {
+      if (passThroughIDs.size() > 0)
+      {
+        if (abs(times[passThroughIDs[0]]) > abs(ellipsoid.time))
+          numAfter = (double)passThroughIDs.size();
+        else 
+          numBefore = (double)passThroughIDs.size();
+      }
+    }
     
     double sequenceLength = numRays/ellipsoid.opacity;
     int removeEllipsoid = false;
@@ -448,22 +472,25 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<Ellipsoid> &ellips
       ellipsoid.transient = true;
     else // if we don't remove the ellipsoid then we should remove numBefore and numAfter rays if they're greater than sequence length
     {
-      int c = misses;
+      double d = 0.0;
       for (int j = 0; j<(int)passThroughIDs.size(); j++)
       {
-        if (c > hits-1)
-        {
-          c -= hits-1;
-          continue; // we're removing in proportion to translucency of the ellipsoid we are keeping! Remove line to treat ellipsoid as solid
-        }
-        c += misses;
+        d += ellipsoid.opacity;
+        if (d>=1.0)
+          d--;
+        else
+          continue;
         int i = passThroughIDs[j];
-        double time = times[i];
-        if (time < firstIntersectionTime || time > lastIntersectionTime)
+        if (!selfTransient)
+        {
+          rayTested[i] = true; // prevents it being used again
+          times[i] = -abs(times[i]); // hack to signal ray transient
+        }
+        else if (times[i] < firstIntersectionTime || times[i] > lastIntersectionTime)
         {
           // remove ray i
           rayTested[i] = true; // prevents it being used again
-          ellipsoids[i].transient = true;
+          ellipsoids[i].transient = true; // TODO: this doesn't work in combine...
         }
       }
     }
@@ -483,20 +510,14 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &mergeTy
     boxMax = maxVector(boxMax, end);
   }
   
-  vector<Ellipsoid> ellipsoids(ends.size());
+  vector<Ellipsoid> ellipsoids;
   generateEllipsoids(ellipsoids);
-
-  cout << "created normals and spheres" << endl;
 
   Grid<int> grid(boxMin, boxMax, voxelWidth);
   fillGrid(grid, starts, ends);
 
-  cout << "grid is populated" << endl;
-
   // now walk every ray through the grid and mark if transient
-  markIntersectedEllipsoids(grid, ellipsoids, mergeType, numRays);
-
-  cout << "generating two clouds from flags" << endl;
+  markIntersectedEllipsoids(grid, ellipsoids, mergeType, numRays, true);
 
   // Lastly, generate the new ray clouds from this sphere information
   for (int i = 0; i<(int)ellipsoids.size(); i++)
@@ -527,36 +548,36 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &mergeTy
 
 void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string &mergeType, double numRays)
 {
-  Vector3d boxMin(1e10,1e10,1e10);
-  Vector3d boxMax(-1e10,-1e10,-1e10);
-  for (auto &cloud: clouds)
+  vector<Grid<int>> grids(clouds.size());
+  for (int c = 0; c<(int)clouds.size(); c++)
   {
-    for (auto &end: cloud.ends)
+    Vector3d boxMin(1e10,1e10,1e10);
+    Vector3d boxMax(-1e10,-1e10,-1e10);
+    for (auto &end: clouds[c].ends)
     {
       boxMin = minVector(boxMin, end);
       boxMax = maxVector(boxMax, end);
     }
+    grids[c].init(boxMin, boxMax, voxelWidth);
+    fillGrid(grids[c], clouds[c].starts, clouds[c].ends);
   }
+
   // now for each cloud, look for other clouds that penetrate it
   for (int c = 0; c<(int)clouds.size(); c++)
   {
     Cloud &cloud = clouds[c];
   
-    // first generate all ellipsoids and grids containing them, for each cloud
     vector<Ellipsoid> ellipsoids;
-    ellipsoids.resize(cloud.ends.size());
-    cout << "generating ellipsoids" << endl;
     cloud.generateEllipsoids(ellipsoids);
-    Grid<int> grid(boxMin, boxMax, voxelWidth);
-    fillGrid(grid, cloud.starts, cloud.ends);
+    // just set opacity
+    cloud.markIntersectedEllipsoids(grids[c], ellipsoids, mergeType, 0, false);
     
     for (int d = 0; d<(int)clouds.size(); d++)
     {
       if (d==c)
         continue;
-      Cloud &other = clouds[d];
-      cout << "marking intersected ellipsoids" << endl;
-      other.markIntersectedEllipsoids(grid, ellipsoids, mergeType, numRays);
+      // use ellipsoid opacity to set transient flag true on transients
+      clouds[d].markIntersectedEllipsoids(grids[d], ellipsoids, mergeType, numRays, false);
     }
 
     for (int i = 0; i<(int)cloud.ends.size(); i++)

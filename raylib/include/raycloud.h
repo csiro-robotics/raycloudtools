@@ -58,7 +58,7 @@ struct Cloud
   std::vector<Eigen::Vector3d> generateNormals(int searchSize = 16);
   void findTransients(Cloud &transient, Cloud &fixed, const std::string &mergeType, double numRays, bool colourCloud);
   void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType, double numRays);
-  void markIntersectedEllipsoids(Grid<int> &grid, std::vector<Ellipsoid> &ellipsoids, const std::string &mergeType, double numRays);
+  void markIntersectedEllipsoids(Grid<int> &grid, std::vector<Ellipsoid> &ellipsoids, const std::string &mergeType, double numRays, bool selfTransient);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
 
   Eigen::Vector3d calcMinBound();

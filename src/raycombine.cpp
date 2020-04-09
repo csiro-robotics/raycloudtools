@@ -6,6 +6,7 @@
 #include "raycloud.h"
 #include "raymesh.h"
 #include "rayply.h"
+#include "raydraw.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,23 +21,40 @@ void usage(bool error=false)
   cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to the merge type specified." << endl;
   cout << "Outputs the combined cloud and the residual cloud of differences." << endl;
   cout << "usage:" << endl;
-  cout << "raycombine min raycloud1 raycloud2 ... raycloudN - combines into one cloud with minimal objects at differences" << endl;
+  cout << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at differences" << endl;
+  cout << "                                                           20 is the number of pass through rays to define a difference" << endl;
   cout << "           max    - maximal objects included. This is a form of volume intersection (rather than min: union)." << endl;
   cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << endl;
   cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << endl;
-  cout << "           all    - combines as a simple concatenation, with all rays remaining." << endl;
+  cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')." << endl;
   exit(error);
 }
 
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc < 3)
+#if defined(USE_ROS)
+  ros::init(argc, argv, "raycombine");
+#endif
+  if (argc < 4)
     usage();
-  vector<string> files;
   string mergeType = argv[1];
   bool concatenate = mergeType == "all";
+  double numRays = 0;
+  if (concatenate)
+  {
+    if (string(argv[argc-1])=="rays")
+      usage();
+  }
+  else
+  {
+    if (argc < 6 || string(argv[argc-1])!="rays")
+      usage();
+    numRays = stod(argv[argc-2]);
+    argc-=2;
+  }
 
+  vector<string> files;
   for (int i = 2; i<argc; i++)
   {
     files.push_back(string(argv[i]));
@@ -70,7 +88,7 @@ int main(int argc, char *argv[])
   else
   {
     Cloud differences;
-    combined.combine(clouds, differences, mergeType, 20);
+    combined.combine(clouds, differences, mergeType, numRays);
     differences.save(fileStub + "_differences.ply");
   }
   combined.save(fileStub + "_combined.ply");
