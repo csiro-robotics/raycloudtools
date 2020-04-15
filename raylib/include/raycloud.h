@@ -60,6 +60,8 @@ struct Cloud
   void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &mergeType, double numRays);
   void markIntersectedEllipsoids(Grid<int> &grid, std::vector<bool> &transients, std::vector<Ellipsoid> &ellipsoids, const std::string &mergeType, double numRays, bool selfTransient);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
+  void split(Cloud &cloud1, Cloud &cloud2, std::function<bool(int i)> fptr);
+  void getSurfels(int searchSize, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals, std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats, Eigen::MatrixXi *neighbourIndices);
 
   Eigen::Vector3d calcMinBound();
   Eigen::Vector3d calcMaxBound();

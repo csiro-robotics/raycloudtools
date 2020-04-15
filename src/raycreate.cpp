@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
         time += 0.5;
       time += timeDelta;
     }
-    redGreenBlueGradient(cloud.times, cloud.colours);
+    colourByTime(cloud.times, cloud.colours);
     for (int i = 0; i<(int)cloud.colours.size(); i++)
       cloud.colours[i].alpha = roomGen.rayBounded[i] ? 255 : 0;
   }
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
         cloud.times.push_back(time);
         time += timeDelta;
       }
-      redGreenBlueGradient(cloud.times, cloud.colours);
+      colourByTime(cloud.times, cloud.colours);
     }
     else if (type == "forest")
     {
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
       cloud.times.push_back(time);
       time += timeDelta;
     }
-    redGreenBlueGradient(cloud.times, cloud.colours);
+    colourByTime(cloud.times, cloud.colours);
   }
   else if (type == "terrain")
   {
@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
       cloud.times.push_back(time);
       time += timeDelta;
     }
-    redGreenBlueGradient(cloud.times, cloud.colours);
+    colourByTime(cloud.times, cloud.colours);
   }
   else
     usage();

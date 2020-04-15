@@ -69,12 +69,12 @@ set(TARGETS
 	raywrap
 	rayconvert
 	raydecimate
-	raydiff
 	raytranslate
 	rayrotate
   raysplit
   raytransients
   raycombine
+  raycolour
 )
 foreach(TARGET ${TARGETS})
 	add_executable(${TARGET} ${TARGET}.cpp)

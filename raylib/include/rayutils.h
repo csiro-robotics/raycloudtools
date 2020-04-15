@@ -166,16 +166,48 @@ struct RGBA
   uint8_t alpha;
 };
 
-inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient)
+inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient, double minValue, double maxValue, bool replaceAlpha)
 {
+  Eigen::Vector3d purple(0.25, -0.5, 0.25);
+  Eigen::Vector3d orange(0.5, 0.0, -0.5);
+  orange.normalize();
+  orange *= purple.norm();
+
   gradient.resize(values.size());
   for (unsigned int i = 0; i<values.size(); i++)
   {
-    double x = fmod(values[i], 10.0)/10.0;
-    gradient[i].red = 255.0*(1.0 - x);
-    gradient[i].green = 255.0*(3.0*x*(1.0-x));
-    gradient[i].blue = 255.0*x;
-    gradient[i].alpha = 255;
+    double angle = (2.0*pi/6.0)*(0.5 + 5.0*(values[i] - minValue)/(maxValue - minValue));
+    Eigen::Vector3d col = Eigen::Vector3d(0.5,0.5,0.5) + purple*cos(angle) + orange*sin(angle);
+    gradient[i].red = 255.0*(0.5 + 0.5*col[0]);
+    gradient[i].green = 255.0*(0.5 + 0.5*col[1]);
+    gradient[i].blue = 255.0*(0.5 + 0.5*col[2]);
+    if (replaceAlpha)
+      gradient[i].alpha = 255;
   }
+}
+
+inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<RGBA> &gradient, double wavelength, bool replaceAlpha)
+{
+  Eigen::Vector3d purple(0.25, -0.5, 0.25);
+  Eigen::Vector3d orange(0.5, 0.0, -0.5);
+  orange.normalize();
+  orange *= purple.norm();
+
+  gradient.resize(values.size());
+  for (unsigned int i = 0; i<values.size(); i++)
+  {
+    double angle = (2.0*pi)*values[i]/wavelength;
+    Eigen::Vector3d col = Eigen::Vector3d(0.5,0.5,0.5) + purple*cos(angle) + orange*sin(angle);
+    gradient[i].red = 255.0*(0.5 + 0.5*col[0]);
+    gradient[i].green = 255.0*(0.5 + 0.5*col[1]);
+    gradient[i].blue = 255.0*(0.5 + 0.5*col[2]);
+    if (replaceAlpha)
+      gradient[i].alpha = 255;
+  }
+}
+
+inline void colourByTime(const std::vector<double> &values, std::vector<RGBA> &gradient, bool replaceAlpha = true)
+{
+  redGreenBlueSpectrum(values, gradient, 10.0, replaceAlpha);
 }
 }

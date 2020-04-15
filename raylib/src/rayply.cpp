@@ -18,7 +18,7 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
   if (colours.size() > 0)
     RGB = colours;
   else
-    redGreenBlueGradient(times, RGB);
+    colourByTime(times, RGB);
 
   vector<Matrix<float, 9, 1> > vertices(ends.size()); // 4d to give space for colour
   bool warned = false;
@@ -195,7 +195,7 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
   if (colours.size() == 0)
   {
     cout << "warning: no colour information found in " << fileName << ", setting colours red->green->blue based on time" << endl;
-    redGreenBlueGradient(times, colours);
+    colourByTime(times, colours);
     numBounded = ends.size();
   }
   cout << "reading from " << fileName << ", " << size << " rays, of which " << numBounded << " bounded and " << numUnbounded << " unbounded" << endl;

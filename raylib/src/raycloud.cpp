@@ -160,55 +160,95 @@ void Cloud::decimate(double voxelWidth)
   times.resize(subsample.size());
 }
 
-// starts are required to get the normal the right way around
-vector<Vector3d> Cloud::generateNormals(int searchSize)
+void Cloud::getSurfels(int searchSize, vector<Vector3d> *centroids, vector<Vector3d> *normals, vector<Vector3d> *dimensions, vector<Matrix3d> *mats, MatrixXi *neighbourIndices)
 {
   // simplest scheme... find 3 nearest neighbours and do cross product
+  if (centroids)
+    centroids->resize(ends.size());
+  if (normals)
+    normals->resize(ends.size());
+  if (dimensions)
+    dimensions->resize(ends.size());
+  if (mats)
+    mats->resize(ends.size());
   Nabo::NNSearchD *nns;
-  Nabo::Parameters params("bucketSize", 8);
-  MatrixXd pointsP(3, ends.size());
+  vector<int> rayIDs;
+  rayIDs.reserve(ends.size());
   for (unsigned int i = 0; i<ends.size(); i++)
-    pointsP.col(i) = ends[i];//col.transpose();
-  nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);//, 0, params);
-
+    if (rayBounded(i))
+      rayIDs.push_back(i);
+  MatrixXd pointsP(3, rayIDs.size());
+  for (unsigned int i = 0; i<rayIDs.size(); i++)
+    pointsP.col(i) = ends[rayIDs[i]];
+  nns = Nabo::NNSearchD::createKDTreeLinearHeap(pointsP, 3);
+  
   // Run the search
   MatrixXi indices;
   MatrixXd dists2;
-  indices.resize(searchSize, ends.size());
-  dists2.resize(searchSize, ends.size());
-  nns->knn(pointsP, indices, dists2, searchSize, 0.01, 0, 1.0);
+  indices.resize(searchSize, rayIDs.size());
+  dists2.resize(searchSize, rayIDs.size());
+  nns->knn(pointsP, indices, dists2, searchSize, 0.01, 0, 1.0); // TODO: needs to sort here
   delete nns;
 
-  vector<Vector3d> normals;
-  for (unsigned int i = 0; i<ends.size(); i++)
+  if (neighbourIndices)
+    neighbourIndices->resize(searchSize, ends.size());
+  for (int i = 0; i<(int)rayIDs.size(); i++)
   {
-    Matrix3d scatter;
-    scatter.setZero();
-    Vector3d average(0,0,0);
-    double numNeighbours = 0;
-    for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
+    int I = rayIDs[i];
+    if (neighbourIndices)
     {
-      average += ends[indices(j, i)];
-      numNeighbours++;
-    }
-    average /= numNeighbours;
-    for (int j = 0; j<searchSize && indices(j,i)>-1; j++)
-    {
-      Vector3d offset = ends[indices(j,i)] - average;
-      scatter += offset * offset.transpose();
+      int j;
+      for (j = 0; j<searchSize && indices(j,i)>-1; j++)
+        (*neighbourIndices)(j,I) = rayIDs[indices(j,i)];    
+      if (j<searchSize)
+        (*neighbourIndices)(j,I) = -1;
     }
 
+    Vector3d centroid(0,0,0);
+    int num;
+    for (num = 0; num<searchSize && indices(num,i)>-1; num++)
+      centroid += ends[rayIDs[indices(num,i)]];
+    centroid /= (double)num;
+    if (centroids)
+      (*centroids)[I] = centroid;
+
+    Matrix3d scatter;
+    scatter.setZero();
+    for (int j = 0; j<num; j++)
+    {
+      Vector3d offset = ends[rayIDs[indices(j,i)]] - centroid;
+      scatter += offset * offset.transpose();
+    }
+    scatter /= (double)num;
+
     SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
-    ASSERT(eigenSolver.info() == Success); 
-    Matrix3d eigenVector = eigenSolver.eigenvectors();
-    Vector3d normal = eigenVector.col(0);
-    if ((ends[i] - starts[i]).dot(normal) > 0.0)
-      normal = -normal;
-    normals.push_back(normal);
+    ASSERT(eigenSolver.info() == Success);
+    if (normals)
+    { 
+      Vector3d normal = eigenSolver.eigenvectors().col(0);
+      if ((ends[I] - starts[I]).dot(normal) > 0.0)
+        normal = -normal;
+      (*normals)[I] = normal;
+    }
+    if (dimensions)
+    {
+      Vector3d eigenvals = maxVector(Vector3d(1e-10,1e-10,1e-10), eigenSolver.eigenvalues());
+      (*dimensions)[I] = Vector3d(sqrt(eigenvals[0]), sqrt(eigenvals[1]), sqrt(eigenvals[2]));
+    }
+    if (mats)
+      (*mats)[I] = eigenSolver.eigenvectors();
   }
+}
+
+// starts are required to get the normal the right way around
+vector<Vector3d> Cloud::generateNormals(int searchSize)
+{
+  vector<Vector3d> normals;
+  getSurfels(searchSize, NULL, &normals, NULL, NULL, NULL);
   return normals;
 }
 
+// TODO: this could call getSurfels too!
 void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
 {
   cout << "generating " << ends.size() << " ellipsoids" << endl;
@@ -605,5 +645,17 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string
       }
     }      
     cout << t << " transients, " << f << " fixed rays." << endl;
+  }
+}
+
+void Cloud::split(Cloud &cloud1, Cloud &cloud2, function<bool(int i)> fptr)
+{
+  for (int i = 0; i<(int)ends.size(); i++)
+  {
+    Cloud &cloud = fptr(i) ? cloud2 : cloud1;
+    cloud.starts.push_back(starts[i]);
+    cloud.ends.push_back(ends[i]);
+    cloud.times.push_back(times[i]);
+    cloud.colours.push_back(colours[i]);
   }
 }
