@@ -105,9 +105,9 @@ int main(int argc, char *argv[])
       double sphericity = dimensions[i][0] / dimensions[i][2];
       double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
       double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
-      cloud.colours[i].red = (uint8_t)(255.0*(0.3 + 0.7*sphericity));
-      cloud.colours[i].green = (uint8_t)(255.0*(0.3 + 0.7*cylindricality));
-      cloud.colours[i].blue = (uint8_t)(255.0*(0.3 + 0.7*planarity));
+      cloud.colours[i].red   = (uint8_t)(255.0*(0.1 + 0.9*cylindricality)); 
+      cloud.colours[i].green = (uint8_t)(255.0*(0.4 + 0.6*sphericity));
+      cloud.colours[i].blue  = (uint8_t)(255.0*(0.4 + 0.6*planarity));
     }
   }
   else if (type == "normal")
@@ -159,8 +159,8 @@ int main(int argc, char *argv[])
       if (!cloud.rayBounded(i))
         continue;
       double scale1 = 0.5 + 0.5*normals[i].dot(lightDir);
-      double scale2 = 0.5 + 0.5*clamped(-curvatures[i]/curveScale, -1.0, 1.0); 
-      double s = 0.25 + 0.75*(scale1 + scale2)/2.0;
+      double scale2 = 0.5 - 0.5*curvatures[i]/curveScale; 
+      double s = 0.25 + 0.75*clamped((scale1 + scale2)/2.0, 0.0, 1.0);
       cloud.colours[i].red = (uint8_t)((double)cloud.colours[i].red * s);
       cloud.colours[i].green = (uint8_t)((double)cloud.colours[i].green * s);
       cloud.colours[i].blue = (uint8_t)((double)cloud.colours[i].blue * s);

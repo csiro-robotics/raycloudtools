@@ -15,7 +15,7 @@
 //          "args": ["min", "~/Downloads/coloured_raycloud_decimated.ply", "15", "rays"], 
 //          "args": ["min", "room.ply", "1", "rays", "-c"], 
           "program": "${workspaceFolder}/bin/raycolour",          
-          "args": ["~/Downloads/coloured_raycloud_decimated.ply", "shape", "shaded"], 
+          "args": ["/media/parallels/Samsung_T5/test/house2.ply", "normal", "shaded"], 
 //          "args": ["forest.ply", "white", "shaded"], 
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",
