@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     {
       if (!cloud.rayBounded(i))
         continue;
-      double sphericity = 1.0 - dimensions[i][0] / dimensions[i][2];
+      double sphericity = dimensions[i][0] / dimensions[i][2];
       double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
       double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
       cloud.colours[i].red = (uint8_t)(255.0*sphericity);
