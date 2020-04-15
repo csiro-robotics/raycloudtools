@@ -64,12 +64,7 @@ int main(int argc, char *argv[])
   // what do we want to calculate...
   bool calcSurfels = true;
   if (type == "normal")
-  {
     norms = &normals;
-    cents = &centroids;
-    dims = &dimensions;
-    mats = &matrices;
-  }
   else if (type == "shape")
     dims = &dimensions;
   else
@@ -79,33 +74,10 @@ int main(int argc, char *argv[])
     norms = &normals;
     inds = &indices;
     cents = &centroids;
-    dims = &dimensions;
-    mats = &matrices;
   }
 
   if (calcSurfels)
-  {
     cloud.getSurfels(searchSize, cents, norms, dims, mats, inds);
-    if (norms != NULL) // heuristic to extract a reasonable normal for non-planar surfaces
-    {
-      for (int i = 0; i<(int)cloud.ends.size(); i++)
-      {
-        if (!cloud.rayBounded(i))
-          continue;
-        Vector3d priorNormal = cloud.starts[i] - cloud.ends[i];//cloud.ends[i] - centroids[i];
-        double d = priorNormal.dot(matrices[i].col(2));
-        double cyl = (dimensions[i][2]-dimensions[i][0])/dimensions[i][2];
-        priorNormal -= matrices[i].col(2)*d*min(1.0, cyl*1.5);
-        double e = priorNormal.dot(matrices[i].col(1));
-        double plan = (dimensions[i][1]-dimensions[i][0])/dimensions[i][1];
-        priorNormal -= matrices[i].col(1)*e*min(1.0, plan*1.5);
-        priorNormal.normalize();
-        if (priorNormal.dot(cloud.ends[i] - cloud.starts[i]) > 0.0)
-          priorNormal = -priorNormal;
-        normals[i] = priorNormal;
-      }
-    }
-  }
   
   // Q: can I do better? in particular, can I colour as doubles and only quantise at the end?
   if (type == "white")
@@ -133,9 +105,9 @@ int main(int argc, char *argv[])
       double sphericity = dimensions[i][0] / dimensions[i][2];
       double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
       double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
-      cloud.colours[i].red = (uint8_t)(255.0*sphericity);
-      cloud.colours[i].green = (uint8_t)(255.0*cylindricality);
-      cloud.colours[i].blue = (uint8_t)(255.0*planarity);
+      cloud.colours[i].red = (uint8_t)(255.0*(0.3 + 0.7*sphericity));
+      cloud.colours[i].green = (uint8_t)(255.0*(0.3 + 0.7*cylindricality));
+      cloud.colours[i].blue = (uint8_t)(255.0*(0.3 + 0.7*planarity));
     }
   }
   else if (type == "normal")
@@ -192,6 +164,8 @@ int main(int argc, char *argv[])
       cloud.colours[i].red = (uint8_t)((double)cloud.colours[i].red * s);
       cloud.colours[i].green = (uint8_t)((double)cloud.colours[i].green * s);
       cloud.colours[i].blue = (uint8_t)((double)cloud.colours[i].blue * s);
+
+      cloud.starts[i] = cloud.ends[i] + normals[i]*0.5;
     }
   }
 

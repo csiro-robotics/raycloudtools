@@ -16,6 +16,7 @@
 //          "args": ["min", "room.ply", "1", "rays", "-c"], 
           "program": "${workspaceFolder}/bin/raycolour",          
           "args": ["~/Downloads/coloured_raycloud_decimated.ply", "shape", "shaded"], 
+//          "args": ["forest.ply", "white", "shaded"], 
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",
           "environment": [],
