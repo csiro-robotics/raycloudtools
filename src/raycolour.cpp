@@ -21,7 +21,7 @@ void usage(bool error=false)
   cout << "                   height       - colour by height" << endl;
   cout << "                   shape        - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << endl;
   cout << "                   normal       - colour by normal" << endl;
-  cout << "                   white shaded - just shaded" << endl;
+  cout << "                   1,1,1 shaded - just (r,g,b) shaded" << endl;
   exit(error);
 }
 
@@ -80,10 +80,17 @@ int main(int argc, char *argv[])
     cloud.getSurfels(searchSize, cents, norms, dims, mats, inds);
   
   // Q: can I do better? in particular, can I colour as doubles and only quantise at the end?
-  if (type == "white")
+  if (type.find(",") != string::npos)
   {
+    stringstream ss(type);
+    Vector3d vec;
+    ss >> vec[0]; ss.ignore(1); ss>>vec[1]; ss.ignore(1); ss>>vec[2];
     for (auto &col: cloud.colours)
-      col.red = col.green = col.blue = 255;
+    {
+      col.red = (uint8_t)(255.0*vec[0]);
+      col.green = (uint8_t)(255.0*vec[1]);
+      col.blue = (uint8_t)(255.0*vec[2]);
+    }
   }
   else if (type == "time")
   {
