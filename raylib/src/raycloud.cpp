@@ -34,7 +34,7 @@ bool Cloud::load(const std::string &fileName)
   // otherwise, look for a .laz and _traj.txt file by that name
   if (ifstream((fileName + ".laz").c_str(), ios::in) && ifstream((fileName + "_traj.txt").c_str(), ios::in))
     return loadLazTraj(fileName + ".laz", fileName + "_traj.txt");
-
+    
   return false;
 }  
 

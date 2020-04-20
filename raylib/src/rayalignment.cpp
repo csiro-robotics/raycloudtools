@@ -14,7 +14,7 @@ using namespace Eigen;
 using namespace RAY;
 
 typedef complex<double> Complex;
-//#define WEIGHTED_ALIGN
+// #define WEIGHTED_ALIGN
 
 struct Col
 {
@@ -84,7 +84,7 @@ void Array3D::fillWithRays(const Cloud &cloud)
   // maybe a better choice would be a reuseable 'volume' function (occupancy grid).
   for (int i = 0; i<(int)cloud.ends.size(); i++)
   {
-    // TODO: Should be a lmbda function!
+    // TODO: Should be a lambda function!
     Vector3d dir = cloud.ends[i] - cloud.starts[i];
     Vector3d dirSign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Vector3d start = (cloud.starts[i] - boxMin)/voxelWidth;
@@ -194,7 +194,7 @@ void drawArray(const Array3D &array, const Vector3i &dims, const string &fileNam
         col[1] = 3.0*col[0]*col[2];
         colour += abs(array(x,y,z)) * col;
       }
-      colour *= 5.0*255.0 / maxVal;
+      colour *= 15.0*255.0 / maxVal;
       Col col;
       col.r = clamped((int)colour[0], 0, 255);
       col.g = clamped((int)colour[1], 0, 255);
@@ -354,7 +354,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
 #if defined(WEIGHTED_ALIGN)
   // very small below 1 and this will find small areas of overlap, very large above 1 and it is
   // like the unweighted Fourier-Mellin, which maximises the overlap for all points
-  const double stability = 10.0; 
+  const double stability = 2.0; 
   double maxWeights[2] = {0,0};
   Array3D weights[2];
 #endif

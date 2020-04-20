@@ -143,16 +143,49 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
     }
     else
       end = (Vector3d &)vertices[rowSize*i + offset];
+    bool endValid = end==end;
     if (!warningSet)
     {
-      if (!(end == end))
-        cout << "warning, NANs in point " << i << ": " << end.transpose() << endl;
+      if (!endValid)
+      {
+        cout << "warning, NANs in point " << i << ", removing all NANs." << endl;
+        warningSet = true;
+      }
       if (abs(end[0]) > 100000.0)
+      {
         cout << "warning: very large data in point " << i << ", suspicious: " << end.transpose() << endl;
-      warningSet = true;
+        warningSet = true;
+      }
     }
-    ends.push_back(end);
+    if (!endValid)
+      continue;
 
+    Vector3d normal;
+    if (normalIsFloat)
+    {
+      Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
+      normal = Vector3d(n[0], n[1], n[2]);
+    }
+    else
+      normal = (Vector3d &)vertices[rowSize*i + normalOffset];
+    bool normValid = normal==normal;
+    if (!warningSet)
+    {
+      if (!normValid)
+      {
+        cout << "warning, NANs in raystart stored in normal " << i << ", removing all such rays." << endl;
+        warningSet = true;
+      }
+      if (abs(normal[0]) > 100000.0)
+      {
+        cout << "warning: very large data in normal " << i << ", suspicious: " << normal.transpose() << endl;
+        warningSet = true;
+      }
+    }
+    if (!normValid)
+      continue;
+
+    ends.push_back(end);
     if (timeOffset != -1)
     {
       double time;
@@ -164,15 +197,6 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
         timesNeedSorting = true;
       times.push_back(time);
     }
-
-    Vector3d normal;
-    if (normalIsFloat)
-    {
-      Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
-      normal = Vector3d(n[0], n[1], n[2]);
-    }
-    else
-      normal = (Vector3d &)vertices[rowSize*i + normalOffset];
     starts.push_back(end + normal);
 
     if (colourOffset != -1)
