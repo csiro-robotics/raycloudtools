@@ -14,7 +14,8 @@ using namespace Eigen;
 using namespace RAY;
 
 typedef complex<double> Complex;
-// #define WEIGHTED_ALIGN
+// #define WEIGHTED_ALIGN // I don't think this is working as I expected it. Doesn't seem to help, after trying on multiple examples. 
+#define HIGH_PASS  // this fixes inout11, and inoutD->inoutB2
 
 struct Col
 {
@@ -239,7 +240,7 @@ void drawArray(const vector<Array1D> &arrays, const Vector3i &dims, const string
         col[1] = 3.0*col[0]*col[2];
         colour += abs(arrays[y + dims[1]*z](x)) * col;
       }
-      colour *= 5.0*255.0 / maxVal;
+      colour *= 3.0*255.0 / maxVal;
       Col col;
       col.r = clamped((int)colour[0], 0, 255);
       col.g = clamped((int)colour[1], 0, 255);
@@ -252,17 +253,96 @@ void drawArray(const vector<Array1D> &arrays, const Vector3i &dims, const string
   str << fileName << index << ".png";
   stbi_write_png(str.str().c_str(), width, height, 4, (void *)&pixels[0], 4*width);
 }
+static const double stability = 10.0; 
 
-void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose, double *maxWeights)
+void Array1D::polarCrossCorrelation(const Array3D *arrays, const Array3D *weights, bool verbose)
 {
   // OK cool, so next I need to re-map the two arrays into 4x1 grids...
   int maxRad = max(arrays[0].dims[0], arrays[0].dims[1])/2;
   Vector3i polarDims = Vector3i(4*maxRad, maxRad, arrays[0].dims[2]);
   vector<Array1D> polars[2];
+#if defined(WEIGHTED_ALIGN)
+  vector<Array1D> polarWeights[2];
+  double maxWeights[2];
+#endif
   for (int c = 0; c<2; c++)
   {
-    const Array3D &a = arrays[c];
+#if defined(WEIGHTED_ALIGN)
+    vector<Array1D> &polarW = polarWeights[c];
     vector<Array1D> &polar = polars[c];
+    const Array3D &a = arrays[c];
+    const Array3D &w = weights[c];
+    polar.resize(polarDims[1] * polarDims[2]);
+    polarW.resize(polarDims[1] * polarDims[2]);
+    for (int j = 0; j<polarDims[1]; j++)
+      for (int k = 0; k<polarDims[2]; k++)
+      {
+        polar[j + polarDims[1]*k].init(polarDims[0]);
+        polarW[j + polarDims[1]*k].init(polarDims[0]);
+      }
+
+    // now map...
+    for (int i = 0; i<polarDims[0]; i++)
+    {
+      double angle = 2.0*pi*(double)(i+0.5)/(double)polarDims[0];
+      for (int j = 0; j<polarDims[1]; j++)
+      {
+        double radius = (0.5+(double)j)/(double)polarDims[1];
+        Vector2d pos = radius*0.5*Vector2d((double)a.dims[0]*sin(angle), (double)a.dims[1]*cos(angle));
+        if (pos[0] < 0.0)
+          pos[0] += a.dims[0];
+        if (pos[1] < 0.0)
+          pos[1] += a.dims[1];
+        int x = pos[0]; 
+        int y = pos[1];
+        int x2 = (x+1)%a.dims[0];
+        int y2 = (y+1)%a.dims[1];
+        double blendX = pos[0] - (double)x;
+        double blendY = pos[1] - (double)y;
+        for (int z = 0; z<polarDims[2]; z++)
+        {
+          #define NORMAL
+          #if defined NORMAL
+          double valA = abs(a(x,y,z)) *(1.0-blendX)*(1.0-blendY) + abs(a(x2,y,z)) *blendX*(1.0-blendY)
+                      + abs(a(x,y2,z))*(1.0-blendX)*blendY       + abs(a(x2,y2,z))*blendX*blendY;
+          double valW = abs(w(x,y,z)) *(1.0-blendX)*(1.0-blendY) + abs(w(x2,y,z)) *blendX*(1.0-blendY)
+                      + abs(w(x,y2,z))*(1.0-blendX)*blendY       + abs(w(x2,y2,z))*blendX*blendY;
+          polar[j + polarDims[1]*z](i) = Complex(radius*valA * radius*valW, 0);
+          polarW[j + polarDims[1]*z](i) = Complex(radius * valW, 0);
+          #else          
+          Complex valA = a(x,y,z) *(1.0-blendX)*(1.0-blendY) + a(x2,y,z) *blendX*(1.0-blendY)
+                       + a(x,y2,z)*(1.0-blendX)*blendY       + a(x2,y2,z)*blendX*blendY;
+          Complex valW = w(x,y,z) *(1.0-blendX)*(1.0-blendY) + w(x2,y,z) *blendX*(1.0-blendY)
+                       + w(x,y2,z)*(1.0-blendX)*blendY       + w(x2,y2,z)*blendX*blendY;
+          valA *= radius;
+          valW *= radius;
+          double mag = abs(valA);
+          Complex val = valW * conj(valA);
+          polar[j + polarDims[1]*z](i) = val;
+          if (mag != 0.0)
+            val /= mag;
+          polarW[j + polarDims[1]*z](i) = val;
+          #endif
+        }
+      }
+    }
+
+    maxWeights[c] = 0;
+    for (int j = 0; j<polarDims[1]; j++)
+      for (int k = 0; k<polarDims[2]; k++)
+        for (int l = 0; l<(int)polarW[j + polarDims[1]*k].cells.size(); l++)
+          maxWeights[c] += norm(polarW[j + polarDims[1]*k].cells[l]);
+
+    if (verbose)
+      drawArray(polarW, polarDims, "translationInvPolarWeight", c);
+    for (int j = 0; j<polarDims[1]; j++)
+      for (int k = 0; k<polarDims[2]; k++)
+        polarW[j + polarDims[1]*k].FFT();
+    if (verbose)
+      drawArray(polarW, polarDims, "euclideanInvariantWeight", c);    
+#else
+    vector<Array1D> &polar = polars[c];
+    const Array3D &a = arrays[c];
     polar.resize(polarDims[1] * polarDims[2]);
     for (int j = 0; j<polarDims[1]; j++)
       for (int k = 0; k<polarDims[2]; k++)
@@ -288,27 +368,28 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose, double 
         double blendY = pos[1] - (double)y;
         for (int z = 0; z<polarDims[2]; z++)
         {
-          // bilinear interpolation
+          // bilinear interpolation -- for some reason LERP after abs is better than before abs
           double val = abs(a(x,y,z)) * (1.0-blendX)*(1.0-blendY) + abs(a(x2,y,z)) * blendX*(1.0-blendY)
                       + abs(a(x,y2,z))*(1.0-blendX)*blendY       + abs(a(x2,y2,z))*blendX*blendY;
-          polar[j + polarDims[1]*z](i) = Complex(radius*val, 0);
+          polar[j + polarDims[1]*z](i) = Complex(radius*val, 0);  
         }
       }
     }
-
-    if (maxWeights)
-    {
-      maxWeights[c] = 0;
-      for (int j = 0; j<polarDims[1]; j++)
-        for (int k = 0; k<polarDims[2]; k++)
-          for (int l = 0; l<(int)polar[j + polarDims[1]*k].cells.size(); l++)
-            maxWeights[c] += norm(polar[j + polarDims[1]*k].cells[l]);
-    }
+#endif
     if (verbose)
       drawArray(polar, polarDims, "translationInvPolar", c);
     for (int j = 0; j<polarDims[1]; j++)
+    {
       for (int k = 0; k<polarDims[2]; k++)
+      {
         polar[j + polarDims[1]*k].FFT();
+        #if defined HIGH_PASS
+        int I = j + polarDims[1]*k;
+        for (int l = 0; l<(int)polar[I].cells.size(); l++)
+          polar[I].cells[l] *= pow(min((double)l, (double)(polar[I].cells.size()-l)), 0.25);
+        #endif
+      }
+    }
     if (verbose)
       drawArray(polar, polarDims, "euclideanInvariant", c);
   }
@@ -322,6 +403,18 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose, double 
     polars[0][i].inverseFFT();
     (*this) += polars[0][i]; // add all the results together into the first array
   }
+#if defined WEIGHTED_ALIGN
+  Array1D polarWeight;
+  polarWeight.init(polarDims[0]);
+  for (int i = 0; i<(int)polars[0].size(); i++)
+  {
+    polarWeights[1][i].conjugate();
+    polarWeights[0][i] *= polarWeights[1][i];
+    polarWeights[0][i].inverseFFT();
+    polarWeight += polarWeights[0][i]; 
+  }
+  stableDivideBy(polarWeight, stability*min(maxWeights[0], maxWeights[1]));
+#endif
 }
 
 /************************************************************************************/
@@ -347,16 +440,15 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
     boxWidth = maxVector(boxWidth, width);
   }
     
-    // temporarily making the box square, to make it simple with the polar part...
- //   boxWidth = Vector3d(max(boxWidth[0], boxWidth[1]), max(boxWidth[0], boxWidth[1]), boxWidth[2]);
+  bool rotationToEstimate = true; // If we know there is no rotation between the clouds then we can save some cost
   
   Array3D arrays[2]; 
+  Array3D weights[2];
 #if defined(WEIGHTED_ALIGN)
   // very small below 1 and this will find small areas of overlap, very large above 1 and it is
   // like the unweighted Fourier-Mellin, which maximises the overlap for all points
-  const double stability = 2.0; 
   double maxWeights[2] = {0,0};
-  Array3D weights[2];
+  Array3D arrays1;
 #endif
   // Now fill in the arrays with point density
   for (int c = 0; c<2; c++)
@@ -370,7 +462,13 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
     weights[c].fillWithRays(clouds[c]);
     for (auto &comp: weights[c].cells)
       maxWeights[c] += norm(comp);
-    arrays[c] *= weights[c];
+    if (!rotationToEstimate)
+      arrays[c] *= weights[c];
+    else if (c==1)
+    {
+      arrays1 = arrays[c];  
+      arrays[1] *= weights[1];
+    }
     weights[c].FFT();
     if (verbose) 
       drawArray(weights[c], weights[c].dims, "translationInvariant_weight", c);
@@ -380,17 +478,10 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
       drawArray(arrays[c], arrays[c].dims, "translationInvariant", c);
   }
 
-  bool rotationToEstimate = true; // If we know there is no rotation between the clouds then we can save some cost
   if (rotationToEstimate)
   {
     Array1D polar; 
-    polar.polarCrossCorrelation(arrays, verbose);
-    #if defined(WEIGHTED_ALIGN)
-    Array1D polarWeight; 
-    double maxPolarWeights[2] = {0,0};
-    polarWeight.polarCrossCorrelation(weights, verbose, maxPolarWeights);
-    polar.stableDivideBy(polarWeight, stability*min(maxPolarWeights[0], maxPolarWeights[1]));
-    #endif
+    polar.polarCrossCorrelation(arrays, weights, verbose);
 
     // get the angle of rotation
     int index = polar.maxRealIndex();
@@ -431,10 +522,37 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
       maxWeights[0] += norm(comp);
     arrays[0] *= weights[0];
     weights[0].FFT();
+
+    arrays[1] = arrays1;
+    arrays[1].FFT();        
+    if (verbose) 
+      drawArray(arrays[1], arrays[1].dims, "translationInvariantWeighted", 1);
     #endif
     arrays[0].FFT();
+    if (verbose) 
+      drawArray(arrays[0], arrays[0].dims, "translationInvariantWeighted", 0);
   }
 
+  #if defined HIGH_PASS
+  for (int c = 0; c<2; c++)
+  {
+    for (int x = 0; x<arrays[c].dims[0]; x++)
+    {
+      double X = x<arrays[c].dims[0]/2 ? x : arrays[c].dims[0]-x;
+      for (int y = 0; y<arrays[c].dims[1]; y++)
+      {
+        double Y = y<arrays[c].dims[1]/2 ? y : arrays[c].dims[1]-y;
+        for (int z = 0; z<arrays[c].dims[2]; z++)
+        {
+          double Z = z<arrays[c].dims[2]/2 ? z : arrays[c].dims[2]-z;
+          arrays[c](x,y,z) *= pow(sqr(X)+sqr(Y)+sqr(Z), 0.5/2.0);
+        }
+      }
+    }
+    if (verbose) 
+      drawArray(arrays[c], arrays[c].dims, "normalised", c);
+  }
+  #endif
   /****************************************************************************************************/
   // now get the the translation part
   arrays[1].conjugate();

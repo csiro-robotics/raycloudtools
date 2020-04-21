@@ -111,7 +111,7 @@ struct Array1D
     for (int i = 0; i<(int)cells.size(); i++)
       cells[i] /= factor + std::max(0.0, other.cells[i].real()); 
   }
-  void polarCrossCorrelation(const Array3D *arrays, bool verbose, double *maxWeights = NULL);
+  void polarCrossCorrelation(const Array3D *arrays, const Array3D *weights, bool verbose);
 
   int maxRealIndex() const;
   void conjugate();
