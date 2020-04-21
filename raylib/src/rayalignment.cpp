@@ -254,6 +254,7 @@ void drawArray(const vector<Array1D> &arrays, const Vector3i &dims, const string
   stbi_write_png(str.str().c_str(), width, height, 4, (void *)&pixels[0], 4*width);
 }
 static const double stability = 10.0; 
+static const double highPassPower = 0.25;
 
 void Array1D::polarCrossCorrelation(const Array3D *arrays, const Array3D *weights, bool verbose)
 {
@@ -386,7 +387,7 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, const Array3D *weight
         #if defined HIGH_PASS
         int I = j + polarDims[1]*k;
         for (int l = 0; l<(int)polar[I].cells.size(); l++)
-          polar[I].cells[l] *= pow(min((double)l, (double)(polar[I].cells.size()-l)), 0.25);
+          polar[I].cells[l] *= pow(min((double)l, (double)(polar[I].cells.size()-l)), highPassPower);
         #endif
       }
     }
@@ -545,7 +546,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxelWidth, bool verbose)
         for (int z = 0; z<arrays[c].dims[2]; z++)
         {
           double Z = z<arrays[c].dims[2]/2 ? z : arrays[c].dims[2]-z;
-          arrays[c](x,y,z) *= pow(sqr(X)+sqr(Y)+sqr(Z), 0.5/2.0);
+          arrays[c](x,y,z) *= pow(sqr(X)+sqr(Y)+sqr(Z), highPassPower);
         }
       }
     }
