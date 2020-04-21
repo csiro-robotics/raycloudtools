@@ -112,9 +112,9 @@ int main(int argc, char *argv[])
       double sphericity = dimensions[i][0] / dimensions[i][2];
       double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
       double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
-      cloud.colours[i].red   = (uint8_t)(255.0*cylindricality); 
-      cloud.colours[i].green = (uint8_t)(255.0*sphericity);
-      cloud.colours[i].blue  = (uint8_t)(255.0*planarity);
+      cloud.colours[i].red   = (uint8_t)(255.0*(0.3 + 0.7*sphericity));
+      cloud.colours[i].green = (uint8_t)(255.0*(0.3 + 0.7*cylindricality)); 
+      cloud.colours[i].blue  = (uint8_t)(255.0*(0.3 + 0.7*planarity));
     }
   }
   else if (type == "normal")
