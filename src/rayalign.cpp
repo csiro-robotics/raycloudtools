@@ -23,6 +23,7 @@ void usage(bool error=false)
   cout << "rayalign raycloudA raycloudB" << endl;
   cout << "                             --rigid    - rigid alignment only" << endl;
   cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << endl;
+  cout << "                             --local    - fine alignment only, assumes clouds are already approximately aligned" << endl;
   exit(error);
 }
 
@@ -60,33 +61,39 @@ int main(int argc, char *argv[])
   #endif
     DebugDraw draw;
 
-  if (argc < 3 || argc > 5)
+  if (argc < 3 || argc > 6)
     usage();
   bool verbose = false;
   bool rigidOnly = false;
+  bool localOnly = false;
   for (int a = 3; a<argc; a++)
   {
     if (string(argv[a]) == "--verbose" || string(argv[a]) == "-v")
       verbose = true;
     else if (string(argv[a]) == "--rigid" || string(argv[a]) == "-r")
       rigidOnly = true;
+    else if (string(argv[a]) == "--local" || string(argv[a]) == "-l")
+      localOnly = true;
     else
       usage();
   }
 
   string fileA = argv[1];
   string fileB = argv[2];
+  string fileStub = fileA;
+  if (fileStub.substr(fileStub.length()-4)==".ply")
+    fileStub = fileStub.substr(0,fileStub.length()-4);
 
   AlignTranslationYaw aligner;
   aligner.clouds[0].load(fileA);
   aligner.clouds[1].load(fileB);
-  
-  aligner.alignCloud0ToCloud1(0.5, verbose);
-  string fileStub = fileA;
-  if (fileStub.substr(fileStub.length()-4)==".ply")
-    fileStub = fileStub.substr(0,fileStub.length()-4);
-  if (verbose)
-    aligner.clouds[0].save(fileStub + "_coarse_aligned.ply");  
+
+  if (!localOnly)
+  {
+    aligner.alignCloud0ToCloud1(0.5, verbose);
+    if (verbose)
+      aligner.clouds[0].save(fileStub + "_coarse_aligned.ply");  
+  }
 
   // Next the fine grained alignment. 
   // Method: 
