@@ -5,7 +5,7 @@
 // Author: Thomas Lowe
 #pragma once
 #include "rayutils.h"
-#define HASH_LOOKUP
+//#define HASH_LOOKUP
 
 namespace RAY
 {
@@ -100,7 +100,9 @@ protected:
 template<class T> 
 struct Grid
 {
-  Grid(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth)
+  Grid(){}
+  Grid(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth){ init(boxMin, boxMax, voxelWidth); }
+  void init(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth)
   {
     this->boxMin = boxMin;
     this->boxMax = boxMax;

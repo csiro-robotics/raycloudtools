@@ -19,7 +19,7 @@
 //          "args": ["/media/parallels/Samsung_T5/test/inout/inout.ply", "/media/parallels/Samsung_T5/test/inout/inout11.ply", "--verbose"], 
 //          "args": ["/media/parallels/Samsung_T5/test/house/house_inside.ply", "/media/parallels/Samsung_T5/test/house/house4.ply", "-v"], 
           "program": "${workspaceFolder}/bin/raysplit",          
-          "args": ["/media/parallels/Samsung_T5/test/creek7.ply", "/media/parallels/Samsung_T5/test/creek7_upwards.ply", "distance", "=", "0.0"], 
+          "args": ["/media/parallels/Samsung_T5/test/creek7.ply", "/media/parallels/Samsung_T5/test/creek7_upwards.ply", "distance", "=", "0.5"], 
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",
           "environment": [],
