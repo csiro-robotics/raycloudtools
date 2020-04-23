@@ -18,22 +18,29 @@ void usage(bool error=false)
 {
   cout << "Translate a raycloud" << endl;
   cout << "usage:" << endl;
-  cout << "raytranslate raycloud 0 0 1 - translation (x,y,z) in metres" << endl;
-  cout << "                      0 0 1 24.3 - optional 4th component translates time" << endl;
+  cout << "raytranslate raycloud 0,0,1 - translation (x,y,z) in metres" << endl;
+  cout << "                      0,0,1,24.3 - optional 4th component translates time" << endl;
   exit(error);
 }
 
 int main(int argc, char *argv[])
 {
-  if (argc != 5 && argc != 6)
+  if (argc != 3)
     usage();
   
   string file = argv[1];
   Pose pose;
-  pose.position = Vector3d(stod(argv[2]), stod(argv[3]), stod(argv[4]));
+  stringstream ss(argv[2]);
+  Vector3d vec;
+  ss >> vec[0]; ss.ignore(1); ss>>vec[1]; ss.ignore(1); ss>>vec[2];
+  pose.position = vec;
+
   double timeDelta = 0.0;
-  if (argc == 6)
-    timeDelta = stod(argv[5]);
+  if (ss.peek() == ',')
+  {
+    ss.ignore(1);
+    ss >> timeDelta;
+  }
   pose.rotation = Quaterniond(1.0,0.0,0.0,0.0);
 
   Cloud cloud;
