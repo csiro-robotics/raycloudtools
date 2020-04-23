@@ -35,7 +35,7 @@ void TerrainGen::generate()
     // Now generate a trajectory around the landscape
     double phase = time * 2.0*pi / 100.0;
     Vector2d trajCentre(random(-10.0, 10.0), random(-10.0, 10.0));
-    double trajRadius = random(10.0, 15.0);
+    double trajRadius = random(5.0, 7.5);
     double radScale = random(0.05, 0.3);
     double trajRadius2 = trajRadius * radScale;
     Vector2d trajPos = trajCentre + trajRadius*Vector2d(sin(phase), cos(phase)) + trajRadius2*Vector2d(sin(phase/radScale), cos(phase/radScale));

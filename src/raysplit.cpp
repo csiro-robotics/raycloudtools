@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
     Mesh mesh;
     readPlyMesh(meshFile, mesh);
 
-    double offset = stod(argv[3]);
+    double offset = stod(argv[5]);
     mesh.splitCloud(cloud, offset, inside, outside);
   }
   else
