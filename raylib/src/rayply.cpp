@@ -27,10 +27,21 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
     if (!warned)
     {
       if (!(ends[i] == ends[i]))
-        cout << "nans in point: " << i << ": " << ends[i].transpose() << endl;
+      {
+        cout << "WARNING: nans in point: " << i << ": " << ends[i].transpose() << endl;
+        warned = true;
+      }
       if (abs(ends[i][0]) > 100000.0)
-        cout << "very large point location at: " << i << ": " << ends[i].transpose() << ", suspicious" << endl;
-      warned = true;
+      {
+        cout << "WARNING: very large point location at: " << i << ": " << ends[i].transpose() << ", suspicious" << endl;
+        warned = true;
+      }
+      bool B = starts[i] == starts[i];
+      if (!B)
+      {
+        cout << "WARNING: nans in start: " << i << ": " << starts[i].transpose() << endl;
+        warned = true;
+      }
     }
     Vector3d n = starts[i] - ends[i];
 

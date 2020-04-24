@@ -5,7 +5,7 @@
 // Author: Thomas Lowe
 #pragma once
 #include "rayutils.h"
-//#define HASH_LOOKUP
+#define HASH_LOOKUP
 
 namespace RAY
 {

@@ -171,8 +171,6 @@ int main(int argc, char *argv[])
       cloud.colours[i].red = (uint8_t)((double)cloud.colours[i].red * s);
       cloud.colours[i].green = (uint8_t)((double)cloud.colours[i].green * s);
       cloud.colours[i].blue = (uint8_t)((double)cloud.colours[i].blue * s);
-
-      cloud.starts[i] = cloud.ends[i] + normals[i]*0.5;
     }
   }
 

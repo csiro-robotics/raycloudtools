@@ -204,22 +204,21 @@ void Cloud::getSurfels(int searchSize, vector<Vector3d> *centroids, vector<Vecto
         (*neighbourIndices)(j,I) = -1;
     }
 
-    Vector3d centroid(0,0,0);
+    Vector3d centroid = ends[I];
     int num;
     for (num = 0; num<searchSize && indices(num,i)>-1; num++)
       centroid += ends[rayIDs[indices(num,i)]];
-    centroid /= (double)num;
+    centroid /= (double)(num+1);
     if (centroids)
       (*centroids)[I] = centroid;
 
-    Matrix3d scatter;
-    scatter.setZero();
+    Matrix3d scatter = (ends[I] - centroid) * (ends[I] - centroid).transpose();
     for (int j = 0; j<num; j++)
     {
       Vector3d offset = ends[rayIDs[indices(j,i)]] - centroid;
       scatter += offset * offset.transpose();
     }
-    scatter /= (double)num;
+    scatter /= (double)(num + 1);
 
     SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
     ASSERT(eigenSolver.info() == Success);
