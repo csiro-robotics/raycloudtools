@@ -496,9 +496,9 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
     {
       if (double(std::max(num_before, num_after)) < sequence_length)
         continue;
-      if (type == 0)                                    // oldest
+      if (type == 0)                                               // oldest
         remove_ellipsoid = double(num_before) >= sequence_length;  // if false then remove numAfter rays if > seqLength
-      else if (type == 1)                               // newest
+      else if (type == 1)                                          // newest
         remove_ellipsoid = double(num_after) >= sequence_length;   // if false then remove numBefore rays if > seqLength
     }
     else

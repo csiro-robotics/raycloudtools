@@ -26,7 +26,8 @@ void usage(int exit_code = 0)
   cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity" << endl;
   cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << endl;
   cout << "                  startpos 1,2,3         - splits based on start position, around plane 1,2,3" << endl;
-  cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << endl;
+  cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays"
+       << endl;
   cout << "                  range 10               - splits out rays more than 10 m long" << endl;
   cout << "                  speed 1.0              - splits out rays when sensor moving above the given speed" << endl;
   exit(exit_code);
@@ -37,7 +38,7 @@ int main(int argc, char *argv[])
 {
   if (argc != 4 && argc != 5)
     usage();
-  
+
   string file = argv[1];
   Cloud cloud;
   cloud.load(file);
@@ -58,103 +59,94 @@ int main(int argc, char *argv[])
     if (parameter == "time")
     {
       double val = stod(argv[3]);
-      cloud.split(inside, outside, 
-        [&](int i) -> bool 
-        {
-          return cloud.times[i] > val; 
-        });
+      cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > val; });
     }
     else if (parameter == "alpha")
     {
       double val = stod(argv[3]);
-      if (!(val>=0.0 && val <= 1.0))
+      if (!(val >= 0.0 && val <= 1.0))
         usage();
-      uint8_t c = uint8_t(255.0*val);
-      cloud.split(inside, outside, 
-        [&](int i)
-        {
-          return cloud.colours[i].alpha > c; 
-        });
+      uint8_t c = uint8_t(255.0 * val);
+      cloud.split(inside, outside, [&](int i) { return cloud.colours[i].alpha > c; });
     }
     else if (parameter == "pos")
     {
       stringstream ss(argv[3]);
       Vector3d vec;
-      ss >> vec[0]; ss.ignore(1); ss>>vec[1]; ss.ignore(1); ss>>vec[2];
+      ss >> vec[0];
+      ss.ignore(1);
+      ss >> vec[1];
+      ss.ignore(1);
+      ss >> vec[2];
       vec /= vec.squaredNorm();
 
-      cloud.split(inside, outside, 
-        [&](int i)
-        {
-          return cloud.ends[i].dot(vec) > 1.0; 
-        });
+      cloud.split(inside, outside, [&](int i) { return cloud.ends[i].dot(vec) > 1.0; });
     }
     else if (parameter == "startpos")
     {
       stringstream ss(argv[3]);
       Vector3d vec;
-      ss >> vec[0]; ss.ignore(1); ss>>vec[1]; ss.ignore(1); ss>>vec[2];
+      ss >> vec[0];
+      ss.ignore(1);
+      ss >> vec[1];
+      ss.ignore(1);
+      ss >> vec[2];
       vec /= vec.squaredNorm();
 
-      cloud.split(inside, outside, 
-        [&](int i)
-        {
-          return cloud.starts[i].dot(vec) > 0.0; 
-        });
+      cloud.split(inside, outside, [&](int i) { return cloud.starts[i].dot(vec) > 0.0; });
     }
     else if (parameter == "raydir")
     {
       stringstream ss(argv[3]);
       Vector3d vec;
-      ss >> vec[0]; ss.ignore(1); ss>>vec[1]; ss.ignore(1); ss>>vec[2];
+      ss >> vec[0];
+      ss.ignore(1);
+      ss >> vec[1];
+      ss.ignore(1);
+      ss >> vec[2];
       vec /= vec.squaredNorm();
 
-      cloud.split(inside, outside, 
-        [&](int i)
-        {
-          Vector3d ray_dir = (cloud.ends[i] - cloud.starts[i]).normalized();
-          return ray_dir.dot(vec) > 0.0; 
-        });
+      cloud.split(inside, outside, [&](int i) {
+        Vector3d ray_dir = (cloud.ends[i] - cloud.starts[i]).normalized();
+        return ray_dir.dot(vec) > 0.0;
+      });
     }
     else if (parameter == "colour")
     {
       stringstream ss(argv[3]);
       Vector3d vec;
-      ss >> vec[0]; ss.ignore(1); ss>>vec[1]; ss.ignore(1); ss>>vec[2];
+      ss >> vec[0];
+      ss.ignore(1);
+      ss >> vec[1];
+      ss.ignore(1);
+      ss >> vec[2];
       vec /= vec.squaredNorm();
 
-      cloud.split(inside, outside, 
-        [&](int i)
-        {
-          Vector3d col((double)cloud.colours[i].red/255.0, (double)cloud.colours[i].green/255.0, (double)cloud.colours[i].blue/255.0);
-          return col.dot(vec) > 0.0; 
-        });
+      cloud.split(inside, outside, [&](int i) {
+        Vector3d col((double)cloud.colours[i].red / 255.0, (double)cloud.colours[i].green / 255.0,
+                     (double)cloud.colours[i].blue / 255.0);
+        return col.dot(vec) > 0.0;
+      });
     }
     else if (parameter == "range")
     {
       double val = stod(argv[3]);
-      cloud.split(inside, outside, 
-        [&](int i)
-        {
-          return (cloud.starts[i]-cloud.ends[i]).norm() > val; 
-        });
+      cloud.split(inside, outside, [&](int i) { return (cloud.starts[i] - cloud.ends[i]).norm() > val; });
     }
     else if (parameter == "speed")
     {
       double val = stod(argv[3]);
-      cloud.split(inside, outside, 
-        [&](int i)
-        {
-          if (i==0)
-            return false;
-          return (cloud.starts[i]-cloud.starts[i-1]).norm()/(cloud.times[i]-cloud.times[i-1]) > val; 
-        });
+      cloud.split(inside, outside, [&](int i) {
+        if (i == 0)
+          return false;
+        return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > val;
+      });
     }
   }
 
   string file_stub = file;
-  if (file.substr(file.length()-4)==".ply")
-    file_stub = file.substr(0,file.length()-4);
+  if (file.substr(file.length() - 4) == ".ply")
+    file_stub = file.substr(0, file.length() - 4);
 
   inside.save(file_stub + "_inside.ply");
   outside.save(file_stub + "_outside.ply");

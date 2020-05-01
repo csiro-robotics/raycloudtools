@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
   double distance = 0.01 * stod(argv[2]);
   if (distance < 0.01)
     usage();
-  
+
   // Look at gaps in range... this signals a mixed-signal where the lidar has contacted two surfaces.
   if (argc == 7)
   {
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     double range_distance = 0.01 * stod(argv[5]);
     if (range_distance < 0.01)
       usage();
-    
+
     Cloud new_cloud;
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
@@ -54,12 +54,12 @@ int main(int argc, char *argv[])
     new_cloud.colours.reserve(cloud.colours.size());
     // Firstly look at adjacent rays by range. We don't want to throw away large changes,
     // instead, the intermediate of 3 adjacent ranges that is too far from both ends...
-    for (int i = 1; i<(int)cloud.starts.size()-1; i++)
+    for (int i = 1; i < (int)cloud.starts.size() - 1; i++)
     {
-      double range0 = (cloud.ends[i-1]-cloud.starts[i-1]).norm();
-      double range1 = (cloud.ends[i]-cloud.starts[i]).norm();
-      double range2 = (cloud.ends[i+1]-cloud.starts[i+1]).norm();
-      double min_dist = min(abs(range0 - range2), min(abs(range1-range0), abs(range2 - range1)));
+      double range0 = (cloud.ends[i - 1] - cloud.starts[i - 1]).norm();
+      double range1 = (cloud.ends[i] - cloud.starts[i]).norm();
+      double range2 = (cloud.ends[i + 1] - cloud.starts[i + 1]).norm();
+      double min_dist = min(abs(range0 - range2), min(abs(range1 - range0), abs(range2 - range1)));
       if (!cloud.rayBounded(i) || min_dist < range_distance)
       {
         new_cloud.starts.push_back(cloud.starts[i]);
@@ -68,7 +68,8 @@ int main(int argc, char *argv[])
         new_cloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size()-new_cloud.starts.size() << " rays removed with range gaps > " << range_distance*100.0 << " cm." << endl;
+    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
+         << range_distance * 100.0 << " cm." << endl;
     cloud = new_cloud;
   }
 
@@ -82,9 +83,8 @@ int main(int argc, char *argv[])
     Nabo::Parameters params("bucketSize", 8);
     vector<Vector3d> &points = cloud.ends;
     MatrixXd points_p(3, points.size());
-    for (unsigned int i = 0; i<points.size(); i++)
-      points_p.col(i) = points[i];
-    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);//, 0, params);
+    for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i];
+    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);  //, 0, params);
 
     // Run the search
     const int search_size = 10;
@@ -98,9 +98,9 @@ int main(int argc, char *argv[])
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
     new_cloud.colours.reserve(cloud.colours.size());
-    for (int i = 0; i<(int)points.size(); i++)
+    for (int i = 0; i < (int)points.size(); i++)
     {
-      if (!cloud.rayBounded(i) || (dists2(0,i) < 1e10 && dists2(0,i) < sqr(distance)))
+      if (!cloud.rayBounded(i) || (dists2(0, i) < 1e10 && dists2(0, i) < sqr(distance)))
       {
         new_cloud.starts.push_back(cloud.starts[i]);
         new_cloud.ends.push_back(cloud.ends[i]);
@@ -108,11 +108,12 @@ int main(int argc, char *argv[])
         new_cloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size()-new_cloud.starts.size() << " rays removed with ends further than " << distance*100.0 << " cm from any other." << endl;
+    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
+         << " cm from any other." << endl;
     cloud = new_cloud;
   }
 
-  cloud.save(file.substr(0,file.length()-4) + "_denoised.ply");
+  cloud.save(file.substr(0, file.length() - 4) + "_denoised.ply");
 
   return true;
 }

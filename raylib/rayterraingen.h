@@ -17,6 +17,6 @@ struct RAYLIB_EXPORT TerrainGen
   void generate();
   std::vector<Eigen::Vector3d> ray_starts, ray_ends;
 };
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYTERRAINGEN_H
+#endif  // RAYLIB_RAYTERRAINGEN_H

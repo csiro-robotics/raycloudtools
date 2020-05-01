@@ -27,18 +27,22 @@ int main(int argc, char *argv[])
 {
   if (argc != 3)
     usage();
-  
+
   string file = argv[1];
   Pose pose;
-  pose.position = Vector3d(0,0,0);
+  pose.position = Vector3d(0, 0, 0);
 
   stringstream ss(argv[2]);
   Vector3d axis;
-  ss >> axis[0]; ss.ignore(1); ss>>axis[1]; ss.ignore(1); ss>>axis[2];
+  ss >> axis[0];
+  ss.ignore(1);
+  ss >> axis[1];
+  ss.ignore(1);
+  ss >> axis[2];
 
   double angle = axis.norm();
   axis /= angle;
-  pose.rotation = Quaterniond(AngleAxisd(angle * kPi/180.0, axis));
+  pose.rotation = Quaterniond(AngleAxisd(angle * kPi / 180.0, axis));
 
   Cloud cloud;
   cloud.load(file);

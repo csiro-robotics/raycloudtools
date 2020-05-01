@@ -22,6 +22,6 @@ struct RAYLIB_EXPORT ForestGen
 
   std::vector<TreeGen> trees;
 };
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYFORESTGEN_H
+#endif  // RAYLIB_RAYFORESTGEN_H

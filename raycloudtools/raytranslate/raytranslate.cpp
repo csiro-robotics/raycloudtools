@@ -28,12 +28,16 @@ int main(int argc, char *argv[])
 {
   if (argc != 3)
     usage();
-  
+
   string file = argv[1];
   Pose pose;
   stringstream ss(argv[2]);
   Vector3d vec;
-  ss >> vec[0]; ss.ignore(1); ss>>vec[1]; ss.ignore(1); ss>>vec[2];
+  ss >> vec[0];
+  ss.ignore(1);
+  ss >> vec[1];
+  ss.ignore(1);
+  ss >> vec[2];
   pose.position = vec;
 
   double time_delta = 0.0;
@@ -42,18 +46,18 @@ int main(int argc, char *argv[])
     ss.ignore(1);
     ss >> time_delta;
   }
-  pose.rotation = Quaterniond(1.0,0.0,0.0,0.0);
+  pose.rotation = Quaterniond(1.0, 0.0, 0.0, 0.0);
 
   Cloud cloud;
   cloud.load(file);
-  #if 0 // test bending
+#if 0  // test bending
   Vector3d bend(pose.position[0], pose.position[1], 0.0);
   Vector3d side = Vector3d(bend[1], -bend[0], 0).normalized();
   for (auto &end: cloud.ends)
     end += bend*sqr(end.dot(side));
-  #else
+#else
   cloud.transform(pose, time_delta);
-  #endif
+#endif
   cloud.save(file);
   return true;
 }

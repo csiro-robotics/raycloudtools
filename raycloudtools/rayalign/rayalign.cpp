@@ -58,10 +58,10 @@ void getSurfel(const vector<Vector3d> &points, const vector<int> &ids, Vector3d 
 
 int main(int argc, char *argv[])
 {
-// TODO: This method works when there is more than 30% overlap.
-// For less, we can additionally repeat this procedure for small scale cubic sections (perhaps 20% of map width)
-// then use the fft power spectrum (low res) as a descriptor into the knn to find matching locations,
-// then pick the best match.
+  // TODO: This method works when there is more than 30% overlap.
+  // For less, we can additionally repeat this procedure for small scale cubic sections (perhaps 20% of map width)
+  // then use the fft power spectrum (low res) as a descriptor into the knn to find matching locations,
+  // then pick the best match.
   DebugDraw &draw = *DebugDraw::init(argc, argv, "rayalign");
 
   if (argc < 3 || argc > 6)

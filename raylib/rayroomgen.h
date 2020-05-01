@@ -18,6 +18,6 @@ struct RAYLIB_EXPORT RoomGen
   std::vector<Eigen::Vector3d> ray_starts, ray_ends;
   std::vector<bool> ray_bounded;
 };
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYROOMGEN_H
+#endif  // RAYLIB_RAYROOMGEN_H

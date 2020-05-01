@@ -31,19 +31,26 @@ public:
   /// Singleton instance access.
   static DebugDraw *instance();
 
-  DebugDraw(const std::string& fixed_frame_idid = "map");
+  DebugDraw(const std::string &fixed_frame_idid = "map");
   ~DebugDraw();
-  
+
   void drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shadee, int id);
-  void drawCloud(const std::vector<Eigen::Vector3d> &points, double shade, int id){ std::vector<double> shades(points.size()); for (int i = 0; i<(int)points.size(); i++)shades[i] = shade; drawCloud(points, shades, id); }
+  void drawCloud(const std::vector<Eigen::Vector3d> &points, double shade, int id)
+  {
+    std::vector<double> shades(points.size());
+    for (int i = 0; i < (int)points.size(); i++) shades[i] = shade;
+    drawCloud(points, shades, id);
+  }
   void drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends);
-  void drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &radii, int id);
-  void drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses, const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id);
+  void drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                     const std::vector<double> &radii, int id);
+  void drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
+                      const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id);
 
 private:
   std::unique_ptr<DebugDrawDetail> imp_;
   static std::unique_ptr<DebugDraw> s_instance;
 };
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYDRAW_H
+#endif  // RAYLIB_RAYDRAW_H

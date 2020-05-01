@@ -13,7 +13,6 @@
 
 namespace ray
 {
-
 struct RAYLIB_EXPORT Mesh
 {
   std::vector<Eigen::Vector3d> vertices;
@@ -23,6 +22,6 @@ struct RAYLIB_EXPORT Mesh
 };
 
 
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYMESH_H
+#endif  // RAYLIB_RAYMESH_H

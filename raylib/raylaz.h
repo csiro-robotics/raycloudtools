@@ -12,7 +12,8 @@
 
 namespace ray
 {
-bool RAYLIB_EXPORT readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<RGBA> &colours, int decimation);
+bool RAYLIB_EXPORT readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times,
+                           std::vector<RGBA> &colours, int decimation);
 }
 
-#endif // RAYLIB_RAYLAZ_H
+#endif  // RAYLIB_RAYLAZ_H
