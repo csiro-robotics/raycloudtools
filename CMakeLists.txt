@@ -1,6 +1,152 @@
-cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
-set(CMAKE_SUPPRESS_REGENERATION true)
-project("raycloudtools")
+# Copyright (c) 2019
+# Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+# ABN 41 687 119 230
+#
+# Author: Kazys Stepanas
+cmake_minimum_required(VERSION 3.10)
 
-add_subdirectory(raylib/src)
-add_subdirectory(src)
+# Setup project details.
+project(raycloudtools)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+include(RasProjectSetup)
+ras_project(
+  VERSION 0.0.1
+  NAMESPACE raycloud
+)
+
+# Add project level options here.
+# Setup doxygen
+option(RAYCLOUD_BUILD_DOXYGEN "Build doxgen documentation?" OFF)
+# Setup unit tests
+option(RAYCLOUD_BUILD_TESTS "Build unit tests?" OFF)
+# Setup LeakTrack
+option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
+
+# WITH_ build options.
+option(WITH_LAS "With liblas for las file support?" OFF)
+option(WITH_QHULL "With libqhull support?" OFF)
+if(UNIX)
+  option(WITH_ROS "With ROS rviz support for debug visualisation?" OFF)
+endif(UNIX)
+
+# Convert WITH_ options to 1/0 so we can use them in configuration headers.
+ras_bool_to_int(WITH_LAS)
+ras_bool_to_int(WITH_QHULL)
+ras_bool_to_int(WITH_ROS)
+
+# Required packages.
+find_package(Eigen3 REQUIRED)
+find_package(libnabo REQUIRED)
+find_package(OpenMP REQUIRED)
+
+set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
+set(RAYTOOLS_LINK ${libnabo_LIBRARIES})
+
+# Optionally configured packages.
+if(WITH_LAS)
+  find_package(libLAS REQUIRED)
+  list(APPEND RAYTOOLS_INCLUDE ${libLAS_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${libLAS_LIBRARIES})
+endif(WITH_LAS)
+if(WITH_QHULL)
+  find_package(QHull REQUIRED)
+  list(APPEND RAYTOOLS_INCLUDE ${QHULL_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${QHULL_LIBRARIES})
+endif(WITH_QHULL)
+if(WITH_ROS)
+  find_package(catkin REQUIRED COMPONENTS
+    roscpp
+    message_generation
+    std_msgs
+  )
+  list(APPEND RAYTOOLS_INCLUDE ${catkin_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${catkin_LIBRARIES})
+endif(WITH_ROS)
+
+# Create libs
+add_subdirectory(3rd-party)
+add_subdirectory(raylib)
+add_subdirectory(raycloudtools)
+
+# Create apps
+# add_subdirectory(apps)
+
+# Test setup.
+if(RAYCLOUD_BUILD_TESTS)
+  find_package(GTest REQUIRED)
+
+  # We can enable testing here and/or in the subdirectory, but doing it here allows us to run CTest from the build root.
+  # To run the tests, we execute:
+  #   CTest -C [Debug|Release|RelWithDebInfo|MinSizeRel] --output-on-failure
+  # CTest normally shows only a very terse test ouput, but we make sure failed tests show all output by adding
+  #   --output-on-failure
+  # The full test output is always available in:
+  #   <build>/Testing/Temporary/LastTest.log
+  add_subdirectory(tests)
+endif(RAYCLOUD_BUILD_TESTS)
+
+# Doxygen setup.
+if(RAYCLOUD_BUILD_DOXYGEN)
+  # Include Doxygen helper functions. This also finds the Doxygen package.
+  include(RasDoxygen)
+
+  if(DOXYGEN_FOUND)
+    # Create a target to build the documentation.
+    # Here we also setup various documentation variables passed through to the doxyfile configuration.
+    # Each named argument below describes the Doxygen variable it sets.
+    ray_doxygen_create(
+      # DOXYFILE cmake/doxyfile.in  # Doxyfile to configure.
+      PROJECT ${CMAKE_PROJECT_NAME} # PROJECT_NAME
+      VERSION ${raycloudtools_VERSION}   # PROJECT_NUMBER
+      OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/html # HTML_OUPTUT
+      # CSS <style>.css             # HTML_STYLESHEET
+      PUBLISHER "CSIRO"             # DOCSET_PUBLISHER_NAME
+      PUBLISHER_ID au.csiro         # DOCSET_PUBLISHER_ID
+      PROJECT_ID au.csiro.ras  # DOCSET_BUNDLE_ID, QHP_NAMESPACE, ECLIPSE_DOC_ID
+      PATHS                         # INPUT (RECURSIVE is on)
+        src
+        doc
+      EXCLUDE_PATHS                 # EXCLUDE
+      # Where to find source code examples.
+      # EXAMPLE_PATHS <paths>        # EXAMPLE_PATH
+      # Where to find images.
+      # IMAGE_PATHS <paths>          # IMAGE_PATH
+    )
+
+    # Setup installation of the generated documentation: source, destination.
+    ray_doxygen_install(${CMAKE_CURRENT_BINARY_DIR}/html ras)
+  else(DOXYGEN_FOUND)
+    message(FATAL_ERROR "Told to build Doxygen Documentation, but failed to find Doxygen")
+  endif(DOXYGEN_FOUND)
+endif(RAYCLOUD_BUILD_DOXYGEN)
+
+# Installation
+include(InstallRequiredSystemLibraries)
+include(CMakePackageConfigHelpers)
+
+install(EXPORT ${CMAKE_PROJECT_NAME}-targets
+  FILE ${CMAKE_PROJECT_NAME}-targets.cmake
+  NAMESPACE ${PACKAGE_NAMESPACE}
+  DESTINATION ${PACKAGE_EXPORT_LOCATION}
+)
+
+write_basic_package_version_file(
+  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-version.cmake"
+  VERSION ${raycloudtools_VERSION}
+  COMPATIBILITY SameMajorVersion
+  #COMPATIBILITY <AnyNewerVersion|SameMajorVersion|SameMinorVersion|ExactVersion>
+)
+
+configure_package_config_file(
+    "cmake/Config.in.cmake"
+    "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
+    INSTALL_DESTINATION "${PACKAGE_EXPORT_LOCATION}"
+)
+
+# Install package files
+install(FILES
+  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
+  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-version.cmake"
+  DESTINATION "${PACKAGE_EXPORT_LOCATION}")
