@@ -21,9 +21,9 @@
 
 #include <Eigen/Dense>
 
-namespace RAY
+namespace ray
 {
-const double pi = M_PI;
+const double kPi = M_PI;
 #define ASSERT(X) assert(X);
 
 inline std::vector<std::string> split(const std::string &s, char delim)
@@ -47,9 +47,9 @@ inline const T minVector(const T &a, const T &b)
 }
 
 template <class T>
-T clamped(const T &value, const T &minValue, const T &maxValue)
+T clamped(const T &value, const T &min_value, const T &max_value)
 {
-  return std::max(minValue, std::min(value, maxValue));
+  return std::max(min_value, std::min(value, max_value));
 }
 
 template <typename T>
@@ -71,7 +71,7 @@ inline double random(double min, double max)
   return min + (max - min) * (double(rand()) / double(RAND_MAX));
 }
 
-inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxelWidth)
+inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width)
 {
   struct Vector3iLess
   {
@@ -85,14 +85,14 @@ inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &point
     }
   };
   std::vector<int> indices;
-  std::set<Eigen::Vector3i, Vector3iLess> testSet;
+  std::set<Eigen::Vector3i, Vector3iLess> test_set;
   for (unsigned int i = 0; i < points.size(); i++)
   {
-    Eigen::Vector3i place(int(std::floor(points[i][0] / voxelWidth)), int(std::floor(points[i][1] / voxelWidth)),
-                          int(std::floor(points[i][2] / voxelWidth)));
-    if (testSet.find(place) == testSet.end())
+    Eigen::Vector3i place(int(std::floor(points[i][0] / voxel_width)), int(std::floor(points[i][1] / voxel_width)),
+                          int(std::floor(points[i][2] / voxel_width)));
+    if (test_set.find(place) == test_set.end())
     {
-      testSet.insert(place);
+      test_set.insert(place);
       indices.push_back(i);
     }
   }
@@ -142,8 +142,8 @@ T percentile(std::vector<T> list, double p)
 {
   typename std::vector<T>::iterator first = list.begin();
   typename std::vector<T>::iterator last = list.end();
-  int closestIndex = (int)(p * ((double)list.size()) / 100.0);
-  typename std::vector<T>::iterator percentile = first + closestIndex;
+  int closest_index = (int)(p * ((double)list.size()) / 100.0);
+  typename std::vector<T>::iterator percentile = first + closest_index;
   nth_element(first, percentile, last);  // can specify comparator as optional 4th arg
   return *percentile;
 }
@@ -154,12 +154,12 @@ T percentile(std::vector<T> list, double p)
 // in that the list is passed back by value, which requires a copy.
 #define components(_list, _component) component_list(_list, _list[0]._component)
 template <class U, class T>
-inline std::vector<T> component_list(const std::vector<U> &list, const T &component0)
+inline std::vector<T> componentList(const std::vector<U> &list, const T &component0)
 {
   unsigned long int offset = (unsigned long int)&component0 - (unsigned long int)&list[0];
-  std::vector<T> subList(list.size());
-  for (unsigned int i = 0; i < list.size(); ++i) subList[i] = *(T *)((char *)&list[i] + offset);
-  return subList;
+  std::vector<T> sub_list(list.size());
+  for (unsigned int i = 0; i < list.size(); ++i) sub_list[i] = *(T *)((char *)&list[i] + offset);
+  return sub_list;
 }
 
 struct RGBA
@@ -170,8 +170,8 @@ struct RGBA
   uint8_t alpha;
 };
 
-inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient, double minValue,
-                                 double maxValue, bool replaceAlpha)
+inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient, double min_value,
+                                 double max_value, bool replace_alpha)
 {
   Eigen::Vector3d purple(0.25, -0.5, 0.25);
   Eigen::Vector3d orange(0.5, 0.0, -0.5);
@@ -181,18 +181,18 @@ inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<
   gradient.resize(values.size());
   for (unsigned int i = 0; i < values.size(); i++)
   {
-    double angle = (2.0 * pi / 6.0) * (0.5 + 5.0 * (values[i] - minValue) / (maxValue - minValue));
+    double angle = (2.0 * kPi / 6.0) * (0.5 + 5.0 * (values[i] - min_value) / (max_value - min_value));
     Eigen::Vector3d col = Eigen::Vector3d(0.5, 0.5, 0.5) + purple * cos(angle) + orange * sin(angle);
     gradient[i].red = uint8_t(255.0 * (0.5 + 0.5 * col[0]));
     gradient[i].green = uint8_t(255.0 * (0.5 + 0.5 * col[1]));
     gradient[i].blue = uint8_t(255.0 * (0.5 + 0.5 * col[2]));
-    if (replaceAlpha)
+    if (replace_alpha)
       gradient[i].alpha = 255;
   }
 }
 
 inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<RGBA> &gradient, double wavelength,
-                                 bool replaceAlpha)
+                                 bool replace_alpha)
 {
   Eigen::Vector3d purple(0.25, -0.5, 0.25);
   Eigen::Vector3d orange(0.5, 0.0, -0.5);
@@ -202,20 +202,20 @@ inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<
   gradient.resize(values.size());
   for (unsigned int i = 0; i < values.size(); i++)
   {
-    double angle = (2.0 * pi) * values[i] / wavelength;
+    double angle = (2.0 * kPi) * values[i] / wavelength;
     Eigen::Vector3d col = Eigen::Vector3d(0.5, 0.5, 0.5) + purple * cos(angle) + orange * sin(angle);
     gradient[i].red = uint8_t(255.0 * (0.5 + 0.5 * col[0]));
     gradient[i].green = uint8_t(255.0 * (0.5 + 0.5 * col[1]));
     gradient[i].blue = uint8_t(255.0 * (0.5 + 0.5 * col[2]));
-    if (replaceAlpha)
+    if (replace_alpha)
       gradient[i].alpha = 255;
   }
 }
 
-inline void colourByTime(const std::vector<double> &values, std::vector<RGBA> &gradient, bool replaceAlpha = true)
+inline void colourByTime(const std::vector<double> &values, std::vector<RGBA> &gradient, bool replace_alpha = true)
 {
-  redGreenBlueSpectrum(values, gradient, 10.0, replaceAlpha);
+  redGreenBlueSpectrum(values, gradient, 10.0, replace_alpha);
 }
-}  // namespace RAY
+}  // namespace ray
 
 #endif  // RAYLIB_RAYUTILS_H

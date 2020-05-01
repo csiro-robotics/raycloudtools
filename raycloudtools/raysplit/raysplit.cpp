@@ -14,9 +14,9 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 0)
 {
   cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds" << endl;
   cout << "usage:" << endl;
@@ -29,7 +29,7 @@ void usage(int exitCode = 0)
   cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << endl;
   cout << "                  range 10               - splits out rays more than 10 m long" << endl;
   cout << "                  speed 1.0              - splits out rays when sensor moving above the given speed" << endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
 // Decimates the ray cloud, spatially or in time
@@ -45,9 +45,9 @@ int main(int argc, char *argv[])
   Cloud inside, outside;
   if (argc == 5)
   {
-    string meshFile = argv[2];
+    string mesh_file = argv[2];
     Mesh mesh;
-    readPlyMesh(meshFile, mesh);
+    readPlyMesh(mesh_file, mesh);
 
     double offset = stod(argv[4]);
     mesh.splitCloud(cloud, offset, inside, outside);
@@ -112,8 +112,8 @@ int main(int argc, char *argv[])
       cloud.split(inside, outside, 
         [&](int i)
         {
-          Vector3d rayDir = (cloud.ends[i] - cloud.starts[i]).normalized();
-          return rayDir.dot(vec) > 0.0; 
+          Vector3d ray_dir = (cloud.ends[i] - cloud.starts[i]).normalized();
+          return ray_dir.dot(vec) > 0.0; 
         });
     }
     else if (parameter == "colour")
@@ -152,11 +152,11 @@ int main(int argc, char *argv[])
     }
   }
 
-  string fileStub = file;
+  string file_stub = file;
   if (file.substr(file.length()-4)==".ply")
-    fileStub = file.substr(0,file.length()-4);
+    file_stub = file.substr(0,file.length()-4);
 
-  inside.save(fileStub + "_inside.ply");
-  outside.save(fileStub + "_outside.ply");
+  inside.save(file_stub + "_inside.ply");
+  outside.save(file_stub + "_outside.ply");
   return true;
 }

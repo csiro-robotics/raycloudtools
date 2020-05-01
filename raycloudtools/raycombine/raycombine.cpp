@@ -15,9 +15,9 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 0)
 {
   cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to the merge type specified." << endl;
   cout << "Outputs the combined cloud and the residual cloud of differences." << endl;
@@ -28,7 +28,7 @@ void usage(int exitCode = 0)
   cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << endl;
   cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << endl;
   cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')." << endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
 // Decimates the ray cloud, spatially or in time
@@ -37,9 +37,9 @@ int main(int argc, char *argv[])
   DebugDraw::init(argc, argv, "raycombine");
   if (argc < 4)
     usage();
-  string mergeType = argv[1];
-  bool concatenate = mergeType == "all";
-  double numRays = 0;
+  string merge_type = argv[1];
+  bool concatenate = merge_type == "all";
+  double num_rays = 0;
   if (concatenate)
   {
     if (string(argv[argc-1])=="rays")
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
   {
     if (argc < 6 || string(argv[argc-1])!="rays")
       usage();
-    numRays = stod(argv[argc-2]);
+    num_rays = stod(argv[argc-2]);
     argc-=2;
   }
 
@@ -65,9 +65,9 @@ int main(int argc, char *argv[])
     }
   }
 
-  string fileStub = files[0];
-  if (fileStub.substr(fileStub.length()-4)==".ply")
-    fileStub = fileStub.substr(0,fileStub.length()-4);
+  string file_stub = files[0];
+  if (file_stub.substr(file_stub.length()-4)==".ply")
+    file_stub = file_stub.substr(0,file_stub.length()-4);
 
   vector<Cloud> clouds(files.size());
   for (int i = 0; i<(int)files.size(); i++)
@@ -87,9 +87,9 @@ int main(int argc, char *argv[])
   else
   {
     Cloud differences;
-    combined.combine(clouds, differences, mergeType, numRays);
-    differences.save(fileStub + "_differences.ply");
+    combined.combine(clouds, differences, merge_type, num_rays);
+    differences.save(file_stub + "_differences.ply");
   }
-  combined.save(fileStub + "_combined.ply");
+  combined.save(file_stub + "_combined.ply");
   return true;
 }

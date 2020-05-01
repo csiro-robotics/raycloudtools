@@ -11,48 +11,52 @@
 #include "rayutils.h"
 #define HASH_LOOKUP
 
-namespace RAY
+namespace ray
 {
 #if defined HASH_LOOKUP
-template<class T> 
+template <class T>
 struct Grid
 {
-  Grid(){}
-  Grid(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth){ init(boxMin, boxMax, voxelWidth); }
-  void init(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth)
+  Grid() {}
+  Grid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
   {
-    this->boxMin = boxMin;
-    this->boxMax = boxMax;
-    this->voxelWidth = voxelWidth;
-    Eigen::Vector3d diff = (boxMax - boxMin)/voxelWidth;
+    init(box_min, box_max, voxel_width);
+  }
+  void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
+  {
+    this->box_min = box_min;
+    this->box_max = box_max;
+    this->voxel_width = voxel_width;
+    Eigen::Vector3d diff = (box_max - box_min) / voxel_width;
     dims = Eigen::Vector3i(diff.array().ceil().cast<int>());
 
-    int bucketSize = dims[0]*dims[1]; // let's assume a surface for the map. This is still significantly better on memory than a 3D grid (dims[0]*dims[1]*dims[2])
-    buckets.resize(bucketSize);
-    nullCell.index = Eigen::Vector3i(-1,-1,-1);
+    int bucket_size = dims[0] * dims[1];  // let's assume a surface for the map. This is still significantly better on
+                                          // memory than a 3D grid (dims[0]*dims[1]*dims[2])
+    buckets_.resize(bucket_size);
+    null_cell_.index = Eigen::Vector3i(-1, -1, -1);
   }
   struct Cell
   {
     std::vector<T> data;
     Eigen::Vector3i index;
   };
-  
+
   Cell &cell(int x, int y, int z)
   {
-    Eigen::Vector3i index(x,y,z);
-    int hash = (x*17 + y*101 + z*797) % buckets.size();
-    std::vector<Cell> &cells = buckets[hash].cells;
-    for (auto &c: cells)
+    Eigen::Vector3i index(x, y, z);
+    int hash = (x * 17 + y * 101 + z * 797) % buckets_.size();
+    std::vector<Cell> &cells = buckets_[hash].cells;
+    for (auto &c : cells)
       if (c.index == index)
         return c;
-    return nullCell;    
+    return null_cell_;
   }
   void insert(int x, int y, int z, const T &value)
   {
-    Eigen::Vector3i index(x,y,z);
-    int hash = (x*17 + y*101 + z*797) % buckets.size();
-    std::vector<Cell> &cellList = buckets[hash].cells;
-    for (auto &c: cellList)
+    Eigen::Vector3i index(x, y, z);
+    int hash = (x * 17 + y * 101 + z * 797) % buckets_.size();
+    std::vector<Cell> &cell_list = buckets_[hash].cells;
+    for (auto &c : cell_list)
     {
       if (c.index == index)
       {
@@ -60,34 +64,35 @@ struct Grid
         return;
       }
     }
-    Cell newCell;
-    newCell.index = index;
-    cellList.push_back(newCell);
-    cellList.back().data.push_back(value);    
+    Cell new_cell;
+    new_cell.index = index;
+    cell_list.push_back(new_cell);
+    cell_list.back().data.push_back(value);
   }
 
-  Eigen::Vector3d boxMin, boxMax;
-  double voxelWidth;
+  Eigen::Vector3d box_min, box_max;
+  double voxel_width;
   Eigen::Vector3i dims;
 
   void report()
   {
     size_t count = 0;
-    size_t totalCount = 0;
-    size_t dataCount = 0;
-    for (auto &bucket: buckets)
+    size_t total_count = 0;
+    size_t data_count = 0;
+    for (auto &bucket : buckets_)
     {
       size_t size = bucket.cells.size();
-      if (size>0)
+      if (size > 0)
         count++;
-      totalCount += size;
-      for (auto &cell: bucket.cells)
-        dataCount += cell.data.size();
+      total_count += size;
+      for (auto &cell : bucket.cells) data_count += cell.data.size();
     }
-    std::cout << "buckets filled: " << count << " out of " << buckets.size() << " buckets, which is " << 100.0*(double)count/(double)buckets.size() << "%%" << std::endl;
-    std::cout << "voxels filled: " << totalCount << ", average size of filled bucket: " << (double)totalCount/(double)count << std::endl;
-    std::cout << "average data per filled voxel: " << (double)dataCount/(double)totalCount << std::endl;
-    std::cout << "total data stored: " << dataCount << std::endl;
+    std::cout << "buckets filled: " << count << " out of " << buckets_.size() << " buckets, which is "
+              << 100.0 * (double)count / (double)buckets_.size() << "%%" << std::endl;
+    std::cout << "voxels filled: " << total_count
+              << ", average size of filled bucket: " << (double)total_count / (double)count << std::endl;
+    std::cout << "average data per filled voxel: " << (double)data_count / (double)total_count << std::endl;
+    std::cout << "total data stored: " << data_count << std::endl;
   }
 
 protected:
@@ -95,25 +100,28 @@ protected:
   {
     std::vector<Cell> cells;
   };
-  std::vector<Bucket> buckets;
-  Cell nullCell;
+  std::vector<Bucket> buckets_;
+  Cell null_cell_;
 };
 
-#else  // HASH_LOOKUP
+#else   // HASH_LOOKUP
 
-template<class T> 
+template <class T>
 struct Grid
 {
-  Grid(){}
-  Grid(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth){ init(boxMin, boxMax, voxelWidth); }
-  void init(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth)
+  Grid() {}
+  Grid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
   {
-    this->boxMin = boxMin;
-    this->boxMax = boxMax;
-    this->voxelWidth = voxelWidth;
-    Eigen::Vector3d diff = (boxMax - boxMin)/voxelWidth;
-    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil(diff[2]));   
-    cells.resize(dims[0]*dims[1]*dims[2]);
+    init(box_min, box_max, voxel_width);
+  }
+  void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
+  {
+    this->box_min = box_min;
+    this->box_max = box_max;
+    this->voxel_width = voxel_width;
+    Eigen::Vector3d diff = (box_max - box_min) / voxel_width;
+    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil(diff[2]));
+    cells.resize(dims[0] * dims[1] * dims[2]);
   }
   struct Cell
   {
@@ -121,13 +129,13 @@ struct Grid
   };
   inline Cell &cell(int x, int y, int z)
   {
-    if (x<0 || x>=dims[0] || y<0 || y>= dims[1] || z<0 || z>=dims[2])
-      return nullCell;
-    return cells[x + dims[0]*y + dims[0]*dims[1]*z];
+    if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
+      return null_cell_;
+    return cells[x + dims[0] * y + dims[0] * dims[1] * z];
   }
   inline void insert(int x, int y, int z, const T &value)
   {
-    if (x<0 || x>=dims[0] || y<0 || y>= dims[1] || z<0 || z>=dims[2])
+    if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
       std::cout << "warning: bad input coordinates: " << x << ", " << y << ", " << z << std::endl;
     cell(x, y, z).data.push_back(value);
   }
@@ -136,27 +144,29 @@ struct Grid
     int count = 0;
     int totalCount = 0;
 
-    for (auto &cell: cells)
+    for (auto &cell : cells)
     {
       int size = cell.data.size();
       if (size > 0)
-        count ++;
+        count++;
       totalCount += size;
     }
-    std::cout << "voxels filled: " << count << " out of " << cells.size() << " cells, which is " << 100.0*(double)count/(double)cells.size() << "\%" << std::endl;
-    std::cout << "average data per filled voxel: " << (double)totalCount/(double)count << std::endl;
+    std::cout << "voxels filled: " << count << " out of " << cells.size() << " cells, which is "
+              << 100.0 * (double)count / (double)cells.size() << "\%" << std::endl;
+    std::cout << "average data per filled voxel: " << (double)totalCount / (double)count << std::endl;
     std::cout << "total data stored: " << totalCount << std::endl;
   }
 
-  Eigen::Vector3d boxMin, boxMax;
-  double voxelWidth;
+  Eigen::Vector3d box_min, box_max;
+  double voxel_width;
   Eigen::Vector3i dims;
+
 protected:
   std::vector<Cell> cells;
-  Cell nullCell;
+  Cell null_cell_;
 };
-#endif // HASH_LOOKUP
+#endif  // HASH_LOOKUP
 
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYGRID_H
+#endif  // RAYLIB_RAYGRID_H

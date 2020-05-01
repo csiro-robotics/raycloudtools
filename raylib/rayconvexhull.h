@@ -13,7 +13,7 @@
 #include <set>
 #if RAYLIB_WITH_QHULL
 
-namespace RAY
+namespace ray
 {
 struct RAYLIB_EXPORT ConvexHull
 {
@@ -22,15 +22,15 @@ struct RAYLIB_EXPORT ConvexHull
   void growOutwards(double maxCurvature);
   void growInwards(double maxCurvature);
   void growInDirection(double maxCurvature, const Eigen::Vector3d &dir);
-  void growUpwards(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,1)); }
-  void growTopDown(double maxCurvature){ growInDirection(maxCurvature, Eigen::Vector3d(0,0,-1)); }
+  void growUpwards(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, 1)); }
+  void growTopDown(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, -1)); }
 
   Mesh mesh;
- 
+
 protected:
   void construct(const std::vector<Eigen::Vector3d> &points, const Eigen::Vector3d ignoreDirection);
 };
-}
+}  // namespace ray
 #endif
 
-#endif // RAYLIB_RAYCONVEXHULL_H
+#endif  // RAYLIB_RAYCONVEXHULL_H

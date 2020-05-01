@@ -7,18 +7,18 @@
 #include <iostream>
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
 // Save the polygon file to disk
-void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &times, const vector<RGBA> &colours)
+void ray::writePly(const string &file_name, const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &times, const vector<RGBA> &colours)
 {
-  cout << "saving to " << fileName << ", " << ends.size() << " rays." << endl;
+  cout << "saving to " << file_name << ", " << ends.size() << " rays." << endl;
   
-  vector<RGBA> RGB(times.size());
+  vector<RGBA> rgb(times.size());
   if (colours.size() > 0)
-    RGB = colours;
+    rgb = colours;
   else
-    colourByTime(times, RGB);
+    colourByTime(times, rgb);
 
   vector<Matrix<float, 9, 1> > vertices(ends.size()); // 4d to give space for colour
   bool warned = false;
@@ -36,8 +36,8 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
         cout << "WARNING: very large point location at: " << i << ": " << ends[i].transpose() << ", suspicious" << endl;
         warned = true;
       }
-      bool B = starts[i] == starts[i];
-      if (!B)
+      bool b = starts[i] == starts[i];
+      if (!b)
       {
         cout << "WARNING: nans in start: " << i << ": " << starts[i].transpose() << endl;
         warned = true;
@@ -52,9 +52,9 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
     };
     U u;
     u.d = times[i];
-    vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)u.f[0], (float)u.f[1], (float)n[0], (float)n[1], (float)n[2], (float &)RGB[i];
+    vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)u.f[0], (float)u.f[1], (float)n[0], (float)n[1], (float)n[2], (float &)rgb[i];
   }
-  ofstream out(fileName, ios::binary | ios::out);
+  ofstream out(file_name, ios::binary | ios::out);
 
   // do we put the starts in as normals?
   out << "ply" << endl; 
@@ -77,58 +77,58 @@ void RAY::writePly(const string &fileName, const vector<Vector3d> &starts, const
   out.write((const char *)&vertices[0], sizeof(Matrix<float, 9, 1>)*vertices.size());
 }
 
-bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vector3d> &ends, vector<double> &times, vector<RGBA> &colours)
+bool ray::readPly(const string &file_name, vector<Vector3d> &starts, vector<Vector3d> &ends, vector<double> &times, vector<RGBA> &colours)
 {
-  ifstream input(fileName.c_str());
+  ifstream input(file_name.c_str());
   if (!input.is_open())
   {
-    cerr << "Couldn't open file: " << fileName << endl;
+    cerr << "Couldn't open file: " << file_name << endl;
     return false;
   }
   string line;
-  int rowSize = 0;
-  int offset = -1, normalOffset = -1, timeOffset = -1, colourOffset = -1;
-  bool timeIsFloat = false;
-  bool posIsFloat = false;
-  bool normalIsFloat = false;
+  int row_size = 0;
+  int offset = -1, normal_offset = -1, time_offset = -1, colour_offset = -1;
+  bool time_is_float = false;
+  bool pos_is_float = false;
+  bool normal_is_float = false;
   while (line != "end_header\r" && line != "end_header")
   {
     getline(input, line);
     if (line.find("property float x") != string::npos || line.find("property double x") != string::npos)
     {
-      offset = rowSize;
+      offset = row_size;
       if (line.find("float") != string::npos)
-        posIsFloat = true;
+        pos_is_float = true;
     }
     if (line.find("property float nx") != string::npos || line.find("property double nx") != string::npos)
     {
-      normalOffset = rowSize;
+      normal_offset = row_size;
       if (line.find("float") != string::npos)
-        normalIsFloat = true;
+        normal_is_float = true;
     }
     if (line.find("time") != string::npos)
     {
-      timeOffset = rowSize;
+      time_offset = row_size;
       if (line.find("float") != string::npos)
-        timeIsFloat = true;
+        time_is_float = true;
     }
     if (line.find("property uchar red") != string::npos)
-      colourOffset = rowSize;
+      colour_offset = row_size;
     if (line.find("float") != string::npos)
-      rowSize += int(sizeof(float));
+      row_size += int(sizeof(float));
     if (line.find("double") != string::npos)
-      rowSize += int(sizeof(double));
+      row_size += int(sizeof(double));
     if (line.find("property uchar") != string::npos)
-      rowSize += int(sizeof(unsigned char));
+      row_size += int(sizeof(unsigned char));
   }
   if (offset == -1)
   {
-    cerr << "could not find position properties of file: " << fileName << endl;
+    cerr << "could not find position properties of file: " << file_name << endl;
     return false;
   }
-  if (normalOffset == -1)
+  if (normal_offset == -1)
   {
-    cerr << "could not find normal properties of file: " << fileName << endl;
+    cerr << "could not find normal properties of file: " << file_name << endl;
     return false;
   }
 
@@ -136,105 +136,105 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
   input.seekg(0, input.end);
   size_t length = input.tellg() - start;
   input.seekg(start);
-  size_t size = length / rowSize;
+  size_t size = length / row_size;
   vector<unsigned char> vertices(length);
   // read data as a block:
   input.read((char *)&vertices[0], length);
-  bool timesNeedSorting = false;
-  size_t numBounded = 0;
-  size_t numUnbounded = 0;
-  bool warningSet = false;
+  bool times_need_sorting = false;
+  size_t num_bounded = 0;
+  size_t num_unbounded = 0;
+  bool warning_set = false;
   for (size_t i = 0; i < size; i++)
   {
     Vector3d end;
-    if (posIsFloat)
+    if (pos_is_float)
     {
-      Vector3f e = (Vector3f &)vertices[rowSize*i + offset];
+      Vector3f e = (Vector3f &)vertices[row_size*i + offset];
       end = Vector3d(e[0], e[1], e[2]);
     }
     else
-      end = (Vector3d &)vertices[rowSize*i + offset];
-    bool endValid = end==end;
-    if (!warningSet)
+      end = (Vector3d &)vertices[row_size*i + offset];
+    bool end_valid = end==end;
+    if (!warning_set)
     {
-      if (!endValid)
+      if (!end_valid)
       {
         cout << "warning, NANs in point " << i << ", removing all NANs." << endl;
-        warningSet = true;
+        warning_set = true;
       }
       if (abs(end[0]) > 100000.0)
       {
         cout << "warning: very large data in point " << i << ", suspicious: " << end.transpose() << endl;
-        warningSet = true;
+        warning_set = true;
       }
     }
-    if (!endValid)
+    if (!end_valid)
       continue;
 
     Vector3d normal;
-    if (normalIsFloat)
+    if (normal_is_float)
     {
-      Vector3f n = (Vector3f &)vertices[rowSize*i + normalOffset];
+      Vector3f n = (Vector3f &)vertices[row_size*i + normal_offset];
       normal = Vector3d(n[0], n[1], n[2]);
     }
     else
-      normal = (Vector3d &)vertices[rowSize*i + normalOffset];
-    bool normValid = normal==normal;
-    if (!warningSet)
+      normal = (Vector3d &)vertices[row_size*i + normal_offset];
+    bool norm_valid = normal==normal;
+    if (!warning_set)
     {
-      if (!normValid)
+      if (!norm_valid)
       {
         cout << "warning, NANs in raystart stored in normal " << i << ", removing all such rays." << endl;
-        warningSet = true;
+        warning_set = true;
       }
       if (abs(normal[0]) > 100000.0)
       {
         cout << "warning: very large data in normal " << i << ", suspicious: " << normal.transpose() << endl;
-        warningSet = true;
+        warning_set = true;
       }
     }
-    if (!normValid)
+    if (!norm_valid)
       continue;
 
     ends.push_back(end);
-    if (timeOffset != -1)
+    if (time_offset != -1)
     {
       double time;
-      if (timeIsFloat)
-        time = (double)((float &)vertices[rowSize*i + timeOffset]);
+      if (time_is_float)
+        time = (double)((float &)vertices[row_size*i + time_offset]);
       else
-        time = (double &)vertices[rowSize*i + timeOffset];
+        time = (double &)vertices[row_size*i + time_offset];
       if (times.size() > 0 && times.back() > time)
-        timesNeedSorting = true;
+        times_need_sorting = true;
       times.push_back(time);
     }
     starts.push_back(end + normal);
 
-    if (colourOffset != -1)
+    if (colour_offset != -1)
     {
-      RGBA colour = (RGBA &)vertices[rowSize*i + colourOffset];
+      RGBA colour = (RGBA &)vertices[row_size*i + colour_offset];
       colours.push_back(colour);
       if (colour.alpha > 0)
-        numBounded++;
+        num_bounded++;
       else
-        numUnbounded++;
+        num_unbounded++;
     }
   }
   if (times.size() == 0)
   {
-    cout << "warning: no time information found in " << fileName << ", setting times at 1 second intervals per ray" << endl;
+    cout << "warning: no time information found in " << file_name << ", setting times at 1 second intervals per ray" << endl;
     times.resize(ends.size());
     for (size_t i = 0; i < times.size(); i++)
       times[i] = (double)i;
   }
   if (colours.size() == 0)
   {
-    cout << "warning: no colour information found in " << fileName << ", setting colours red->green->blue based on time" << endl;
+    cout << "warning: no colour information found in " << file_name << ", setting colours red->green->blue based on time" << endl;
     colourByTime(times, colours);
-    numBounded = ends.size();
+    num_bounded = ends.size();
   }
-  cout << "reading from " << fileName << ", " << size << " rays, of which " << numBounded << " bounded and " << numUnbounded << " unbounded" << endl;
-  if (timesNeedSorting)
+  cout << "reading from " << file_name << ", " << size << " rays, of which " << num_bounded << " bounded and " << num_unbounded << " unbounded" << endl;
+  if (times_need_sorting)
   {
     cout << "warning, ray times are not in order. This is required, so sorting rays now." << endl;
     struct Temp
@@ -242,44 +242,44 @@ bool RAY::readPly(const string &fileName, vector<Vector3d> &starts, vector<Vecto
       double time;
       size_t index;
     };
-    vector<Temp> timeList(times.size());
-    for (size_t i = 0; i<timeList.size(); i++)
+    vector<Temp> time_list(times.size());
+    for (size_t i = 0; i<time_list.size(); i++)
     {
-      timeList[i].time = times[i];
-      timeList[i].index = i;
+      time_list[i].time = times[i];
+      time_list[i].index = i;
     }
-    sort(timeList.begin(), timeList.end(), [](const Temp &a, const Temp &b) {return a.time < b.time; });
-    vector<Vector3d> newStarts(starts.size()), newEnds(ends.size());
-    vector<double> newTimes(times.size());
-    vector<RGBA> newColours(colours.size());
+    sort(time_list.begin(), time_list.end(), [](const Temp &a, const Temp &b) {return a.time < b.time; });
+    vector<Vector3d> new_starts(starts.size()), new_ends(ends.size());
+    vector<double> new_times(times.size());
+    vector<RGBA> new_colours(colours.size());
     for (size_t i = 0; i<starts.size(); i++)
     {
-      newStarts[i] = starts[timeList[i].index];
-      newEnds[i] = ends[timeList[i].index];
-      newTimes[i] = timeList[i].time;
-      newColours[i] = colours[timeList[i].index];
-      if (i > 0 && newTimes[i] < newTimes[i-1])
+      new_starts[i] = starts[time_list[i].index];
+      new_ends[i] = ends[time_list[i].index];
+      new_times[i] = time_list[i].time;
+      new_colours[i] = colours[time_list[i].index];
+      if (i > 0 && new_times[i] < new_times[i-1])
         cout << "sorting failed" << endl;
     }
-    starts = newStarts;
-    ends = newEnds;
-    times = newTimes;
-    colours = newColours;
+    starts = new_starts;
+    ends = new_ends;
+    times = new_times;
+    colours = new_colours;
     cout << "finished sorting" << endl;
   }
   return true; 
 }
 
-void RAY::writePlyMesh(const string &fileName, const Mesh &mesh, bool flipNormals)
+void ray::writePlyMesh(const string &file_name, const Mesh &mesh, bool flip_normals)
 {
-  cout << "saving to " << fileName << ", " << mesh.vertices.size() << " vertices." << endl;
+  cout << "saving to " << file_name << ", " << mesh.vertices.size() << " vertices." << endl;
   
   vector<Vector4f> vertices(mesh.vertices.size()); // 4d to give space for colour
   for (size_t i = 0; i<mesh.vertices.size(); i++)
     vertices[i] << (float)mesh.vertices[i][0], (float)mesh.vertices[i][1], (float)mesh.vertices[i][2], 1.0;
 
 
-  FILE *fid = fopen(fileName.c_str(), "w+");
+  FILE *fid = fopen(file_name.c_str(), "w+");
   fprintf(fid, "ply\n"); 
   fprintf(fid, "format binary_little_endian 1.0\n"); 
   fprintf(fid, "comment SDK generated\n"); // TODO: add version here
@@ -291,25 +291,25 @@ void RAY::writePlyMesh(const string &fileName, const Mesh &mesh, bool flipNormal
   fprintf(fid, "property uchar green\n"); 
   fprintf(fid, "property uchar blue\n"); 
   fprintf(fid, "property uchar alpha\n"); 
-  fprintf(fid, "element face %u\n", (unsigned)mesh.indexList.size()); 
+  fprintf(fid, "element face %u\n", (unsigned)mesh.index_list.size()); 
   fprintf(fid, "property list int int vertex_indices\n"); 
   fprintf(fid, "end_header\n"); 
 
   fwrite(&vertices[0], sizeof(Vector4f), vertices.size(), fid);
 
-  vector<Vector4i> triangles(mesh.indexList.size());
-  if (flipNormals)
-    for (size_t i = 0; i<mesh.indexList.size(); i++)
-      triangles[i] = Vector4i(3, mesh.indexList[i][2], mesh.indexList[i][1], mesh.indexList[i][0]);
+  vector<Vector4i> triangles(mesh.index_list.size());
+  if (flip_normals)
+    for (size_t i = 0; i<mesh.index_list.size(); i++)
+      triangles[i] = Vector4i(3, mesh.index_list[i][2], mesh.index_list[i][1], mesh.index_list[i][0]);
   else
-    for (size_t i = 0; i<mesh.indexList.size(); i++)
-      triangles[i] = Vector4i(3, mesh.indexList[i][0], mesh.indexList[i][1], mesh.indexList[i][2]);
+    for (size_t i = 0; i<mesh.index_list.size(); i++)
+      triangles[i] = Vector4i(3, mesh.index_list[i][0], mesh.index_list[i][1], mesh.index_list[i][2]);
   fwrite(&triangles[0], sizeof(Vector4i), triangles.size(), fid);
   fclose(fid);   
 }
 
 
-bool RAY::readPlyMesh(const string &file, Mesh &mesh)
+bool ray::readPlyMesh(const string &file, Mesh &mesh)
 {
   ifstream input(file.c_str());
   if (!input.is_open())
@@ -318,41 +318,41 @@ bool RAY::readPlyMesh(const string &file, Mesh &mesh)
     return false;
   }
   string line;
-  unsigned rowSize = 0;
-  unsigned numberOfFaces = 0;
-  unsigned numberOfVertices = 0;
+  unsigned row_size = 0;
+  unsigned number_of_faces = 0;
+  unsigned number_of_vertices = 0;
   char char1[100], char2[100];
   while (line != "end_header\r" && line != "end_header")
   {
     getline(input, line);
     if (line.find("float") != string::npos)
     {
-      rowSize += 4;
+      row_size += 4;
     }
     if (line.find("property uchar") != string::npos)
     {
-      rowSize ++;
+      row_size ++;
     }
     if (line.find("element vertex") != string::npos)
-      sscanf(line.c_str(), "%s %s %u", char1, char2, &numberOfVertices);
+      sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_vertices);
     if (line.find("element face") != string::npos)
-      sscanf(line.c_str(), "%s %s %u", char1, char2, &numberOfFaces);    
+      sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_faces);    
   }
   
-  vector<Vector4f> vertices(numberOfVertices);
+  vector<Vector4f> vertices(number_of_vertices);
   // read data as a block:
   input.read((char *)&vertices[0], sizeof(Vector4f) * vertices.size());
-  vector<Vector4i> triangles(numberOfFaces);
+  vector<Vector4i> triangles(number_of_faces);
   input.read((char *)&triangles[0], sizeof(Vector4i) * triangles.size());
   
   mesh.vertices.resize(vertices.size());
   for (int i = 0; i<(int)vertices.size(); i++)
     mesh.vertices[i] = Vector3d(vertices[i][0], vertices[i][1], vertices[i][2]);
  
-  mesh.indexList.resize(triangles.size());
+  mesh.index_list.resize(triangles.size());
   for (int i = 0; i<(int)triangles.size(); i++)
-    mesh.indexList[i] = Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
-  cout << "reading from " << file << ", " << mesh.indexList.size() << " triangles." << endl;
+    mesh.index_list[i] = Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
+  cout << "reading from " << file << ", " << mesh.index_list.size() << " triangles." << endl;
   return true;
 }
 

@@ -13,7 +13,7 @@
 #include <Eigen/Geometry>
 #include <ostream>
 
-namespace RAY
+namespace ray
 {
 // 3d orientation and position
 struct RAYLIB_EXPORT Pose

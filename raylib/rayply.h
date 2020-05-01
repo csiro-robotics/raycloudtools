@@ -11,13 +11,13 @@
 #include "rayutils.h"
 #include "raymesh.h"
 
-namespace RAY
+namespace ray
 {
-bool RAYLIB_EXPORT readPly(const std::string &fileName, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours);
+bool RAYLIB_EXPORT readPly(const std::string &file_namee, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours);
 bool RAYLIB_EXPORT readPlyMesh(const std::string &file, Mesh &mesh);
 
-void RAYLIB_EXPORT writePly(const std::string &fileName, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours);
-void RAYLIB_EXPORT writePlyMesh(const std::string &fileNameRaw, const Mesh &mesh, bool flipNormals = false);
+void RAYLIB_EXPORT writePly(const std::string &file_namee, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours);
+void RAYLIB_EXPORT writePlyMesh(const std::string &file_name_rawaw, const Mesh &mesh, bool flip_normalss = false);
 }
 
 #endif // RAYLIB_RAYPLY_H

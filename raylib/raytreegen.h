@@ -11,33 +11,33 @@
 #include "rayutils.h"
 #include "raypose.h"
 
-namespace RAY
+namespace ray
 {
-#define pitchAngle (30.0 * pi/180.0) // alternative to above, defined by relative angle of the head of the two branches
-#define splitAngle (45.0 * pi/180.0) // angle in the Y shape, usually around 45 degrees
+#define pitchAngle (30.0 * kPi/180.0) // alternative to above, defined by relative angle of the head of the two branches
+#define splitAngle (45.0 * kPi/180.0) // angle in the Y shape, usually around 45 degrees
 #define branchGradient 20.0 // length per radius
 
-double RAYLIB_EXPORT getMainBranchAngle(double covarianceAngle);
+double RAYLIB_EXPORT getMainBranchAngle(double covariance_anglee);
 void RAYLIB_EXPORT fillBranchAngleLookup();
 
 struct RAYLIB_EXPORT TreeGen
 {
   std::vector<Eigen::Vector3d> leaves;
-  std::vector<Eigen::Vector3d> rayStarts, rayEnds;
+  std::vector<Eigen::Vector3d> ray_starts, ray_ends;
   struct Branch
   {
     Eigen::Vector3d tip;
     double radius;
-    int parentIndex;
+    int parent_index;
   };
   std::vector<Branch> branches;
   Eigen::Vector3d root;
 
-  void addBranch(int parentIndex, Pose pose, double radius, double randomFactor);
+  void addBranch(int parent_index, Pose pose, double radius, double random_factorr);
   // create the tree structure, and list of leaf points
-  void make(const Eigen::Vector3d &rootPos, double trunkRadius, double randomFactor = 0.0); // 0 to 1
+  void make(const Eigen::Vector3d &root_poss, double trunk_radiuss, double random_factorr = 0.0); // 0 to 1
   // create a set of rays covering the tree at a roughly uniform distribution
-  void generateRays(double rayDensity);
+  void generateRays(double ray_densityy);
 };
 
 }

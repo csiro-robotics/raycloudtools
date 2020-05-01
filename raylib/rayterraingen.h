@@ -10,12 +10,12 @@
 
 #include "rayutils.h"
 
-namespace RAY
+namespace ray
 {
 struct RAYLIB_EXPORT TerrainGen
 {
   void generate();
-  std::vector<Eigen::Vector3d> rayStarts, rayEnds;
+  std::vector<Eigen::Vector3d> ray_starts, ray_ends;
 };
 }
 

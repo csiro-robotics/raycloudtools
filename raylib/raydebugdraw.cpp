@@ -9,66 +9,66 @@
 #include <visualization_msgs/MarkerArray.h>
 #endif
 
-using namespace RAY;
+using namespace ray;
 using namespace std;
 using namespace Eigen;
 
-namespace RAY
+namespace ray
 {
 struct DebugDrawDetail
 {
 #if RAYLIB_WITH_ROS
   ros::NodeHandle n;
-  ros::Publisher cloudPublisher[2];
-  ros::Publisher linePublisher;
-  ros::Publisher cylinderPublisher[2];
-  ros::Publisher ellipsoidPublisher[6];
-  std::string fixedFrameId;
+  ros::Publisher cloud_publisher[2];
+  ros::Publisher line_publisher;
+  ros::Publisher cylinder_publisher[2];
+  ros::Publisher ellipsoid_publisher[6];
+  std::string fixed_frame_id;
 #endif // RAYLIB_WITH_ROS
 };
-}  // namespace RAY
+}  // namespace ray
 
-std::unique_ptr<DebugDraw> DebugDraw::instance_;
+std::unique_ptr<DebugDraw> DebugDraw::s_instance;
 
-DebugDraw::DebugDraw(const string& fixedFrameId)
+DebugDraw::DebugDraw(const string& fixed_frame_id)
 : imp_(new DebugDrawDetail)
 {
   #if !RAYLIB_WITH_ROS
-  RAYLIB_UNUSED(fixedFrameId);
+  RAYLIB_UNUSED(fixed_frame_id);
   #else
-  imp_->cloudPublisher[0] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud1", 3, true);
-  imp_->cloudPublisher[1] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud2", 3, true);
-  imp_->linePublisher = imp_->n.advertise<visualization_msgs::Marker>("lines", 3, true);
-  imp_->cylinderPublisher[0] = imp_->n.advertise<visualization_msgs::MarkerArray>("cylinders1", 3, true);
-  imp_->cylinderPublisher[1] = imp_->n.advertise<visualization_msgs::MarkerArray>("cylinders2", 3, true);
-  imp_->ellipsoidPublisher[0] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids", 3, true);
-  imp_->ellipsoidPublisher[1] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids2", 3, true);
-  imp_->ellipsoidPublisher[2] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids3", 3, true);
-  imp_->ellipsoidPublisher[3] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids4", 3, true);
-  imp_->ellipsoidPublisher[4] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
-  imp_->ellipsoidPublisher[5] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
-  imp_->fixedFrameId = fixedFrameId;
+  imp_->cloud_publisher[0] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud1", 3, true);
+  imp_->cloud_publisher[1] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud2", 3, true);
+  imp_->line_publisher = imp_->n.advertise<visualization_msgs::Marker>("lines", 3, true);
+  imp_->cylinder_publisher[0] = imp_->n.advertise<visualization_msgs::MarkerArray>("cylinders1", 3, true);
+  imp_->cylinder_publisher[1] = imp_->n.advertise<visualization_msgs::MarkerArray>("cylinders2", 3, true);
+  imp_->ellipsoid_publisher[0] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids", 3, true);
+  imp_->ellipsoid_publisher[1] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids2", 3, true);
+  imp_->ellipsoid_publisher[2] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids3", 3, true);
+  imp_->ellipsoid_publisher[3] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids4", 3, true);
+  imp_->ellipsoid_publisher[4] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
+  imp_->ellipsoid_publisher[5] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
+  imp_->fixed_frame_id = fixed_frame_id;
   #endif
 }
 
 DebugDraw::~DebugDraw() = default;
 
-DebugDraw *DebugDraw::init(int argc, char *argv[], const char *context, bool rosInit)
+DebugDraw *DebugDraw::init(int argc, char *argv[], const char *context, bool ros_init)
 {
-  if (!instance_)
+  if (!s_instance)
   {
 #if !RAYLIB_WITH_ROS
     RAYLIB_UNUSED(context);
     RAYLIB_UNUSED(argc);
     RAYLIB_UNUSED(argv);
-    RAYLIB_UNUSED(rosInit);
+    RAYLIB_UNUSED(ros_init);
 #else  // RAYLIB_WITH_ROS
-    if (rosInit)
+    if (ros_init)
     {
       ros::init(argc, argv, context);
     }
 #endif  // RAYLIB_WITH_ROS
-    instance_ = std::make_unique<DebugDraw>();
+    s_instance = std::make_unique<DebugDraw>();
   }
 
   return instance();
@@ -76,7 +76,7 @@ DebugDraw *DebugDraw::init(int argc, char *argv[], const char *context, bool ros
 
 DebugDraw *DebugDraw::instance()
 {
-  return instance_.get();
+  return s_instance.get();
 }
 
 #if RAYLIB_WITH_ROS
@@ -89,67 +89,67 @@ void setField2(sensor_msgs::PointField &field, const string &name, int offset, u
 }
 #endif
 
-void DebugDraw::drawCloud(const vector<Vector3d> &points, const vector<double> &pointShade, int id)
+void DebugDraw::drawCloud(const vector<Vector3d> &points, const vector<double> &point_shade, int id)
 {
   #if !RAYLIB_WITH_ROS
   RAYLIB_UNUSED(points);
-  RAYLIB_UNUSED(pointShade);
+  RAYLIB_UNUSED(point_shade);
   RAYLIB_UNUSED(id);
   #else
-  sensor_msgs::PointCloud2 pointCloud;
-  pointCloud.header.frame_id = 3;
-  pointCloud.header.stamp = ros::Time();
-  unsigned int pointStep = 0;
+  sensor_msgs::PointCloud2 point_cloud;
+  point_cloud.header.frame_id = 3;
+  point_cloud.header.stamp = ros::Time();
+  unsigned int point_step = 0;
   
   sensor_msgs::PointField x;
-  setField2(x, "x", pointStep, sensor_msgs::PointField::FLOAT32, 1);
-  pointStep += unsigned(sizeof(float));
-  pointCloud.fields.push_back(x);
+  setField2(x, "x", point_step, sensor_msgs::PointField::FLOAT32, 1);
+  point_step += unsigned(sizeof(float));
+  point_cloud.fields.push_back(x);
   
   sensor_msgs::PointField y;
-  setField2(y, "y", pointStep, sensor_msgs::PointField::FLOAT32, 1);
-  pointStep += unsigned(sizeof(float));
-  pointCloud.fields.push_back(y);
+  setField2(y, "y", point_step, sensor_msgs::PointField::FLOAT32, 1);
+  point_step += unsigned(sizeof(float));
+  point_cloud.fields.push_back(y);
   
   sensor_msgs::PointField z;
-  setField2(z, "z", pointStep, sensor_msgs::PointField::FLOAT32, 1);
-  pointStep += unsigned(sizeof(float));
-  pointCloud.fields.push_back(z);
+  setField2(z, "z", point_step, sensor_msgs::PointField::FLOAT32, 1);
+  point_step += unsigned(sizeof(float));
+  point_cloud.fields.push_back(z);
   
   sensor_msgs::PointField time;
-  bool drawTime = true;
-  if(drawTime)
+  bool draw_time = true;
+  if(draw_time)
   {
-    setField2(time, "time", pointStep, sensor_msgs::PointField::FLOAT64, 1);
-    pointStep += unsigned(sizeof(double));
-    pointCloud.fields.push_back(time);
+    setField2(time, "time", point_step, sensor_msgs::PointField::FLOAT64, 1);
+    point_step += unsigned(sizeof(double));
+    point_cloud.fields.push_back(time);
   }
   
-  pointCloud.is_bigendian = false;
-  pointCloud.is_dense = false;
-  pointCloud.point_step = pointStep;
-  pointCloud.height = 1; 
-  pointCloud.width = unsigned(points.size());
-  if (pointCloud.width <= 0)
+  point_cloud.is_bigendian = false;
+  point_cloud.is_dense = false;
+  point_cloud.point_step = point_step;
+  point_cloud.height = 1; 
+  point_cloud.width = unsigned(points.size());
+  if (point_cloud.width <= 0)
     return;
-  pointCloud.row_step = pointCloud.point_step * pointCloud.width; 
+  point_cloud.row_step = point_cloud.point_step * point_cloud.width; 
 
-  pointCloud.data.resize(pointCloud.row_step);
-  for (unsigned int i = 0; i < pointCloud.width; ++i)
+  point_cloud.data.resize(point_cloud.row_step);
+  for (unsigned int i = 0; i < point_cloud.width; ++i)
   {
-    unsigned int pointIndex = i;
-    unsigned int dataIndex = i*pointCloud.point_step;
+    unsigned int point_index = i;
+    unsigned int data_index = i*point_cloud.point_step;
     
-    *((float *)&pointCloud.data[dataIndex+x.offset]) = (float)points[pointIndex][0];
-    *((float *)&pointCloud.data[dataIndex+y.offset]) = (float)points[pointIndex][1];
-    *((float *)&pointCloud.data[dataIndex+z.offset]) = (float)points[pointIndex][2];
+    *((float *)&point_cloud.data[data_index+x.offset]) = (float)points[point_index][0];
+    *((float *)&point_cloud.data[data_index+y.offset]) = (float)points[point_index][1];
+    *((float *)&point_cloud.data[data_index+z.offset]) = (float)points[point_index][2];
     
-    if(drawTime)
-      *((double *)&pointCloud.data[dataIndex+time.offset]) = (float)pointShade[pointIndex];
+    if(draw_time)
+      *((double *)&point_cloud.data[data_index+time.offset]) = (float)point_shade[point_index];
   }
   
-  if (pointCloud.width > 0)
-    imp_->cloudPublisher[id].publish(pointCloud);
+  if (point_cloud.width > 0)
+    imp_->cloud_publisher[id].publish(point_cloud);
   #endif
 }
 
@@ -160,7 +160,7 @@ void DebugDraw::drawLines(const vector<Vector3d> &starts, const vector<Vector3d>
   RAYLIB_UNUSED(ends);
   #else
   visualization_msgs::Marker points;
-  points.header.frame_id = imp_->fixedFrameId;
+  points.header.frame_id = imp_->fixed_frame_id;
   points.header.stamp = ros::Time::now();
   points.ns = "lines";
   points.action = visualization_msgs::Marker::ADD;
@@ -198,7 +198,7 @@ void DebugDraw::drawLines(const vector<Vector3d> &starts, const vector<Vector3d>
   }
 
   // Publish the marker
-  imp_->linePublisher.publish(points);
+  imp_->line_publisher.publish(points);
   #endif
 }
 
@@ -210,11 +210,11 @@ void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vecto
   RAYLIB_UNUSED(radii);
   RAYLIB_UNUSED(id);
   #else
-  visualization_msgs::MarkerArray markerArray;
+  visualization_msgs::MarkerArray marker_array;
   for (int i = 0; i<(int)starts.size(); i++)
   {
     visualization_msgs::Marker marker;
-    marker.header.frame_id = imp_->fixedFrameId;
+    marker.header.frame_id = imp_->fixed_frame_id;
     marker.id = i;
     marker.type = marker.CYLINDER;
     marker.action = marker.ADD;
@@ -238,8 +238,8 @@ void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vecto
     Vector3d dir = (starts[i] - ends[i]).normalized();
     Vector3d ax = dir.cross(Vector3d(0,0,1));
     double angle = atan2(ax.norm(), dir[2]);
-    Vector3d rotVector = ax.normalized() * -angle;
-    AngleAxisd aa(rotVector.norm(), rotVector.normalized());
+    Vector3d rot_vector = ax.normalized() * -angle;
+    AngleAxisd aa(rot_vector.norm(), rot_vector.normalized());
     Quaterniond q(aa);
     marker.pose.orientation.w = q.w();
     marker.pose.orientation.x = q.x();
@@ -250,9 +250,9 @@ void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vecto
     marker.pose.position.y = mid[1];
     marker.pose.position.z = mid[2];
 
-    markerArray.markers.push_back(marker);
+    marker_array.markers.push_back(marker);
   }
-  imp_->cylinderPublisher[id].publish(markerArray);
+  imp_->cylinder_publisher[id].publish(marker_array);
   #endif
 }
 
@@ -265,11 +265,11 @@ void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Mat
   RAYLIB_UNUSED(colour);
   RAYLIB_UNUSED(id);
   #else
-  visualization_msgs::MarkerArray markerArray;
+  visualization_msgs::MarkerArray marker_array;
   for (int i = 0; i<(int)centres.size(); i++)
   {
     visualization_msgs::Marker marker;
-    marker.header.frame_id = imp_->fixedFrameId;
+    marker.header.frame_id = imp_->fixed_frame_id;
     marker.id = i;
     marker.type = marker.SPHERE;
     marker.action = marker.ADD;
@@ -289,8 +289,8 @@ void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Mat
     Vector3d len = poses[i].col(ind);
     Vector3d ax = len.cross(Vector3d(0,0,1));
     double angle = atan2(ax.norm(), len[2]);
-    Vector3d rotVector = ax.normalized() * -angle;
-    Quaterniond q(AngleAxisd(rotVector.norm(), rotVector.normalized()));  
+    Vector3d rot_vector = ax.normalized() * -angle;
+    Quaterniond q(AngleAxisd(rot_vector.norm(), rot_vector.normalized()));  
     
     q.normalize();
     if (!(abs(q.squaredNorm()-1.0) < 0.001))
@@ -311,9 +311,9 @@ void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Mat
     marker.pose.position.y = mid[1];
     marker.pose.position.z = mid[2];
 
-    markerArray.markers.push_back(marker);
+    marker_array.markers.push_back(marker);
   }
 
-  imp_->ellipsoidPublisher[id].publish(markerArray);
+  imp_->ellipsoid_publisher[id].publish(marker_array);
   #endif
 }

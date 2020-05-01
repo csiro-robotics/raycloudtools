@@ -12,7 +12,7 @@
 
 #include <memory>
 
-namespace RAY
+namespace ray
 {
 struct DebugDrawDetail;
 
@@ -26,15 +26,15 @@ public:
   /// @param context Label applied to the current context.
   /// @param rosInit Call @c ros::init()?
   /// @return The same as @c instance()
-  static DebugDraw *init(int argc, char *argv[], const char *context, bool rosInit = true);
+  static DebugDraw *init(int argc, char *argv[], const char *context, bool ros_initt = true);
 
   /// Singleton instance access.
   static DebugDraw *instance();
 
-  DebugDraw(const std::string& fixedFrameId = "map");
+  DebugDraw(const std::string& fixed_frame_idid = "map");
   ~DebugDraw();
   
-  void drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &pointShade, int id);
+  void drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shadee, int id);
   void drawCloud(const std::vector<Eigen::Vector3d> &points, double shade, int id){ std::vector<double> shades(points.size()); for (int i = 0; i<(int)points.size(); i++)shades[i] = shade; drawCloud(points, shades, id); }
   void drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends);
   void drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &radii, int id);
@@ -42,7 +42,7 @@ public:
 
 private:
   std::unique_ptr<DebugDrawDetail> imp_;
-  static std::unique_ptr<DebugDraw> instance_;
+  static std::unique_ptr<DebugDraw> s_instance;
 };
 }
 

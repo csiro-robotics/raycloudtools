@@ -12,7 +12,7 @@
 #include <set>
 
 #if RAYLIB_WITH_QHULL
-namespace RAY
+namespace ray
 {
 struct RAYLIB_EXPORT ConcaveHull
 {
@@ -40,10 +40,10 @@ struct RAYLIB_EXPORT ConcaveHull
     {
       vertices[0] = v1;
       vertices[1] = v2;
-      hasHadFace = false;
+      has_had_face = false;
     }
     int vertices[2];
-    bool hasHadFace;
+    bool has_had_face;
   };
   struct Triangle
   {
@@ -51,16 +51,16 @@ struct RAYLIB_EXPORT ConcaveHull
     {
       vertices[0] = vertices[1] = vertices[2] = -1;
       edges = Eigen::Vector3i(-1, -1, -1);
-      isSurface = false;
+      is_surface = false;
       used = false;
     }
     bool valid() { return vertices[0] != -1; }
-    bool isSurface;
+    bool is_surface;
     bool used;
     Eigen::Vector3i vertices;
     Eigen::Vector3i edges;
     int tetrahedra[2];
-    SurfaceFace surfaceFaceCached;
+    SurfaceFace surface_face_cached;
   };
   struct Tetrahedron
   {
@@ -94,7 +94,7 @@ struct RAYLIB_EXPORT ConcaveHull
     }
     return true;
   }
-  std::vector<bool> vertexOnSurface;
+  std::vector<bool> vertex_on_surface;
   std::vector<Eigen::Vector3d> vertices;
   std::vector<Edge> edges;
 
@@ -123,7 +123,7 @@ protected:
   double circumcurvature(const ConcaveHull::Tetrahedron &tetra, int triangleID);
   void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
 };
-}  // namespace RAY
+}  // namespace ray
 
 #endif
 

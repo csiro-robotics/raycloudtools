@@ -11,12 +11,12 @@
 #include "rayutils.h"
 #include "raytreegen.h"
 
-namespace RAY
+namespace ray
 {
 struct RAYLIB_EXPORT ForestGen
 {
-  void make(double randomFactor = 0.0);
-  void generateRays(double rayDensity);
+  void make(double random_factorr = 0.0);
+  void generateRays(double ray_densityy);
   std::vector<Eigen::Vector3d> getCanopy();
   std::vector<Eigen::Vector3d> getPointCloud();
 

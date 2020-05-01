@@ -66,7 +66,8 @@
     "condition_variable": "cpp",
     "forward_list": "cpp",
     "mutex": "cpp",
-    "valarray": "cpp"
+    "valarray": "cpp",
+    "*.ipp": "cpp"
   },
   "python.autoComplete.extraPaths": [
     "/home/parallels/code/demining/demine_ros/devel/lib/python2.7/dist-packages",

@@ -11,16 +11,16 @@
 #include <iostream>
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 0)
 {
   cout << "Rotate a raycloud about the origin" << endl;
   cout << "usage:" << endl;
   cout << "rayrotate raycloud 30,0,0  - rotation (rx,ry,rz) is a rotation vector in degrees:" << endl;
   cout << "                             so this example rotates the cloud by 30 degrees in the x axis." << endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
 int main(int argc, char *argv[])
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
   double angle = axis.norm();
   axis /= angle;
-  pose.rotation = Quaterniond(AngleAxisd(angle * pi/180.0, axis));
+  pose.rotation = Quaterniond(AngleAxisd(angle * kPi/180.0, axis));
 
   Cloud cloud;
   cloud.load(file);

@@ -15,16 +15,16 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
-bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &times, vector<RGBA> &colours, int decimation)
+bool ray::readLas(string file_name, vector<Vector3d> &positions, vector<double> &times, vector<RGBA> &colours, int decimation)
 {
 #if RAYLIB_WITH_LAS
   vector<double> intensities;
-  cout << "readLas: filename: " << fileName << endl;
+  cout << "readLas: filename: " << file_name << endl;
   
   std::ifstream ifs;
-  ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
+  ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
 
   if (!ifs.is_open()){
       cerr << "readLas: failed to open stream" << endl;
@@ -37,7 +37,7 @@ bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &
 
   unsigned int size = header.GetPointRecordsCount();
  
-  int numIntensities = 0;
+  int num_intensities = 0;
   for(unsigned int i=0; i<size; i++)
   {
     reader.ReadNextPoint();
@@ -53,21 +53,21 @@ bool RAY::readLas(string fileName, vector<Vector3d> &positions, vector<double> &
       times.push_back(point.GetTime());
       double intensity = point.GetIntensity();
       if (intensity > 0.0)
-        numIntensities++;
+        num_intensities++;
       intensities.push_back(intensity);
     }
   }
-  if (numIntensities == 0)
+  if (num_intensities == 0)
     for (auto &i: intensities)
       i = 1.0;
   colourByTime(times, colours);
   for (int i = 0; i<(int)colours.size(); i++) // add intensity into alhpa channel
     colours[i].alpha = uint8_t(255.0*clamped(intensities[i], 0.0, 1.0));
   
-  cout << "loaded " << fileName << " with " << positions.size() << " points" << endl;
+  cout << "loaded " << file_name << " with " << positions.size() << " points" << endl;
   return true;
 #else  // RAYLIB_WITH_LAS
-  RAYLIB_UNUSED(fileName);
+  RAYLIB_UNUSED(file_name);
   RAYLIB_UNUSED(positions);
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
