@@ -1,0 +1,37 @@
+// Copyright (c) 2019
+// Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+// ABN 41 687 119 230
+//
+// Author: Gavin Catt
+
+// THIS IS AN AUTO GENERATED FILE, DO NOT MODIFY
+
+// clang-format off
+
+#ifndef RAS_@DUMMY_LIB_NAME@_DUMMY_H
+#define RAS_@DUMMY_LIB_NAME@_DUMMY_H
+
+namespace ras
+{
+namespace dummy
+{
+namespace @DUMMY_LIB_NAME@
+{
+/// Dummy class for the library.
+/// @warning this class does nothing, and is purely a work-around
+/// @warning this is required for the encryption process.
+/// @todo don't make a dummy library.
+class Dummy
+{
+  /// Dummy symbol for the library.
+  /// @warning this is required for the encryption process.
+  /// @todo don't make a dummy library.
+  void dummy();
+};
+}  // namespace @DUMMY_LIB_NAME@
+}  // namespace dummy
+}  // namespace ras
+
+#endif
+
+// clang-format on

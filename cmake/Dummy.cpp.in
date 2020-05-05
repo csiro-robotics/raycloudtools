@@ -1,0 +1,27 @@
+// Copyright (c) 2019
+// Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+// ABN 41 687 119 230
+//
+// Author: Gavin Catt
+
+// clang-format off
+
+#include "Dummy.h"
+
+#include <stdexcept>
+
+namespace ras
+{
+namespace dummy
+{
+namespace @DUMMY_LIB_NAME@
+{
+void Dummy::dummy()
+{
+  throw std::runtime_error("Dummy method called");
+}
+}  // namespace @DUMMY_LIB_NAME@
+}  // namespace dummy
+}  // namespace ras
+
+// clang-format on

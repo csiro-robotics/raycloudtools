@@ -1,0 +1,85 @@
+# This module searches liblas and defines
+# libLAS_LIBRARIES - link libraries
+# libLAS_RUNTIME_LIBRARIES - runtime binaries (DLLs)
+# libLAS_FOUND, if false, do not try to link
+# libLAS_INCLUDE_DIR, libLAS_INCLUDE_DIRS, where to find the headers
+#
+# $libLAS_ROOT is an environment variable that would
+
+set(LL_HEADER liblas/liblas.hpp)
+set(LL_HEADER_SUFFIX include)
+set(LL_LIB liblas las)
+set(LL_LIB_DEBUG)
+set(LL_SHARED)
+set(LL_SHARED_DEBUG)
+
+foreach(LLIB ${LL_LIB})
+  list(APPEND LL_LIB_DEBUG ${LLIB}d)
+endforeach(LLIB)
+
+foreach(LLIB ${LL_LIB})
+  list(APPEND LL_SHARED ${LLIB}${CMAKE_SHARED_LIBRARY_SUFFIX})
+endforeach(LLIB)
+
+foreach(LLIB ${LL_LIB_DEBUG})
+  list(APPEND LL_SHARED_DEBUG ${LLIB}${CMAKE_SHARED_LIBRARY_SUFFIX})
+endforeach(LLIB)
+
+# Target the C API if COMPONENTS specified as "capi"
+if(libLAS_FIND_COMPONENTS STREQUAL "capi")
+  set(LL_HEADER liblas/capi/liblas.h)
+  set(LL_HEADER_SUFFIX include)
+  set(LL_LIB liblas_c las_c)
+else(libLAS_FIND_COMPONENTS STREQUAL "capi")
+endif(libLAS_FIND_COMPONENTS STREQUAL "capi")
+
+find_path(libLAS_INCLUDE_DIR ${LL_HEADER} HINTS ENV libLAS_ROOT PATH_SUFFIXES ${LL_HEADER_SUFFIX})
+set(libLAS_INCLUDE_DIRS ${libLAS_INCLUDE_DIR})
+
+find_library(libLAS_LIBRARY_DEBUG NAMES ${LL_LIB_DEBUG} HINTS ENV libLAS_ROOT PATH_SUFFIXES lib)
+find_library(libLAS_LIBRARY_RELEASE NAMES ${LL_LIB} HINTS ENV libLAS_ROOT PATH_SUFFIXES lib)
+
+find_file(libLAS_RUNTIME_DEBUG NAMES ${LL_SHARED_DEBUG} HINTS ENV libLAS_ROOT PATH_SUFFIXES bin)
+find_file(libLAS_RUNTIME_RELEASE NAMES ${LL_SHARED} HINTS ENV libLAS_ROOT PATH_SUFFIXES bin)
+
+if(libLAS_LIBRARY_DEBUG)
+  list(APPEND libLAS_LIBRARIES debug ${libLAS_LIBRARY_DEBUG})
+  if(libLAS_LIBRARY_RELEASE)
+    list(APPEND libLAS_LIBRARIES optimized ${libLAS_LIBRARY_RELEASE})
+  endif(libLAS_LIBRARY_RELEASE)
+else(libLAS_LIBRARY_DEBUG)
+  list(APPEND libLAS_LIBRARIES ${libLAS_LIBRARY_RELEASE})
+endif(libLAS_LIBRARY_DEBUG)
+
+if(libLAS_RUNTIME_DEBUG)
+  list(APPEND libLAS_RUNTIME_LIBRARIES debug ${libLAS_RUNTIME_DEBUG})
+  if(libLAS_RUNTIME_RELEASE)
+    list(APPEND libLAS_RUNTIME_LIBRARIES optimized ${libLAS_RUNTIME_RELEASE})
+  endif(libLAS_RUNTIME_RELEASE)
+else(libLAS_RUNTIME_DEBUG)
+  list(APPEND libLAS_RUNTIME_LIBRARIES ${libLAS_RUNTIME_RELEASE})
+endif(libLAS_RUNTIME_DEBUG)
+
+if(libLAS_RUNTIME_DEBUG)
+  get_filename_component(RUNTIME_DIR "${libLAS_RUNTIME_DEBUG}" DIRECTORY)
+  list(APPEND libLAS_RUNTIME_DIRS "${RUNTIME_DIR}")
+endif(libLAS_RUNTIME_DEBUG)
+if(libLAS_RUNTIME_RELEASE)
+  get_filename_component(RUNTIME_DIR "${libLAS_RUNTIME_RELEASE}" DIRECTORY)
+  list(APPEND libLAS_RUNTIME_DIRS "${RUNTIME_DIR}")
+endif(libLAS_RUNTIME_RELEASE)
+if (libLAS_RUNTIME_DIRS)
+  list(REMOVE_DUPLICATES libLAS_RUNTIME_DIRS)
+endif(libLAS_RUNTIME_DIRS)
+set(libLAS_RUNTIME_DIRS "${libLAS_RUNTIME_DIRS}" CACHE PATH "LIBLAS runtime directories")
+
+
+# handle the QUIETLY and REQUIRED arguments and set libLAS_FOUND to TRUE if
+# all listed variables are TRUE
+include(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIBLAS REQUIRED_VARS libLAS_LIBRARIES libLAS_INCLUDE_DIR)
+if(libLAS_RUNTIME_LIBRARIES)
+  set(libLAS_RUNTIME_LIBRARIES ${libLAS_RUNTIME_LIBRARIES} CACHE PATH "LIBBLAS runtime libraries")
+endif(libLAS_RUNTIME_LIBRARIES)
+
+mark_as_advanced(libLAS_INCLUDE_DIR libLAS_LIBRARIES libLAS_RUNTIME_LIBRARIES)
