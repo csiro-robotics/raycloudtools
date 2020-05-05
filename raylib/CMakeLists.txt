@@ -19,9 +19,11 @@ set(PUBLIC_HEADERS
   raymesh.h
   rayply.h
   raypose.h
+  rayprogress.h
   rayroomgen.h
   rayterraingen.h
   raytrajectory.h
+  raytransientfilter.h
   raytreegen.h
   rayunused.h
   rayutils.h
@@ -45,6 +47,7 @@ set(SOURCES
   rayroomgen.cpp
   rayterraingen.cpp
   raytrajectory.cpp
+  raytransientfilter.cpp
   raytreegen.cpp
 )
 

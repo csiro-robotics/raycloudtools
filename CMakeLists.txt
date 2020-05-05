@@ -31,12 +31,14 @@ option(WITH_QHULL "With libqhull support?" OFF)
 if(UNIX)
   option(WITH_ROS "With ROS rviz support for debug visualisation?" OFF)
 endif(UNIX)
+option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" ON)
 
 # Convert WITH_ options to 1/0 so we can use them in configuration headers.
 ras_bool_to_int(WITH_3ES)
 ras_bool_to_int(WITH_LAS)
 ras_bool_to_int(WITH_QHULL)
 ras_bool_to_int(WITH_ROS)
+ras_bool_to_int(WITH_TBB)
 
 # Required packages.
 find_package(Eigen3 REQUIRED)
@@ -72,6 +74,11 @@ if(WITH_ROS)
   list(APPEND RAYTOOLS_INCLUDE ${catkin_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${catkin_LIBRARIES})
 endif(WITH_ROS)
+if(WITH_TBB)
+  find_package(TBB REQUIRED)
+  list(APPEND RAYTOOLS_INCLUDE ${TBB_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
+endif(WITH_TBB)
 
 # Create libs
 add_subdirectory(3rd-party)

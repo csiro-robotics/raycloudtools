@@ -15,6 +15,8 @@
 
 namespace ray
 {
+class Progress;
+
 struct RAYLIB_EXPORT Ellipsoid
 {
   Eigen::Vector3d pos;
@@ -45,11 +47,16 @@ struct RAYLIB_EXPORT Cloud
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;
   std::vector<RGBA> colours;
-  inline bool rayBounded(int i) { return colours[i].alpha > 0; }
-  inline uint8_t rayIntensity(int i) { return colours[i].alpha; }
 
-  void save(const std::string &file_namee);
-  bool load(const std::string &file_namee);
+  void clear();
+
+  inline bool rayBounded(size_t i) const { return colours[i].alpha > 0; }
+  inline uint8_t rayIntensity(size_t i) const { return colours[i].alpha; }
+
+  inline size_t rayCount() const { return ends.size(); }
+
+  void save(const std::string &file_name) const;
+  bool load(const std::string &file_name);
   bool load(const std::string &point_cloudd, const std::string &traj_filee);
 
   void transform(const Pose &pose, double time_deltaa);
@@ -57,16 +64,21 @@ struct RAYLIB_EXPORT Cloud
 
   void removeUnboundedRays();
   std::vector<Eigen::Vector3d> generateNormals(int search_sizee = 16);
-  void findTransients(Cloud &transient, Cloud &fixed, const std::string &merge_typee, double num_rays,
-                      bool colour_cloudd);
-  void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &merge_typee, double num_rays);
+  void findTransients(Cloud &transient, Cloud &fixed, const std::string &merge_type, double num_rays,
+                      bool colour_cloud);
+  void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &merge_type, double num_rays);
   void markIntersectedEllipsoids(Grid<int> &grid, std::vector<bool> &transients, std::vector<Ellipsoid> &ellipsoids,
-                                 const std::string &merge_typee, double num_rays, bool self_transientt);
-  void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
+                                 const std::string &merge_type, double num_rays, bool self_transient);
+  void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids, Eigen::Vector3d *bounds_min,
+                          Eigen::Vector3d *bounds_max, Progress *progress = nullptr) const;
+  void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids) const
+  {
+    generateEllipsoids(ellipsoids, nullptr, nullptr);
+  }
   void split(Cloud &cloud1, Cloud &cloud2, std::function<bool(int i)> fptr);
   void getSurfels(int search_sizee, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                   std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats,
-                  Eigen::MatrixXi *neighbour_indicess);
+                  Eigen::MatrixXi *neighbour_indices);
 
   Eigen::Vector3d calcMinBound();
   Eigen::Vector3d calcMaxBound();

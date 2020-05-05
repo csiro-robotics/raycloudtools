@@ -4,18 +4,98 @@
 //
 // Author: Thomas Lowe
 #include "raycloud.h"
-#include "raytrajectory.h"
-#include "rayply.h"
-#include "raylaz.h"
+
 #include "raydebugdraw.h"
+#include "raylaz.h"
+#include "rayply.h"
+#include "rayprogress.h"
+#include "raytrajectory.h"
+
 #include <nabo/nabo.h>
+
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <limits>
 #include <set>
 
 using namespace std;
 using namespace Eigen;
 using namespace ray;
 
-void Cloud::save(const std::string &file_name)
+namespace
+{
+/// Log a @c std::chrono::clock::duration to an output stream.
+///
+/// The resulting string displays in the smallest possible unit to show three three
+/// decimal places with display units ranging from seconds to nanoseconds. The table below
+/// shows some example times.
+///
+/// Time(s)     | Display
+/// ----------- | --------
+/// 0.000000018 | 18ns
+/// 0.000029318 | 29.318us
+/// 0.0295939   | 29.593ms
+/// 0.93        | 930ms
+/// 15.023      | 15.023s
+/// 15.000025   | 15.000s
+///
+/// Note that times are truncated, not rounded.
+///
+/// @tparam D The duration type of the form @c std::chrono::clock::duration.
+/// @param out The output stream to log to.
+/// @param duration The duration to convert to string.
+template <typename D>
+inline std::ostream &logDuration(std::ostream &out, const D &duration)
+{
+  const bool negative = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() < 0;
+  const char *sign = (!negative) ? "" : "-";
+  D abs_duration = (!negative) ? duration : duration * -1;
+  auto s = std::chrono::duration_cast<std::chrono::seconds>(abs_duration).count();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(abs_duration).count();
+  ms = ms % 1000;
+
+  if (s)
+  {
+    out << sign << s << "." << std::setw(3) << std::setfill('0') << ms << "s";
+  }
+  else
+  {
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(abs_duration).count();
+    us = us % 1000;
+
+    if (ms)
+    {
+      out << sign << ms << "." << std::setw(3) << std::setfill('0') << us << "ms";
+    }
+    else
+    {
+      auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(abs_duration).count();
+      ns = ns % 1000;
+
+      if (us)
+      {
+        out << sign << us << "." << std::setw(3) << std::setfill('0') << ns << "us";
+      }
+      else
+      {
+        out << sign << ns << "ns";
+      }
+    }
+  }
+  return out;
+}
+}  // namespace
+
+void Cloud::clear()
+{
+  starts.clear();
+  ends.clear();
+  times.clear();
+  colours.clear();
+}
+
+void Cloud::save(const std::string &file_name) const
 {
   string name = file_name;
   if (name.substr(name.length() - 4) != ".ply")
@@ -248,11 +328,19 @@ vector<Vector3d> Cloud::generateNormals(int search_size)
 }
 
 // TODO: this could call getSurfels too!
-void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
+void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids, Eigen::Vector3d *bounds_min,
+                               Eigen::Vector3d *bounds_max, Progress *progress) const
 {
   cout << "generating " << ends.size() << " ellipsoids" << endl;
+  if (progress)
+  {
+    progress->reset("generateEllipsoids", ends.size());
+  }
   ellipsoids.resize(ends.size());
   int search_size = 16;
+  const double max_double = std::numeric_limits<double>::max();
+  Eigen::Vector3d ellipsoids_min(max_double, max_double, max_double);
+  Eigen::Vector3d ellipsoids_max(-max_double, -max_double, -max_double);
   Nabo::NNSearchD *nns;
   Nabo::Parameters params("bucketSize", 8);
   MatrixXd points_p(3, ends.size());
@@ -317,6 +405,31 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     ellipsoids[i].time = times[i];
     ellipsoids[i].setExtents(eigen_vector, eigen_value);
     ellipsoids[i].setPlanarity(eigen_value);
+
+    const auto ellipsoid_min = ellipsoids[i].pos - ellipsoids[i].extents;
+    const auto ellipsoid_max = ellipsoids[i].pos + ellipsoids[i].extents;
+
+    ellipsoids_min.x() = std::min(ellipsoids_min.x(), ellipsoid_min.x());
+    ellipsoids_min.y() = std::min(ellipsoids_min.y(), ellipsoid_min.y());
+    ellipsoids_min.z() = std::min(ellipsoids_min.z(), ellipsoid_min.z());
+    ellipsoids_max.x() = std::max(ellipsoids_max.x(), ellipsoid_max.x());
+    ellipsoids_max.y() = std::max(ellipsoids_max.y(), ellipsoid_max.y());
+    ellipsoids_max.z() = std::max(ellipsoids_max.z(), ellipsoid_max.z());
+
+    if (progress)
+    {
+      progress->increment();
+    }
+  }
+
+  if (bounds_min)
+  {
+    *bounds_min = ellipsoids_min;
+  }
+
+  if (bounds_max)
+  {
+    *bounds_max = ellipsoids_max;
   }
 }
 
@@ -441,7 +554,7 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
       if (dist2 > 1.0)  // misses the ellipsoid
         continue;
       double along_dist = sqrt(1.0 - dist2);
-      if (ray_length < d - along_dist)  // doesn't reach the ellipsoid
+      if (ray_length < d - along_dist)  // doesn'o reach the ellipsoid
         continue;
 
       bool pass_through =
@@ -547,16 +660,34 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_t
     box_max = maxVector(box_max, end);
   }
 
+  using TimingClock = std::chrono::high_resolution_clock;
+  auto start_time = TimingClock::now();
+
   vector<Ellipsoid> ellipsoids;
   generateEllipsoids(ellipsoids);
 
+  auto end_time = TimingClock::now();
+  std::cout << "generateEllipsoids(): ";
+  logDuration(std::cout, end_time - start_time) << std::endl;
+  start_time = end_time;
+
   Grid<int> grid(box_min, box_max, voxel_width);
   fillGrid(grid, starts, ends);
+
+  end_time = TimingClock::now();
+  std::cout << "fillGrid(): ";
+  logDuration(std::cout, end_time - start_time) << std::endl;
+  start_time = end_time;
 
   vector<bool> transients;
   transients.resize(ends.size(), false);
   // now walk every ray through the grid and mark if transient
   markIntersectedEllipsoids(grid, transients, ellipsoids, merge_type, num_rays, true);
+
+  end_time = TimingClock::now();
+  std::cout << "markIntersectedEllipsoids(): ";
+  logDuration(std::cout, end_time - start_time) << std::endl;
+  start_time = end_time;
 
   // Lastly, generate the new ray clouds from this sphere information
   for (int i = 0; i < (int)ellipsoids.size(); i++)
@@ -583,6 +714,10 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_t
       fixed.colours.push_back(col);
     }
   }
+
+  end_time = TimingClock::now();
+  std::cout << "new clouds: ";
+  logDuration(std::cout, end_time - start_time) << std::endl;
 }
 
 void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string &merge_type, double num_rays)
