@@ -15,8 +15,6 @@
 
 #include <shapes/3esshapes.h>
 
-#pragma GCC optimize("O0")
-
 using namespace ray;
 
 namespace ray
