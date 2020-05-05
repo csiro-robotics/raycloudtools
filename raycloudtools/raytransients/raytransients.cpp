@@ -126,7 +126,8 @@ int main(int argc, char *argv[])
   config.merge_type = TransientFilterType::Maximum;
   config.num_rays_filter_threshold = num_rays;
   config.colour_cloud = colour;
-  config.voxel_size = 0.25;
+  // Note: we actually get better multi-threaded performace with smaller voxels as there is less lock contension.
+  config.voxel_size = 0.1;
 
   if (merge_type == "oldest")
   {

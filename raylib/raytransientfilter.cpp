@@ -5,15 +5,13 @@
 // Author: Kazys Stepanas, Tom Lowe
 #include "raytransientfilter.h"
 
-#if TRANSIENT_FILTER
-
 #include "raygrid.h"
 #include "rayprogress.h"
 #include "rayunused.h"
 
 #if RAYLIB_WITH_TBB
 #include <tbb/parallel_for.h>
-#endif // RAYLIB_WITH_TBB
+#endif  // RAYLIB_WITH_TBB
 
 #include <algorithm>
 #include <iomanip>
@@ -21,24 +19,40 @@
 
 using namespace ray;
 
+void EllipsoidMark::reset(size_t id)
+{
+#if RAYLIB_WITH_TBB
+  Mutex::scoped_lock guard(*lock_);
+#endif  // RAYLIB_WITH_TBB
+  id_ = id;
+  first_intersection_time_ = std::numeric_limits<double>::max();
+  last_intersection_time_ = std::numeric_limits<double>::lowest();
+  hits_ = 0u;
+}
+
+void EllipsoidMark::sortPassThroughIds()
+{
+  std::sort(pass_through_ids_.begin(), pass_through_ids_.end());
+}
+
 void EllipsoidMark::hit(size_t ray_id, double time)
 {
   RAYLIB_UNUSED(ray_id);
 #if RAYLIB_WITH_TBB
-  std::unique_lock<tbb::mutex> guard(*lock);
-#endif // RAYLIB_WITH_TBB
-  ++hits;
-  first_intersection_time = std::min(time, first_intersection_time);
-  last_intersection_time = std::max(time, last_intersection_time);
+  Mutex::scoped_lock guard(*lock_);
+#endif  // RAYLIB_WITH_TBB
+  ++hits_;
+  first_intersection_time_ = std::min(time, first_intersection_time_);
+  last_intersection_time_ = std::max(time, last_intersection_time_);
 }
 
 
-void EllipsoidMark::passthrough(size_t ray_id)
+void EllipsoidMark::passThrough(size_t ray_id)
 {
 #if RAYLIB_WITH_TBB
-  std::unique_lock<tbb::mutex> guard(*lock);
-#endif // RAYLIB_WITH_TBB
-  pass_through_ids.emplace_back(ray_id);
+  Mutex::scoped_lock guard(*lock_);
+#endif  // RAYLIB_WITH_TBB
+  pass_through_ids_.emplace_back(ray_id);
 }
 
 
@@ -65,9 +79,33 @@ void TransientFilter::filter(const Cloud &cloud, Progress *progress)
   progress->reset("build-markers", ellipsoids_.size());
 
   ellipsoids_marks_.reserve(ellipsoids_.size());
+  Eigen::Matrix4d inverse_sphere_transform;
   for (size_t i = 0; i < ellipsoids_.size(); ++i)
   {
     EllipsoidMark ellipsoid_mark(i);
+#if RAYLIB_ELLIPSOID_TRANSFORM
+    const Ellipsoid &ellipsoid = ellipsoids_[i];
+    // Create a transfomation matrix into an ellipsoid space where it becomes a unit sphere.
+    inverse_sphere_transform = Eigen::Matrix4d::Identity();
+    // We use an pessimistic padding of equal to half the diagonal length of a voxel.
+    const Eigen::Vector3d voxel_diag =
+      0.5 * Eigen::Vector3d(config_.voxel_size, config_.voxel_size, config_.voxel_size);
+    const double padding = voxel_diag.norm();
+    for (int i = 0; i < 3; ++i)
+    {
+      Eigen::Vector3d v = ellipsoid.vectors[i];
+      // Padd the vector by the voxel size. This allows use to test voxel centres against a sphere.
+      double len = v.norm();
+      if (len > 1e-8)
+      {
+        v = (v / len) * (len + padding);
+      }
+      inverse_sphere_transform.col(i) = v.homogeneous();
+    }
+    inverse_sphere_transform.col(3) = ellipsoid.pos.homogeneous();
+    inverse_sphere_transform = inverse_sphere_transform.inverse();
+    ellipsoid_mark.setInverseTransform(inverse_sphere_transform);
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
     ellipsoids_marks_.emplace_back(ellipsoid_mark);
     progress->increment();
   }
@@ -97,9 +135,16 @@ void TransientFilter::generateEllipsoidGrid(Grid<size_t> &grid, Progress &progre
 {
   progress.reset("transient-ellipsoid-grid", ellipsoids_.size());
 
+#if RAYLIB_ELLIPSOID_TRANSFORM
+  size_t total_voxels = 0;
+  size_t saved_voxels = 0;
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
   for (size_t i = 0; i < ellipsoids_.size(); ++i)
   {
     const Ellipsoid &ellipsoid = ellipsoids_[i];
+#if RAYLIB_ELLIPSOID_TRANSFORM
+    const EllipsoidMark &ellipsoid_mark = ellipsoids_marks_[i];
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
 
     Eigen::Vector3d ellipsoid_min = ellipsoid.pos - ellipsoid.extents;
     Eigen::Vector3d ellipsoid_max = ellipsoid.pos + ellipsoid.extents;
@@ -109,31 +154,44 @@ void TransientFilter::generateEllipsoidGrid(Grid<size_t> &grid, Progress &progre
     Eigen::Vector3i index_max = grid.index(ellipsoid_max, true);
 
     // Add to the overlapping voxels.
-    // Note: this is an overestimated overlap.
-    // TODO: (KS) There may be some utility in a more precise intersection with the ellipsoid here. One option is to do
-    // the following:
-    // 1. Pad the ellipsoid size by the voxel size.
-    // 2. Generate a transformation matrix from cloud/ray space into the ellipsoid space. This transformation is based
-    //  on:
-    //    - translation : -1 * ellipsoid centre.
-    //    - rotation : the inverse ellipsoid rotation matrix (from its vectors)
-    //    - scale : the inverse scale of the ellipsoid (from its vectors)
-    // 3. Take each voxel centre and transform it by the matrix calculated above. This essentially puts it into a space
-    //  where the ellipsoid is a unit sphere at the origin.
-    // 4. Reject the voxel (centre) if its transformed position is more than 1 unit away from the origin.
+    // Note: this is an overestimated overlap. With RAYLIB_ELLIPSOID_TRANSFORM we try reduce the number of voxels
+    // added. The ellipsoid_mark has a transformation matrix which takes the voxel centres into a space where the
+    // ellipsoid is spherical. We can then check for intersection between the sphere/voxel with a simple range test.
     for (int z = index_min.z(); z <= index_max.z(); ++z)
     {
       for (int y = index_min.y(); y <= index_max.y(); ++y)
       {
         for (int x = index_min.x(); x <= index_max.x(); ++x)
         {
-          grid.insert(x, y, z, i);
+#if RAYLIB_ELLIPSOID_TRANSFORM
+          ++total_voxels;
+          // Transform the voxel into the elliposid's space where the ellipsoid is a (padded) sphere. We only
+          // add to the grid if the voxel centre falls within the sphere. We've already calculated the transformation
+          // matrix in ellipsoid_mark.
+          Eigen::Vector3d voxel_centre_transformed =
+            (ellipsoid_mark.inverseTransform() * grid.voxelCentre(x, y, z).homogeneous()).head<3>();
+          if (voxel_centre_transformed.squaredNorm() <= 1.0)
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
+          {
+            grid.insert(x, y, z, i);
+          }
+#if RAYLIB_ELLIPSOID_TRANSFORM
+          else
+          {
+            ++saved_voxels;
+          }
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
         }
       }
     }
 
     progress.increment();
   }
+
+#if RAYLIB_ELLIPSOID_TRANSFORM
+  std::cout << "\nsaved / total : " << saved_voxels << '/' << total_voxels << " : "
+            << 100.0 * double(saved_voxels) / double(total_voxels) << '%' << std::endl;
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
 }
 
 
@@ -142,25 +200,23 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
 {
   progress.reset("transient-mark-ellipsoids", cloud.ends.size());
 
-  // TODO: support threading building blocks (TBB) for multi-threading.
-
   // We walk each ray along the voxel `grid`.
 
   // Trace rays through the ellipsoids.
 #if RAYLIB_WITH_TBB
-  auto tbb_process_ray = [this, &cloud, &grid, &progress] (size_t ray_id) // 
+  auto tbb_process_ray = [this, &cloud, &grid, &progress](size_t ray_id)  //
   {
     walkRay(cloud, grid, ray_id);
     progress.increment();
   };
   tbb::parallel_for<size_t>(0u, cloud.rayCount(), tbb_process_ray);
-#else  // RAYLIB_WITH_TBB
+#else   // RAYLIB_WITH_TBB
   for (size_t ray_id = 0; ray_id < cloud.rayCount(); ++ray_id)
   {
     walkRay(cloud, grid, ray_id);
     progress.increment();
   }
-#endif // RAYLIB_WITH_TBB
+#endif  // RAYLIB_WITH_TBB
 
   progress.reset("transient-update-ellipsoids", ellipsoids_.size());
 
@@ -171,14 +227,17 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
     Ellipsoid &ellipsoid = ellipsoids_[i];
     EllipsoidMark &ellipsoid_mark = ellipsoids_marks_[i];
 
-    // May have run multi-threaded. Sort the pass_through_ids.
-    std::sort(ellipsoid_mark.pass_through_ids.begin(), ellipsoid_mark.pass_through_ids.end());
+    // Increment progress immediately due to the number of continue statements below.
+    progress.increment();
 
-    size_t num_rays = ellipsoid_mark.hits + ellipsoid_mark.pass_through_ids.size();
+    // May have run multi-threaded. Sort the pass_through_ids.
+    ellipsoid_mark.sortPassThroughIds();
+
+    size_t num_rays = ellipsoid_mark.hits() + ellipsoid_mark.passThroughIds().size();
     if (num_rays == 0 || self_transient)
     {
-      ellipsoid.opacity =
-        (double)ellipsoid_mark.hits / ((double)ellipsoid_mark.hits + (double)ellipsoid_mark.pass_through_ids.size());
+      ellipsoid.opacity = (double)ellipsoid_mark.hits() /
+                          ((double)ellipsoid_mark.hits() + (double)ellipsoid_mark.passThroughIds().size());
     }
 
     if (num_rays == 0 || ellipsoid.opacity == 0 || config_.num_rays_filter_threshold == 0)
@@ -188,16 +247,16 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
 
     if (self_transient)
     {
-      ellipsoid.num_gone = ellipsoid_mark.pass_through_ids.size();
+      ellipsoid.num_gone = ellipsoid_mark.passThroughIds().size();
       // now get some density stats...
       double misses = 0;
-      for (auto &ray_id : ellipsoid_mark.pass_through_ids)
+      for (auto &ray_id : ellipsoid_mark.passThroughIds())
       {
-        if (cloud.times[ray_id] > ellipsoid_mark.last_intersection_time)
+        if (cloud.times[ray_id] > ellipsoid_mark.lastIntersectionTime())
         {
           num_after++;
         }
-        else if (cloud.times[ray_id] < ellipsoid_mark.first_intersection_time)
+        else if (cloud.times[ray_id] < ellipsoid_mark.firstIntersectionTime())
         {
           num_before++;
         }
@@ -206,21 +265,21 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
           misses++;
         }
       }
-      double h = double(ellipsoid_mark.hits) + 1e-8 - 1.0;  // subtracting 1 gives an unbiased opacity estimate
+      double h = double(ellipsoid_mark.hits()) + 1e-8 - 1.0;  // subtracting 1 gives an unbiased opacity estimate
       ellipsoid.opacity = h / (h + misses);
       ellipsoid.num_gone = num_before + num_after;
     }
     else  // compare to other cloud
     {
-      if (ellipsoid_mark.pass_through_ids.size() > 0)
+      if (ellipsoid_mark.passThroughIds().size() > 0)
       {
-        if (cloud.times[ellipsoid_mark.pass_through_ids[0]] > ellipsoid.time)
+        if (cloud.times[ellipsoid_mark.passThroughIds()[0]] > ellipsoid.time)
         {
-          num_after = ellipsoid_mark.pass_through_ids.size();
+          num_after = ellipsoid_mark.passThroughIds().size();
         }
         else
         {
-          num_before = ellipsoid_mark.pass_through_ids.size();
+          num_before = ellipsoid_mark.passThroughIds().size();
         }
       }
     }
@@ -266,7 +325,7 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
     else
     {
       double d = 0.0;
-      for (size_t j = 0; j < ellipsoid_mark.pass_through_ids.size(); j++)
+      for (size_t j = 0; j < ellipsoid_mark.passThroughIds().size(); j++)
       {
         d += ellipsoid.opacity;
         if (d >= 1.0)
@@ -278,16 +337,15 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
           continue;
         }
 
-        size_t i = ellipsoid_mark.pass_through_ids[j];
-        if (!self_transient || cloud.times[i] < ellipsoid_mark.first_intersection_time ||
-            cloud.times[i] > ellipsoid_mark.last_intersection_time)
+        size_t i = ellipsoid_mark.passThroughIds()[j];
+        if (!self_transient || cloud.times[i] < ellipsoid_mark.firstIntersectionTime() ||
+            cloud.times[i] > ellipsoid_mark.lastIntersectionTime())
         {
           // remove ray i
           transient_marks_[i] = true;
         }
       }
     }
-    progress.increment();
   };
 }
 
@@ -370,7 +428,7 @@ void TransientFilter::walkRay(const Cloud &cloud, const Grid<size_t> &grid, size
       bool pass_through = ray_length * (1.0 - ratio) > d + along_dist;
       if (pass_through)
       {
-        ellipsoid_mark.passthrough(ray_id);
+        ellipsoid_mark.passThrough(ray_id);
       }
       else
       {
@@ -384,5 +442,3 @@ void TransientFilter::walkRay(const Cloud &cloud, const Grid<size_t> &grid, size
     grid.walkVoxels(cloud.starts[ray_id], cloud.ends[ray_id], visit, true);
   }
 }
-
-#endif  // TRANSIENT_FILTER

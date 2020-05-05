@@ -8,19 +8,22 @@
 
 #include "raylib/raylibconfig.h"
 
-#define TRANSIENT_FILTER 1
-
-#if TRANSIENT_FILTER
-
 #include "raygrid.h"
 #include "raycloud.h"
 
 #if RAYLIB_WITH_TBB
-#include <tbb/mutex.h>
-#endif // RAYLIB_WITH_TBB
+#include <tbb/spin_mutex.h>
+#endif  // RAYLIB_WITH_TBB
 
 #include <limits>
 #include <vector>
+
+/// Reduces the number of voxels an ellipsoid touches by storing an inverse transform into a space where the ellispoid
+/// is spherical.
+///
+/// This uses more memory but seems to only reduce the voxels touch by well less than 1% so it doesn't seem worth it
+/// at this time.
+#define RAYLIB_ELLIPSOID_TRANSFORM 0
 
 namespace ray
 {
@@ -45,30 +48,60 @@ struct RAYLIB_EXPORT TransientFilterConfig
   bool colour_cloud;
 };
 
-struct RAYLIB_EXPORT EllipsoidMark
+/// 
+class RAYLIB_EXPORT EllipsoidMark
 {
-  std::vector<size_t> pass_through_ids;
-  size_t id;
-  double first_intersection_time;
-  double last_intersection_time;
-  size_t hits;
+public:
 #if RAYLIB_WITH_TBB
-  std::shared_ptr<tbb::mutex> lock;
-#endif // RAYLIB_WITH_TBB
+  using Mutex = tbb::spin_mutex;
+#endif  // RAYLIB_WITH_TBB
 
-  inline EllipsoidMark() {}
-  inline explicit EllipsoidMark(size_t id)
-    : id(id)
-    , first_intersection_time(std::numeric_limits<double>::max())
-    , last_intersection_time(std::numeric_limits<double>::lowest())
-    , hits(0u)
+  inline explicit EllipsoidMark(size_t id = 0u)
+    : id_(id)
+    , first_intersection_time_(std::numeric_limits<double>::max())
+    , last_intersection_time_(std::numeric_limits<double>::lowest())
+    , hits_(0u)
 #if RAYLIB_WITH_TBB
-    , lock(new tbb::mutex)
-#endif // RAYLIB_WITH_TBB
+    , lock_(new Mutex)
+#endif  // RAYLIB_WITH_TBB
   {}
 
+  inline size_t id() const { return id_; }
+
+  inline double firstIntersectionTime() const { return first_intersection_time_; }
+  inline double lastIntersectionTime() const { return last_intersection_time_; }
+
+  inline size_t hits() const { return hits_; }
+
+  inline const std::vector<size_t> &passThroughIds() const { return pass_through_ids_; }
+
+#if RAYLIB_ELLIPSOID_TRANSFORM
+  inline const Eigen::Matrix4d &inverseTransform() const { return inverse_sphere_transform_; }
+  inline void setInverseTransform(const Eigen::Matrix4d &inverse_transform)
+  {
+    inverse_sphere_transform_ = inverse_transform;
+  }
+#endif // RAYLIB_ELLIPSOID_TRANSFORM
+
+  void reset(size_t id = 0u);
+
+  void sortPassThroughIds();
+
   void hit(size_t ray_id, double time);
-  void passthrough(size_t ray_id);
+  void passThrough(size_t ray_id);
+
+private:
+  std::vector<size_t> pass_through_ids_;
+  size_t id_;
+  double first_intersection_time_;
+  double last_intersection_time_;
+  size_t hits_;
+#if RAYLIB_ELLIPSOID_TRANSFORM
+  Eigen::Matrix4d inverse_sphere_transform_;
+#endif // RAYLIB_ELLIPSOID_TRANSFORM
+#if RAYLIB_WITH_TBB
+  std::shared_ptr<Mutex> lock_;
+#endif  // RAYLIB_WITH_TBB
 };
 
 /// A filter which removes 'transient' points from a ray cloud. A transient point is one which is in conflict with
@@ -113,7 +146,5 @@ private:
   std::vector<bool> transient_marks_;
 };
 }  // namespace ray
-
-#endif  // TRANSIENT_FILTER
 
 #endif  // RAYTRANSIENTFILTER_H
