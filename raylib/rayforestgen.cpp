@@ -5,31 +5,31 @@
 // Author: Thomas Lowe
 #include "rayforestgen.h"
 #include "rayutils.h"
-using namespace RAY;
+using namespace ray;
 using namespace std;
 using namespace Eigen;
 
-void ForestGen::make(double randomFactor)
+void ForestGen::make(double random_factor)
 {
-  double fieldWidth = 10;
-  double maxTreeRadius = 0.1;
-  double dimension = 2.0; // #trees = radius^-d
-  double adultTreeDensity = 0.04; // #trees per m^2
+  double field_width = 10;
+  double max_tree_radius = 0.1;
+  double dimension = 2.0;            // #trees = radius^-d
+  double adult_tree_density = 0.04;  // #trees per m^2
 
-  double rad = maxTreeRadius;
-  double numTrees = sqr(fieldWidth) * adultTreeDensity;
-  for (int level = 0; level<2; level++)
+  double rad = max_tree_radius;
+  double num_trees = sqr(field_width) * adult_tree_density;
+  for (int level = 0; level < 2; level++)
   {
-    for (int i = 0; i<(int)numTrees; i++)
+    for (int i = 0; i < (int)num_trees; i++)
     {
-      double radius = rad * (1.0 + random(-0.25, 0.5)*randomFactor);
+      double radius = rad * (1.0 + random(-0.25, 0.5) * random_factor);
       Vector3d root;
       bool found = false;
       while (!found)
       {
-        root = fieldWidth*0.5 * Vector3d(random(-1.0, 1.0), random(-1.0, 1.0), 0.0);
+        root = field_width * 0.5 * Vector3d(random(-1.0, 1.0), random(-1.0, 1.0), 0.0);
         found = true;
-        for (auto &tree: trees)
+        for (auto &tree : trees)
         {
           double d = (root - tree.root).norm();
           if (d < (radius + tree.branches[0].radius) * 10.0)
@@ -41,24 +41,22 @@ void ForestGen::make(double randomFactor)
       }
       TreeGen tree;
       trees.push_back(tree);
-      trees.back().make(root, radius, randomFactor);
+      trees.back().make(root, radius, random_factor);
     }
     rad /= 2.0;
-    numTrees *= pow(2.0, dimension);
+    num_trees *= pow(2.0, dimension);
   }
 }
 
-void ForestGen::generateRays(double rayDensity)
+void ForestGen::generateRays(double ray_density)
 {
-  for (auto &tree: trees)
-    tree.generateRays(rayDensity);
+  for (auto &tree : trees) tree.generateRays(ray_density);
 }
 
 vector<Vector3d> ForestGen::getCanopy()
 {
   vector<Vector3d> canopy;
-  for (auto &tree: trees)
-    canopy.insert(canopy.end(), tree.leaves.begin(), tree.leaves.end());
+  for (auto &tree : trees) canopy.insert(canopy.end(), tree.leaves.begin(), tree.leaves.end());
 
   return canopy;
 }
@@ -66,8 +64,7 @@ vector<Vector3d> ForestGen::getCanopy()
 vector<Vector3d> ForestGen::getPointCloud()
 {
   vector<Vector3d> cloud;
-  for (auto &tree: trees)
-    cloud.insert(cloud.end(), tree.rayEnds.begin(), tree.rayEnds.end());
+  for (auto &tree : trees) cloud.insert(cloud.end(), tree.ray_ends.begin(), tree.ray_ends.end());
 
   return cloud;
 }

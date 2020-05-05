@@ -11,18 +11,17 @@
 #include "rayutils.h"
 #include "raycloud.h"
 
-namespace RAY
+namespace ray
 {
-
 struct RAYLIB_EXPORT Mesh
 {
   std::vector<Eigen::Vector3d> vertices;
-  std::vector<Eigen::Vector3i> indexList;
+  std::vector<Eigen::Vector3i> index_list;
 
   void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);
 };
 
 
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYMESH_H
+#endif  // RAYLIB_RAYMESH_H

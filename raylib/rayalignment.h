@@ -15,25 +15,19 @@
 
 typedef std::complex<double> Complex;
 
-namespace RAY
+namespace ray
 {
 struct RAYLIB_EXPORT Array3D
 {
-  void init(const Eigen::Vector3d &boxMin, const Eigen::Vector3d &boxMax, double voxelWidth);
+  void init(const Eigen::Vector3d &box_minn, const Eigen::Vector3d &box_maxx, double voxel_widthh);
 
-  void FFT();
-  void inverseFFT();
+  void fft();
+  void inverseFft();
 
   void operator*=(const Array3D &other);
 
-  inline Complex &operator()(int x, int y, int z)
-  {
-    return cells[x + dims[0] * y + dims[0] * dims[1] * z];
-  }
-  inline const Complex &operator()(int x, int y, int z) const
-  {
-    return cells[x + dims[0] * y + dims[0] * dims[1] * z];
-  }
+  inline Complex &operator()(int x, int y, int z) { return cells[x + dims[0] * y + dims[0] * dims[1] * z]; }
+  inline const Complex &operator()(int x, int y, int z) const { return cells[x + dims[0] * y + dims[0] * dims[1] * z]; }
   inline Complex &operator()(const Eigen::Vector3i &index)
   {
     //    ASSERT(x<0 || x>=dims[0] || y<0 || y>= dims[1] || z<0 || z>=dims[2]);
@@ -46,37 +40,37 @@ struct RAYLIB_EXPORT Array3D
   }
   Complex &operator()(const Eigen::Vector3d &pos)
   {
-    Eigen::Vector3d index = (pos - boxMin) / voxelWidth;
+    Eigen::Vector3d index = (pos - box_min) / voxel_width;
     if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && index[0] < (double)dims[0] &&
         index[1] < (double)dims[1] && index[2] < (double)dims[2])
       return (*this)(Eigen::Vector3i(index.cast<int>()));
-    return nullCell;
+    return null_cell;
   }
   const Complex &operator()(const Eigen::Vector3d &pos) const
   {
-    Eigen::Vector3d index = (pos - boxMin) / voxelWidth;
+    Eigen::Vector3d index = (pos - box_min) / voxel_width;
     if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && index[0] < (double)dims[0] &&
         index[1] < (double)dims[1] && index[2] < (double)dims[2])
       return (*this)(Eigen::Vector3i(index.cast<int>()));
-    return nullCell;
+    return null_cell;
   }
   void conjugate();
   Eigen::Vector3i maxRealIndex() const;
   void fillWithRays(const Cloud &cloud);
 
-  Eigen::Vector3d boxMin, boxMax;
-  double voxelWidth;
+  Eigen::Vector3d box_min, box_max;
+  double voxel_width;
   Eigen::Vector3i dims;
   std::vector<Complex> cells;
-  Complex nullCell;
+  Complex null_cell;
 };
 
 struct RAYLIB_EXPORT Array1D
 {
   void init(int length);
 
-  void FFT();
-  void inverseFFT();
+  void fft();
+  void inverseFft();
 
   void operator*=(const Array1D &other);
   inline Complex &operator()(const int &x) { return cells[x]; }
@@ -95,10 +89,10 @@ struct RAYLIB_EXPORT Array1D
 
 struct AlignTranslationYaw
 {
-  void alignCloud0ToCloud1(double voxelWidth, bool verbose = false);
+  void alignCloud0ToCloud1(double voxel_widthh, bool verbose = false);
   Cloud clouds[2];
 };
 
-}  // namespace RAY
+}  // namespace ray
 
 #endif  // RAYLIB_RAYALIGNMENT_H

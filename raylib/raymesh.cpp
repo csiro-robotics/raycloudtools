@@ -14,29 +14,29 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
 struct Triangle
 {
   Vector3d corners[3];
   Vector3d normal;
   bool tested;
-  bool intersectsRay(const Vector3d &rayStart, const Vector3d &rayEnd, double &depth)
+  bool intersectsRay(const Vector3d &ray_start, const Vector3d &ray_end, double &depth)
   {
     // 1. plane test:
-    double d1 = (rayStart - corners[0]).dot(normal);
-    double d2 = (rayEnd - corners[0]).dot(normal);
+    double d1 = (ray_start - corners[0]).dot(normal);
+    double d2 = (ray_end - corners[0]).dot(normal);
     if (d1*d2 > 0.0)
       return false;
 
     depth = d1/(d1-d2);
-    Vector3d contactPoint = rayStart + (rayEnd - rayStart) * depth;
+    Vector3d contact_point = ray_start + (ray_end - ray_start) * depth;
 
     // next we have to test every sideways direction
     for (int i = 0; i<3; i++)
     {
       Vector3d side = (corners[(i+1)%3] - corners[i]).cross(normal);
-      if ((contactPoint - corners[i]).dot(side) >= 0.0)
+      if ((contact_point - corners[i]).dot(side) >= 0.0)
         return false;
     }
     return true;
@@ -67,10 +67,10 @@ struct Triangle
       pos -= sides[2]*ds[2]/sides[2].squaredNorm();
     return (point - pos).squaredNorm();
   }
-  bool intersectsCube(const Vector3d &cubeMin, double cubeWidth)
+  bool intersectsCube(const Vector3d &cube_min, double cube_width)
   {
-    RAYLIB_UNUSED(cubeMin);
-    RAYLIB_UNUSED(cubeWidth);
+    RAYLIB_UNUSED(cube_min);
+    RAYLIB_UNUSED(cube_width);
     // TODO: fill in
     return true;
   }
@@ -82,7 +82,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
   vector<Vector3d> normals(vertices.size());
   for (auto &normal: normals)
     normal.setZero();
-  for (auto &index: indexList)
+  for (auto &index: index_list)
   {
     Vector3d normal = (vertices[index[1]]-vertices[index[0]]).cross(vertices[index[2]]-vertices[index[0]]);
     for (int i = 0; i<3; i++)
@@ -92,39 +92,39 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     normal.normalize();
 
   // convert to separate triangles for convenience
-  vector<Triangle> triangles(indexList.size());
-  Vector3d boxMin(1e10,1e10,1e10), boxMax(-1e10,-1e10,-1e10);
-  for (int i = 0; i<(int)indexList.size(); i++)
+  vector<Triangle> triangles(index_list.size());
+  Vector3d box_min(1e10,1e10,1e10), box_max(-1e10,-1e10,-1e10);
+  for (int i = 0; i<(int)index_list.size(); i++)
   {
     Triangle &tri = triangles[i];
     for (int j = 0; j<3; j++)
-      tri.corners[j] = vertices[indexList[i][j]];
+      tri.corners[j] = vertices[index_list[i][j]];
     tri.tested = false;
     tri.normal = (tri.corners[1]-tri.corners[0]).cross(tri.corners[2]-tri.corners[0]).normalized();
     for (int j = 0; j<3; j++)
     {
-      boxMin = minVector(boxMin, tri.corners[j]);
-      boxMax = maxVector(boxMax, tri.corners[j]);   
+      box_min = minVector(box_min, tri.corners[j]);
+      box_max = maxVector(box_max, tri.corners[j]);   
     }
   }
 
   // Thirdly, put the triangles into a grid
-  double voxelWidth = 1.0;
-  vector<int> insideIndices;
+  double voxel_width = 1.0;
+  vector<int> inside_indices;
   {
-    int insideVal = offset >= 0.0 ? 1 : 0;
-    Grid<Triangle *> grid(boxMin, boxMax, voxelWidth);
+    int inside_val = offset >= 0.0 ? 1 : 0;
+    Grid<Triangle *> grid(box_min, box_max, voxel_width);
     for (auto &tri: triangles)
     {
-      Vector3d triMin = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - boxMin)/voxelWidth;
-      Vector3d triMax = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - boxMin)/voxelWidth;
-      for (int x = (int)triMin[0]; x<=(int)triMax[0]; x++)
+      Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
+      Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
+      for (int x = (int)tri_min[0]; x<=(int)tri_max[0]; x++)
       {
-        for (int y = (int)triMin[1]; y<=(int)triMax[1]; y++)
+        for (int y = (int)tri_min[1]; y<=(int)tri_max[1]; y++)
         {
-          for (int z = (int)triMin[2]; z<=(int)triMax[2]; z++)
+          for (int z = (int)tri_min[2]; z<=(int)tri_max[2]; z++)
           {
- //           if (tri.intersectsCube(boxMin + voxelWidth*Vector3d(x,y,z), voxelWidth))
+ //           if (tri.intersectsCube(box_min + voxel_width*Vector3d(x,y,z), voxel_width))
               grid.insert(x,y,z, &tri);
           }
         }
@@ -132,19 +132,19 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     }
 
     // Fourthly, drop each end point downwards to decide whether it is inside or outside..
-    vector<Triangle *> trisTested;
-    trisTested.reserve(100.0);
+    vector<Triangle *> tris_tested;
+    tris_tested.reserve(100.0);
     for (int r = 0; r<(int)cloud.ends.size(); r++)
     {
       int intersections = 0;
      // for (int dir = -1; dir<=1; dir += 2)
       int dir = -1;
       {
-        Vector3d start = (cloud.ends[r] - boxMin)/voxelWidth;
+        Vector3d start = (cloud.ends[r] - box_min)/voxel_width;
         Vector3i index(start.cast<int>());
-        int endI = dir < 0 ? 0 : grid.dims[2]-1;
-        trisTested.clear();
-        for (int z = clamped(index[2], 0, grid.dims[2]-1); (z*dir)<=endI; z+=dir)
+        int end_i = dir < 0 ? 0 : grid.dims[2]-1;
+        tris_tested.clear();
+        for (int z = clamped(index[2], 0, grid.dims[2]-1); (z*dir)<=end_i; z+=dir)
         {
           auto &tris = grid.cell(index[0], index[1], z).data;
           for (auto &tri: tris)
@@ -152,85 +152,85 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
             if (tri->tested)
               continue;
             tri->tested = true;
-            trisTested.push_back(tri);
+            tris_tested.push_back(tri);
             double depth;
             if (tri->intersectsRay(cloud.ends[r], cloud.ends[r] + (double)dir*Vector3d(0.0,0.0,1e3), depth))
               intersections++;
           }    
         }
-        for (auto &tri: trisTested)
+        for (auto &tri: tris_tested)
           tri->tested = false;    
       }
-      if ((intersections%2) == insideVal) // inside
-        insideIndices.push_back(r);
+      if ((intersections%2) == inside_val) // inside
+        inside_indices.push_back(r);
     }
   }
-  cout << insideIndices.size()<<"/"<<cloud.ends.size() << " inside mesh" << endl;
+  cout << inside_indices.size()<<"/"<<cloud.ends.size() << " inside mesh" << endl;
 
   // what if offset is negative?
   // we have to ...
   if (offset != 0.0)
   {
     // Thirdly, put the triangles into a grid
-    double voxelWidth = 1.0;
-    Grid<Triangle *> grid2(boxMin, boxMax, voxelWidth);
-    for (int i = 0; i<(int)indexList.size(); i++)
+    double voxel_width = 1.0;
+    Grid<Triangle *> grid2(box_min, box_max, voxel_width);
+    for (int i = 0; i<(int)index_list.size(); i++)
     {
       if (!(i%100000))
-        cout << "filling volumes " << i << "/" << indexList.size() << endl;
+        cout << "filling volumes " << i << "/" << index_list.size() << endl;
       Triangle &tri = triangles[i];
-      Vector3d extrudedCorners[3];
+      Vector3d extruded_corners[3];
       for (int j = 0; j<3; j++)
-        extrudedCorners[j] = tri.corners[j] + normals[indexList[i][j]]*offset;
+        extruded_corners[j] = tri.corners[j] + normals[index_list[i][j]]*offset;
       
-      Vector3d triMin = minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2]));
-      Vector3d triMax = maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2]));
-      Vector3d triMin2 = minVector(extrudedCorners[0], minVector(extrudedCorners[1], extrudedCorners[2]));
-      Vector3d triMax2 = maxVector(extrudedCorners[0], maxVector(extrudedCorners[1], extrudedCorners[2]));
+      Vector3d tri_min = minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2]));
+      Vector3d tri_max = maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2]));
+      Vector3d tri_min2 = minVector(extruded_corners[0], minVector(extruded_corners[1], extruded_corners[2]));
+      Vector3d tri_max2 = maxVector(extruded_corners[0], maxVector(extruded_corners[1], extruded_corners[2]));
 
-      triMin = (minVector(triMin, triMin2) - boxMin)/voxelWidth;
-      triMax = (maxVector(triMax, triMax2) - boxMin)/voxelWidth;
-      for (int x = (int)triMin[0]; x<=(int)triMax[0]; x++)
-        for (int y = (int)triMin[1]; y<=(int)triMax[1]; y++)
-          for (int z = (int)triMin[2]; z<=(int)triMax[2]; z++)
+      tri_min = (minVector(tri_min, tri_min2) - box_min)/voxel_width;
+      tri_max = (maxVector(tri_max, tri_max2) - box_min)/voxel_width;
+      for (int x = (int)tri_min[0]; x<=(int)tri_max[0]; x++)
+        for (int y = (int)tri_min[1]; y<=(int)tri_max[1]; y++)
+          for (int z = (int)tri_min[2]; z<=(int)tri_max[2]; z++)
             grid2.insert(x,y,z, &tri);
     }  
     // now go through the remaining inside points
-    vector<int> newInsides;
-    double offsetSqr = sqr(offset);
+    vector<int> new_insides;
+    double offset_sqr = sqr(offset);
     int p = 0;
-    for (auto &r: insideIndices)
+    for (auto &r: inside_indices)
     {
       if (!(p++%1000000))
-        cout << "checking points " << p-1 << "/" << insideIndices.size() << endl;
-      Vector3d pos = (cloud.ends[r] - boxMin)/voxelWidth;
+        cout << "checking points " << p-1 << "/" << inside_indices.size() << endl;
+      Vector3d pos = (cloud.ends[r] - box_min)/voxel_width;
       Vector3i index(pos.cast<int>());
       auto &tris = grid2.cell(index[0], index[1], index[2]).data;
-      bool inTri = false;
+      bool in_tri = false;
       for (auto &tri: tris)
       {
-        if (tri->distSqrToPoint(cloud.ends[r]) < offsetSqr)
+        if (tri->distSqrToPoint(cloud.ends[r]) < offset_sqr)
         {
-          inTri = true;
+          in_tri = true;
           break;
         };
       }
-      if (!inTri)
-        newInsides.push_back(r);
+      if (!in_tri)
+        new_insides.push_back(r);
     }
-    cout << "new inside count: " << newInsides.size() << "/" << cloud.ends.size() << endl;
-    insideIndices = newInsides;
+    cout << "new inside count: " << new_insides.size() << "/" << cloud.ends.size() << endl;
+    inside_indices = new_insides;
   }
 
-  vector<bool> insideI(cloud.ends.size());
+  vector<bool> inside_i(cloud.ends.size());
   int ins = offset >= 0.0;
   for (int i = 0; i<(int)cloud.ends.size(); i++)
-    insideI[i] = !ins;
-  for (auto &ind: insideIndices)
-    insideI[ind] = ins;
+    inside_i[i] = !ins;
+  for (auto &ind: inside_indices)
+    inside_i[ind] = ins;
   for (int i = 0; i<(int)cloud.ends.size(); i++)
   {
-    Cloud &out = insideI[i] ? inside : outside;
+    Cloud &out = inside_i[i] ? inside : outside;
     out.starts.push_back(cloud.starts[i]);
     out.ends.push_back(cloud.ends[i]);
     out.times.push_back(cloud.times[i]);

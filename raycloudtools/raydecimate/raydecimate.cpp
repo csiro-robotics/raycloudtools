@@ -11,16 +11,16 @@
 #include <iostream>
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 0)
 {
   cout << "Decimate a ray cloud spatially or temporally" << endl;
   cout << "usage:" << endl;
   cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm" << endl;
   cout << "raydecimate raycloud 4 rays - reduces to every fourth ray" << endl;
   cout << "raydecimate raycloud 0.1 seconds - reduces to one ray every 0.1 seconds" << endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
 // Decimates the ray cloud, spatially or in time
@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 {
   if (argc != 4)
     usage();
-  
+
   string file = argv[1];
   Cloud cloud;
   cloud.load(file);
@@ -36,45 +36,51 @@ int main(int argc, char *argv[])
   vector<RGBA> colours;
   vector<double> times;
   string type = argv[3];
-  if (type=="cm")
+  if (type == "cm")
   {
     cloud.decimate(0.01 * stod(argv[2]));
   }
   else if (type == "rays")
   {
     int decimation = stoi(argv[2]);
-    for (int i = 0; i<(int)cloud.ends.size(); i+=decimation)
+    for (int i = 0; i < (int)cloud.ends.size(); i += decimation)
     {
       starts.push_back(cloud.starts[i]);
       ends.push_back(cloud.ends[i]);
       times.push_back(cloud.times[i]);
       colours.push_back(cloud.colours[i]);
     }
-    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.colours = colours;
+    cloud.starts = starts;
+    cloud.ends = ends;
+    cloud.times = times;
+    cloud.colours = colours;
   }
   else if (type == "seconds" || type == "s")
   {
     double delta = stod(argv[2]);
-    double lastTime = cloud.times[0];
-    for (int i = 0; i<(int)cloud.ends.size(); i++)
+    double last_time = cloud.times[0];
+    for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
-      if (cloud.times[i] >= lastTime + delta)
+      if (cloud.times[i] >= last_time + delta)
       {
         starts.push_back(cloud.starts[i]);
         ends.push_back(cloud.ends[i]);
         times.push_back(cloud.times[i]);
         colours.push_back(cloud.colours[i]);
-        while (cloud.times[i] >= lastTime + delta) // in case delta is tiny
-          lastTime += delta;
+        while (cloud.times[i] >= last_time + delta)  // in case delta is tiny
+          last_time += delta;
       }
     }
-    cloud.starts = starts; cloud.ends = ends; cloud.times = times; cloud.colours = colours;
+    cloud.starts = starts;
+    cloud.ends = ends;
+    cloud.times = times;
+    cloud.colours = colours;
   }
-  else 
+  else
     usage(false);
-  string fileStub = file;
-  if (file.substr(file.length()-4)==".ply")
-    fileStub = file.substr(0,file.length()-4);
-  cloud.save(fileStub + "_decimated.ply");
+  string file_stub = file;
+  if (file.substr(file.length() - 4) == ".ply")
+    file_stub = file.substr(0, file.length() - 4);
+  cloud.save(file_stub + "_decimated.ply");
   return true;
 }

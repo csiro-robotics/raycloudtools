@@ -15,9 +15,9 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 0)
 {
   cout << "Splits a raycloud into the transient rays and the fixed part" << endl;
   cout << "usage:" << endl;
@@ -30,7 +30,7 @@ void usage(int exitCode = 0)
   cout << " --colour     - also colours the clouds, to help tweak numRays. red: opacity, green: pass throughs, blue: "
           "planarity."
        << endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
 int main(int argc, char *argv[])
@@ -46,9 +46,9 @@ int main(int argc, char *argv[])
       usage();
     colour = true;
   }
-  double numRays = stod(argv[3]);
-  string mergeType = argv[1];
-  if (mergeType != "min" && mergeType != "max" && mergeType != "oldest" && mergeType != "newest")
+  double num_rays = stod(argv[3]);
+  string merge_type = argv[1];
+  if (merge_type != "min" && merge_type != "max" && merge_type != "oldest" && merge_type != "newest")
     usage();
   string file = argv[2];
   Cloud cloud;
@@ -56,13 +56,13 @@ int main(int argc, char *argv[])
 
   Cloud transient;
   Cloud fixed;
-  cloud.findTransients(transient, fixed, mergeType, numRays, colour);
+  cloud.findTransients(transient, fixed, merge_type, num_rays, colour);
 
-  string fileStub = file;
+  string file_stub = file;
   if (file.substr(file.length() - 4) == ".ply")
-    fileStub = file.substr(0, file.length() - 4);
+    file_stub = file.substr(0, file.length() - 4);
 
-  transient.save(fileStub + "_transient.ply");
-  fixed.save(fileStub + "_fixed.ply");
+  transient.save(file_stub + "_transient.ply");
+  fixed.save(file_stub + "_fixed.ply");
   return true;
 }

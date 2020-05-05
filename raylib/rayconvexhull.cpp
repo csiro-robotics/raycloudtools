@@ -20,13 +20,13 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
 struct lessThan
 {
   bool operator()(const Vector3d &v1, const Vector3d &v2) const
   {
-    return v1[0] + pi * v1[1] + pi * pi * v1[2] < v2[0] + pi * v2[1] + pi * pi * v2[2];
+    return v1[0] + kPi * v1[1] + kPi * kPi * v1[2] < v2[0] + kPi * v2[1] + kPi * kPi * v2[2];
   }
 };
 
@@ -46,7 +46,7 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
 
   orgQhull::QhullFacetList facets = hull.facetList();
   cout << "number of triangles: " << facets.size() << endl;
-  mesh.indexList.reserve(facets.size());
+  mesh.index_list.reserve(facets.size());
   cout << "ignore direction: " << ignoreDirection.transpose() << endl;
   int count = 0;
   for (const orgQhull::QhullFacet &f : facets)
@@ -63,7 +63,7 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
       Vector3d norm = (points[index[1]] - points[index[0]]).cross(points[index[2]] - points[index[0]]);
       if (norm.dot(coords) < 0.0)
         swap(index[1], index[2]);
-      mesh.indexList.push_back(index);
+      mesh.index_list.push_back(index);
     }
   }
   cout << "num remaining triangles: " << count << endl;

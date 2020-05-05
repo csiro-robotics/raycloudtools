@@ -14,112 +14,112 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace RAY;
+using namespace ray;
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 0)
 {
   cout << "Smooth a ray cloud. Nearby off-surface points are moved onto the nearest surface." << endl;
   cout << "usage:" << endl;
   cout << "raysmooth raycloud" << endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
-void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, int numNeighbors, int smoothingIterations, double rBar)
+void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, int num_neighbors,
+                      int smoothing_iterations, double r_bar)
 {
   ASSERT(positions.size() == normals.size());
   ASSERT(numNeighbors > 0);
   ASSERT(numNeighbors <= (int)positions.size());
   double eps = 0.1;
-  double maxRadius = std::numeric_limits<double>::infinity();
+  double max_radius = std::numeric_limits<double>::infinity();
 
-  cout << "smooth_pointcloud with " << positions.size() << " points, " << numNeighbors << " neighbours, " << smoothingIterations << " iters, rbar " << rBar << endl;
+  cout << "smooth_pointcloud with " << positions.size() << " points, " << num_neighbors << " neighbours, "
+       << smoothing_iterations << " iters, rbar " << r_bar << endl;
 
   // Set up structures for search (pNumDims,numPoints)
   MatrixXd data(6, positions.size());
-  for (unsigned int i = 0; i<positions.size(); i++)
-    data.col(i) << positions[i], normals[i];
- 
-  Nabo::NNSearchD* nns;
+  for (unsigned int i = 0; i < positions.size(); i++) data.col(i) << positions[i], normals[i];
+
+  Nabo::NNSearchD *nns;
   Nabo::Parameters params("bucketSize", std::min<size_t>(positions.size(), 8));
-  nns = Nabo::NNSearchD::createKDTreeLinearHeap(data, numNeighbors, 0, params);
- 
+  nns = Nabo::NNSearchD::createKDTreeLinearHeap(data, num_neighbors, 0, params);
+
   // Run the search
   Eigen::MatrixXi indices;
   Eigen::MatrixXd dists2;
-  indices.resize(numNeighbors, positions.size());
-  dists2.resize(numNeighbors, positions.size());
-  nns->knn(data, indices, dists2, numNeighbors, eps, 0, maxRadius);
+  indices.resize(num_neighbors, positions.size());
+  dists2.resize(num_neighbors, positions.size());
+  nns->knn(data, indices, dists2, num_neighbors, eps, 0, max_radius);
 
   // Set up data structures for output
- 
-  vector<Vector3d> smoothNormals = normals;
 
-  const double rbar2 = sqr(rBar);
+  vector<Vector3d> smooth_normals = normals;
 
-  for (int iter = 1; iter < smoothingIterations; ++iter)
+  const double rbar2 = sqr(r_bar);
+
+  for (int iter = 1; iter < smoothing_iterations; ++iter)
   {
 #pragma omp parallel for schedule(guided, 128)
-    for (unsigned int i = 0; i<positions.size(); ++i)
+    for (unsigned int i = 0; i < positions.size(); ++i)
     {
       Vector3d normal = normals[i];
       Matrix3d scatter = normal * normal.transpose();
-     
-      for (int j = 0; j<numNeighbors && indices(j,i)>-1; ++j)
+
+      for (int j = 0; j < num_neighbors && indices(j, i) > -1; ++j)
       {
         int k = indices(j, i);
         double d = 1.0 - (normals[k].dot(normal));
-        double weight  = (d > 1.0) ? 0.0 : (1.0 / (1 + sqr(d)/rbar2));
+        double weight = (d > 1.0) ? 0.0 : (1.0 / (1 + sqr(d) / rbar2));
         scatter += weight * normals[k] * normals[k].transpose();
       }
-     
-      SelfAdjointEigenSolver<Matrix3d> eigenSolver(scatter.transpose());
-      ASSERT(eigenSolver.info() == Success); 
-      Matrix3d eigenVector = eigenSolver.eigenvectors();
 
-      for (int j = 0; j<3; ++j)
-        smoothNormals[i][j] = eigenVector.coeff(j, 2); 
-     
+      SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
+      ASSERT(eigenSolver.info() == Success);
+      Matrix3d eigen_vector = eigen_solver.eigenvectors();
+
+      for (int j = 0; j < 3; ++j) smooth_normals[i][j] = eigen_vector.coeff(j, 2);
+
       // make sure normal doesn't flip
-      if (normal.dot(eigenVector.col(2)) < 0)
-        smoothNormals[i] = -smoothNormals[i];
+      if (normal.dot(eigen_vector.col(2)) < 0)
+        smooth_normals[i] = -smooth_normals[i];
     }
 
     // copy over the updated normals
-    normals = smoothNormals;
+    normals = smooth_normals;
   }
 
-  const double surfaceRBar = 0.05;
-  vector<Vector3d> smoothPoints(positions.size());
+  const double surface_r_bar = 0.05;
+  vector<Vector3d> smooth_points(positions.size());
 
- #pragma omp parallel for schedule(guided, 128)
-  for (unsigned int i=0; i<positions.size(); ++i)
+#pragma omp parallel for schedule(guided, 128)
+  for (unsigned int i = 0; i < positions.size(); ++i)
   {
-    int j,k;
+    int j, k;
     Vector3d normal = normals[i];
     double t, t0;
     t = t0 = normal.dot(positions[i]);
-   
+
     for (int iter = 0; iter < 3; ++iter)
     {
-      double totalDistance = 0;
-      double totalWeight = 1.0;
-      for (j=0; j<numNeighbors && indices(j,i)>-1; ++j)
+      double total_distance = 0;
+      double total_weight = 1.0;
+      for (j = 0; j < num_neighbors && indices(j, i) > -1; ++j)
       {
-        k = indices(j,i);
-        if (normal.dot(normals[k]) < cos(45./180. * pi))
+        k = indices(j, i);
+        if (normal.dot(normals[k]) < cos(45. / 180. * kPi))
           continue;
         double distance = normal.dot(positions[k]) - t;
-        double weight = 1.0 / (1.0 + sqr(distance / surfaceRBar));
-        totalDistance += weight * distance;
-        totalWeight += weight;
+        double weight = 1.0 / (1.0 + sqr(distance / surface_r_bar));
+        total_distance += weight * distance;
+        total_weight += weight;
       }
-      t += totalDistance / totalWeight;
+      t += total_distance / total_weight;
     }
-    smoothPoints[i] = positions[i] + normal * (t - t0);
+    smooth_points[i] = positions[i] + normal * (t - t0);
   }
- 
+
   delete nns;
-  positions = smoothPoints;
+  positions = smooth_points;
 }
 
 // Decimates the ray cloud, spatially or in time
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 
   smoothPointCloud(cloud.ends, normals, 15, 10, 10);
 
-  cloud.save(file.substr(0,file.length()-4) + "_smooth.ply");
+  cloud.save(file.substr(0, file.length() - 4) + "_smooth.ply");
 
   return true;
 }

@@ -11,7 +11,7 @@
 #include "rayutils.h"
 #include "raypose.h"
 
-namespace RAY
+namespace ray
 {
 
 struct RAYLIB_EXPORT Trajectory
@@ -35,8 +35,8 @@ struct RAYLIB_EXPORT Trajectory
   };
   std::vector<Node> nodes;
 
-  void save(const std::string &fileName, double timeOffset = 0.0);
-  bool load(const std::string &fileName);
+  void save(const std::string &file_name, double time_offset = 0.0);
+  bool load(const std::string &file_name);
 };
 
 

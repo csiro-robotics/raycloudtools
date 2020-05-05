@@ -10,14 +10,14 @@
 
 #include "rayutils.h"
 
-namespace RAY
+namespace ray
 {
 struct RAYLIB_EXPORT RoomGen
 {
   void generate();
-  std::vector<Eigen::Vector3d> rayStarts, rayEnds;
-  std::vector<bool> rayBounded;
+  std::vector<Eigen::Vector3d> ray_starts, ray_ends;
+  std::vector<bool> ray_bounded;
 };
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYROOMGEN_H
+#endif  // RAYLIB_RAYROOMGEN_H

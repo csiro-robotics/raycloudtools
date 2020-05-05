@@ -20,7 +20,7 @@
 #include <unordered_map>
 
 using namespace std;
-using namespace RAY;
+using namespace ray;
 using namespace Eigen;
 
 #ifdef __unix__
@@ -63,8 +63,8 @@ ConcaveHull::ConcaveHull(const vector<Vector3d> &points)
 
   cout << "number of points: " << points.size() << endl;
   vertices = points;
-  vertexOnSurface.resize(vertices.size());
-  for (int i = 0; i < (int)vertexOnSurface.size(); i++) vertexOnSurface[i] = false;
+  vertex_on_surface.resize(vertices.size());
+  for (int i = 0; i < (int)vertex_on_surface.size(); i++) vertex_on_surface[i] = false;
 
   vector<double> coordinates(points.size() * 3);
   for (int i = 0; i < (int)points.size(); i++)
@@ -138,7 +138,7 @@ ConcaveHull::ConcaveHull(const vector<Vector3d> &points)
       {
         triangles[rid].tetrahedra[0] = r.topFacet().id();
         triangles[rid].tetrahedra[1] = r.bottomFacet().id();
-        triangles[rid].isSurface = r.topFacet().isUpperDelaunay() != r.bottomFacet().isUpperDelaunay();
+        triangles[rid].is_surface = r.topFacet().isUpperDelaunay() != r.bottomFacet().isUpperDelaunay();
         if (triangles[rid].tetrahedra[0] != f.id() && triangles[rid].tetrahedra[1] != f.id())
           cout << "bad too" << endl;
         for (const orgQhull::QhullVertex &v : r.vertices())
@@ -219,7 +219,7 @@ double ConcaveHull::circumcurvature(const ConcaveHull::Tetrahedron &tetra, int t
     {
       if (tetra.triangles[j] == triangleID)
         continue;
-      if (triangles[tetra.triangles[j]].surfaceFaceCached.triangle != -1)
+      if (triangles[tetra.triangles[j]].surface_face_cached.triangle != -1)
       {
         numFaceIntersects++;
         faceIntersects = j;
@@ -265,7 +265,7 @@ bool ConcaveHull::growFront(double maxCurvature)
   }
   Tetrahedron &tetra = tetrahedra[face.tetrahedron];
   int newVertex = tetra.vertices[vertexI];
-  bool intersects = vertexOnSurface[newVertex];
+  bool intersects = vertex_on_surface[newVertex];
   int faceIntersects = -1;
   int numFaceIntersects = 0;
   const SurfaceFace *faceIntersectTri = NULL;
@@ -273,11 +273,11 @@ bool ConcaveHull::growFront(double maxCurvature)
   {
     if (tetra.triangles[j] == face.triangle)
       continue;
-    if (triangles[tetra.triangles[j]].surfaceFaceCached.triangle != -1)
+    if (triangles[tetra.triangles[j]].surface_face_cached.triangle != -1)
     {
       numFaceIntersects++;
       faceIntersects = j;
-      faceIntersectTri = &triangles[tetra.triangles[j]].surfaceFaceCached;
+      faceIntersectTri = &triangles[tetra.triangles[j]].surface_face_cached;
     }
   }
 
@@ -301,7 +301,7 @@ bool ConcaveHull::growFront(double maxCurvature)
     for (int i = 0; i < 3; i++)
     {
       Edge &edge = edges[triangles[tri2].edges[i]];
-      if (edge.vertices[0] == v0 && edge.vertices[1] == v1 && edge.hasHadFace)
+      if (edge.vertices[0] == v0 && edge.vertices[1] == v1 && edge.has_had_face)
         intersects = true;
     }
     if (!intersects)
@@ -310,7 +310,7 @@ bool ConcaveHull::growFront(double maxCurvature)
   if (intersects)
   {
     face.curvature = deadFace;
-    triangles[face.triangle].surfaceFaceCached = face;
+    triangles[face.triangle].surface_face_cached = face;
     surface.insert(face);  // put it at the back of the queue
     return true;
   }
@@ -324,14 +324,14 @@ bool ConcaveHull::growFront(double maxCurvature)
 
     newFace.tetrahedron = tetra.neighbours[i];
     newFace.triangle = tetra.triangles[i];
-    for (int j = 0; j < 3; j++) vertexOnSurface[triangles[newFace.triangle].vertices[j]] = true;
+    for (int j = 0; j < 3; j++) vertex_on_surface[triangles[newFace.triangle].vertices[j]] = true;
     double grad;
-    if (triangles[newFace.triangle].isSurface)
+    if (triangles[newFace.triangle].is_surface)
       newFace.curvature = grad = deadFace;
     else
       newFace.curvature = circumcurvature(tetrahedra[newFace.tetrahedron], newFace.triangle);
-    triangles[newFace.triangle].surfaceFaceCached = newFace;
-    for (int j = 0; j < 3; j++) edges[triangles[newFace.triangle].edges[j]].hasHadFace = true;
+    triangles[newFace.triangle].surface_face_cached = newFace;
+    for (int j = 0; j < 3; j++) edges[triangles[newFace.triangle].edges[j]].has_had_face = true;
     surface.insert(newFace);
   }
   return true;
@@ -370,11 +370,11 @@ void ConcaveHull::growOutwards(const ConcaveHull::Tetrahedron &tetra, double max
     SurfaceFace face;
     face.tetrahedron = tetra.neighbours[i];
     face.triangle = tetra.triangles[i];
-    if (triangles[face.triangle].isSurface)
+    if (triangles[face.triangle].is_surface)
       face.curvature = deadFace;
     else
       face.curvature = circumcurvature(tetrahedra[face.tetrahedron], face.triangle);
-    triangles[face.triangle].surfaceFaceCached = face;
+    triangles[face.triangle].surface_face_cached = face;
     surface.insert(face);
   }
   growSurface(maxCurvature);
@@ -403,13 +403,13 @@ void ConcaveHull::growInwards(double maxCurvature)
   for (int i = 0; i < (int)triangles.size(); i++)
   {
     Triangle &tri = triangles[i];
-    if (tri.isSurface)
+    if (tri.is_surface)
     {
       SurfaceFace face;
       face.tetrahedron = tetrahedra[tri.tetrahedra[0]].valid() ? tri.tetrahedra[0] : tri.tetrahedra[1];
       face.triangle = i;
       face.curvature = circumcurvature(tetrahedra[face.tetrahedron], face.triangle);
-      triangles[i].surfaceFaceCached = face;
+      triangles[i].surface_face_cached = face;
       surface.insert(face);
     }
   }
@@ -423,7 +423,7 @@ void ConcaveHull::growInDirection(double maxCurvature, const Vector3d &dir)
   for (int i = 0; i < (int)triangles.size(); i++)
   {
     Triangle &tri = triangles[i];
-    if (tri.isSurface)
+    if (tri.is_surface)
     {
       SurfaceFace face;
       face.tetrahedron = tetrahedra[tri.tetrahedra[0]].valid() ? tri.tetrahedra[0] : tri.tetrahedra[1];
@@ -440,11 +440,11 @@ void ConcaveHull::growInDirection(double maxCurvature, const Vector3d &dir)
       face.triangle = i;
       for (int j = 0; j < 3; j++)
       {
-        vertexOnSurface[tri.vertices[j]] = true;
-        edges[tri.edges[j]].hasHadFace = true;
+        vertex_on_surface[tri.vertices[j]] = true;
+        edges[tri.edges[j]].has_had_face = true;
       }
       face.curvature = circumcurvature(tetrahedra[face.tetrahedron], face.triangle);
-      triangles[i].surfaceFaceCached = face;
+      triangles[i].surface_face_cached = face;
       surface.insert(face);
     }
   }

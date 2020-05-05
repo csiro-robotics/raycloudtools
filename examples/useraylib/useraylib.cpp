@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     usage();
   }
 
-  RAY::Cloud raycloud;
+  ray::Cloud raycloud;
   raycloud.load(argv[1]);
 
   std::cout << "Cloud " << argv[1] << " loaded with " << raycloud.starts.size() << " positions and "

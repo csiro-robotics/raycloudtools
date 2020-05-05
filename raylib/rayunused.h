@@ -12,4 +12,4 @@
 /// Macro used to avoid unused prameter warnings.
 #define RAYLIB_UNUSED(x) (void)(x)
 
-#endif // rayunused_H
+#endif  // rayunused_H

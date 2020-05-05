@@ -4,34 +4,37 @@
 //
 // Author: Thomas Lowe
 #include "rayroomgen.h"
-using namespace RAY;
+using namespace ray;
 using namespace std;
 using namespace Eigen;
 
 struct Cuboid
 {
-  Cuboid(const Vector3d &minB, const Vector3d &maxB) : minBound(minB), maxBound(maxB) {}
-  Vector3d minBound, maxBound;
+  Cuboid(const Vector3d &min_b, const Vector3d &max_b)
+    : min_bound(min_b)
+    , max_bound(max_b)
+  {}
+  Vector3d min_bound, max_bound;
 
   bool rayIntersectBox(const Vector3d &start, const Vector3d &dir, double &depth)
   {
-    double maxNearD = 0;
-    double minFarD = 1e10;
-    Vector3d centre = (minBound + maxBound)/2.0;
-    Vector3d extent = (maxBound - minBound)/2.0;
-    Vector3d toCentre = centre - start;
-    for (int ax = 0; ax<3; ax++)
+    double max_near_d = 0;
+    double min_far_d = 1e10;
+    Vector3d centre = (min_bound + max_bound) / 2.0;
+    Vector3d extent = (max_bound - min_bound) / 2.0;
+    Vector3d to_centre = centre - start;
+    for (int ax = 0; ax < 3; ax++)
     {
       double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double nearD = (toCentre[ax] - s*extent[ax])/dir[ax];
-      double farD = (toCentre[ax] + s*extent[ax])/dir[ax];
+      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
+      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
 
-      maxNearD = max(maxNearD, nearD);
-      minFarD = min(minFarD, farD);
+      max_near_d = max(max_near_d, near_d);
+      min_far_d = min(min_far_d, far_d);
     }
-    if (maxNearD > 0.0 && maxNearD < depth && maxNearD < minFarD)
+    if (max_near_d > 0.0 && max_near_d < depth && max_near_d < min_far_d)
     {
-      depth = maxNearD;
+      depth = max_near_d;
       return true;
     }
     return false;
@@ -39,23 +42,23 @@ struct Cuboid
 
   bool rayIntersectNegativeBox(const Vector3d &start, const Vector3d &dir, double &depth)
   {
-    double maxNearD = 0;
-    double minFarD = 1e10;
-    Vector3d centre = (minBound + maxBound)/2.0;
-    Vector3d extent = (maxBound - minBound)/2.0;
-    Vector3d toCentre = centre - start;
-    for (int ax = 0; ax<3; ax++)
+    double max_near_d = 0;
+    double min_far_d = 1e10;
+    Vector3d centre = (min_bound + max_bound) / 2.0;
+    Vector3d extent = (max_bound - min_bound) / 2.0;
+    Vector3d to_centre = centre - start;
+    for (int ax = 0; ax < 3; ax++)
     {
       double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double nearD = (toCentre[ax] - s*extent[ax])/dir[ax];
-      double farD = (toCentre[ax] + s*extent[ax])/dir[ax];
+      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
+      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
 
-      maxNearD = max(maxNearD, nearD);
-      minFarD = min(minFarD, farD);
+      max_near_d = max(max_near_d, near_d);
+      min_far_d = min(min_far_d, far_d);
     }
-    if (maxNearD < minFarD && minFarD < depth)
+    if (max_near_d < min_far_d && min_far_d < depth)
     {
-      depth = minFarD;
+      depth = min_far_d;
       return true;
     }
     return false;
@@ -63,8 +66,8 @@ struct Cuboid
 
   bool intersects(const Vector3d &pos)
   {
-    return pos[0]>minBound[0] && pos[1]>minBound[1] && pos[2]>minBound[2] &&
-           pos[0]<maxBound[0] && pos[1]<maxBound[1] && pos[2]<maxBound[2];
+    return pos[0] > min_bound[0] && pos[1] > min_bound[1] && pos[2] > min_bound[2] && pos[0] < max_bound[0] &&
+           pos[1] < max_bound[1] && pos[2] < max_bound[2];
   }
 };
 
@@ -72,86 +75,91 @@ struct Cuboid
 // A room with a door, window, table and cupboard
 void RoomGen::generate()
 {
-  double pointDensity = 750.0; 
-  double roomWidth = random(3.0, 6.0);
-  double roomLength = random(3.0, 6.0);
-  double roomHeight = random(2.75, 3.0);
+  double point_density = 750.0;
+  double room_width = random(3.0, 6.0);
+  double room_length = random(3.0, 6.0);
+  double room_height = random(2.75, 3.0);
 
-  Vector3d floorCentre(0, 0, -roomHeight*0.5);//random(-10.0, 10.0), random(-10.0, 10.0), random(-10.0, 10.0));
-  double roomYaw = random(0.0, 2.0*pi);
+  Vector3d floor_centre(0, 0, -room_height * 0.5);  // random(-10.0, 10.0), random(-10.0, 10.0), random(-10.0, 10.0));
+  double room_yaw = random(0.0, 2.0 * kPi);
 
   vector<Cuboid> negatives;
-  Cuboid room(Vector3d(0,0,0), Vector3d(roomWidth, roomLength, roomHeight));
+  Cuboid room(Vector3d(0, 0, 0), Vector3d(room_width, room_length, room_height));
   negatives.push_back(room);
 
-  double doorWidth = 0.7;
-  double doorStart = random(0.0, roomWidth-doorWidth);
-  double doorHeight = random(2.2, 2.5);
-  Vector3d doorPos = Vector3d(doorStart, -0.2, 0.0);
-  Cuboid door(doorPos, doorPos + Vector3d(doorWidth, 0.3, doorHeight));
+  double door_width = 0.7;
+  double door_start = random(0.0, room_width - door_width);
+  double door_height = random(2.2, 2.5);
+  Vector3d door_pos = Vector3d(door_start, -0.2, 0.0);
+  Cuboid door(door_pos, door_pos + Vector3d(door_width, 0.3, door_height));
   negatives.push_back(door);
 
-  Cuboid outsideDoor(Vector3d(-20.0, -20.0, 0.0), Vector3d(20.0, -0.15, 20.0));
-  negatives.push_back(outsideDoor);
+  Cuboid outside_door(Vector3d(-20.0, -20.0, 0.0), Vector3d(20.0, -0.15, 20.0));
+  negatives.push_back(outside_door);
 
-  double windowWidth = random(0.7, 1.5);
-  double windowHeight = random(0.9, 1.4);
-  double windowStart = random(0.4, roomLength - windowWidth - 0.4);
-  Vector3d windowPos = Vector3d(-0.2, windowStart, 1.0);
-  Cuboid window(windowPos, windowPos + Vector3d(0.3, windowWidth, windowHeight));
+  double window_width = random(0.7, 1.5);
+  double window_height = random(0.9, 1.4);
+  double window_start = random(0.4, room_length - window_width - 0.4);
+  Vector3d window_pos = Vector3d(-0.2, window_start, 1.0);
+  Cuboid window(window_pos, window_pos + Vector3d(0.3, window_width, window_height));
   negatives.push_back(window);
 
-  Cuboid outsideWindow(Vector3d(-20.0, -20.0, 0.0), Vector3d(-0.15, 20.0, 20.0));
-  negatives.push_back(outsideWindow);
+  Cuboid outside_window(Vector3d(-20.0, -20.0, 0.0), Vector3d(-0.15, 20.0, 20.0));
+  negatives.push_back(outside_window);
 
   vector<Cuboid> positives;
-  double tableWidth = random(0.5, 1.5);
-  double tableLength = random(0.5, 1.5);
-  double tableHeight = random(0.5, 1.2);
-  Vector3d tablePos(random(0.0, roomWidth - tableWidth - 1.0), random(0.0, roomLength - tableLength - 1.0), tableHeight);
-  Cuboid tableTop(tablePos, tablePos + Vector3d(tableWidth, tableLength, 0.05));
-  positives.push_back(tableTop);
-  for (int x = 0; x<2; x++)
+  double table_width = random(0.5, 1.5);
+  double table_length = random(0.5, 1.5);
+  double table_height = random(0.5, 1.2);
+  Vector3d table_pos(random(0.0, room_width - table_width - 1.0), random(0.0, room_length - table_length - 1.0),
+                     table_height);
+  Cuboid table_top(table_pos, table_pos + Vector3d(table_width, table_length, 0.05));
+  positives.push_back(table_top);
+  for (int x = 0; x < 2; x++)
   {
-    for (int y = 0; y<2; y++)
+    for (int y = 0; y < 2; y++)
     {
-      Vector3d pos(tablePos[0] + 0.05 + (tableWidth-0.15)*(double)x, tablePos[1] + 0.05 + (tableLength-0.15)*(double)y,0.0);
-      Cuboid leg(pos, pos+Vector3d(0.05, 0.05, tableHeight));
+      Vector3d pos(table_pos[0] + 0.05 + (table_width - 0.15) * (double)x,
+                   table_pos[1] + 0.05 + (table_length - 0.15) * (double)y, 0.0);
+      Cuboid leg(pos, pos + Vector3d(0.05, 0.05, table_height));
       positives.push_back(leg);
     }
   }
 
-  double cupboardWidth = random(1.0, 2.9);
-  double cupboardStart = random(0.0, roomLength - cupboardWidth);
-  double cupboardDepth = random(0.2, 0.8);
-  double cupboardHeight = random(1.0, 2.5);
-  Vector3d cupboardPos(roomWidth - cupboardDepth, cupboardStart, 0.0);
-  Cuboid cupboard(cupboardPos, cupboardPos + Vector3d(cupboardDepth, cupboardWidth, cupboardHeight));
+  double cupboard_width = random(1.0, 2.9);
+  double cupboard_start = random(0.0, room_length - cupboard_width);
+  double cupboard_depth = random(0.2, 0.8);
+  double cupboard_height = random(1.0, 2.5);
+  Vector3d cupboard_pos(room_width - cupboard_depth, cupboard_start, 0.0);
+  Cuboid cupboard(cupboard_pos, cupboard_pos + Vector3d(cupboard_depth, cupboard_width, cupboard_height));
   positives.push_back(cupboard);
 
 
   // OK now we ray trace from some random location onto the set of cuboids...
-  Vector3d start(random(1.4, roomWidth - 1.4), random(1.4, roomLength - 1.4), random(1.3, 2.0));
-  Vector3d s = start - Vector3d(roomWidth, roomLength, 0.0)/2.0;
-  Vector3d rayStart = Vector3d(s[0]*cos(roomYaw) + s[1]*sin(roomYaw), -s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[2]) + floorCentre;
-  size_t numRays = (size_t)(pointDensity * (roomWidth*roomLength)*2.0 + roomWidth*roomHeight*2.0 + roomLength*roomHeight*2.0);
-  for (size_t i = 0; i<numRays; i++)
+  Vector3d start(random(1.4, room_width - 1.4), random(1.4, room_length - 1.4), random(1.3, 2.0));
+  Vector3d s = start - Vector3d(room_width, room_length, 0.0) / 2.0;
+  Vector3d ray_start =
+    Vector3d(s[0] * cos(room_yaw) + s[1] * sin(room_yaw), -s[0] * sin(room_yaw) + s[1] * cos(room_yaw), s[2]) +
+    floor_centre;
+  size_t num_rays = (size_t)(point_density * (room_width * room_length) * 2.0 + room_width * room_height * 2.0 +
+                             room_length * room_height * 2.0);
+  for (size_t i = 0; i < num_rays; i++)
   {
     Vector3d dir(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, 1.0));
     dir.normalize();
-    const double maxRange = 20.0;
+    const double max_range = 20.0;
     vector<Vector3d> hits;
-    for (int i = 0; i<(int)negatives.size(); i++)
+    for (int i = 0; i < (int)negatives.size(); i++)
     {
-      double newRange = maxRange;
-      if (negatives[i].rayIntersectNegativeBox(start, dir, newRange))
-        hits.push_back(start + dir*(newRange + 1e-6));
+      double new_range = max_range;
+      if (negatives[i].rayIntersectNegativeBox(start, dir, new_range))
+        hits.push_back(start + dir * (new_range + 1e-6));
     }
-    double range = maxRange;
-    for (auto &hit: hits)
+    double range = max_range;
+    for (auto &hit : hits)
     {
       bool intersected = false;
-      for (auto &cuboid: negatives)
+      for (auto &cuboid : negatives)
       {
         if (cuboid.intersects(hit))
         {
@@ -162,18 +170,19 @@ void RoomGen::generate()
       if (!intersected)
         range = min(range, (hit - start).norm());
     }
-    if (i > numRays/2)
+    if (i > num_rays / 2)
     {
-      for (auto &cuboid: positives)
-        cuboid.rayIntersectBox(start, dir, range);
+      for (auto &cuboid : positives) cuboid.rayIntersectBox(start, dir, range);
     }
 
-    const double rangeNoise = 0.03;
-    Vector3d end = start + (range + random(-rangeNoise, rangeNoise)) * dir;
-    Vector3d s = end - Vector3d(roomWidth, roomLength, 0.0)/2.0;
-    Vector3d rayEnd = Vector3d(s[0]*cos(roomYaw) + s[1]*sin(roomYaw), -s[0]*sin(roomYaw) + s[1]*cos(roomYaw), s[2]) + floorCentre;
-    rayStarts.push_back(rayStart);
-    rayEnds.push_back(rayEnd);
-    rayBounded.push_back(range != maxRange);
+    const double range_noise = 0.03;
+    Vector3d end = start + (range + random(-range_noise, range_noise)) * dir;
+    Vector3d s = end - Vector3d(room_width, room_length, 0.0) / 2.0;
+    Vector3d ray_end =
+      Vector3d(s[0] * cos(room_yaw) + s[1] * sin(room_yaw), -s[0] * sin(room_yaw) + s[1] * cos(room_yaw), s[2]) +
+      floor_centre;
+    ray_starts.push_back(ray_start);
+    ray_ends.push_back(ray_end);
+    ray_bounded.push_back(range != max_range);
   }
 }
