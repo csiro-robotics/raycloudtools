@@ -34,7 +34,7 @@ public:
   DebugDraw(const std::string &fixed_frame_idid = "map");
   ~DebugDraw();
 
-  void drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shadee, int id);
+  void drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id);
   void drawCloud(const std::vector<Eigen::Vector3d> &points, double shade, int id)
   {
     std::vector<double> shades(points.size());

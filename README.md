@@ -85,10 +85,17 @@ For raywrap:
 * http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it into a folder parallel to raycloudtools. So there is xxx/raycloudtools and xxx/qhull-2019-1. In qhull, cd build cmake .., make and sudo make install. 
 * cmake .. -DUSE_QHULL (or ccmake .. to turn on/off USE_QHULL)
 
-## Notes on dependencies
+## Notes
+
+### Dependencies
 
 > To be converted into instructions.
 
 * liblas apt packages `liblas-dev liblas-c-dev`
 * qhull: apt packages do not include cpp libraries (Ubuntu 18.04)
 * ros: requires `source /opt/ros/<distro>/setup.bash` before configuring cmake
+
+### Algorithmic
+
+* Need to support different reference frames in debug visualisation.
+  * Check current assumptions: assuming Z up, right handed?

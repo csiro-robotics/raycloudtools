@@ -25,6 +25,7 @@ option(RAYCLOUD_BUILD_TESTS "Build unit tests?" OFF)
 option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
 
 # WITH_ build options.
+option(WITH_3ES "With 3rd Eye Scene support for debug visualisation? Disables WITH_ROS." OFF)
 option(WITH_LAS "With liblas for las file support?" OFF)
 option(WITH_QHULL "With libqhull support?" OFF)
 if(UNIX)
@@ -32,6 +33,7 @@ if(UNIX)
 endif(UNIX)
 
 # Convert WITH_ options to 1/0 so we can use them in configuration headers.
+ras_bool_to_int(WITH_3ES)
 ras_bool_to_int(WITH_LAS)
 ras_bool_to_int(WITH_QHULL)
 ras_bool_to_int(WITH_ROS)
@@ -45,6 +47,12 @@ set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
 set(RAYTOOLS_LINK ${libnabo_LIBRARIES})
 
 # Optionally configured packages.
+if(WITH_3ES)
+  find_package(3es REQUIRED)
+  list(APPEND RAYTOOLS_LINK 3es::3es-core)
+  # Not compatible with WITH_ROS
+  set(WITH_ROS 0)
+endif(WITH_3ES)
 if(WITH_LAS)
   find_package(libLAS REQUIRED)
   list(APPEND RAYTOOLS_INCLUDE ${libLAS_INCLUDE_DIRS})

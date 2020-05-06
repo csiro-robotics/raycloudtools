@@ -38,7 +38,6 @@ set(SOURCES
   raycloud.cpp
   rayconcavehull.cpp
   rayconvexhull.cpp
-  raydebugdraw.cpp
   rayforestgen.cpp
   raylaz.cpp
   raymesh.cpp
@@ -48,6 +47,18 @@ set(SOURCES
   raytrajectory.cpp
   raytreegen.cpp
 )
+
+# Select the source file to use with raydebudraw.
+if(WITH_3ES)
+  # Using 3rd Eye Scene
+  list(APPEND SOURCES raydebugdraw_3es.cpp)
+elseif(WITH_ROS)
+  # Using ROS/rivz
+  list(APPEND SOURCES raydebugdraw_ros.cpp)
+else(WITH_3ES)
+  # Disabled.
+  list(APPEND SOURCES raydebugdraw_none.cpp)
+endif(WITH_3ES)
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
 

@@ -24,6 +24,8 @@ void usage(int exit_code = 0)
   exit(exit_code);
 }
 
+#include "raylib/raydebugdraw.h"
+
 int main(int argc, char *argv[])
 {
   if (argc != 3)

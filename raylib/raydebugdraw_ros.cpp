@@ -1,41 +1,32 @@
 #include "raydebugdraw.h"
 
-#include "rayunused.h"
-
 #if RAYLIB_WITH_ROS
+
 #include <eigen3/Eigen/Geometry>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/MarkerArray.h>
-#endif
 
 using namespace ray;
-using namespace std;
-using namespace Eigen;
 
 namespace ray
 {
 struct DebugDrawDetail
 {
-#if RAYLIB_WITH_ROS
   ros::NodeHandle n;
   ros::Publisher cloud_publisher[2];
   ros::Publisher line_publisher;
   ros::Publisher cylinder_publisher[2];
   ros::Publisher ellipsoid_publisher[6];
   std::string fixed_frame_id;
-#endif  // RAYLIB_WITH_ROS
 };
 }  // namespace ray
 
 std::unique_ptr<DebugDraw> DebugDraw::s_instance;
 
-DebugDraw::DebugDraw(const string &fixed_frame_id)
+DebugDraw::DebugDraw(const std::string &fixed_frame_id)
   : imp_(new DebugDrawDetail)
 {
-#if !RAYLIB_WITH_ROS
-  RAYLIB_UNUSED(fixed_frame_id);
-#else
   imp_->cloud_publisher[0] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud1", 3, true);
   imp_->cloud_publisher[1] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud2", 3, true);
   imp_->line_publisher = imp_->n.advertise<visualization_msgs::Marker>("lines", 3, true);
@@ -48,7 +39,6 @@ DebugDraw::DebugDraw(const string &fixed_frame_id)
   imp_->ellipsoid_publisher[4] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
   imp_->ellipsoid_publisher[5] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
   imp_->fixed_frame_id = fixed_frame_id;
-#endif
 }
 
 DebugDraw::~DebugDraw() = default;
@@ -57,17 +47,10 @@ DebugDraw *DebugDraw::init(int argc, char *argv[], const char *context, bool ros
 {
   if (!s_instance)
   {
-#if !RAYLIB_WITH_ROS
-    RAYLIB_UNUSED(context);
-    RAYLIB_UNUSED(argc);
-    RAYLIB_UNUSED(argv);
-    RAYLIB_UNUSED(ros_init);
-#else   // RAYLIB_WITH_ROS
     if (ros_init)
     {
       ros::init(argc, argv, context);
     }
-#endif  // RAYLIB_WITH_ROS
     s_instance = std::make_unique<DebugDraw>();
   }
 
@@ -79,23 +62,16 @@ DebugDraw *DebugDraw::instance()
   return s_instance.get();
 }
 
-#if RAYLIB_WITH_ROS
-void setField2(sensor_msgs::PointField &field, const string &name, int offset, uint8_t type, int count)
+void setField2(sensor_msgs::PointField &field, const std::string &name, int offset, uint8_t type, int count)
 {
   field.name = name;
   field.offset = offset;
   field.datatype = type;
   field.count = count;
 }
-#endif
 
-void DebugDraw::drawCloud(const vector<Vector3d> &points, const vector<double> &point_shade, int id)
+void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
 {
-#if !RAYLIB_WITH_ROS
-  RAYLIB_UNUSED(points);
-  RAYLIB_UNUSED(point_shade);
-  RAYLIB_UNUSED(id);
-#else
   sensor_msgs::PointCloud2 point_cloud;
   point_cloud.header.frame_id = 3;
   point_cloud.header.stamp = ros::Time();
@@ -150,15 +126,10 @@ void DebugDraw::drawCloud(const vector<Vector3d> &points, const vector<double> &
 
   if (point_cloud.width > 0)
     imp_->cloud_publisher[id].publish(point_cloud);
-#endif
 }
 
-void DebugDraw::drawLines(const vector<Vector3d> &starts, const vector<Vector3d> &ends)
+void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
 {
-#if !RAYLIB_WITH_ROS
-  RAYLIB_UNUSED(starts);
-  RAYLIB_UNUSED(ends);
-#else
   visualization_msgs::Marker points;
   points.header.frame_id = imp_->fixed_frame_id;
   points.header.stamp = ros::Time::now();
@@ -199,18 +170,11 @@ void DebugDraw::drawLines(const vector<Vector3d> &starts, const vector<Vector3d>
 
   // Publish the marker
   imp_->line_publisher.publish(points);
-#endif
 }
 
-void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vector3d> &ends, const vector<double> &radii,
-                              int id)
+void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                              const std::vector<double> &radii, int id)
 {
-#if !RAYLIB_WITH_ROS
-  RAYLIB_UNUSED(starts);
-  RAYLIB_UNUSED(ends);
-  RAYLIB_UNUSED(radii);
-  RAYLIB_UNUSED(id);
-#else
   visualization_msgs::MarkerArray marker_array;
   for (int i = 0; i < (int)starts.size(); i++)
   {
@@ -236,17 +200,17 @@ void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vecto
       marker.color.b = 0.4f;
     }
 
-    Vector3d dir = (starts[i] - ends[i]).normalized();
-    Vector3d ax = dir.cross(Vector3d(0, 0, 1));
+    Eigen::Vector3d dir = (starts[i] - ends[i]).normalized();
+    Eigen::Vector3d ax = dir.cross(Eigen::Vector3d(0, 0, 1));
     double angle = atan2(ax.norm(), dir[2]);
-    Vector3d rot_vector = ax.normalized() * -angle;
-    AngleAxisd aa(rot_vector.norm(), rot_vector.normalized());
-    Quaterniond q(aa);
+    Eigen::Vector3d rot_vector = ax.normalized() * -angle;
+    Eigen::AngleAxisd aa(rot_vector.norm(), rot_vector.normalized());
+    Eigen::Quaterniond q(aa);
     marker.pose.orientation.w = q.w();
     marker.pose.orientation.x = q.x();
     marker.pose.orientation.y = q.y();
     marker.pose.orientation.z = q.z();
-    Vector3d mid = (starts[i] + ends[i]) / 2.0;
+    Eigen::Vector3d mid = (starts[i] + ends[i]) / 2.0;
     marker.pose.position.x = mid[0];
     marker.pose.position.y = mid[1];
     marker.pose.position.z = mid[2];
@@ -254,19 +218,11 @@ void DebugDraw::drawCylinders(const vector<Vector3d> &starts, const vector<Vecto
     marker_array.markers.push_back(marker);
   }
   imp_->cylinder_publisher[id].publish(marker_array);
-#endif
 }
 
-void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Matrix3d> &poses,
-                               const vector<Vector3d> &radii, const Vector3d &colour, int id)
+void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
+                               const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id)
 {
-#if !RAYLIB_WITH_ROS
-  RAYLIB_UNUSED(centres);
-  RAYLIB_UNUSED(poses);
-  RAYLIB_UNUSED(radii);
-  RAYLIB_UNUSED(colour);
-  RAYLIB_UNUSED(id);
-#else
   visualization_msgs::MarkerArray marker_array;
   for (int i = 0; i < (int)centres.size(); i++)
   {
@@ -288,26 +244,27 @@ void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Mat
     marker.color.g = float(colour[1]);
     marker.color.b = float(colour[2]);
 
-    Vector3d len = poses[i].col(ind);
-    Vector3d ax = len.cross(Vector3d(0, 0, 1));
+    Eigen::Vector3d len = poses[i].col(ind);
+    Eigen::Vector3d ax = len.cross(Eigen::Vector3d(0, 0, 1));
     double angle = atan2(ax.norm(), len[2]);
-    Vector3d rot_vector = ax.normalized() * -angle;
-    Quaterniond q(AngleAxisd(rot_vector.norm(), rot_vector.normalized()));
+    Eigen::Vector3d rot_vector = ax.normalized() * -angle;
+    Eigen::Quaterniond q(Eigen::AngleAxisd(rot_vector.norm(), rot_vector.normalized()));
 
     q.normalize();
     if (!(abs(q.squaredNorm() - 1.0) < 0.001))
     {
-      cout << "quat " << i << " unnormalized: " << q.w() << ", " << q.x() << ", " << q.y() << ", " << q.z() << endl;
-      cout << "poses: " << poses[i] << endl;
+      std::cout << "quat " << i << " unnormalized: " << q.w() << ", " << q.x() << ", " << q.y() << ", " << q.z()
+                << std::endl;
+      std::cout << "poses: " << poses[i] << std::endl;
     }
     marker.pose.orientation.w = q.w();
     marker.pose.orientation.x = q.x();
     marker.pose.orientation.y = q.y();
     marker.pose.orientation.z = q.z();
-    Vector3d mid = centres[i];
+    Eigen::Vector3d mid = centres[i];
     if (!(mid[0] == mid[0]))
     {
-      cout << "bad centre: " << mid.transpose() << endl;
+      std::cout << "bad centre: " << mid.transpose() << std::endl;
     }
     marker.pose.position.x = mid[0];
     marker.pose.position.y = mid[1];
@@ -317,5 +274,6 @@ void DebugDraw::drawEllipsoids(const vector<Vector3d> &centres, const vector<Mat
   }
 
   imp_->ellipsoid_publisher[id].publish(marker_array);
-#endif
 }
+
+#endif  // RAYLIB_WITH_ROS
