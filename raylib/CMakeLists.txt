@@ -15,8 +15,10 @@ set(PUBLIC_HEADERS
   raydebugdraw.h
   rayforestgen.h
   raygrid.h
+  rayintersect.h
   raylaz.h
   raymesh.h
+  rayoctreenode.h
   rayply.h
   raypose.h
   rayprogress.h
@@ -43,6 +45,7 @@ set(SOURCES
   rayforestgen.cpp
   raylaz.cpp
   raymesh.cpp
+  rayoctreenode.cpp
   rayply.cpp
   rayroomgen.cpp
   rayterraingen.cpp

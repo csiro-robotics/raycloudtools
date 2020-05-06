@@ -17,6 +17,8 @@
 #include <iomanip>
 #include <iostream>
 
+// #pragma GCC optimize("O0")
+
 using namespace ray;
 
 void EllipsoidMark::reset(size_t id)
@@ -379,7 +381,6 @@ void TransientFilter::finaliseFilter(const Cloud &cloud)
     }
   }
 }
-
 
 void TransientFilter::walkRay(const Cloud &cloud, const Grid<size_t> &grid, size_t ray_id)
 {
