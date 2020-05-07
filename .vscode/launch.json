@@ -23,7 +23,7 @@
 //          "program": "${workspaceFolder}/bin/raycreate",          
 //          "args": ["room", "0"], 
           "program": "${workspaceFolder}/bin/raycolour",          
-          "args": ["room2.ply", "0.2,0.8,0.1", "shaded"], 
+          "args": ["room1.ply", "0.2,0.8,0.1", "shaded"], 
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",
           "environment": [],

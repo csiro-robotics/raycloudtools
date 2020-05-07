@@ -44,7 +44,7 @@ struct Grid
   Cell &cell(int x, int y, int z)
   {
     Eigen::Vector3i index(x, y, z);
-    int hash = (x * 17 + y * 101 + z * 797) % buckets_.size();
+    int hash = (x * 17 + y * 101 + z * 797) % (int)buckets_.size();
     std::vector<Cell> &cells = buckets_[hash].cells;
     for (auto &c : cells)
       if (c.index == index)
@@ -54,7 +54,7 @@ struct Grid
   void insert(int x, int y, int z, const T &value)
   {
     Eigen::Vector3i index(x, y, z);
-    int hash = (x * 17 + y * 101 + z * 797) % buckets_.size();
+    int hash = (x * 17 + y * 101 + z * 797) % (int)buckets_.size();
     std::vector<Cell> &cell_list = buckets_[hash].cells;
     for (auto &c : cell_list)
     {

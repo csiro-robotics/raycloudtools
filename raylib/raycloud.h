@@ -27,6 +27,8 @@ struct RAYLIB_EXPORT Ellipsoid
   size_t num_gone;
   inline void setExtents(const Eigen::Matrix3d &vecs, const Eigen::Vector3d &vals)
   {
+    // This is approximate (slightly larger than minimal bounds), but
+    // an exact bounding box is most likely non-analytic, and expensive to compute
     double max_rr = std::max(vals[0], std::max(vals[1], vals[2]));
     const Eigen::Vector3d &x = vecs.col(0);
     const Eigen::Vector3d &y = vecs.col(1);

@@ -221,7 +221,7 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
     scatter /= (double)(num + 1);
 
     SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
-    ASSERT(eigenSolver.info() == Success);
+    ASSERT(eigen_solver.info() == Success);
     if (normals)
     {
       Vector3d normal = eigen_solver.eigenvectors().col(0);
@@ -301,7 +301,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     scatter /= num_neighbours;
 
     SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
-    ASSERT(eigenSolver.info() == Success);
+    ASSERT(eigen_solver.info() == Success);
 
     Vector3d eigen_value = eigen_solver.eigenvalues();
     Matrix3d eigen_vector = eigen_solver.eigenvectors();

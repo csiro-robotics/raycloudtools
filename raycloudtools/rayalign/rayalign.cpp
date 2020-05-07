@@ -50,7 +50,7 @@ void getSurfel(const vector<Vector3d> &points, const vector<int> &ids, Vector3d 
   scatter / (double)ids.size();
 
   SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
-  ASSERT(eigenSolver.info() == Success);
+  ASSERT(eigen_solver.info() == Success);
   width = maxVector(eigen_solver.eigenvalues(), Vector3d(1e-5, 1e-5, 1e-5));
   width = Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
   mat = eigen_solver.eigenvectors();
