@@ -645,9 +645,11 @@ void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const
   }
   cout << u << " unaltered rays have been moved into combined cloud" << endl;
   cout << clouds[0]->ends.size() << " and " << clouds[1]->ends.size() << " rays to combine, that are different" << endl;
+#if defined VERBOSE_MERGE
   this->save("common_rays.ply");
   clouds[0]->save("changes_0.ply");
   clouds[1]->save("changes_1.ply");
+#endif
   if (merge_type == "all")
   {
     for (int c = 0; c<2; c++)
