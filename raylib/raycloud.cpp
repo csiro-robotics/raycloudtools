@@ -99,7 +99,7 @@ Vector3d Cloud::calcMinBound()
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
-      min_v = minVector(min_v, ends[i]);
+      min_v = minVector(min_v, minVector(starts[i], ends[i]));
   }
   return min_v;
 }
@@ -110,7 +110,7 @@ Vector3d Cloud::calcMaxBound()
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
-      max_v = maxVector(max_v, ends[i]);
+      max_v = maxVector(max_v, maxVector(starts[i], ends[i]));
   }
   return max_v;
 }
@@ -269,6 +269,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
   for (unsigned int i = 0; i < ends.size(); i++)
   {
     ellipsoids[i].transient = false;
+    ellipsoids[i].opacity = 1.0;
     if (!rayBounded(i))
     {
       ellipsoids[i].extents.setZero();
@@ -336,8 +337,8 @@ void fillGrid(Grid<int> &grid, const vector<Vector3d> &starts, const vector<Vect
     Vector3d dir_sign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Vector3d start = (starts[i] - grid.box_min) / grid.voxel_width;
     Vector3d end = (ends[i] - grid.box_min) / grid.voxel_width;
-    Vector3i start_index(start.cast<int>());
-    Vector3i end_index(end.cast<int>());
+    Vector3i start_index((int)floor(start[0]), (int)floor(start[1]), (int)floor(start[2]));
+    Vector3i end_index((int)floor(end[0]), (int)floor(end[1]), (int)floor(end[2]));
     double length_sqr = (end_index - start_index).squaredNorm();
     Vector3i index = start_index;
     for (;;)
@@ -391,8 +392,8 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
     Vector3d b_max = (ellipsoid.pos + ellipsoid.extents - grid.box_min) / grid.voxel_width;
     if (b_max[0] < 0.0 || b_max[1] < 0.0 || b_max[2] < 0.0)
       continue;
-    if (b_min[0] > (double)grid.dims[0] - 1.0 || b_min[1] > (double)grid.dims[1] - 1.0 ||
-        b_min[2] > (double)grid.dims[2] - 1.0)
+    if (b_min[0] >= (double)grid.dims[0] || b_min[1] >= (double)grid.dims[1] ||
+        b_min[2] >= (double)grid.dims[2])
       continue;
     Vector3i bmin = maxVector(Vector3i(0, 0, 0), Vector3i(b_min.cast<int>()));
     Vector3i bmax =
@@ -543,18 +544,11 @@ static double voxel_width = 0.25;
 void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_type, double num_rays, bool colour_cloud)
 {
   cout << "find transients" << endl;
-  Vector3d box_min(1e10, 1e10, 1e10);
-  Vector3d box_max(-1e10, -1e10, -1e10);
-  for (auto &end : ends)
-  {
-    box_min = minVector(box_min, end);
-    box_max = maxVector(box_max, end);
-  }
 
   vector<Ellipsoid> ellipsoids;
   generateEllipsoids(ellipsoids);
 
-  Grid<int> grid(box_min, box_max, voxel_width);
+  Grid<int> grid(calcMinBound(), calcMaxBound(), voxel_width);
   fillGrid(grid, starts, ends);
 
   vector<bool> transients;
@@ -669,14 +663,7 @@ void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const
   Grid<int> grids[2];
   for (int c = 0; c < 2; c++)
   {
-    Vector3d box_min(1e10, 1e10, 1e10);
-    Vector3d box_max(-1e10, -1e10, -1e10);
-    for (auto &end : clouds[c]->ends)
-    {
-      box_min = minVector(box_min, end);
-      box_max = maxVector(box_max, end);
-    }
-    grids[c].init(box_min, box_max, voxel_width);
+    grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), voxel_width);
     fillGrid(grids[c], clouds[c]->starts, clouds[c]->ends);
   }  
 
@@ -728,14 +715,7 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string
   vector<Grid<int>> grids(clouds.size());
   for (int c = 0; c < (int)clouds.size(); c++)
   {
-    Vector3d box_min(1e10, 1e10, 1e10);
-    Vector3d box_max(-1e10, -1e10, -1e10);
-    for (auto &end : clouds[c].ends)
-    {
-      box_min = minVector(box_min, end);
-      box_max = maxVector(box_max, end);
-    }
-    grids[c].init(box_min, box_max, voxel_width);
+    grids[c].init(clouds[c].calcMinBound(), clouds[c].calcMaxBound(), voxel_width);
     fillGrid(grids[c], clouds[c].starts, clouds[c].ends);
   }
 
