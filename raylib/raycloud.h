@@ -20,7 +20,7 @@ typedef Eigen::Matrix<double, 6, 1> Vector6i;
 
 struct RAYLIB_EXPORT Vector6iLess
 {
-  bool operator()(const Vector6i &a, const Vector6i &b) const
+  inline bool operator()(const Vector6i &a, const Vector6i &b) const
   {
     if (a[0] != b[0])
       return a[0] < b[0];
