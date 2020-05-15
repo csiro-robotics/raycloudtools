@@ -12,13 +12,34 @@
 #include "raypose.h"
 #include "raytrajectory.h"
 #include "raygrid.h"
+#include <set>
 
 namespace ray
+{  
+typedef Eigen::Matrix<double, 6, 1> Vector6i;
+
+struct RAYLIB_EXPORT Vector6iLess
 {
+  inline bool operator()(const Vector6i &a, const Vector6i &b) const
+  {
+    if (a[0] != b[0])
+      return a[0] < b[0];
+    if (a[1] != b[1])
+      return a[1] < b[1];
+    if (a[2] != b[2])
+      return a[2] < b[2];
+    if (a[3] != b[3])
+      return a[3] < b[3];
+    if (a[4] != b[4])
+      return a[4] < b[4];
+    return a[5] < b[5];
+  }
+};
+
 struct RAYLIB_EXPORT Ellipsoid
 {
   Eigen::Vector3d pos;
-  Eigen::Vector3d vectors[3];
+  Eigen::Matrix3d eigen_mat; // each row is a scaled eigenvector
   double time;
   Eigen::Vector3d extents;
   double opacity;
@@ -61,9 +82,12 @@ struct RAYLIB_EXPORT Cloud
   std::vector<Eigen::Vector3d> generateNormals(int search_sizee = 16);
   void findTransients(Cloud &transient, Cloud &fixed, const std::string &merge_typee, double num_rays,
                       bool colour_cloudd);
-  void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &merge_typee, double num_rays);
+  void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &merge_type, double num_rays);
+  // 3-way merge of cloud1 and cloud2, stores result in this object. Cloud1 and cloud2 are modified to be just the
+  // changed rays from base_cloud.
+  void threeWayMerge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const std::string &merge_type, double num_rays);
   void markIntersectedEllipsoids(Grid<int> &grid, std::vector<bool> &transients, std::vector<Ellipsoid> &ellipsoids,
-                                 const std::string &merge_typee, double num_rays, bool self_transientt);
+                                 const std::string &merge_type, double num_rays, bool self_transient);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);
   void split(Cloud &cloud1, Cloud &cloud2, std::function<bool(int i)> fptr);
   void getSurfels(int search_sizee, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,

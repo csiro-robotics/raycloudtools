@@ -79,7 +79,6 @@ int main(int argc, char *argv[])
   if (calc_surfels)
     cloud.getSurfels(search_size, cents, norms, dims, mats, inds);
 
-  // Q: can I do better? in particular, can I colour as doubles and only quantise at the end?
   if (type.find(",") != string::npos)
   {
     stringstream ss(type);

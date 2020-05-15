@@ -113,28 +113,32 @@ int main(int argc, char *argv[])
   vector<Vector3d> normals[2];
   vector<Vector3d> widths[2];
   vector<bool> is_plane[2];
+  Vector3d centres[2];
   for (int c = 0; c < 2; c++)
   {
     // 1. decimate quite fine
-    vector<int> decimated = voxelSubsample(aligner.clouds[c].ends, 0.1);
+    vector<int64_t> decimated = voxelSubsample(aligner.clouds[c].ends, 0.1);
     vector<Vector3d> decimated_points;
     decimated_points.reserve(decimated.size());
     vector<Vector3d> decimated_starts;
     decimated_starts.reserve(decimated.size());
-    for (int i = 0; i < (int)decimated.size(); i++)
+    centres[c].setZero();
+    for (size_t i = 0; i < decimated.size(); i++)
     {
-      if (aligner.clouds[c].rayBounded(decimated[i]))
+      if (aligner.clouds[c].rayBounded((int)decimated[i]))
       {
         decimated_points.push_back(aligner.clouds[c].ends[decimated[i]]);
+        centres[c] += decimated_points.back();
         decimated_starts.push_back(aligner.clouds[c].starts[decimated[i]]);
       }
     }
+    centres[c] /= (double)decimated_points.size(); 
 
     // 2. find the coarser random candidate points. We just want a fairly even spread but not the voxel centres
-    vector<int> candidates = voxelSubsample(decimated_points, 1.0);
+    vector<int64_t> candidates = voxelSubsample(decimated_points, 1.0);
     vector<Vector3d> candidate_points(candidates.size());
     vector<Vector3d> candidate_starts(candidates.size());
-    for (int i = 0; i < (int)candidates.size(); i++)
+    for (int64_t i = 0; i < (int64_t)candidates.size(); i++)
     {
       candidate_points[i] = decimated_points[candidates[i]];
       candidate_starts[i] = decimated_starts[candidates[i]];
@@ -170,7 +174,8 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < q_size; i++)
     {
       ids.clear();
-      for (int j = 0; j < search_size && indices(j, i) > -1; j++) ids.push_back(indices(j, i));
+      for (int j = 0; j < search_size && indices(j, i) > -1; j++) 
+        ids.push_back(indices(j, i));
       if (ids.size() < min_points_per_ellipsoid)  // not dense enough
         continue;
 
@@ -286,7 +291,6 @@ int main(int argc, char *argv[])
 
         for (int i = 0; i < (int)q_size; i++)
         {
-          // shall we pick only two-way matches? Not for now...
           for (int j = 0; j < search_size && indices(j, i) > -1; j++)
           {
             Match match;
@@ -325,17 +329,17 @@ int main(int argc, char *argv[])
       Matrix<double, state_size, 1> at_b;
       at_b.setZero();
       double square_error = 0.0;
-      for (int i = 0; i < (int)matches.size(); i++)
+      for (size_t i = 0; i < matches.size(); i++)
       {
         auto &match = matches[i];
-        Vector3d pos[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
-        double error = (pos[1] - pos[0]).dot(match.normal);  // mahabolonis instead?
+        Vector3d positions[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
+        double error = (positions[1] - positions[0]).dot(match.normal);  // mahabolonis instead?
         double error_sqr;
         if (is_plane[0][match.ids[0]])
           error_sqr = sqr(error * translation_weight);
         else
         {
-          Vector3d flat = pos[1] - pos[0];
+          Vector3d flat = positions[1] - positions[0];
           Vector3d norm = normals[0][match.ids[0]];
           flat -= norm * flat.dot(norm);
           error_sqr = (flat * translation_weight).squaredNorm();
@@ -353,16 +357,18 @@ int main(int argc, char *argv[])
         {
           Vector3d axis(0, 0, 0);
           axis[i] = 1.0;
-          at[3 + i] = -(pos[0].cross(axis)).dot(match.normal);
+          at[3 + i] = -(positions[0].cross(axis)).dot(match.normal);
         }
-        if (!rigid_only)  // give the aligner a chance to rigidly align first
+        if (!rigid_only) 
         {
-          at[6] = sqr(pos[0][0]) * match.normal[0];
-          at[7] = sqr(pos[0][0]) * match.normal[1];
-          at[8] = sqr(pos[0][1]) * match.normal[0];
-          at[9] = sqr(pos[0][1]) * match.normal[1];
-          at[10] = pos[0][0] * pos[0][1] * match.normal[0];
-          at[11] = pos[0][0] * pos[0][1] * match.normal[1];
+          positions[0] -= centres[0];
+          positions[1] -= centres[1];
+          at[6] = sqr(positions[0][0]) * match.normal[0];
+          at[7] = sqr(positions[0][0]) * match.normal[1];
+          at[8] = sqr(positions[0][1]) * match.normal[0];
+          at[9] = sqr(positions[0][1]) * match.normal[1];
+          at[10] = positions[0][0] * positions[0][1] * match.normal[0];
+          at[11] = positions[0][0] * positions[0][1] * match.normal[1];
         }
         at_a += at * weight * at.transpose();
         at_b += at * weight * error;
@@ -377,11 +383,12 @@ int main(int argc, char *argv[])
       rot.normalize();
       Pose shift(Vector3d(x[0], x[1], x[2]), Quaterniond(AngleAxisd(angle, rot)));
       pose = shift * pose;
-      for (int i = 0; i < (int)centroids[0].size(); i++)
+      for (size_t i = 0; i < centroids[0].size(); i++)
       {
         Vector3d &pos = centroids[0][i];
+        Vector3d relPos = pos - centres[0];
         if (!rigid_only)
-          pos += a * sqr(pos[0]) + b * sqr(pos[1]) + c * pos[0] * pos[1];
+          pos += a * sqr(relPos[0]) + b * sqr(relPos[1]) + c * relPos[0] * relPos[1];
         pos = shift * pos;
         normals[0][i] = shift.rotation * normals[0][i];
       }
@@ -392,8 +399,9 @@ int main(int argc, char *argv[])
       // we should be able to concatenate these transforms and only apply them once at the end
       for (auto &end : aligner.clouds[0].ends)
       {
+        Vector3d relPos = end - centres[0];
         if (!rigid_only)
-          end += a * sqr(end[0]) + b * sqr(end[1]) + c * end[0] * end[1];
+          end += a * sqr(relPos[0]) + b * sqr(relPos[1]) + c * relPos[0] * relPos[1];
         end = shift * end;
       }
     }

@@ -2,7 +2,7 @@ set(SOURCES
   raytransients.cpp
 )
 
-ras_add_executable(raytrainsients
+ras_add_executable(raytransients
   LIBS raylib
   SOURCES ${SOURCES}
   PROJECT_FOLDER "raycloudtools"

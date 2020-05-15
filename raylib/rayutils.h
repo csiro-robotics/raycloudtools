@@ -82,11 +82,11 @@ struct Vector3iLess
   }
 };
 
-inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width)
+inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width)
 {
-  std::vector<int> indices;
+  std::vector<int64_t> indices;
   std::set<Eigen::Vector3i, Vector3iLess> test_set;
-  for (unsigned int i = 0; i < points.size(); i++)
+  for (int64_t i = (int64_t)points.size()-1; i >= 0; i--)
   {
     Eigen::Vector3i place(int(std::floor(points[i][0] / voxel_width)), int(std::floor(points[i][1] / voxel_width)),
                           int(std::floor(points[i][2] / voxel_width)));
