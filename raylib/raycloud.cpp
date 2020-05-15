@@ -535,10 +535,39 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
   }
 }
 
-static double voxel_width = 0.25;
+namespace 
+{
+  double estimatePointSpacing(const Cloud &cloud)
+  {
+    double v_width = 0.25;
+    double num_voxels = 0;
+    double num_points = 0;
+    std::set<Eigen::Vector3i, Vector3iLess> test_set;
+    for (unsigned int i = 0; i < cloud.ends.size(); i++)
+    {
+      if (cloud.rayBounded(i))
+      {
+        num_points++;
+        const Vector3d &point = cloud.ends[i];
+        Eigen::Vector3i place(int(std::floor(point[0] / v_width)), int(std::floor(point[1] / v_width)),
+                              int(std::floor(point[2] / v_width)));
+        if (test_set.find(place) == test_set.end())
+        {
+          test_set.insert(place);
+          num_voxels++;
+        }
+      }
+    }
+
+    double width = 0.25 * sqrt(num_voxels/num_points); // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
+    cout << "estimated point spacing: " << width << endl;
+    return width;
+  }
+}
 
 void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_type, double num_rays, bool colour_cloud)
 {
+  const double voxel_width = 4.0 * estimatePointSpacing(*this);
   cout << "find transients" << endl;
 
   vector<Ellipsoid> ellipsoids;
@@ -681,7 +710,7 @@ void Cloud::threeWayMerge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2,
   Grid<int> grids[2];
   for (int c = 0; c < 2; c++)
   {
-    grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), voxel_width);
+    grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), 4.0*estimatePointSpacing(*clouds[c]));
     fillGrid(grids[c], clouds[c]->starts, clouds[c]->ends);
   }  
 
@@ -734,7 +763,7 @@ void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string
   vector<Grid<int>> grids(clouds.size());
   for (int c = 0; c < (int)clouds.size(); c++)
   {
-    grids[c].init(clouds[c].calcMinBound(), clouds[c].calcMaxBound(), voxel_width);
+    grids[c].init(clouds[c].calcMinBound(), clouds[c].calcMaxBound(), 4.0*estimatePointSpacing(clouds[c]));
     fillGrid(grids[c], clouds[c].starts, clouds[c].ends);
   }
 
