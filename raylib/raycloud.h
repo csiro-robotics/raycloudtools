@@ -83,7 +83,9 @@ struct RAYLIB_EXPORT Cloud
   void findTransients(Cloud &transient, Cloud &fixed, const std::string &merge_typee, double num_rays,
                       bool colour_cloudd);
   void combine(std::vector<Cloud> &clouds, Cloud &differences, const std::string &merge_type, double num_rays);
-  void threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const std::string &merge_type, double num_rays);
+  // 3-way merge of cloud1 and cloud2, stores result in this object. Cloud1 and cloud2 are modified to be just the
+  // changed rays from base_cloud.
+  void threeWayMerge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const std::string &merge_type, double num_rays);
   void markIntersectedEllipsoids(Grid<int> &grid, std::vector<bool> &transients, std::vector<Ellipsoid> &ellipsoids,
                                  const std::string &merge_type, double num_rays, bool self_transient);
   void generateEllipsoids(std::vector<Ellipsoid> &ellipsoids);

@@ -8,7 +8,7 @@
           "name": "(gdb) Launch",
           "type": "cppdbg",
           "request": "launch",
-          "program": "${workspaceFolder}/build/bin/raycombined",          
+          "program": "${workspaceFolder}/build/bin/raycombine",          
 //          "args": ["~/Downloads/col_decimated.ply", "min", "~/Downloads/col_decimated1.ply", "~/Downloads/col_decimated2.ply", "10", "rays"], 
           "args": ["room.ply", "max", "room1.ply", "room2.ply", "1", "rays"], 
 //          "program": "${workspaceFolder}/bin/raytransients",          

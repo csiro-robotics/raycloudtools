@@ -9,6 +9,7 @@
 #include "raylaz.h"
 #include "raydebugdraw.h"
 #include <nabo/nabo.h>
+#include <limits>
 
 using namespace std;
 using namespace Eigen;
@@ -95,7 +96,7 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
 
 Vector3d Cloud::calcMinBound()
 {
-  Vector3d min_v(1e10, 1e10, 1e10);
+  Vector3d min_v(numeric_limits<double>::max(), numeric_limits<double>::max(), numeric_limits<double>::max()); 
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
@@ -106,7 +107,7 @@ Vector3d Cloud::calcMinBound()
 
 Vector3d Cloud::calcMaxBound()
 {
-  Vector3d max_v(-1e10, -1e10, -1e10);
+  Vector3d max_v(numeric_limits<double>::lowest(), numeric_limits<double>::lowest(), numeric_limits<double>::lowest()); 
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
@@ -583,29 +584,43 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_t
   }
 }
 
-void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const std::string &merge_type, double num_rays)
+void rayLookup(const Cloud *cloud, set<Vector6i, Vector6iLess> &ray_lookup)
 {
-  set<Vector6i, Vector6iLess> test_sets[3];
-  Cloud *clouds[3] = {&cloud1, &cloud2, &base_cloud};
-  for (int c = 0; c<3; c++)
+  for (size_t i = 0; i<cloud->ends.size(); i++)
   {
-    for (int i = 0; i<(int)clouds[c]->ends.size(); i++)
+    const Vector3d &point = cloud->ends[i];
+    const Vector3d &start = cloud->starts[i];
+    Vector6i ray;
+    for (int j = 0; j<3; j++)
     {
-      Vector3d &point = clouds[c]->ends[i];
-      Vector3d &start = clouds[c]->starts[i];
-      Vector6i ray;
-      for (int j = 0; j<3; j++)
-      {
-        ray[j]   = int(floor(start[j] / test_width)); 
-        ray[3+j] = int(floor(point[j] / test_width));
-      }
-      if (test_sets[c].find(ray) == test_sets[c].end())
-        test_sets[c].insert(ray);
+      ray[j]   = int(floor(start[j] / test_width)); 
+      ray[3+j] = int(floor(point[j] / test_width));
     }
+    if (ray_lookup.find(ray) == ray_lookup.end())
+      ray_lookup.insert(ray);
   }
-  cout << "set size " << test_sets[0].size() << ", " << test_sets[1].size() << ", " << test_sets[2].size() << endl;
+}
 
-  // first we remove all similar rays and put them in the final cloud:
+void Cloud::threeWayMerge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const std::string &merge_type, double num_rays)
+{
+  // The 3-way merge is similar to those performed on text files for version control systems. It attempts to apply the 
+  // changes in both cloud 1 and cloud2 (compared to base_cloud). When there is a conflict (different changes in the same 
+  // location) it resolves that according to the selected merge_type.
+  // unlike with text, a change requires a small threshold, since positions are floating point values. In our case, we 
+  // define a ray as unchanged when the start and end points are within the same small voxel as they were in base_cloud.
+  // so the threshold is test_width.
+
+  // generate quick lookup for the existance of a particular (quantised) ray
+  Cloud *clouds[2] = {&cloud1, &cloud2};
+  set<Vector6i, Vector6iLess> base_ray_lookup;
+  rayLookup(&base_cloud, base_ray_lookup);
+  set<Vector6i, Vector6iLess> ray_lookups[2];
+  for (int c = 0; c<2; c++)
+    rayLookup(clouds[c], ray_lookups[c]);
+
+  cout << "set size " << ray_lookups[0].size() << ", " << ray_lookups[1].size() << ", " << base_ray_lookup.size() << endl;
+
+  // now remove all similar rays to base_cloud and put them in the final cloud:
   int preferred_cloud = clouds[0]->times[0] > clouds[1]->times[0] ? 0 : 1;
   int u = 0;
   for (int c = 0; c < 2; c++)
@@ -622,7 +637,8 @@ void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const
         ray[3+j] = int(floor(point[j] / test_width));
       }
       int other = 1-c;
-      if (test_sets[other].find(ray) != test_sets[other].end()) // in all three, so add point
+      // if the ray is in cloud1 and cloud2 there is no contention, so add the ray to the result
+      if (ray_lookups[other].find(ray) != ray_lookups[other].end()) 
       {
         if (c == preferred_cloud)
         {
@@ -633,7 +649,10 @@ void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const
           u++;
         }
       }
-      if (test_sets[2].find(ray) != test_sets[2].end())
+      // we want to run the combine (which revolves conflicts) on only the changed parts
+      // so we want to keep only the changes for cloud[0] and cloud[1]...
+      // which means removing rays that aren't changed: 
+      if (base_ray_lookup.find(ray) != base_ray_lookup.end()) 
       {
         cloud.starts[i] = cloud.starts.back(); cloud.starts.pop_back();
         cloud.ends[i] = cloud.ends.back(); cloud.ends.pop_back();
@@ -650,6 +669,7 @@ void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const
   clouds[0]->save("changes_0.ply");
   clouds[1]->save("changes_1.ply");
 #endif
+  // 'all' means keep all the changes, so we simply concatenate these rays into the result
   if (merge_type == "all")
   {
     for (int c = 0; c<2; c++)
@@ -661,7 +681,8 @@ void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const
     }
     return;
   }
-  // now we can run the combine on the altered clouds.... .....
+  // otherwise we run combine on the altered clouds
+  // first, grid the rays for fast lookup
   Grid<int> grids[2];
   for (int c = 0; c < 2; c++)
   {
@@ -672,18 +693,19 @@ void Cloud::threeWayMerge(Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const
   vector<bool> transients[2];
   for (int c = 0; c < 2; c++) 
     transients[c].resize(clouds[c]->ends.size(), false);
-  // now for each cloud, look for other clouds that penetrate it
+  // now for each cloud, represent the end points as ellipsoids, and ray cast the other cloud's rays against it
   for (int c = 0; c < 2; c++)
   {
     if (clouds[c]->ends.size()==0)
       continue;
     vector<Ellipsoid> ellipsoids;
     clouds[c]->generateEllipsoids(ellipsoids);
+
     // just set opacity
     clouds[c]->markIntersectedEllipsoids(grids[c], transients[c], ellipsoids, merge_type, 0, false);
 
     int d = 1 - c;
-    // use ellipsoid opacity to set transient flag true on transients
+    // use ellipsoid opacity to set transient flag true on transients (intersected ellipsoids)
     clouds[d]->markIntersectedEllipsoids(grids[d], transients[d], ellipsoids, merge_type, num_rays, false);
 
     for (int i = 0; i < (int)ellipsoids.size(); i++)
