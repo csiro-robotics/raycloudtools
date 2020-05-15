@@ -39,7 +39,7 @@ struct RAYLIB_EXPORT Vector6iLess
 struct RAYLIB_EXPORT Ellipsoid
 {
   Eigen::Vector3d pos;
-  Eigen::Vector3d vectors[3];
+  Eigen::Matrix3d eigen_mat; // each row is a scaled eigenvector
   double time;
   Eigen::Vector3d extents;
   double opacity;

@@ -2,7 +2,7 @@
 A set of command line tools for processing ray clouds, together with an associated C++ library. cmake .. from buid directory.
 
 To access the tools from anywhere, place in your ~/bashrc:
-  export PATH=$PATH:'source code path'/raycloudtools/bin
+  export PATH=$PATH:'source code path'/raycloudtools/build/bin
 
 *Dependencies:*
 
