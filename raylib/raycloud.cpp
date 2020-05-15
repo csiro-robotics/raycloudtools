@@ -534,31 +534,34 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
   }
 }
 
-double estimatePointSpacing(const Cloud &cloud)
+namespace 
 {
-  double v_width = 0.25;
-  double num_voxels = 0;
-  double num_points = 0;
-  std::set<Eigen::Vector3i, Vector3iLess> test_set;
-  for (unsigned int i = 0; i < cloud.ends.size(); i++)
+  double estimatePointSpacing(const Cloud &cloud)
   {
-    if (cloud.rayBounded(i))
+    double v_width = 0.25;
+    double num_voxels = 0;
+    double num_points = 0;
+    std::set<Eigen::Vector3i, Vector3iLess> test_set;
+    for (unsigned int i = 0; i < cloud.ends.size(); i++)
     {
-      num_points++;
-      const Vector3d &point = cloud.ends[i];
-      Eigen::Vector3i place(int(std::floor(point[0] / v_width)), int(std::floor(point[1] / v_width)),
-                            int(std::floor(point[2] / v_width)));
-      if (test_set.find(place) == test_set.end())
+      if (cloud.rayBounded(i))
       {
-        test_set.insert(place);
-        num_voxels++;
+        num_points++;
+        const Vector3d &point = cloud.ends[i];
+        Eigen::Vector3i place(int(std::floor(point[0] / v_width)), int(std::floor(point[1] / v_width)),
+                              int(std::floor(point[2] / v_width)));
+        if (test_set.find(place) == test_set.end())
+        {
+          test_set.insert(place);
+          num_voxels++;
+        }
       }
     }
-  }
 
-  double width = 0.25 * sqrt(num_voxels/num_points); // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
-  cout << "estimated point spacing: " << width << endl;
-  return width;
+    double width = 0.25 * sqrt(num_voxels/num_points); // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
+    cout << "estimated point spacing: " << width << endl;
+    return width;
+  }
 }
 
 void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_type, double num_rays, bool colour_cloud)
