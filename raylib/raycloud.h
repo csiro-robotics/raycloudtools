@@ -47,8 +47,8 @@ struct RAYLIB_EXPORT Cloud
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;
   std::vector<RGBA> colours;
-  inline bool rayBounded(int i) { return colours[i].alpha > 0; }
-  inline uint8_t rayIntensity(int i) { return colours[i].alpha; }
+  inline bool rayBounded(int i) const { return colours[i].alpha > 0; }
+  inline uint8_t rayIntensity(int i) const { return colours[i].alpha; }
 
   void save(const std::string &file_namee);
   bool load(const std::string &file_namee);

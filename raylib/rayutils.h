@@ -70,20 +70,20 @@ inline double random(double min, double max)
 {
   return min + (max - min) * (double(rand()) / double(RAND_MAX));
 }
+struct Vector3iLess
+{
+  bool operator()(const Eigen::Vector3i &a, const Eigen::Vector3i &b) const
+  {
+    if (a[0] != b[0])
+      return a[0] < b[0];
+    if (a[1] != b[1])
+      return a[1] < b[1];
+    return a[2] < b[2];
+  }
+};
 
 inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width)
 {
-  struct Vector3iLess
-  {
-    bool operator()(const Eigen::Vector3i &a, const Eigen::Vector3i &b) const
-    {
-      if (a[0] != b[0])
-        return a[0] < b[0];
-      if (a[1] != b[1])
-        return a[1] < b[1];
-      return a[2] < b[2];
-    }
-  };
   std::vector<int> indices;
   std::set<Eigen::Vector3i, Vector3iLess> test_set;
   for (unsigned int i = 0; i < points.size(); i++)
