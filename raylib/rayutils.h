@@ -71,7 +71,7 @@ inline double random(double min, double max)
   return min + (max - min) * (double(rand()) / double(RAND_MAX));
 }
 
-inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width)
+inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width)
 {
   struct Vector3iLess
   {
@@ -84,7 +84,7 @@ inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &point
       return a[2] < b[2];
     }
   };
-  std::vector<int> indices;
+  std::vector<int64_t> indices;
   std::set<Eigen::Vector3i, Vector3iLess> test_set;
   for (int64_t i = (int64_t)points.size()-1; i >= 0; i--)
   {

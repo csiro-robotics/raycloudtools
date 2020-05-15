@@ -9,7 +9,7 @@
 #include "raylaz.h"
 #include "raydebugdraw.h"
 #include <nabo/nabo.h>
-#include <set>
+#include <limits>
 
 using namespace std;
 using namespace Eigen;
@@ -96,22 +96,22 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
 
 Vector3d Cloud::calcMinBound()
 {
-  Vector3d min_v(1e10, 1e10, 1e10);
+  Vector3d min_v(numeric_limits<double>::max(), numeric_limits<double>::max(), numeric_limits<double>::max()); 
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
-      min_v = minVector(min_v, ends[i]);
+      min_v = minVector(min_v, minVector(starts[i], ends[i]));
   }
   return min_v;
 }
 
 Vector3d Cloud::calcMaxBound()
 {
-  Vector3d max_v(-1e10, -1e10, -1e10);
+  Vector3d max_v(numeric_limits<double>::lowest(), numeric_limits<double>::lowest(), numeric_limits<double>::lowest()); 
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
-      max_v = maxVector(max_v, ends[i]);
+      max_v = maxVector(max_v, maxVector(starts[i], ends[i]));
   }
   return max_v;
 }
@@ -147,10 +147,10 @@ void Cloud::removeUnboundedRays()
 
 void Cloud::decimate(double voxel_width)
 {
-  vector<int> subsample = voxelSubsample(ends, voxel_width);
-  for (int i = 0; i < (int)subsample.size(); i++)
+  vector<int64_t> subsample = voxelSubsample(ends, voxel_width);
+  for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
   {
-    int id = subsample[i];
+    int64_t id = subsample[i];
     starts[i] = starts[id];
     ends[i] = ends[id];
     colours[i] = colours[id];
@@ -270,6 +270,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
   for (unsigned int i = 0; i < ends.size(); i++)
   {
     ellipsoids[i].transient = false;
+    ellipsoids[i].opacity = 1.0;
     if (!rayBounded(i))
     {
       ellipsoids[i].extents.setZero();
@@ -278,7 +279,7 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     Matrix3d scatter;
     scatter.setZero();
     Vector3d centroid(0, 0, 0);
-    double num_neighbours = 1e-10;
+    double num_neighbours = 0;
     for (int j = 0; j < search_size && indices(j, i) > -1; j++)
     {
       int index = indices(j, i);
@@ -287,6 +288,11 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
         centroid += ends[index];
         num_neighbours++;
       }
+    }
+    if (num_neighbours < 4)
+    {
+      ellipsoids[i].extents.setZero();
+      continue;
     }
     centroid /= num_neighbours;
     for (int j = 0; j < search_size && indices(j, i) > -1; j++)
@@ -332,8 +338,8 @@ void fillGrid(Grid<int> &grid, const vector<Vector3d> &starts, const vector<Vect
     Vector3d dir_sign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Vector3d start = (starts[i] - grid.box_min) / grid.voxel_width;
     Vector3d end = (ends[i] - grid.box_min) / grid.voxel_width;
-    Vector3i start_index(start.cast<int>());
-    Vector3i end_index(end.cast<int>());
+    Vector3i start_index((int)floor(start[0]), (int)floor(start[1]), (int)floor(start[2]));
+    Vector3i end_index((int)floor(end[0]), (int)floor(end[1]), (int)floor(end[2]));
     double length_sqr = (end_index - start_index).squaredNorm();
     Vector3i index = start_index;
     for (;;)
@@ -357,6 +363,7 @@ void fillGrid(Grid<int> &grid, const vector<Vector3d> &starts, const vector<Vect
 
   grid.report();
 }
+static const double test_width = 0.01; // allows a minor variation when checking for similarity
 
 void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients, vector<Ellipsoid> &ellipsoids,
                                       const string &merge_type, double num_rays, bool self_transient)
@@ -386,8 +393,8 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
     Vector3d b_max = (ellipsoid.pos + ellipsoid.extents - grid.box_min) / grid.voxel_width;
     if (b_max[0] < 0.0 || b_max[1] < 0.0 || b_max[2] < 0.0)
       continue;
-    if (b_min[0] > (double)grid.dims[0] - 1.0 || b_min[1] > (double)grid.dims[1] - 1.0 ||
-        b_min[2] > (double)grid.dims[2] - 1.0)
+    if (b_min[0] >= (double)grid.dims[0] || b_min[1] >= (double)grid.dims[1] ||
+        b_min[2] >= (double)grid.dims[2])
       continue;
     Vector3i bmin = maxVector(Vector3i(0, 0, 0), Vector3i(b_min.cast<int>()));
     Vector3i bmax =
@@ -496,15 +503,14 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
       else if (type == 1)                                          // newest
         remove_ellipsoid = double(num_after) >= sequence_length;   // if false then remove numBefore rays if > seqLength
     }
-    else
+    else 
     {
       // we use sum rather than max below, because it better picks out moving objects that may have some
       // pass through rays before and after the hit points.
-      if (double(num_before + num_after) < sequence_length)
+      if (double(num_before + num_after) < sequence_length)  // TODO: even a tiny bit of translucency will make a single ray not enough
         continue;
       remove_ellipsoid = type == 2;  // min is remove ellipsoid, max is remove ray
     }
-
     if (remove_ellipsoid)
       ellipsoid.transient = true;
     else  // if we don't remove the ellipsoid then we should remove numBefore and numAfter rays if they're greater than
@@ -534,18 +540,11 @@ static double voxel_width = 0.25;
 void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_type, double num_rays, bool colour_cloud)
 {
   cout << "find transients" << endl;
-  Vector3d box_min(1e10, 1e10, 1e10);
-  Vector3d box_max(-1e10, -1e10, -1e10);
-  for (auto &end : ends)
-  {
-    box_min = minVector(box_min, end);
-    box_max = maxVector(box_max, end);
-  }
 
   vector<Ellipsoid> ellipsoids;
   generateEllipsoids(ellipsoids);
 
-  Grid<int> grid(box_min, box_max, voxel_width);
+  Grid<int> grid(calcMinBound(), calcMaxBound(), voxel_width);
   fillGrid(grid, starts, ends);
 
   vector<bool> transients;
@@ -580,19 +579,162 @@ void Cloud::findTransients(Cloud &transient, Cloud &fixed, const string &merge_t
   }
 }
 
+void rayLookup(const Cloud *cloud, set<Vector6i, Vector6iLess> &ray_lookup)
+{
+  for (size_t i = 0; i<cloud->ends.size(); i++)
+  {
+    const Vector3d &point = cloud->ends[i];
+    const Vector3d &start = cloud->starts[i];
+    Vector6i ray;
+    for (int j = 0; j<3; j++)
+    {
+      ray[j]   = int(floor(start[j] / test_width)); 
+      ray[3+j] = int(floor(point[j] / test_width));
+    }
+    if (ray_lookup.find(ray) == ray_lookup.end())
+      ray_lookup.insert(ray);
+  }
+}
+
+void Cloud::threeWayMerge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const std::string &merge_type, double num_rays)
+{
+  // The 3-way merge is similar to those performed on text files for version control systems. It attempts to apply the 
+  // changes in both cloud 1 and cloud2 (compared to base_cloud). When there is a conflict (different changes in the same 
+  // location) it resolves that according to the selected merge_type.
+  // unlike with text, a change requires a small threshold, since positions are floating point values. In our case, we 
+  // define a ray as unchanged when the start and end points are within the same small voxel as they were in base_cloud.
+  // so the threshold is test_width.
+
+  // generate quick lookup for the existance of a particular (quantised) ray
+  Cloud *clouds[2] = {&cloud1, &cloud2};
+  set<Vector6i, Vector6iLess> base_ray_lookup;
+  rayLookup(&base_cloud, base_ray_lookup);
+  set<Vector6i, Vector6iLess> ray_lookups[2];
+  for (int c = 0; c<2; c++)
+    rayLookup(clouds[c], ray_lookups[c]);
+
+  cout << "set size " << ray_lookups[0].size() << ", " << ray_lookups[1].size() << ", " << base_ray_lookup.size() << endl;
+
+  // now remove all similar rays to base_cloud and put them in the final cloud:
+  int preferred_cloud = clouds[0]->times[0] > clouds[1]->times[0] ? 0 : 1;
+  int u = 0;
+  for (int c = 0; c < 2; c++)
+  {
+    Cloud &cloud = *clouds[c];
+    for (int i = 0; i<(int)cloud.ends.size(); i++)
+    {
+      Vector3d &point = cloud.ends[i];
+      Vector3d &start = cloud.starts[i];
+      Vector6i ray;
+      for (int j = 0; j<3; j++)
+      {
+        ray[j]   = int(floor(start[j] / test_width)); 
+        ray[3+j] = int(floor(point[j] / test_width));
+      }
+      int other = 1-c;
+      // if the ray is in cloud1 and cloud2 there is no contention, so add the ray to the result
+      if (ray_lookups[other].find(ray) != ray_lookups[other].end()) 
+      {
+        if (c == preferred_cloud)
+        {
+          starts.push_back(start);
+          ends.push_back(point);
+          times.push_back(cloud.times[i]);
+          colours.push_back(cloud.colours[i]);
+          u++;
+        }
+      }
+      // we want to run the combine (which revolves conflicts) on only the changed parts
+      // so we want to keep only the changes for cloud[0] and cloud[1]...
+      // which means removing rays that aren't changed: 
+      if (base_ray_lookup.find(ray) != base_ray_lookup.end()) 
+      {
+        cloud.starts[i] = cloud.starts.back(); cloud.starts.pop_back();
+        cloud.ends[i] = cloud.ends.back(); cloud.ends.pop_back();
+        cloud.times[i] = cloud.times.back(); cloud.times.pop_back();
+        cloud.colours[i] = cloud.colours.back(); cloud.colours.pop_back();
+        i--;
+      }
+    }
+  }
+  cout << u << " unaltered rays have been moved into combined cloud" << endl;
+  cout << clouds[0]->ends.size() << " and " << clouds[1]->ends.size() << " rays to combine, that are different" << endl;
+#if defined VERBOSE_MERGE
+  this->save("common_rays.ply");
+  clouds[0]->save("changes_0.ply");
+  clouds[1]->save("changes_1.ply");
+#endif
+  // 'all' means keep all the changes, so we simply concatenate these rays into the result
+  if (merge_type == "all")
+  {
+    for (int c = 0; c<2; c++)
+    {
+      starts.insert(starts.end(), clouds[c]->starts.begin(), clouds[c]->starts.end());
+      ends.insert(ends.end(), clouds[c]->ends.begin(), clouds[c]->ends.end());
+      times.insert(times.end(), clouds[c]->times.begin(), clouds[c]->times.end());
+      colours.insert(colours.end(), clouds[c]->colours.begin(), clouds[c]->colours.end());
+    }
+    return;
+  }
+  // otherwise we run combine on the altered clouds
+  // first, grid the rays for fast lookup
+  Grid<int> grids[2];
+  for (int c = 0; c < 2; c++)
+  {
+    grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), voxel_width);
+    fillGrid(grids[c], clouds[c]->starts, clouds[c]->ends);
+  }  
+
+  vector<bool> transients[2];
+  for (int c = 0; c < 2; c++) 
+    transients[c].resize(clouds[c]->ends.size(), false);
+  // now for each cloud, represent the end points as ellipsoids, and ray cast the other cloud's rays against it
+  for (int c = 0; c < 2; c++)
+  {
+    if (clouds[c]->ends.size()==0)
+      continue;
+    vector<Ellipsoid> ellipsoids;
+    clouds[c]->generateEllipsoids(ellipsoids);
+
+    // just set opacity
+    clouds[c]->markIntersectedEllipsoids(grids[c], transients[c], ellipsoids, merge_type, 0, false);
+
+    int d = 1 - c;
+    // use ellipsoid opacity to set transient flag true on transients (intersected ellipsoids)
+    clouds[d]->markIntersectedEllipsoids(grids[d], transients[d], ellipsoids, merge_type, num_rays, false);
+
+    for (int i = 0; i < (int)ellipsoids.size(); i++)
+      if (ellipsoids[i].transient)
+        transients[c][i] = true;  
+  }
+  for (int c = 0; c < 2; c++)
+  {
+    auto &cloud = *clouds[c];
+    int t = 0;
+    int f = 0;
+    for (int i = 0; i < (int)transients[c].size(); i++)
+    {
+      if (!transients[c][i])
+      {
+        f++;
+        starts.push_back(cloud.starts[i]);
+        ends.push_back(cloud.ends[i]);
+        times.push_back(cloud.times[i]);
+        colours.push_back(cloud.colours[i]);
+      }
+      else
+        t++;
+    }
+    cout << t << " transients, " << f << " fixed rays." << endl;
+  }
+}
+
 void Cloud::combine(std::vector<Cloud> &clouds, Cloud &differences, const string &merge_type, double num_rays)
 {
   vector<Grid<int>> grids(clouds.size());
   for (int c = 0; c < (int)clouds.size(); c++)
   {
-    Vector3d box_min(1e10, 1e10, 1e10);
-    Vector3d box_max(-1e10, -1e10, -1e10);
-    for (auto &end : clouds[c].ends)
-    {
-      box_min = minVector(box_min, end);
-      box_max = maxVector(box_max, end);
-    }
-    grids[c].init(box_min, box_max, voxel_width);
+    grids[c].init(clouds[c].calcMinBound(), clouds[c].calcMaxBound(), voxel_width);
     fillGrid(grids[c], clouds[c].starts, clouds[c].ends);
   }
 
