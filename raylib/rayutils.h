@@ -86,7 +86,7 @@ inline std::vector<int> voxelSubsample(const std::vector<Eigen::Vector3d> &point
   };
   std::vector<int> indices;
   std::set<Eigen::Vector3i, Vector3iLess> test_set;
-  for (int i = (int)points.size()-1; i >= 0; i--)
+  for (int64_t i = (int64_t)points.size()-1; i >= 0; i--)
   {
     Eigen::Vector3i place(int(std::floor(points[i][0] / voxel_width)), int(std::floor(points[i][1] / voxel_width)),
                           int(std::floor(points[i][2] / voxel_width)));
