@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
     vector<Vector3d> decimated_starts;
     decimated_starts.reserve(decimated.size());
     centres[c].setZero();
-    for (int i = 0; i < (int)decimated.size(); i++)
+    for (size_t i = 0; i < decimated.size(); i++)
     {
       if (aligner.clouds[c].rayBounded(decimated[i]))
       {
@@ -329,17 +329,17 @@ int main(int argc, char *argv[])
       Matrix<double, state_size, 1> at_b;
       at_b.setZero();
       double square_error = 0.0;
-      for (int i = 0; i < (int)matches.size(); i++)
+      for (size_t i = 0; i < matches.size(); i++)
       {
         auto &match = matches[i];
-        Vector3d pos[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
-        double error = (pos[1] - pos[0]).dot(match.normal);  // mahabolonis instead?
+        Vector3d positions[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
+        double error = (positions[1] - positions[0]).dot(match.normal);  // mahabolonis instead?
         double error_sqr;
         if (is_plane[0][match.ids[0]])
           error_sqr = sqr(error * translation_weight);
         else
         {
-          Vector3d flat = pos[1] - pos[0];
+          Vector3d flat = positions[1] - positions[0];
           Vector3d norm = normals[0][match.ids[0]];
           flat -= norm * flat.dot(norm);
           error_sqr = (flat * translation_weight).squaredNorm();
@@ -357,18 +357,18 @@ int main(int argc, char *argv[])
         {
           Vector3d axis(0, 0, 0);
           axis[i] = 1.0;
-          at[3 + i] = -(pos[0].cross(axis)).dot(match.normal);
+          at[3 + i] = -(positions[0].cross(axis)).dot(match.normal);
         }
         if (!rigid_only) 
         {
-          pos[0] -= centres[0];
-          pos[1] -= centres[1];
-          at[6] = sqr(pos[0][0]) * match.normal[0];
-          at[7] = sqr(pos[0][0]) * match.normal[1];
-          at[8] = sqr(pos[0][1]) * match.normal[0];
-          at[9] = sqr(pos[0][1]) * match.normal[1];
-          at[10] = pos[0][0] * pos[0][1] * match.normal[0];
-          at[11] = pos[0][0] * pos[0][1] * match.normal[1];
+          positions[0] -= centres[0];
+          positions[1] -= centres[1];
+          at[6] = sqr(positions[0][0]) * match.normal[0];
+          at[7] = sqr(positions[0][0]) * match.normal[1];
+          at[8] = sqr(positions[0][1]) * match.normal[0];
+          at[9] = sqr(positions[0][1]) * match.normal[1];
+          at[10] = positions[0][0] * positions[0][1] * match.normal[0];
+          at[11] = positions[0][0] * positions[0][1] * match.normal[1];
         }
         at_a += at * weight * at.transpose();
         at_b += at * weight * error;
@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
       rot.normalize();
       Pose shift(Vector3d(x[0], x[1], x[2]), Quaterniond(AngleAxisd(angle, rot)));
       pose = shift * pose;
-      for (int i = 0; i < (int)centroids[0].size(); i++)
+      for (size_t i = 0; i < centroids[0].size(); i++)
       {
         Vector3d &pos = centroids[0][i];
         Vector3d relPos = pos - centres[0];
