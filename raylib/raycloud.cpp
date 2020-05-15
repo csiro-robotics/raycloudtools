@@ -311,9 +311,9 @@ void Cloud::generateEllipsoids(vector<Ellipsoid> &ellipsoids)
     eigen_value[0] = scale * sqrt(max(1e-10, eigen_value[0]));
     eigen_value[1] = scale * sqrt(max(1e-10, eigen_value[1]));
     eigen_value[2] = scale * sqrt(max(1e-10, eigen_value[2]));
-    ellipsoids[i].vectors[0] = eigen_vector.col(0) / eigen_value[0];
-    ellipsoids[i].vectors[1] = eigen_vector.col(1) / eigen_value[1];
-    ellipsoids[i].vectors[2] = eigen_vector.col(2) / eigen_value[2];
+    ellipsoids[i].eigen_mat.row(0) = eigen_vector.col(0) / eigen_value[0];
+    ellipsoids[i].eigen_mat.row(1) = eigen_vector.col(1) / eigen_value[1];
+    ellipsoids[i].eigen_mat.row(2) = eigen_vector.col(2) / eigen_value[2];
     ellipsoids[i].time = times[i];
     ellipsoids[i].setExtents(eigen_vector, eigen_value);
     ellipsoids[i].setPlanarity(eigen_value);
@@ -420,30 +420,25 @@ void Cloud::markIntersectedEllipsoids(Grid<int> &grid, vector<bool> &transients,
     for (auto &ray_id : ray_ids)
     {
       Vector3d dir = ends[ray_id] - starts[ray_id];
-      const double pass_distance = 0.05;
-      double ratio = pass_distance / dir.norm();
       // ray-ellipsoid intersection
       Vector3d to_sphere = ellipsoid.pos - starts[ray_id];
-      Vector3d ray;
-      ray[0] = dir.dot(ellipsoid.vectors[0]);
-      ray[1] = dir.dot(ellipsoid.vectors[1]);
-      ray[2] = dir.dot(ellipsoid.vectors[2]);
-      double ray_length = ray.norm();
-      ray /= ray_length;
-      Vector3d to;
-      to[0] = to_sphere.dot(ellipsoid.vectors[0]);
-      to[1] = to_sphere.dot(ellipsoid.vectors[1]);
-      to[2] = to_sphere.dot(ellipsoid.vectors[2]);
+      Vector3d ray = ellipsoid.eigen_mat * dir;
+      double ray_length_sqr = ray.squaredNorm();
+      Vector3d to = ellipsoid.eigen_mat * to_sphere;
 
-      double d = to.dot(ray);
+      double d = to.dot(ray)/ray_length_sqr;
       double dist2 = (to - ray * d).squaredNorm();
 
       if (dist2 > 1.0)  // misses the ellipsoid
         continue;
       double along_dist = sqrt(1.0 - dist2);
+      double ray_length = sqrt(ray_length_sqr);
+      d *= ray_length;
       if (ray_length < d - along_dist)  // doesn't reach the ellipsoid
         continue;
 
+      const double pass_distance = 0.05;
+      double ratio = pass_distance / dir.norm();
       bool pass_through =
         ray_length * (1.0 - ratio) > d + along_dist;  // last number requires rays to pass some way past the object
       if (pass_through)
