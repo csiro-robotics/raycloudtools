@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
   for (int c = 0; c < 2; c++)
   {
     // 1. decimate quite fine
-    vector<int> decimated = voxelSubsample(aligner.clouds[c].ends, 0.1);
+    vector<int64_t> decimated = voxelSubsample(aligner.clouds[c].ends, 0.1);
     vector<Vector3d> decimated_points;
     decimated_points.reserve(decimated.size());
     vector<Vector3d> decimated_starts;
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
     centres[c].setZero();
     for (size_t i = 0; i < decimated.size(); i++)
     {
-      if (aligner.clouds[c].rayBounded(decimated[i]))
+      if (aligner.clouds[c].rayBounded((int)decimated[i]))
       {
         decimated_points.push_back(aligner.clouds[c].ends[decimated[i]]);
         centres[c] += decimated_points.back();
@@ -135,10 +135,10 @@ int main(int argc, char *argv[])
     centres[c] /= (double)decimated_points.size(); 
 
     // 2. find the coarser random candidate points. We just want a fairly even spread but not the voxel centres
-    vector<int> candidates = voxelSubsample(decimated_points, 1.0);
+    vector<int64_t> candidates = voxelSubsample(decimated_points, 1.0);
     vector<Vector3d> candidate_points(candidates.size());
     vector<Vector3d> candidate_starts(candidates.size());
-    for (int i = 0; i < (int)candidates.size(); i++)
+    for (int64_t i = 0; i < (int64_t)candidates.size(); i++)
     {
       candidate_points[i] = decimated_points[candidates[i]];
       candidate_starts[i] = decimated_starts[candidates[i]];

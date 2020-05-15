@@ -147,10 +147,10 @@ void Cloud::removeUnboundedRays()
 
 void Cloud::decimate(double voxel_width)
 {
-  vector<int> subsample = voxelSubsample(ends, voxel_width);
-  for (int i = 0; i < (int)subsample.size(); i++)
+  vector<int64_t> subsample = voxelSubsample(ends, voxel_width);
+  for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
   {
-    int id = subsample[i];
+    int64_t id = subsample[i];
     starts[i] = starts[id];
     ends[i] = ends[id];
     colours[i] = colours[id];
