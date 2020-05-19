@@ -153,6 +153,8 @@ int main(int argc, char *argv[])
 
   quit_progress = true;
   progress_thread.join();
+
+  return 0;
 #else   // NEW_FILTER
   Cloud transient;
   Cloud fixed;

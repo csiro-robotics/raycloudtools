@@ -25,9 +25,9 @@ inline bool aabbOverlap(const Eigen::Vector3d &aabb_min_a, const Eigen::Vector3d
   const Vector3b max_less_min(aabb_max_a.x() + epsilon < aabb_min_b.x(),  //
                               aabb_max_a.y() + epsilon < aabb_min_b.y(),  //
                               aabb_max_a.z() + epsilon < aabb_min_b.z());
-  const Vector3b min_greater_max(aabb_min_a.x() - epsilon < aabb_max_b.x(),  //
-                                 aabb_min_a.y() - epsilon < aabb_max_b.y(),  //
-                                 aabb_min_a.z() - epsilon < aabb_max_b.z());
+  const Vector3b min_greater_max(aabb_min_a.x() - epsilon > aabb_max_b.x(),  //
+                                 aabb_min_a.y() - epsilon > aabb_max_b.y(),  //
+                                 aabb_min_a.z() - epsilon > aabb_max_b.z());
 
   return !(max_less_min.x() || max_less_min.y() || max_less_min.z()) &&
          !(min_greater_max.x() || min_greater_max.y() || min_greater_max.z());

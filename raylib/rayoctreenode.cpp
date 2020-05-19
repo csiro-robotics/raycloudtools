@@ -5,6 +5,8 @@
 // Author: Kazys Stepanas
 #include "rayoctreenode.h"
 
+// #pragma GCC optimize("O0")
+
 #include "rayintersect.h"
 
 using namespace ray;
@@ -41,7 +43,13 @@ OctreeNode::OctreeNode(const Eigen::Vector3d &bounds_min, const Eigen::Vector3d 
     children_[i] = nullptr;
   }
 
-  children_[child_index] = child;
+  if (child)
+  {
+    children_[child_index] = child;
+    // Child cannot be a root.
+    child->flags_ &= ~F_Root;
+    flags_ |= F_Branch;
+  }
 }
 
 OctreeNode::OctreeNode(const Eigen::Vector3d &bounds_min, const Eigen::Vector3d &bounds_max, bool is_root)
@@ -95,6 +103,52 @@ bool OctreeNode::rayIntersects(const Ray &ray) const
 }
 
 
+OctreeNode *OctreeNode::addAabb(const Eigen::Vector3d &aabb_min, const Eigen::Vector3d &aabb_max, double min_voxel_size)
+{
+  if (!contains(aabb_min) || !contains(aabb_max))
+  {
+    // This node is not big enough.
+    return nullptr;
+  }
+
+  // Check to see if we are allowed to inspect children.
+  // Allowed if this already is a branch or if child voxels will be at least min_voxel_size in size.
+  if (isBranch() || (0.5 * (bounds_max_ - bounds_min_)).squaredNorm() >= min_voxel_size)
+  {
+    // First try find a child to contain the aabb.
+    Eigen::Vector3d child_min, child_max;
+    for (int i = 0; i < 8; ++i)
+    {
+      if (children_[i])
+      {
+        child_min = children_[i]->boundsMin();
+        child_max = children_[i]->boundsMax();
+      }
+      else
+      {
+        boundsForChild(i, bounds_min_, bounds_max_, &child_min, &child_max);
+      }
+
+      if (intersect::pointInAabb(aabb_min, child_min, child_max) &&
+          intersect::pointInAabb(aabb_max, child_min, child_max))
+      {
+        // Found a child which contains this box. Recurs on that child.
+        if (!children_[i])
+        {
+          children_[i] = createNode(child_min, child_max, nullptr, 0);
+          // Mark as branch.
+          flags_ |= F_Branch;
+        }
+        return children_[i]->addAabb(aabb_min, aabb_max, min_voxel_size);
+      }
+    }
+  }
+
+  // Add to this node.
+  return this;
+}
+
+
 void OctreeNode::rayTrace(const Ray &ray, const RayVisitFunction &visit, unsigned flags) const
 {
   for (int i = 0; i < 8; ++i)
@@ -104,7 +158,7 @@ void OctreeNode::rayTrace(const Ray &ray, const RayVisitFunction &visit, unsigne
       if ((flags & children_[i]->flags()) != 0)
       {
         // Flags indicate visit should be called.
-        visit(children_[i], this);
+        visit(ray, children_[i], this);
       }
       // Even if visit wasn't called, we still recurse.
       children_[i]->rayTrace(ray, visit, flags);
@@ -140,13 +194,15 @@ OctreeNode *OctreeNode::expand(const Eigen::Vector3d &aabb_min, const Eigen::Vec
     // The direction of expanstion is important.
     OctreeNode *child = tree;
     tree = createNode(bounds_min, bounds_max, child, child_index);
+    // Mark the new root.
+    tree->flags_ |= F_Root;
   }
 
   return tree;
 }
 
 
-void OctreeNode::split()
+void OctreeNode::split(const OnSplitFuncion &on_split)
 {
   if (!isLeaf())
   {
@@ -161,10 +217,13 @@ void OctreeNode::split()
     children_[i] = createNode(child_min, child_max, nullptr, 0);
   }
 
-  // Clear leaf status.
-  flags_ &= ~F_Leaf;
+  // Mark as branch.
+  flags_ |= F_Branch;
 
-  onSplit();
+  if (on_split)
+  {
+    on_split(this, children_);
+  }
 }
 
 

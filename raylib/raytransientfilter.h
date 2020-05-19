@@ -10,6 +10,10 @@
 
 #include "raygrid.h"
 #include "raycloud.h"
+#include "rayoctreenode.h"
+
+#undef RAYLIB_WITH_TBB
+#define RAYLIB_WITH_TBB 0
 
 #if RAYLIB_WITH_TBB
 #include <tbb/spin_mutex.h>
@@ -29,6 +33,7 @@ namespace ray
 {
 struct Cloud;
 class Progress;
+class IndexingOctreeNode;
 
 /// Mode selection for @c TransientFilter
 enum class RAYLIB_EXPORT TransientFilterType : int
@@ -48,7 +53,8 @@ struct RAYLIB_EXPORT TransientFilterConfig
   bool colour_cloud;
 };
 
-/// 
+
+///
 class RAYLIB_EXPORT EllipsoidMark
 {
 public:
@@ -81,7 +87,7 @@ public:
   {
     inverse_sphere_transform_ = inverse_transform;
   }
-#endif // RAYLIB_ELLIPSOID_TRANSFORM
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
 
   void reset(size_t id = 0u);
 
@@ -98,7 +104,7 @@ private:
   size_t hits_;
 #if RAYLIB_ELLIPSOID_TRANSFORM
   Eigen::Matrix4d inverse_sphere_transform_;
-#endif // RAYLIB_ELLIPSOID_TRANSFORM
+#endif  // RAYLIB_ELLIPSOID_TRANSFORM
 #if RAYLIB_WITH_TBB
   std::shared_ptr<Mutex> lock_;
 #endif  // RAYLIB_WITH_TBB
@@ -131,12 +137,18 @@ public:
 
 private:
   void generateEllipsoidGrid(Grid<size_t> &grid, Progress &progress);
+  IndexingOctreeNode *generateEllipsoidOctree(Progress &progress);
 
   void markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t> &grid, bool self_transient, Progress &progress);
+  void markIntersectedEllipsoids(const Cloud &cloud, const IndexingOctreeNode &octree, bool self_transient,
+                                 Progress &progress);
 
   void finaliseFilter(const Cloud &cloud);
 
   void walkRay(const Cloud &cloud, const Grid<size_t> &grid, size_t ray_id);
+
+  void rayTouch(size_t ray_id, const Cloud &cloud, const OctreeNode::Ray &ray,
+                const std::vector<size_t> &ellipsoid_ids);
 
   Cloud transient_;
   Cloud fixed_;

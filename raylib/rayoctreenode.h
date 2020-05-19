@@ -15,10 +15,10 @@
 
 namespace ray
 {
-class OctreeNode
+class RAYLIB_EXPORT OctreeNode
 {
 public:
-  struct Ray
+  struct RAYLIB_EXPORT Ray
   {
     Eigen::Vector3d origin;
     Eigen::Vector3d direction;
@@ -36,8 +36,8 @@ public:
     F_Zero = 0,
     /// Flag marking the root node.
     F_Root = (1 << 0),
-    /// Flag marking a leafnode. May also be the root.
-    F_Leaf = (1 << 1),
+    /// Flag marking a ranch node. May also be the root.
+    F_Branch = (1 << 1),
     /// Set if the node has data attached to it.
     F_HasData = (1 << 2),
     F_All = 0xffffu
@@ -46,15 +46,16 @@ public:
   /// Function prototype called when visiting a node in a ray trace.
   /// @param node The parent node being visited.
   /// @param parent Parent of @p node.
-  using RayVisitFunction = std::function<void(const OctreeNode *, const OctreeNode *)>;
+  using RayVisitFunction = std::function<void(const Ray &, const OctreeNode *, const OctreeNode *)>;
+  using OnSplitFuncion = std::function<void(OctreeNode *, OctreeNode *const *)>;
 
   OctreeNode(const Eigen::Vector3d &bounds_min, const Eigen::Vector3d &bounds_max, bool is_root);
   OctreeNode(const Eigen::Vector3d &bounds_min, const Eigen::Vector3d &bounds_max,  //
              OctreeNode *child = nullptr, int child_index = 0);
   virtual ~OctreeNode();
 
-  inline bool isLeaf() const { return flags_ & F_Leaf; }
-  inline bool isBranch() const { return !isLeaf(); }
+  inline bool isBranch() const { return flags_ & F_Branch; }
+  inline bool isLeaf() const { return !isBranch(); }
   inline bool isRoot() const { return flags_ & F_Root; }
   inline bool hasData() const { return flags_ & F_HasData; }
   inline unsigned flags() const { return flags_; }
@@ -68,6 +69,8 @@ public:
   bool contains(const Eigen::Vector3d &point) const;
   bool overlaps(const Eigen::Vector3d &aabb_min, const Eigen::Vector3d &aabb_max) const;
   bool rayIntersects(const Ray &ray) const;
+
+  OctreeNode *addAabb(const Eigen::Vector3d &aabb_min, const Eigen::Vector3d &aabb_max, double min_voxel_size);
 
   /// Trace a ray recursively through this node calling @p visit for each intersected decendent node filtered by
   /// @p flags.
@@ -89,8 +92,8 @@ public:
 
   /// Split this (leaf) node into it's 8 children.
   ///
-  /// After splitting, calls @c onSplit() to allow derivations to migrade data into the new leaf nodes.
-  void split();
+  /// After splitting, calls @p on_split to allow derivations to migrade data into the new leaf nodes.
+  void split(const OnSplitFuncion &on_split = OnSplitFuncion());
 
   static bool boundsForChild(int child_index, const Eigen::Vector3d &bounds_min, const Eigen::Vector3d &bounds_max,
                              Eigen::Vector3d *child_min, Eigen::Vector3d *child_max);
@@ -98,8 +101,6 @@ public:
   static int expandBounds(const Eigen::Vector3d &targetPoint, Eigen::Vector3d *bounds_min, Eigen::Vector3d *bounds_max);
 
 protected:
-  inline virtual void onSplit() {}
-
   /// Implemented by derivations to create new octree nodes.
   virtual OctreeNode *createNode(const Eigen::Vector3d &bounds_min, const Eigen::Vector3d &bounds_max,
                                  OctreeNode *child, int child_index) = 0;
@@ -112,7 +113,7 @@ private:
 };
 
 
-OctreeNode::Ray::Ray(const Eigen::Vector3d &origin, const Eigen::Vector3d &end)
+inline OctreeNode::Ray::Ray(const Eigen::Vector3d &origin, const Eigen::Vector3d &end)
   : origin(origin)
   , end(end)
 {
@@ -131,7 +132,7 @@ OctreeNode::Ray::Ray(const Eigen::Vector3d &origin, const Eigen::Vector3d &end)
 }
 
 
-OctreeNode::Ray::Ray(const Eigen::Vector3d &origin, const Eigen::Vector3d &direction, double length)
+inline OctreeNode::Ray::Ray(const Eigen::Vector3d &origin, const Eigen::Vector3d &direction, double length)
   : origin(origin)
   , direction(direction)
   , length(length)
