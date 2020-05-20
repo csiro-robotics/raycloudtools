@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
   }
   else if (concatenate)
   {
-    ray::Cloud &result = merger.getResult();
+    ray::Cloud &result = merger.fixedCloud();
     for (auto &cloud : clouds)
     {
       result.starts.insert(result.starts.end(), cloud.starts.begin(), cloud.starts.end());
@@ -109,8 +109,8 @@ int main(int argc, char *argv[])
   else
   {
     merger.mergeMultipleClouds(clouds, merge_type, num_rays);
-    merger.getDifferences().save(file_stub + "_differences.ply");
+    merger.differenceCloud().save(file_stub + "_differences.ply");
   }
-  merger.getResult().save(file_stub + "_combined.ply");
+  merger.fixedCloud().save(file_stub + "_combined.ply");
   return true;
 }

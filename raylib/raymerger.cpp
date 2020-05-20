@@ -392,17 +392,17 @@ void ray::Merger::mergeSingleCloud(const ray::Cloud &cloud, const std::string &m
     }
     if (ellipsoids[i].transient || transients[i])
     {
-      differences.starts.push_back(cloud.starts[i]);
-      differences.ends.push_back(cloud.ends[i]);
-      differences.times.push_back(cloud.times[i]);
-      differences.colours.push_back(col);
+      differences_.starts.push_back(cloud.starts[i]);
+      differences_.ends.push_back(cloud.ends[i]);
+      differences_.times.push_back(cloud.times[i]);
+      differences_.colours.push_back(col);
     }
     else
     {
-      result.starts.push_back(cloud.starts[i]);
-      result.ends.push_back(cloud.ends[i]);
-      result.times.push_back(cloud.times[i]);
-      result.colours.push_back(col);
+      result_.starts.push_back(cloud.starts[i]);
+      result_.ends.push_back(cloud.ends[i]);
+      result_.times.push_back(cloud.times[i]);
+      result_.colours.push_back(col);
     }
   }
 }
@@ -448,18 +448,18 @@ void ray::Merger::mergeMultipleClouds(std::vector<ray::Cloud> &clouds, const std
       if (transients[c][i])
       {
         t++;
-        differences.starts.push_back(cloud.starts[i]);
-        differences.ends.push_back(cloud.ends[i]);
-        differences.times.push_back(cloud.times[i]);
-        differences.colours.push_back(cloud.colours[i]);
+        differences_.starts.push_back(cloud.starts[i]);
+        differences_.ends.push_back(cloud.ends[i]);
+        differences_.times.push_back(cloud.times[i]);
+        differences_.colours.push_back(cloud.colours[i]);
       }
       else
       {
         f++;
-        result.starts.push_back(cloud.starts[i]);
-        result.ends.push_back(cloud.ends[i]);
-        result.times.push_back(cloud.times[i]);
-        result.colours.push_back(cloud.colours[i]);
+        result_.starts.push_back(cloud.starts[i]);
+        result_.ends.push_back(cloud.ends[i]);
+        result_.times.push_back(cloud.times[i]);
+        result_.colours.push_back(cloud.colours[i]);
       }
     }
     std::cout << t << " transients, " << f << " fixed rays." << std::endl;
@@ -507,10 +507,10 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
       {
         if (c == preferred_cloud)
         {
-          result.starts.push_back(start);
-          result.ends.push_back(point);
-          result.times.push_back(cloud.times[i]);
-          result.colours.push_back(cloud.colours[i]);
+          result_.starts.push_back(start);
+          result_.ends.push_back(point);
+          result_.times.push_back(cloud.times[i]);
+          result_.colours.push_back(cloud.colours[i]);
           u++;
         }
       }
@@ -539,10 +539,10 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
   {
     for (int c = 0; c<2; c++)
     {
-      result.starts.insert(result.starts.end(), clouds[c]->starts.begin(), clouds[c]->starts.end());
-      result.ends.insert(result.ends.end(), clouds[c]->ends.begin(), clouds[c]->ends.end());
-      result.times.insert(result.times.end(), clouds[c]->times.begin(), clouds[c]->times.end());
-      result.colours.insert(result.colours.end(), clouds[c]->colours.begin(), clouds[c]->colours.end());
+      result_.starts.insert(result_.starts.end(), clouds[c]->starts.begin(), clouds[c]->starts.end());
+      result_.ends.insert(result_.ends.end(), clouds[c]->ends.begin(), clouds[c]->ends.end());
+      result_.times.insert(result_.times.end(), clouds[c]->times.begin(), clouds[c]->times.end());
+      result_.colours.insert(result_.colours.end(), clouds[c]->colours.begin(), clouds[c]->colours.end());
     }
     return;
   }
@@ -587,10 +587,10 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
       if (!transients[c][i])
       {
         f++;
-        result.starts.push_back(cloud.starts[i]);
-        result.ends.push_back(cloud.ends[i]);
-        result.times.push_back(cloud.times[i]);
-        result.colours.push_back(cloud.colours[i]);
+        result_.starts.push_back(cloud.starts[i]);
+        result_.ends.push_back(cloud.ends[i]);
+        result_.times.push_back(cloud.times[i]);
+        result_.colours.push_back(cloud.colours[i]);
       }
       else
         t++; // we aren't storing the differences. No current demand for this.
