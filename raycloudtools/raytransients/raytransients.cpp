@@ -123,23 +123,27 @@ int main(int argc, char *argv[])
 
 #if NEW_FILTER
   TransientFilterConfig config;
-  config.merge_type = TransientFilterType::Maximum;
+  config.merge_type = MergeType::Mininum;
   config.num_rays_filter_threshold = num_rays;
   config.colour_cloud = colour;
-  // Note: we actually get better multi-threaded performace with smaller voxels as there is less lock contension.
+  // Note: we actually get better multi-threaded performace with smaller voxels
   config.voxel_size = 0.1;
 
   if (merge_type == "oldest")
   {
-    config.merge_type = TransientFilterType::Oldest;
+    config.merge_type = MergeType::Oldest;
   }
   if (merge_type == "newest")
   {
-    config.merge_type = TransientFilterType::Newest;
+    config.merge_type = MergeType::Newest;
   }
   if (merge_type == "min")
   {
-    config.merge_type = TransientFilterType::Mininum;
+    config.merge_type = MergeType::Mininum;
+  }
+  if (merge_type == "max")
+  {
+    config.merge_type = MergeType::Maximum;
   }
 
   TransientFilter filter(config);

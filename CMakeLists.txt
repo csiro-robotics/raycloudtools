@@ -44,9 +44,10 @@ ras_bool_to_int(WITH_TBB)
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(Threads)
 
 set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
-set(RAYTOOLS_LINK ${libnabo_LIBRARIES})
+set(RAYTOOLS_LINK ${libnabo_LIBRARIES} Threads::Threads)
 
 # Optionally configured packages.
 if(WITH_3ES)

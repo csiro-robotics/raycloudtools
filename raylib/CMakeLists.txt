@@ -13,6 +13,7 @@ set(PUBLIC_HEADERS
   rayconcavehull.h
   rayconvexhull.h
   raydebugdraw.h
+  rayellipsoidmark.h
   rayforestgen.h
   raygrid.h
   rayindexingoctreenode.h
@@ -43,6 +44,7 @@ set(SOURCES
   raycloud.cpp
   rayconcavehull.cpp
   rayconvexhull.cpp
+  rayellipsoidmark.cpp
   rayforestgen.cpp
   rayindexingoctreenode.cpp
   raylaz.cpp
