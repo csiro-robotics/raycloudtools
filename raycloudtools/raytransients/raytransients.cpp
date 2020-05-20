@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
   if (file.substr(file.length() - 4) == ".ply")
     file_stub = file.substr(0, file.length() - 4);
 
-  merger.differences.save(file_stub + "_transient.ply");
-  merger.result.save(file_stub + "_fixed.ply");
+  merger.getDifferences().save(file_stub + "_transient.ply");
+  merger.getResult().save(file_stub + "_fixed.ply");
   return true;
 }
