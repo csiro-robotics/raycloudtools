@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/raymerger.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
 #include "raylib/raydebugdraw.h"
@@ -13,58 +14,54 @@
 #include <cstring>
 #include <iostream>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
 void usage(int exit_code = 0)
 {
-  cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to "
+  std::cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to "
           "the merge type specified."
-       << endl;
-  cout << "Outputs the combined cloud and the residual cloud of differences." << endl;
-  cout << "usage:" << endl;
-  cout << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at "
+       << std::endl;
+  std::cout << "Outputs the combined cloud and the residual cloud of differences." << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at "
           "differences"
-       << endl;
-  cout << "                                                           20 is the number of pass through rays to define "
+       << std::endl;
+  std::cout << "                                                           20 is the number of pass through rays to define "
           "a difference"
-       << endl;
-  cout
+       << std::endl;
+  std::cout
     << "           max    - maximal objects included. This is a form of volume intersection (rather than min: union)."
-    << endl;
-  cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << endl;
-  cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << endl;
-  cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
-       << endl;
-  cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from "
-          "basecloud) at any differences. " << endl;
-  cout << "For merge conflicts it uses the specified merge type." << endl;
+    << std::endl;
+  std::cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << std::endl;
+  std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << std::endl;
+  std::cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
+       << std::endl;
+  std::cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from "
+          "basecloud) at any differences. " << std::endl;
+  std::cout << "For merge conflicts it uses the specified merge type." << std::endl;
   exit(exit_code);
 }
 
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  DebugDraw::init(argc, argv, "raycombine");
+  ray::DebugDraw::init(argc, argv, "raycombine");
   if (argc < 4)
     usage();
-  bool threeway = string(argv[1])!="min" && string(argv[1])!="max" && string(argv[1])!="oldest" && 
-    string(argv[1])!="newest" && string(argv[1])!="all";
-  cout << "three way: " << threeway << endl;
-  string merge_type = argv[threeway ? 2 : 1];
+  bool threeway = std::string(argv[1])!="min" && std::string(argv[1])!="max" && std::string(argv[1])!="oldest" && 
+    std::string(argv[1])!="newest" && std::string(argv[1])!="all";
+  std::cout << "three way: " << threeway << std::endl;
+  std::string merge_type = argv[threeway ? 2 : 1];
   bool concatenate = merge_type == "all";
   double num_rays = 0;
   if (concatenate)
   {
-    if (string(argv[argc - 1]) == "rays")
+    if (std::string(argv[argc - 1]) == "rays")
       usage();
   }
   else
   {
-    if (argc < 6 || string(argv[argc - 1]) != "rays")
+    if (argc < 6 || std::string(argv[argc - 1]) != "rays")
       usage();
-    num_rays = stod(argv[argc - 2]);
+    num_rays = std::stod(argv[argc - 2]);
     argc -= 2;
   }
 
@@ -72,48 +69,48 @@ int main(int argc, char *argv[])
   if (threeway && argc != 5)
     usage();
 
-  vector<string> files;
+  std::vector<std::string> files;
   for (int i = minI; i < argc; i++)
   {
-    files.push_back(string(argv[i]));
-    ifstream f(files.back().c_str());
+    files.push_back(std::string(argv[i]));
+    std::ifstream f(files.back().c_str());
     if (!f.good())
     {
-      cout << "could not open file: " << files.back() << endl;
+      std::cout << "could not open file: " << files.back() << std::endl;
       usage();
     }
   }
 
-  string file_stub = files[0];
+  std::string file_stub = files[0];
   if (file_stub.substr(file_stub.length() - 4) == ".ply")
     file_stub = file_stub.substr(0, file_stub.length() - 4);
 
-  vector<Cloud> clouds(files.size());
+  std::vector<ray::Cloud> clouds(files.size());
   for (int i = 0; i < (int)files.size(); i++) clouds[i].load(files[i]);
 
-  Cloud combined;
+  ray::Merger merger;
   if (threeway)
   {
-    Cloud base_cloud;
+    ray::Cloud base_cloud;
     base_cloud.load(argv[1]);
-    combined.threeWayMerge(base_cloud, clouds[0], clouds[1], merge_type, num_rays);
+    merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], merge_type, num_rays);
   }
   else if (concatenate)
   {
+    ray::Cloud &result = merger.result;
     for (auto &cloud : clouds)
     {
-      combined.starts.insert(combined.starts.end(), cloud.starts.begin(), cloud.starts.end());
-      combined.ends.insert(combined.ends.end(), cloud.ends.begin(), cloud.ends.end());
-      combined.times.insert(combined.times.end(), cloud.times.begin(), cloud.times.end());
-      combined.colours.insert(combined.colours.end(), cloud.colours.begin(), cloud.colours.end());
+      result.starts.insert(result.starts.end(), cloud.starts.begin(), cloud.starts.end());
+      result.ends.insert(result.ends.end(), cloud.ends.begin(), cloud.ends.end());
+      result.times.insert(result.times.end(), cloud.times.begin(), cloud.times.end());
+      result.colours.insert(result.colours.end(), cloud.colours.begin(), cloud.colours.end());
     }
   }
   else
   {
-    Cloud differences;
-    combined.combine(clouds, differences, merge_type, num_rays);
-    differences.save(file_stub + "_differences.ply");
+    merger.mergeMultipleClouds(clouds, merge_type, num_rays);
+    merger.differences.save(file_stub + "_differences.ply");
   }
-  combined.save(file_stub + "_combined.ply");
+  merger.result.save(file_stub + "_combined.ply");
   return true;
 }
