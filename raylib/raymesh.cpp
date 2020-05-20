@@ -4,13 +4,12 @@
 //
 // Author: Thomas Lowe
 #include "raycloud.h"
+#include <set>
 
 #include "raylaz.h"
 #include "rayply.h"
 #include "raytrajectory.h"
 #include "rayunused.h"
-
-#include <set>
 
 using namespace std;
 using namespace Eigen;
