@@ -37,6 +37,9 @@ void usage(int exit_code = 0)
   cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << endl;
   cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
        << endl;
+  cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from "
+          "basecloud) at any differences. " << endl;
+  cout << "For merge conflicts it uses the specified merge type." << endl;
   exit(exit_code);
 }
 
@@ -46,7 +49,10 @@ int main(int argc, char *argv[])
   DebugDraw::init(argc, argv, "raycombine");
   if (argc < 4)
     usage();
-  string merge_type = argv[1];
+  bool threeway = string(argv[1])!="min" && string(argv[1])!="max" && string(argv[1])!="oldest" && 
+    string(argv[1])!="newest" && string(argv[1])!="all";
+  cout << "three way: " << threeway << endl;
+  string merge_type = argv[threeway ? 2 : 1];
   bool concatenate = merge_type == "all";
   double num_rays = 0;
   if (concatenate)
@@ -62,8 +68,12 @@ int main(int argc, char *argv[])
     argc -= 2;
   }
 
+  int minI = threeway ? 3 : 2;
+  if (threeway && argc != 5)
+    usage();
+
   vector<string> files;
-  for (int i = 2; i < argc; i++)
+  for (int i = minI; i < argc; i++)
   {
     files.push_back(string(argv[i]));
     ifstream f(files.back().c_str());
@@ -82,7 +92,13 @@ int main(int argc, char *argv[])
   for (int i = 0; i < (int)files.size(); i++) clouds[i].load(files[i]);
 
   Cloud combined;
-  if (concatenate)
+  if (threeway)
+  {
+    Cloud base_cloud;
+    base_cloud.load(argv[1]);
+    combined.threeWayMerge(base_cloud, clouds[0], clouds[1], merge_type, num_rays);
+  }
+  else if (concatenate)
   {
     for (auto &cloud : clouds)
     {

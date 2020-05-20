@@ -28,8 +28,8 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
                       int smoothing_iterations, double r_bar)
 {
   ASSERT(positions.size() == normals.size());
-  ASSERT(numNeighbors > 0);
-  ASSERT(numNeighbors <= (int)positions.size());
+  ASSERT(num_neighbors > 0);
+  ASSERT(num_neighbors <= (int)positions.size());
   double eps = 0.1;
   double max_radius = std::numeric_limits<double>::infinity();
 
@@ -74,7 +74,7 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
       }
 
       SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
-      ASSERT(eigenSolver.info() == Success);
+      ASSERT(eigen_solver.info() == Success);
       Matrix3d eigen_vector = eigen_solver.eigenvectors();
 
       for (int j = 0; j < 3; ++j) smooth_normals[i][j] = eigen_vector.coeff(j, 2);

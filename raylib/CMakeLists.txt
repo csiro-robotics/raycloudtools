@@ -71,7 +71,7 @@ endif(WITH_3ES)
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
 
 ras_add_library(raylib
-  TYPE STATIC
+  TYPE SHARED
   INCLUDE_PREFIX "raylib"
   PROJECT_FOLDER "raylib"
   INCLUDE
