@@ -19,8 +19,8 @@ void usage(int exit_code = 0)
 {
   cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << endl;
   cout << "usage:" << endl;
-  cout << "raydenoise raycloud 3 cm   - removes rays that contact more than 3 cm from any other," << endl;
-  cout << "raydenoise raycloud 5 %    - removes when neighbour's neighbour is 5% of neighbour distance" << endl;
+  cout << "raydenoise raycloud 4 cm     - removes rays that contact more than 4 cm from any other," << endl;
+  cout << "raydenoise raycloud 3 sigmas - removes points more than 3 sigmas from nearest points" << endl;
   cout << "                    range 4 cm - remove mixed-signal noise that occurs at a range gap." << endl;
   exit(exit_code);
 }
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 {
   if (argc != 4 && argc != 5)
     usage();
-  if (string(argv[argc-1]) != "cm" && string(argv[argc-1]) != "%")
+  if (string(argv[argc-1]) != "cm" && string(argv[argc-1]) != "sigmas")
     usage();
 
   string file = argv[1];
@@ -110,50 +110,41 @@ int main(int argc, char *argv[])
     cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
          << " cm from any other." << endl;
   }
-  else if (string(argv[argc-1]) == "%")
+  else if (string(argv[argc-1]) == "sigmas")
   {
     cout << "ratio" << endl;
-    double minRatio = sqr(0.01 * stod(argv[2]));
-    if (minRatio <= 0.0)
+    double sigmas = stod(argv[2]);
+    if (sigmas <= 0.0)
       usage();
 
+    vector<Vector3d> dimensions;
+    vector<Matrix3d> matrices;
     MatrixXi indices;
-    MatrixXd dists2;
 
-    // simplest scheme... find 3 nearest neighbours and do cross product
-    Nabo::NNSearchD *nns;
-    Nabo::Parameters params("bucketSize", 8);
-    vector<Vector3d> &points = cloud.ends;
-    MatrixXd points_p(3, points.size());
-    for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i];
-    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);  //, 0, params);
-
-    // Run the search
-    const int search_size = 8;
-    indices.resize(search_size, points.size());
-    dists2.resize(search_size, points.size());
-    nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);
-    delete nns;
+    const int search_size = 10;
+    cloud.getSurfels(search_size, NULL, NULL, &dimensions, &matrices, &indices);
 
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
     new_cloud.colours.reserve(cloud.colours.size());
-    for (int i = 0; i < (int)points.size(); i++)
+    for (int i = 0; i < (int)matrices.size(); i++)
     {
       if (indices(0,i) == -1) // no neighbours in range, we consider this as noise
         continue;
-      int otherI = indices(0,i);
-      double otherD2 = 0.0;
-      double num = 0.0;
-      for (int j = 0; j<search_size && indices(j, otherI)!= -1; j++)
+      bool isNoise = false;
+      if (cloud.rayBounded(i))
       {
-        otherD2 += dists2(j, otherI);
-        num++;
+        int otherI = indices(0,i);
+        Vector3d vec = cloud.ends[i] - cloud.ends[otherI];
+        Vector3d newVec = matrices[otherI].transpose() * vec;
+        newVec[0] /= dimensions[otherI][0];
+        newVec[1] /= dimensions[otherI][1];
+        newVec[2] /= dimensions[otherI][2];
+        double scale2 = newVec.squaredNorm();
+        isNoise = scale2 > sigmas*sigmas;
       }
-      otherD2 /= num;
-      double ratio = otherD2 / (1e-10 + dists2(0, i));
-      if (ratio > minRatio)
+      if (!isNoise)
       {
         new_cloud.starts.push_back(cloud.starts[i]);
         new_cloud.ends.push_back(cloud.ends[i]);
@@ -161,8 +152,8 @@ int main(int argc, char *argv[])
         new_cloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour distance ratio less than " << sqrt(minRatio) * 100.0
-          << " %." << endl;
+    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma less than " << sigmas
+          << endl;
   }
 
   string file_stub = file;
