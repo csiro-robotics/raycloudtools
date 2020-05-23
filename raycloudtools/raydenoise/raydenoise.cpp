@@ -20,34 +20,32 @@ void usage(int exit_code = 0)
   cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << endl;
   cout << "usage:" << endl;
   cout << "raydenoise raycloud 3 cm   - removes rays that contact more than 3 cm from any other," << endl;
-  cout << "           --range 4 cm    - option to also remove mixed-signal noise that occurs at a range gap." << endl;
+  cout << "raydenoise raycloud 5 %    - removes when neighbour's neighbour is 5% of neighbour distance" << endl;
+  cout << "                    range 4 cm - remove mixed-signal noise that occurs at a range gap." << endl;
   exit(exit_code);
 }
 
 int main(int argc, char *argv[])
 {
-  if (argc != 4 && argc != 7)
+  if (argc != 4 && argc != 5)
     usage();
-  if (string(argv[3]) != "cm")
+  if (string(argv[argc-1]) != "cm" && string(argv[argc-1]) != "%")
     usage();
 
   string file = argv[1];
   Cloud cloud;
   cloud.load(file);
-  double distance = 0.01 * stod(argv[2]);
-  if (distance < 0.01)
-    usage();
 
   // Look at gaps in range... this signals a mixed-signal where the lidar has contacted two surfaces.
-  if (argc == 7)
+  Cloud new_cloud;
+  if (argc == 5)
   {
-    if ((string(argv[4]) != "--range" && string(argv[4]) != "-r") || string(argv[6]) != "cm")
+    if (string(argv[2]) != "range" || string(argv[argc-1]) != "cm")
       usage();
-    double range_distance = 0.01 * stod(argv[5]);
+    double range_distance = 0.01 * stod(argv[3]);
     if (range_distance < 0.01)
       usage();
 
-    Cloud new_cloud;
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
@@ -70,11 +68,13 @@ int main(int argc, char *argv[])
     }
     cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
          << range_distance * 100.0 << " cm." << endl;
-    cloud = new_cloud;
   }
-
-  // Next, look at spatially isolated points:
+  else if (string(argv[argc-1]) == "cm")
   {
+    double distance = 0.01 * stod(argv[2]);
+    if (distance < 0.01)
+      usage();
+
     MatrixXi indices;
     MatrixXd dists2;
 
@@ -93,7 +93,6 @@ int main(int argc, char *argv[])
     nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);
     delete nns;
 
-    Cloud new_cloud;
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
@@ -110,10 +109,65 @@ int main(int argc, char *argv[])
     }
     cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
          << " cm from any other." << endl;
-    cloud = new_cloud;
+  }
+  else if (string(argv[argc-1]) == "%")
+  {
+    cout << "ratio" << endl;
+    double minRatio = sqr(0.01 * stod(argv[2]));
+    if (minRatio <= 0.0)
+      usage();
+
+    MatrixXi indices;
+    MatrixXd dists2;
+
+    // simplest scheme... find 3 nearest neighbours and do cross product
+    Nabo::NNSearchD *nns;
+    Nabo::Parameters params("bucketSize", 8);
+    vector<Vector3d> &points = cloud.ends;
+    MatrixXd points_p(3, points.size());
+    for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i];
+    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);  //, 0, params);
+
+    // Run the search
+    const int search_size = 8;
+    indices.resize(search_size, points.size());
+    dists2.resize(search_size, points.size());
+    nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);
+    delete nns;
+
+    new_cloud.starts.reserve(cloud.starts.size());
+    new_cloud.ends.reserve(cloud.ends.size());
+    new_cloud.times.reserve(cloud.times.size());
+    new_cloud.colours.reserve(cloud.colours.size());
+    for (int i = 0; i < (int)points.size(); i++)
+    {
+      if (indices(0,i) == -1) // no neighbours in range, we consider this as noise
+        continue;
+      int otherI = indices(0,i);
+      double otherD2 = 0.0;
+      double num = 0.0;
+      for (int j = 0; j<search_size && indices(j, otherI)!= -1; j++)
+      {
+        otherD2 += dists2(j, otherI);
+        num++;
+      }
+      otherD2 /= num;
+      double ratio = otherD2 / (1e-10 + dists2(0, i));
+      if (ratio > minRatio)
+      {
+        new_cloud.starts.push_back(cloud.starts[i]);
+        new_cloud.ends.push_back(cloud.ends[i]);
+        new_cloud.times.push_back(cloud.times[i]);
+        new_cloud.colours.push_back(cloud.colours[i]);
+      }
+    }
+    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour distance ratio less than " << sqrt(minRatio) * 100.0
+          << " %." << endl;
   }
 
-  cloud.save(file.substr(0, file.length() - 4) + "_denoised.ply");
-
+  string file_stub = file;
+  if (file_stub.substr(file_stub.length() - 4) == ".ply")
+    file_stub = file_stub.substr(0, file_stub.length() - 4);
+  new_cloud.save(file_stub + "_denoised.ply");
   return true;
 }
