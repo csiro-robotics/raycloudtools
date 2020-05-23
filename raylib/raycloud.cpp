@@ -205,14 +205,14 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
         (*neighbour_indices)(j, ii) = -1;
     }
 
-    Vector3d centroid = ends[i];
+    Vector3d centroid = ends[ii];
     int num;
     for (num = 0; num < search_size && indices(num, i) > -1; num++) centroid += ends[ray_ids[indices(num, i)]];
     centroid /= (double)(num + 1);
     if (centroids)
-      (*centroids)[i] = centroid;
+      (*centroids)[ii] = centroid;
 
-    Matrix3d scatter = (ends[i] - centroid) * (ends[i] - centroid).transpose();
+    Matrix3d scatter = (ends[ii] - centroid) * (ends[ii] - centroid).transpose();
     for (int j = 0; j < num; j++)
     {
       Vector3d offset = ends[ray_ids[indices(j, i)]] - centroid;
@@ -225,17 +225,28 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
     if (normals)
     {
       Vector3d normal = eigen_solver.eigenvectors().col(0);
-      if ((ends[i] - starts[i]).dot(normal) > 0.0)
+      if ((ends[ii] - starts[ii]).dot(normal) > 0.0)
         normal = -normal;
-      (*normals)[i] = normal;
+      (*normals)[ii] = normal;
     }
     if (dimensions)
     {
       Vector3d eigenvals = maxVector(Vector3d(1e-10, 1e-10, 1e-10), eigen_solver.eigenvalues());
-      (*dimensions)[i] = Vector3d(sqrt(eigenvals[0]), sqrt(eigenvals[1]), sqrt(eigenvals[2]));
+      (*dimensions)[ii] = Vector3d(sqrt(eigenvals[0]), sqrt(eigenvals[1]), sqrt(eigenvals[2]));
+ /*     if (eigenvals[2] > 100.0*eigenvals[1])
+      {
+        cout << "i: " << i << ", rayID: " << ii << endl;
+        cout << (*dimensions)[ii].transpose() << endl;
+        for (int n = 0; n < search_size && indices(n, i) > -1; n++) 
+          cout << ends[ray_ids[indices(n, i)]].transpose() << ": " << sqrt(dists2(n,i)) << " _ ";
+        cout << endl;
+
+        cout << "point: " << ends[ii].transpose() << ", centroid: " << centroid.transpose() << ", diff: " << (ends[ii] - centroid).transpose() << endl;
+        cout << endl;
+      }*/
     }
     if (mats)
-      (*mats)[i] = eigen_solver.eigenvectors();
+      (*mats)[ii] = eigen_solver.eigenvectors();
   }
 }
 

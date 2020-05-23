@@ -128,6 +128,9 @@ int main(int argc, char *argv[])
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
     new_cloud.colours.reserve(cloud.colours.size());
+    Vector3d dims(0,0,0);
+    double cnt = 0.0;
+    double nums = 0;
     for (int i = 0; i < (int)matrices.size(); i++)
     {
       if (indices(0,i) == -1) // no neighbours in range, we consider this as noise
@@ -141,6 +144,15 @@ int main(int argc, char *argv[])
         newVec[0] /= dimensions[otherI][0];
         newVec[1] /= dimensions[otherI][1];
         newVec[2] /= dimensions[otherI][2];
+ //       cout << "old vec: " << vec.transpose() << ", newvec: " << newVec.transpose() << endl;
+ //       cout << "dimensions: " << dimensions[otherI].transpose() << endl;
+ //       cout << "matrix: " << matrices[otherI] << endl;
+        int num = 0;
+        for (int j = 0; j<search_size && indices(j,i)!= -1; j++)
+          num = j+1;
+        nums += (double)num;
+        dims += dimensions[otherI];
+        cnt++;
         double scale2 = newVec.squaredNorm();
         isNoise = scale2 > sigmas*sigmas;
       }
@@ -152,7 +164,9 @@ int main(int argc, char *argv[])
         new_cloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma less than " << sigmas
+    dims /= cnt;
+    cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums/cnt << endl;
+    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas
           << endl;
   }
 
