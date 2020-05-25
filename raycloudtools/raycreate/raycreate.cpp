@@ -14,19 +14,15 @@
 #include <string.h>
 #include <iostream>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
 void usage(int exit_code = 0)
 {
-  cout << "Generates simple example ray clouds" << endl;
-  cout << "usage:" << endl;
-  cout << "raycreate room 3 - generates a room using the seed 3. Also:" << endl;
-  cout << "          building" << endl;
-  cout << "          tree" << endl;
-  cout << "          forest" << endl;
-  cout << "          terrain" << endl;
+  std::cout << "Generates simple example ray clouds" << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raycreate room 3 - generates a room using the seed 3. Also:" << std::endl;
+  std::cout << "          building" << std::endl;
+  std::cout << "          tree" << std::endl;
+  std::cout << "          forest" << std::endl;
+  std::cout << "          terrain" << std::endl;
   exit(exit_code);
 }
 
@@ -35,15 +31,15 @@ int main(int argc, char *argv[])
   if (argc != 3)
     usage();
 
-  string type = argv[1];
-  int seed = stoi(argv[2]);
+  std::string type = argv[1];
+  int seed = std::stoi(argv[2]);
   srand(seed);
 
-  Cloud cloud;
+  ray::Cloud cloud;
   if (type == "room")
   {
     // create room
-    RoomGen room_gen;
+    ray::RoomGen room_gen;
     room_gen.generate();
     cloud.starts = room_gen.ray_starts;
     cloud.ends = room_gen.ray_ends;
@@ -62,19 +58,19 @@ int main(int argc, char *argv[])
   else if (type == "building")
   {
     // create building...
-    cout << "Sorry, building generation not implemented yet" << endl;
+    std::cout << "Sorry, building generation not implemented yet" << std::endl;
   }
   else if (type == "tree" || type == "forest")
   {
-    fillBranchAngleLookup();
+    ray::fillBranchAngleLookup();
     double density = 500.0;
-    Vector3d box_min(-2.0, -2.0, -0.025), box_max(2.0, 2.0, 0.025);
+    Eigen::Vector3d box_min(-2.0, -2.0, -0.025), box_max(2.0, 2.0, 0.025);
     double time = 0.0;
     double time_delta = 0.01;
     if (type == "tree")
     {
-      TreeGen tree_gen;
-      tree_gen.make(Vector3d(0, 0, 0), 0.1, 0.25);
+      ray::TreeGen tree_gen;
+      tree_gen.make(Eigen::Vector3d(0, 0, 0), 0.1, 0.25);
       tree_gen.generateRays(density);
       cloud.starts = tree_gen.ray_starts;
       cloud.ends = tree_gen.ray_ends;
@@ -87,7 +83,7 @@ int main(int argc, char *argv[])
     }
     else if (type == "forest")
     {
-      ForestGen forest_gen;
+      ray::ForestGen forest_gen;
       forest_gen.make(0.25);
       forest_gen.generateRays(density);
       for (auto &tree : forest_gen.trees)
@@ -106,9 +102,9 @@ int main(int argc, char *argv[])
     int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
     for (int i = 0; i < num; i++)
     {
-      Vector3d pos(random(box_min[0], box_max[0]), random(box_min[1], box_max[1]), random(box_min[2], box_max[2]));
+      Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), ray::random(box_min[1], box_max[1]), ray::random(box_min[2], box_max[2]));
       cloud.ends.push_back(pos);
-      cloud.starts.push_back(pos + Vector3d(random(-0.1, 0.1), random(-0.1, 0.1), random(0.2, 0.5)));
+      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-0.1, 0.1), ray::random(-0.1, 0.1), ray::random(0.2, 0.5)));
       cloud.times.push_back(time);
       time += time_delta;
     }
@@ -116,7 +112,7 @@ int main(int argc, char *argv[])
   }
   else if (type == "terrain")
   {
-    TerrainGen terrain;
+    ray::TerrainGen terrain;
     terrain.generate();
     cloud.starts = terrain.ray_starts;
     cloud.ends = terrain.ray_ends;

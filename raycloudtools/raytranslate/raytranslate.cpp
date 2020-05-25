@@ -10,17 +10,12 @@
 #include <string.h>
 #include <iostream>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
-
 void usage(int exit_code = 0)
 {
-  cout << "Translate a raycloud" << endl;
-  cout << "usage:" << endl;
-  cout << "raytranslate raycloud 0,0,1 - translation (x,y,z) in metres" << endl;
-  cout << "                      0,0,1,24.3 - optional 4th component translates time" << endl;
+  std::cout << "Translate a raycloud" << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raytranslate raycloud 0,0,1 - translation (x,y,z) in metres" << std::endl;
+  std::cout << "                      0,0,1,24.3 - optional 4th component translates time" << std::endl;
   exit(exit_code);
 }
 
@@ -29,10 +24,10 @@ int main(int argc, char *argv[])
   if (argc != 3)
     usage();
 
-  string file = argv[1];
-  Pose pose;
-  stringstream ss(argv[2]);
-  Vector3d vec;
+  std::string file = argv[1];
+  ray::Pose pose;
+  std::stringstream ss(argv[2]);
+  Eigen::Vector3d vec;
   ss >> vec[0];
   ss.ignore(1);
   ss >> vec[1];
@@ -46,13 +41,13 @@ int main(int argc, char *argv[])
     ss.ignore(1);
     ss >> time_delta;
   }
-  pose.rotation = Quaterniond(1.0, 0.0, 0.0, 0.0);
+  pose.rotation = Eigen::Quaterniond(1.0, 0.0, 0.0, 0.0);
 
-  Cloud cloud;
+  ray::Cloud cloud;
   cloud.load(file);
 #if 0  // test bending
-  Vector3d bend(pose.position[0], pose.position[1], 0.0);
-  Vector3d side = Vector3d(bend[1], -bend[0], 0).normalized();
+  Eigen::Vector3d bend(pose.position[0], pose.position[1], 0.0);
+  Eigen::Vector3d side = Eigen::Vector3d(bend[1], -bend[0], 0).normalized();
   for (auto &end: cloud.ends)
     end += bend*sqr(end.dot(side));
 #else

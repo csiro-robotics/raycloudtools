@@ -22,21 +22,21 @@ using namespace ray;
 
 void usage(int exit_code = 0)
 {
-  cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << endl;
-  cout << "usage:" << endl;
-  cout << "rayalign raycloudA raycloudB" << endl;
-  cout << "                             --rigid    - rigid alignment only" << endl;
-  cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << endl;
-  cout
+  std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "rayalign raycloudA raycloudB" << std::endl;
+  std::cout << "                             --rigid    - rigid alignment only" << std::endl;
+  std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
+  std::cout
     << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
-    << endl;
+    << std::endl;
   exit(exit_code);
 }
 
-void getSurfel(const vector<Vector3d> &points, const vector<int> &ids, Vector3d &centroid, Vector3d &width,
+void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int> &ids, Eigen::Vector3d &centroid, Eigen::Vector3d &width,
                Matrix3d &mat)
 {
-  Vector3d total(0, 0, 0);
+  Eigen::Vector3d total(0, 0, 0);
   for (auto &id : ids) total += points[id];
   centroid = total / (double)ids.size();
 
@@ -44,15 +44,15 @@ void getSurfel(const vector<Vector3d> &points, const vector<int> &ids, Vector3d 
   scatter.setZero();
   for (auto &id : ids)
   {
-    Vector3d offset = points[id] - centroid;
+    Eigen::Vector3d offset = points[id] - centroid;
     scatter += offset * offset.transpose();
   }
   scatter / (double)ids.size();
 
   SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
   ASSERT(eigen_solver.info() == Success);
-  width = maxVector(eigen_solver.eigenvalues(), Vector3d(1e-5, 1e-5, 1e-5));
-  width = Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
+  width = maxVector(eigen_solver.eigenvalues(), Eigen::Vector3d(1e-5, 1e-5, 1e-5));
+  width = Eigen::Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
   mat = eigen_solver.eigenvectors();
 }
 
@@ -71,19 +71,19 @@ int main(int argc, char *argv[])
   bool local_only = false;
   for (int a = 3; a < argc; a++)
   {
-    if (string(argv[a]) == "--verbose" || string(argv[a]) == "-v")
+    if (std::string(argv[a]) == "--verbose" || std::string(argv[a]) == "-v")
       verbose = true;
-    else if (string(argv[a]) == "--rigid" || string(argv[a]) == "-r")
+    else if (std::string(argv[a]) == "--rigid" || std::string(argv[a]) == "-r")
       rigid_only = true;
-    else if (string(argv[a]) == "--local" || string(argv[a]) == "-l")
+    else if (std::string(argv[a]) == "--local" || std::string(argv[a]) == "-l")
       local_only = true;
     else
       usage();
   }
 
-  string file_a = argv[1];
-  string file_b = argv[2];
-  string file_stub = file_a;
+  std::string file_a = argv[1];
+  std::string file_b = argv[2];
+  std::string file_stub = file_a;
   if (file_stub.substr(file_stub.length() - 4) == ".ply")
     file_stub = file_stub.substr(0, file_stub.length() - 4);
 
@@ -107,20 +107,20 @@ int main(int argc, char *argv[])
   // 5. solve a weighted least squares to find the transform of best fit
   // 6. apply the transform to cloud0 and save it out.
 
-  vector<Matrix3d> matrices[2];
+  std::vector<Matrix3d> matrices[2];
 
-  vector<Vector3d> centroids[2];
-  vector<Vector3d> normals[2];
-  vector<Vector3d> widths[2];
-  vector<bool> is_plane[2];
-  Vector3d centres[2];
+  std::vector<Eigen::Vector3d> centroids[2];
+  std::vector<Eigen::Vector3d> normals[2];
+  std::vector<Eigen::Vector3d> widths[2];
+  std::vector<bool> is_plane[2];
+  Eigen::Vector3d centres[2];
   for (int c = 0; c < 2; c++)
   {
     // 1. decimate quite fine
-    vector<int64_t> decimated = voxelSubsample(aligner.clouds[c].ends, 0.1);
-    vector<Vector3d> decimated_points;
+    std::vector<int64_t> decimated = voxelSubsample(aligner.clouds[c].ends, 0.1);
+    std::vector<Eigen::Vector3d> decimated_points;
     decimated_points.reserve(decimated.size());
-    vector<Vector3d> decimated_starts;
+    std::vector<Eigen::Vector3d> decimated_starts;
     decimated_starts.reserve(decimated.size());
     centres[c].setZero();
     for (size_t i = 0; i < decimated.size(); i++)
@@ -135,9 +135,9 @@ int main(int argc, char *argv[])
     centres[c] /= (double)decimated_points.size(); 
 
     // 2. find the coarser random candidate points. We just want a fairly even spread but not the voxel centres
-    vector<int64_t> candidates = voxelSubsample(decimated_points, 1.0);
-    vector<Vector3d> candidate_points(candidates.size());
-    vector<Vector3d> candidate_starts(candidates.size());
+    std::vector<int64_t> candidates = voxelSubsample(decimated_points, 1.0);
+    std::vector<Eigen::Vector3d> candidate_points(candidates.size());
+    std::vector<Eigen::Vector3d> candidate_starts(candidates.size());
     for (int64_t i = 0; i < (int64_t)candidates.size(); i++)
     {
       candidate_points[i] = decimated_points[candidates[i]];
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
     widths[c].reserve(q_size);
     matrices[c].reserve(q_size);
     is_plane[c].reserve(q_size);
-    vector<int> ids;
+    std::vector<int> ids;
     ids.reserve(search_size);
     const size_t min_points_per_ellipsoid = 5;
     for (size_t i = 0; i < q_size; i++)
@@ -179,8 +179,8 @@ int main(int argc, char *argv[])
       if (ids.size() < min_points_per_ellipsoid)  // not dense enough
         continue;
 
-      Vector3d centroid;
-      Vector3d width;
+      Eigen::Vector3d centroid;
+      Eigen::Vector3d width;
       Matrix3d mat;
       getSurfel(decimated_points, ids, centroid, width, mat);
       double q1 = width[0] / width[1];
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
       }
       else
       {
-        Vector3d normal = mat.col(0);
+        Eigen::Vector3d normal = mat.col(0);
         if ((centroid - candidate_starts[i]).dot(normal) > 0.0)
           normal = -normal;
         // now repeat but removing back facing points. This deals better with double walls, which are quite common
@@ -238,16 +238,16 @@ int main(int argc, char *argv[])
     }
     draw.drawCloud(decimated_points, 0.5 + 0.4 * (double)c, c);
   }
-  draw.drawEllipsoids(centroids[1], matrices[1], widths[1], Vector3d(0, 1, 0), 1);
+  draw.drawEllipsoids(centroids[1], matrices[1], widths[1], Eigen::Vector3d(0, 1, 0), 1);
 
   // Now we have the ellipsoids, we need to do a nearest neighbour on this set of data, trying to match orientation as
   // well as location
   struct Match
   {
     int ids[2];
-    Vector3d normal;
+    Eigen::Vector3d normal;
   };
-  vector<Match> matches;
+  std::vector<Match> matches;
   {
     // with these matches we now run the iterative reweighted least squares..
     Pose pose = Pose::identity();
@@ -258,8 +258,8 @@ int main(int argc, char *argv[])
     {
       //   if (it < 3) // the distribution of re-matching within the iterations is open to adjustment
       {
-        vector<Vector3d> line_starts;
-        vector<Vector3d> line_ends;
+        std::vector<Eigen::Vector3d> line_starts;
+        std::vector<Eigen::Vector3d> line_ends;
         int search_size = 1;
         size_t q_size = centroids[0].size();
         size_t p_size = centroids[1].size();
@@ -267,14 +267,14 @@ int main(int argc, char *argv[])
         MatrixXd points_q(7, q_size);
         for (size_t i = 0; i < q_size; i++)
         {
-          Vector3d p = centroids[0][i] * translation_weight;
+          Eigen::Vector3d p = centroids[0][i] * translation_weight;
           p[2] *= 2.0;  // doen't make much difference...
           points_q.col(i) << p, normals[0][i], is_plane[0][i] ? 1.0 : 0.0;
         }
         MatrixXd points_p(7, p_size);
         for (size_t i = 0; i < p_size; i++)
         {
-          Vector3d p = centroids[1][i] * translation_weight;
+          Eigen::Vector3d p = centroids[1][i] * translation_weight;
           p[2] *= 2.0;
           points_p.col(i) << p, normals[1][i], is_plane[1][i] ? 1.0 : 0.0;
         }
@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
             bool plane = is_plane[0][i];
             if (plane != is_plane[1][indices(j, i)])
               continue;
-            Vector3d mid_norm = (normals[0][i] + normals[1][indices(j, i)]).normalized();
+            Eigen::Vector3d mid_norm = (normals[0][i] + normals[1][indices(j, i)]).normalized();
             if (plane)
             {
               match.normal = mid_norm;
@@ -308,7 +308,7 @@ int main(int argc, char *argv[])
             else
             {
               // a cylinder is like two normal constraints
-              match.normal = mid_norm.cross(Vector3d(1, 2, 3)).normalized();
+              match.normal = mid_norm.cross(Eigen::Vector3d(1, 2, 3)).normalized();
               matches.push_back(match);
               match.normal = mid_norm.cross(match.normal);
               matches.push_back(match);
@@ -318,7 +318,7 @@ int main(int argc, char *argv[])
           }
         }
         draw.drawLines(line_starts, line_ends);
-        draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Vector3d(1, 0, 0), 0);
+        draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Eigen::Vector3d(1, 0, 0), 0);
       }
 
       // don't go above 30*... or below 10*...
@@ -332,15 +332,15 @@ int main(int argc, char *argv[])
       for (size_t i = 0; i < matches.size(); i++)
       {
         auto &match = matches[i];
-        Vector3d positions[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
+        Eigen::Vector3d positions[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
         double error = (positions[1] - positions[0]).dot(match.normal);  // mahabolonis instead?
         double error_sqr;
         if (is_plane[0][match.ids[0]])
           error_sqr = sqr(error * translation_weight);
         else
         {
-          Vector3d flat = positions[1] - positions[0];
-          Vector3d norm = normals[0][match.ids[0]];
+          Eigen::Vector3d flat = positions[1] - positions[0];
+          Eigen::Vector3d norm = normals[0][match.ids[0]];
           flat -= norm * flat.dot(norm);
           error_sqr = (flat * translation_weight).squaredNorm();
         }
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
           at[i] = match.normal[i];
         for (int i = 0; i < 3; i++)  // change in error with change in raycloud orientation
         {
-          Vector3d axis(0, 0, 0);
+          Eigen::Vector3d axis(0, 0, 0);
           axis[i] = 1.0;
           at[3 + i] = -(positions[0].cross(axis)).dot(match.normal);
         }
@@ -374,19 +374,19 @@ int main(int argc, char *argv[])
         at_b += at * weight * error;
       }
       Matrix<double, state_size, 1> x = at_a.ldlt().solve(at_b);
-      cout << "rmse: " << sqrt(square_error / (double)matches.size()) << endl;
-      cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4]
-           << ", " << x[5] << endl;
-      Vector3d rot(x[3], x[4], x[5]);
-      Vector3d a(x[6], x[7], 0), b(x[8], x[9], 0), c(x[10], x[11], 0);
+      std::cout << "rmse: " << sqrt(square_error / (double)matches.size()) << std::endl;
+      std::cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4]
+           << ", " << x[5] << std::endl;
+      Eigen::Vector3d rot(x[3], x[4], x[5]);
+      Eigen::Vector3d a(x[6], x[7], 0), b(x[8], x[9], 0), c(x[10], x[11], 0);
       double angle = rot.norm();
       rot.normalize();
-      Pose shift(Vector3d(x[0], x[1], x[2]), Quaterniond(AngleAxisd(angle, rot)));
+      Pose shift(Eigen::Vector3d(x[0], x[1], x[2]), Quaterniond(AngleAxisd(angle, rot)));
       pose = shift * pose;
       for (size_t i = 0; i < centroids[0].size(); i++)
       {
-        Vector3d &pos = centroids[0][i];
-        Vector3d relPos = pos - centres[0];
+        Eigen::Vector3d &pos = centroids[0][i];
+        Eigen::Vector3d relPos = pos - centres[0];
         if (!rigid_only)
           pos += a * sqr(relPos[0]) + b * sqr(relPos[1]) + c * relPos[0] * relPos[1];
         pos = shift * pos;
@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
       // we should be able to concatenate these transforms and only apply them once at the end
       for (auto &end : aligner.clouds[0].ends)
       {
-        Vector3d relPos = end - centres[0];
+        Eigen::Vector3d relPos = end - centres[0];
         if (!rigid_only)
           end += a * sqr(relPos[0]) + b * sqr(relPos[1]) + c * relPos[0] * relPos[1];
         end = shift * end;

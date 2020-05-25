@@ -92,7 +92,7 @@ DebugDraw *DebugDraw::instance()
   return s_instance.get();
 }
 
-void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
+void DebugDraw::drawray::Cloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
 {
   if (points.empty())
   {
@@ -103,7 +103,7 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
   RAYLIB_UNUSED(point_shade);
 
   std::vector<float> points_single(points.size() * 3);
-  tes::Vector3d reference_vertex(points[0].x(), points[0].y(), points[0].z());
+  tes::Eigen::Vector3d reference_vertex(points[0].x(), points[0].y(), points[0].z());
 
   // Convert all vertices to single precision relative to the first vertex.
   size_t next_points_write_index = 0;
@@ -133,7 +133,7 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
   }
 
   // Convert to sinle precision.
-  tes::Vector3d reference_vertex(starts[0].x(), starts[0].y(), starts[0].z());
+  tes::Eigen::Vector3d reference_vertex(starts[0].x(), starts[0].y(), starts[0].z());
   std::vector<float> vertices(starts.size() * 2 * 3);
 
   // Convert all vertices to single precision relative to the first vertex.
@@ -170,17 +170,17 @@ void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const 
   }
 
   // TODO: (KS) handle requests for drawing more than tes::MultiShape::ShapeCountLimit items.
-  tes::Vector3d reference_pos(starts[0].x(), starts[0].y(), starts[0].z());
+  tes::Eigen::Vector3d reference_pos(starts[0].x(), starts[0].y(), starts[0].z());
   std::vector<tes::Cylinder> cylinders(starts.size());
   std::vector<tes::Shape *> shape_ptrs(starts.size());
 
   const tes::Colour colour = (id == 0) ? tes::Colour(204, 178, 102) : tes::Colour(128, 76, 102);
   for (size_t i = 0; i < starts.size(); ++i)
   {
-    const tes::Vector3d start(starts[i].x(), starts[i].y(), starts[i].z());
-    const tes::Vector3d end(ends[i].x(), ends[i].y(), ends[i].z());
-    tes::Vector3d cylinder_axis = end - start;
-    const tes::Vector3d cylinder_centre = 0.5 * (end + start) - reference_pos;
+    const tes::Eigen::Vector3d start(starts[i].x(), starts[i].y(), starts[i].z());
+    const tes::Eigen::Vector3d end(ends[i].x(), ends[i].y(), ends[i].z());
+    tes::Eigen::Vector3d cylinder_axis = end - start;
+    const tes::Eigen::Vector3d cylinder_centre = 0.5 * (end + start) - reference_pos;
 
     const double length = cylinder_axis.normalise();
     cylinders[i] = tes::Cylinder(id, cylinder_centre, cylinder_axis, float(radii[i]), float(length));
@@ -215,8 +215,8 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
   const tes::Colour tes_colour(float(colour.x()), float(colour.y()), float(colour.z()));
   for (size_t i = 0; i < centres.size(); ++i)
   {
-    const tes::Vector3d centre(centres[i].x(), centres[i].y(), centres[i].z());
-    const tes::Vector3d scale(radii[i].x(), radii[i].y(), radii[i].z());
+    const tes::Eigen::Vector3d centre(centres[i].x(), centres[i].y(), centres[i].z());
+    const tes::Eigen::Vector3d scale(radii[i].x(), radii[i].y(), radii[i].z());
     const tes::Matrix3d pose(poses[i](0, 0), poses[i](0, 1), poses[i](0, 2), poses[i](1, 0), poses[i](1, 1),
                              poses[i](1, 2), poses[i](2, 0), poses[i](2, 1), poses[i](2, 2));
 

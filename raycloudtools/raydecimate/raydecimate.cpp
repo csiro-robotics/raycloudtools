@@ -9,17 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-using namespace std;
-using namespace Eigen;
-using namespace ray;
 
 void usage(int exit_code = 0)
 {
-  cout << "Decimate a ray cloud spatially or temporally" << endl;
-  cout << "usage:" << endl;
-  cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm" << endl;
-  cout << "raydecimate raycloud 4 rays - reduces to every fourth ray" << endl;
-  cout << "raydecimate raycloud 0.1 seconds - reduces to one ray every 0.1 seconds" << endl;
+  std::cout << "Decimate a ray cloud spatially or temporally" << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm" << std::endl;
+  std::cout << "raydecimate raycloud 4 rays - reduces to every fourth ray" << std::endl;
+  std::cout << "raydecimate raycloud 0.1 seconds - reduces to one ray every 0.1 seconds" << std::endl;
   exit(exit_code);
 }
 
@@ -29,20 +26,20 @@ int main(int argc, char *argv[])
   if (argc != 4)
     usage();
 
-  string file = argv[1];
-  Cloud cloud;
+  std::string file = argv[1];
+  ray::Cloud cloud;
   cloud.load(file);
-  vector<Vector3d> starts, ends;
-  vector<RGBA> colours;
-  vector<double> times;
-  string type = argv[3];
+  std::vector<Eigen::Vector3d> starts, ends;
+  std::vector<ray::RGBA> colours;
+  std::vector<double> times;
+  std::string type = argv[3];
   if (type == "cm")
   {
-    cloud.decimate(0.01 * stod(argv[2]));
+    cloud.decimate(0.01 * std::stod(argv[2]));
   }
   else if (type == "rays")
   {
-    int decimation = stoi(argv[2]);
+    int decimation = std::stoi(argv[2]);
     for (int i = 0; i < (int)cloud.ends.size(); i += decimation)
     {
       starts.push_back(cloud.starts[i]);
@@ -57,7 +54,7 @@ int main(int argc, char *argv[])
   }
   else if (type == "seconds" || type == "s")
   {
-    double delta = stod(argv[2]);
+    double delta = std::stod(argv[2]);
     double last_time = cloud.times[0];
     for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
@@ -78,7 +75,7 @@ int main(int argc, char *argv[])
   }
   else
     usage(false);
-  string file_stub = file;
+  std::string file_stub = file;
   if (file.substr(file.length() - 4) == ".ply")
     file_stub = file.substr(0, file.length() - 4);
   cloud.save(file_stub + "_decimated.ply");

@@ -2,8 +2,6 @@
 
 #include "rayunused.h"
 
-using namespace ray;
-
 namespace ray
 {
 struct DebugDrawDetail
@@ -12,17 +10,17 @@ struct DebugDrawDetail
 };
 }  // namespace ray
 
-std::unique_ptr<DebugDraw> DebugDraw::s_instance;
+std::unique_ptr<ray::DebugDraw> ray::DebugDraw::s_instance;
 
-DebugDraw::DebugDraw(const std::string &fixed_frame_id)
+ray::DebugDraw::DebugDraw(const std::string &fixed_frame_id)
   : imp_(new DebugDrawDetail)
 {
   imp_->fixed_frame_id = fixed_frame_id;
 }
 
-DebugDraw::~DebugDraw() = default;
+ray::DebugDraw::~DebugDraw() = default;
 
-DebugDraw *DebugDraw::init(int argc, char *argv[], const char *context, bool ros_init)
+ray::DebugDraw *ray::DebugDraw::init(int argc, char *argv[], const char *context, bool ros_init)
 {
   RAYLIB_UNUSED(argc);
   RAYLIB_UNUSED(argv);
@@ -36,25 +34,25 @@ DebugDraw *DebugDraw::init(int argc, char *argv[], const char *context, bool ros
   return instance();
 }
 
-DebugDraw *DebugDraw::instance()
+ray::DebugDraw *ray::DebugDraw::instance()
 {
   return s_instance.get();
 }
 
-void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
+void ray::DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
 {
   RAYLIB_UNUSED(points);
   RAYLIB_UNUSED(point_shade);
   RAYLIB_UNUSED(id);
 }
 
-void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
+void ray::DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
 {
   RAYLIB_UNUSED(starts);
   RAYLIB_UNUSED(ends);
 }
 
-void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+void ray::DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
                               const std::vector<double> &radii, int id)
 {
   RAYLIB_UNUSED(starts);
@@ -63,7 +61,7 @@ void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const 
   RAYLIB_UNUSED(id);
 }
 
-void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
+void ray::DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
                                const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id)
 {
   RAYLIB_UNUSED(centres);
