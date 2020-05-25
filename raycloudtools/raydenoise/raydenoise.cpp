@@ -117,12 +117,13 @@ int main(int argc, char *argv[])
     if (sigmas <= 0.0)
       usage();
 
+    vector<Vector3d> centroids;
     vector<Vector3d> dimensions;
     vector<Matrix3d> matrices;
     MatrixXi indices;
 
     const int search_size = 10;
-    cloud.getSurfels(search_size, NULL, NULL, &dimensions, &matrices, &indices);
+    cloud.getSurfels(search_size, &centroids, NULL, &dimensions, &matrices, &indices);
 
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
@@ -139,14 +140,11 @@ int main(int argc, char *argv[])
       if (cloud.rayBounded(i))
       {
         int otherI = indices(0,i);
-        Vector3d vec = cloud.ends[i] - cloud.ends[otherI];
+        Vector3d vec = cloud.ends[i] - centroids[otherI];//cloud.ends[otherI];
         Vector3d newVec = matrices[otherI].transpose() * vec;
         newVec[0] /= dimensions[otherI][0];
         newVec[1] /= dimensions[otherI][1];
         newVec[2] /= dimensions[otherI][2];
- //       cout << "old vec: " << vec.transpose() << ", newvec: " << newVec.transpose() << endl;
- //       cout << "dimensions: " << dimensions[otherI].transpose() << endl;
- //       cout << "matrix: " << matrices[otherI] << endl;
         int num = 0;
         for (int j = 0; j<search_size && indices(j,i)!= -1; j++)
           num = j+1;
