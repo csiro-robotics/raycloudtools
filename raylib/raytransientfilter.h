@@ -11,7 +11,6 @@
 #include "raygrid.h"
 #include "raycloud.h"
 #include "rayellipsoid.h"
-#include "rayellipsoidmark.h"
 
 #include <atomic>
 #include <limits>
@@ -31,20 +30,11 @@ enum class RAYLIB_EXPORT MergeType : int
   Maximum
 };
 
-/// Option for how the @c TransientFilter orders operations. The @c EllipseGrid filter is faster multi-threaded, but
-/// uses more memory. The @c RayGrid strategy uses less memory.
-enum class RAYLIB_EXPORT TransientFilterStrategy : int
-{
-  EllipseGrid,
-  RayGrid
-};
-
 /// Parameter configuration structure for @c TransientFilter
 struct RAYLIB_EXPORT TransientFilterConfig
 {
   double voxel_size = 0.1;
   double num_rays_filter_threshold = 20;
-  TransientFilterStrategy strategy = TransientFilterStrategy::EllipseGrid;
   MergeType merge_type = MergeType::Mininum;
   bool colour_cloud = true;
 };
@@ -68,14 +58,8 @@ public:
   /// Query the non-transient ray results. Empty before @c filter() is called.
   inline const Cloud &fixedCloud() const { return fixed_; }
 
-  /// Perform the transient filtering on the given @p cloud using the configured @c TransientFilterStrategy .
+  /// Perform the transient filtering on the given @p cloud .
   bool filter(const Cloud &cloud, Progress *progress = nullptr);
-
-  /// Filter using @c TransientFilterStrategy::EllipseGrid regardless of the @c TransientFilterConfig value.
-  bool filterWithEllipseGrid(const Cloud &cloud, Progress *progress);
-
-  /// Filter using @c TransientFilterStrategy::RayGrid regardless of the @c TransientFilterConfig value.
-  bool filterWithRayGrid(const Cloud &cloud, Progress *progress);
 
   /// Reset previous results. Memory is retained.
   void clear();
@@ -88,32 +72,16 @@ public:
   /// @param grid The grid to populate
   /// @param cloud The cloud which grid indices reference rays in.
   /// @param progress Optional progress tracker.
+  /// @todo This needs a more global home
   static void fillRayGrid(Grid<size_t> *grid, const Cloud &cloud, Progress *progress = nullptr);
 
-  /// Fill the @p grid with ellipsoids. For each ellipsoid we add its index to each grid cell it's axis aligned bounding
-  /// box overlaps.
-  ///
-  /// The grid bounds must be set sufficiently large to hold the rays before calling. The grid resolution is also set
-  /// before calling
-  ///
-  /// @param grid The grid to populate
-  /// @param ellispoids The array of ellipsoids to fill the @p grid with.
-  /// @param progress Optional progress tracker.
-  static void fillEllipseGrid(Grid<size_t> *grid, const std::vector<Ellipsoid> &ellipsoids,
-                              Progress *progress = nullptr);
-
 private:
-  void markIntersectedEllipsoidsWithEllipseGrid(const Cloud &cloud, Grid<size_t> &ellipse_grid, bool self_transient,
-                                                Progress &progress);
-
-  void markIntersectedEllipsoidsWithRayGrid(const Cloud &cloud, Grid<size_t> &ray_grid,
-                                            std::vector<std::atomic_bool> &transient_marks, bool self_transient,
-                                            Progress &progress);
+  void markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t> &ray_grid,
+                                 std::vector<std::atomic_bool> &transient_marks, bool self_transient,
+                                 Progress &progress);
 
   /// Finalise the cloud filter and populate @c transientResults() and @c fixedResults() .
-  /// Templated on the boolean type to support @c bool and @c std::atomic_bool .
-  template <typename BOOL>
-  void finaliseFilter(const Cloud &cloud, const std::vector<BOOL> &transient_marks);
+  void finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_marks);
 
   /// Walk a ray
   void walkRay(const Cloud &cloud, const Grid<size_t> &grid, size_t ray_id);
@@ -122,8 +90,6 @@ private:
   Cloud fixed_;
   TransientFilterConfig config_;
   std::vector<Ellipsoid> ellipsoids_;
-  std::vector<EllipsoidMark> ellipsoids_marks_;
-  std::vector<bool> transient_marks_;
 };
 }  // namespace ray
 

@@ -125,8 +125,6 @@ int main(int argc, char *argv[])
   // Note: we actually get better multi-threaded performace with smaller voxels
   config.voxel_size = 0.1;
   config.num_rays_filter_threshold = num_rays;
-  // config.strategy = ray::TransientFilterStrategy::EllipseGrid;
-  config.strategy = ray::TransientFilterStrategy::RayGrid;
   config.merge_type = ray::MergeType::Mininum;
   config.colour_cloud = colour;
 
