@@ -11,17 +11,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-using namespace std;
-using namespace Eigen;
-using namespace ray;
 
 void usage(int exit_code = 0)
 {
-  cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << endl;
-  cout << "usage:" << endl;
-  cout << "raydenoise raycloud 4 cm     - removes rays that contact more than 4 cm from any other," << endl;
-  cout << "raydenoise raycloud 3 sigmas - removes points more than 3 sigmas from nearest points" << endl;
-  cout << "                    range 4 cm - remove mixed-signal noise that occurs at a range gap." << endl;
+  std::cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raydenoise raycloud 4 cm     - removes rays that contact more than 4 cm from any other," << std::endl;
+  std::cout << "raydenoise raycloud 3 sigmas - removes points more than 3 sigmas from nearest points" << std::endl;
+  std::cout << "                    range 4 cm - remove mixed-signal noise that occurs at a range gap." << std::endl;
   exit(exit_code);
 }
 
@@ -29,20 +26,19 @@ int main(int argc, char *argv[])
 {
   if (argc != 4 && argc != 5)
     usage();
-  if (string(argv[argc-1]) != "cm" && string(argv[argc-1]) != "sigmas")
+  if (std::string(argv[argc-1]) != "cm" && std::string(argv[argc-1]) != "sigmas")
     usage();
 
-  string file = argv[1];
-  Cloud cloud;
+  std::string file = argv[1];
+  ray::Cloud cloud;
   cloud.load(file);
 
-  // Look at gaps in range... this signals a mixed-signal where the lidar has contacted two surfaces.
-  Cloud new_cloud;
-  if (argc == 5)
+  ray::Cloud new_cloud;
+  if (argc == 5) // range-based distance measure. For mixed-points where lidar has contacted two surfaces.
   {
-    if (string(argv[2]) != "range" || string(argv[argc-1]) != "cm")
+    if (std::string(argv[2]) != "range" || std::string(argv[argc-1]) != "cm")
       usage();
-    double range_distance = 0.01 * stod(argv[3]);
+    double range_distance = 0.01 * std::stod(argv[3]);
     if (range_distance < 0.01)
       usage();
 
@@ -57,7 +53,7 @@ int main(int argc, char *argv[])
       double range0 = (cloud.ends[i - 1] - cloud.starts[i - 1]).norm();
       double range1 = (cloud.ends[i] - cloud.starts[i]).norm();
       double range2 = (cloud.ends[i + 1] - cloud.starts[i + 1]).norm();
-      double min_dist = min(abs(range0 - range2), min(abs(range1 - range0), abs(range2 - range1)));
+      double min_dist = std::min(std::abs(range0 - range2), std::min(std::abs(range1 - range0), std::abs(range2 - range1)));
       if (!cloud.rayBounded(i) || min_dist < range_distance)
       {
         new_cloud.starts.push_back(cloud.starts[i]);
@@ -66,25 +62,24 @@ int main(int argc, char *argv[])
         new_cloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
-         << range_distance * 100.0 << " cm." << endl;
+    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
+         << range_distance * 100.0 << " cm." << std::endl;
   }
-  else if (string(argv[argc-1]) == "cm")
+  else if (std::string(argv[argc-1]) == "cm") // absolute distance measure
   {
-    double distance = 0.01 * stod(argv[2]);
+    double distance = 0.01 * std::stod(argv[2]);
     if (distance < 0.01)
       usage();
 
-    MatrixXi indices;
-    MatrixXd dists2;
+    Eigen::MatrixXi indices;
+    Eigen::MatrixXd dists2;
 
-    // simplest scheme... find 3 nearest neighbours and do cross product
     Nabo::NNSearchD *nns;
     Nabo::Parameters params("bucketSize", 8);
-    vector<Vector3d> &points = cloud.ends;
-    MatrixXd points_p(3, points.size());
+    std::vector<Eigen::Vector3d> &points = cloud.ends;
+    Eigen::MatrixXd points_p(3, points.size());
     for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i];
-    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);  //, 0, params);
+    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3); 
 
     // Run the search
     const int search_size = 10;
@@ -99,7 +94,7 @@ int main(int argc, char *argv[])
     new_cloud.colours.reserve(cloud.colours.size());
     for (int i = 0; i < (int)points.size(); i++)
     {
-      if (!cloud.rayBounded(i) || (dists2(0, i) < 1e10 && dists2(0, i) < sqr(distance)))
+      if (!cloud.rayBounded(i) || (dists2(0, i) < 1e10 && dists2(0, i) < ray::sqr(distance)))
       {
         new_cloud.starts.push_back(cloud.starts[i]);
         new_cloud.ends.push_back(cloud.ends[i]);
@@ -107,20 +102,19 @@ int main(int argc, char *argv[])
         new_cloud.colours.push_back(cloud.colours[i]);
       }
     }
-    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
-         << " cm from any other." << endl;
+    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
+         << " cm from any other." << std::endl;
   }
-  else if (string(argv[argc-1]) == "sigmas")
+  else if (std::string(argv[argc-1]) == "sigmas") // scale-invariant distance measure. Same as Mahalanobis distance
   {
-    cout << "ratio" << endl;
-    double sigmas = stod(argv[2]);
+    double sigmas = std::stod(argv[2]);
     if (sigmas <= 0.0)
       usage();
 
-    vector<Vector3d> centroids;
-    vector<Vector3d> dimensions;
-    vector<Matrix3d> matrices;
-    MatrixXi indices;
+    std::vector<Eigen::Vector3d> centroids;
+    std::vector<Eigen::Vector3d> dimensions;
+    std::vector<Eigen::Matrix3d> matrices;
+    Eigen::MatrixXi indices;
 
     const int search_size = 10;
     cloud.getSurfels(search_size, &centroids, NULL, &dimensions, &matrices, &indices);
@@ -129,32 +123,32 @@ int main(int argc, char *argv[])
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
     new_cloud.colours.reserve(cloud.colours.size());
-    Vector3d dims(0,0,0);
+    Eigen::Vector3d dims(0,0,0);
     double cnt = 0.0;
     double nums = 0;
     for (int i = 0; i < (int)matrices.size(); i++)
     {
       if (indices(0,i) == -1) // no neighbours in range, we consider this as noise
         continue;
-      bool isNoise = false;
+      bool is_noise = false;
       if (cloud.rayBounded(i))
       {
-        int otherI = indices(0,i);
-        Vector3d vec = cloud.ends[i] - centroids[otherI];//cloud.ends[otherI];
-        Vector3d newVec = matrices[otherI].transpose() * vec;
-        newVec[0] /= dimensions[otherI][0];
-        newVec[1] /= dimensions[otherI][1];
-        newVec[2] /= dimensions[otherI][2];
+        int other_i = indices(0,i);
+        Eigen::Vector3d vec = cloud.ends[i] - centroids[other_i];//cloud.ends[otherI];
+        Eigen::Vector3d newVec = matrices[other_i].transpose() * vec;
+        newVec[0] /= dimensions[other_i][0];
+        newVec[1] /= dimensions[other_i][1];
+        newVec[2] /= dimensions[other_i][2];
         int num = 0;
         for (int j = 0; j<search_size && indices(j,i)!= -1; j++)
           num = j+1;
         nums += (double)num;
-        dims += dimensions[otherI];
+        dims += dimensions[other_i];
         cnt++;
         double scale2 = newVec.squaredNorm();
-        isNoise = scale2 > sigmas*sigmas;
+        is_noise = scale2 > sigmas*sigmas;
       }
-      if (!isNoise)
+      if (!is_noise)
       {
         new_cloud.starts.push_back(cloud.starts[i]);
         new_cloud.ends.push_back(cloud.ends[i]);
@@ -163,12 +157,12 @@ int main(int argc, char *argv[])
       }
     }
     dims /= cnt;
-    cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums/cnt << endl;
-    cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas
-          << endl;
+    std::cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums/cnt << std::endl;
+    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas
+          << std::endl;
   }
 
-  string file_stub = file;
+  std::string file_stub = file;
   if (file_stub.substr(file_stub.length() - 4) == ".ply")
     file_stub = file_stub.substr(0, file_stub.length() - 4);
   new_cloud.save(file_stub + "_denoised.ply");
