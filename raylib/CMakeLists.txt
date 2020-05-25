@@ -16,11 +16,9 @@ set(PUBLIC_HEADERS
   rayellipsoidmark.h
   rayforestgen.h
   raygrid.h
-  rayindexingoctreenode.h
   rayintersect.h
   raylaz.h
   raymesh.h
-  rayoctreenode.h
   rayply.h
   raypose.h
   rayprogress.h
@@ -46,10 +44,8 @@ set(SOURCES
   rayconvexhull.cpp
   rayellipsoidmark.cpp
   rayforestgen.cpp
-  rayindexingoctreenode.cpp
   raylaz.cpp
   raymesh.cpp
-  rayoctreenode.cpp
   rayply.cpp
   rayroomgen.cpp
   rayterraingen.cpp
