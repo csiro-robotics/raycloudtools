@@ -13,11 +13,13 @@ set(PUBLIC_HEADERS
   rayconcavehull.h
   rayconvexhull.h
   raydebugdraw.h
+  rayellipsoid.h
   rayellipsoidmark.h
   rayforestgen.h
   raygrid.h
   rayintersect.h
   raylaz.h
+  raymerger.h
   raymesh.h
   rayply.h
   raypose.h
@@ -42,9 +44,11 @@ set(SOURCES
   raycloud.cpp
   rayconcavehull.cpp
   rayconvexhull.cpp
+  rayellipsoid.cpp
   rayellipsoidmark.cpp
   rayforestgen.cpp
   raylaz.cpp
+  raymerger.cpp
   raymesh.cpp
   rayply.cpp
   rayroomgen.cpp

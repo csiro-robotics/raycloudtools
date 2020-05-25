@@ -8,7 +8,13 @@
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
 #include "raylib/rayprogress.h"
+
+#define NEW_FILTER 1
+#if NEW_FILTER
 #include "raylib/raytransientfilter.h"
+#else  // NEW_FILTER
+#include "raylib/raymerger.h"
+#endif // NEW_FILTER
 
 #include <chrono>
 #include <cstdio>
@@ -17,35 +23,28 @@
 #include <iostream>
 #include <thread>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
-#define NEW_FILTER 1
-
 void usage(int exit_code = 0)
 {
-  cout << "Splits a raycloud into the transient rays and the fixed part" << endl;
-  cout << "usage:" << endl;
-  cout << "raytransients min raycloud 20 rays - splits out positive transients (objects that have since moved)."
-       << endl;
-  cout << "                                     20 is number of pass through rays to classify as transient." << endl;
-  cout << "              max    - finds negative transients, such as a hallway exposed when a door opens." << endl;
-  cout << "              oldest - keeps the oldest geometry when there is a difference over time." << endl;
-  cout << "              newest - uses the newest geometry when there is a difference over time." << endl;
-  cout << " --colour     - also colours the clouds, to help tweak numRays. red: opacity, green: pass throughs, blue: "
-          "planarity."
-       << endl;
+  std::cout << "Splits a raycloud into the transient rays and the fixed part" << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raytransients min raycloud 20 rays - splits out positive transients (objects that have since moved)."
+       << std::endl;
+  std::cout << "                                     20 is number of pass through rays to classify as transient." << std::endl;
+  std::cout << "              max    - finds negative transients, such as a hallway exposed when a door opens." << std::endl;
+  std::cout << "              oldest - keeps the oldest geometry when there is a difference over time." << std::endl;
+  std::cout << "              newest - uses the newest geometry when there is a difference over time." << std::endl;
+  std::cout << " --colour     - also colours the clouds, to help tweak numRays. red: opacity, green: pass throughs, blue: "
+          "planarity." << std::endl;
   exit(exit_code);
 }
 
-void runProrgess(const Progress &progress, std::atomic_bool &quit)
+void runProrgess(const ray::Progress &progress, std::atomic_bool &quit)
 {
-  Progress last;
-  Progress current;
+  ray::Progress last;
+  ray::Progress current;
   progress.read(&last);
 
-  const auto show_progress = [] (Progress &p, bool finalise) //
+  const auto show_progress = [] (ray::Progress &p, bool finalise) //
   {
     if (finalise)
     {
@@ -102,70 +101,74 @@ void runProrgess(const Progress &progress, std::atomic_bool &quit)
 
 int main(int argc, char *argv[])
 {
-  DebugDraw::init(argc, argv, "raytransients");
+  ray::DebugDraw::init(argc, argv, "raytransients");
   if (argc != 5 && argc != 6)
     usage();
 
   bool colour = false;
   if (argc == 6)
   {
-    if (string(argv[5]) != "--colour" && string(argv[5]) != "-c")
+    if (std::string(argv[5]) != "--colour" && std::string(argv[5]) != "-c")
       usage();
     colour = true;
   }
-  double num_rays = stod(argv[3]);
-  string merge_type = argv[1];
+  double num_rays = std::stod(argv[3]);
+  std::string merge_type = argv[1];
   if (merge_type != "min" && merge_type != "max" && merge_type != "oldest" && merge_type != "newest")
     usage();
-  string file = argv[2];
-  Cloud cloud;
+  std::string file = argv[2];
+  ray::Cloud cloud;
   cloud.load(file);
 
 #if NEW_FILTER
-  TransientFilterConfig config;
-  config.merge_type = MergeType::Mininum;
-  config.num_rays_filter_threshold = num_rays;
-  config.colour_cloud = colour;
+  ray::TransientFilterConfig config;
   // Note: we actually get better multi-threaded performace with smaller voxels
   config.voxel_size = 0.1;
+  config.num_rays_filter_threshold = num_rays;
+  // config.strategy = ray::TransientFilterStrategy::EllipseGrid;
+  config.strategy = ray::TransientFilterStrategy::RayGrid;
+  config.merge_type = ray::MergeType::Mininum;
+  config.colour_cloud = colour;
 
   if (merge_type == "oldest")
   {
-    config.merge_type = MergeType::Oldest;
+    config.merge_type = ray::MergeType::Oldest;
   }
   if (merge_type == "newest")
   {
-    config.merge_type = MergeType::Newest;
+    config.merge_type = ray::MergeType::Newest;
   }
   if (merge_type == "min")
   {
-    config.merge_type = MergeType::Mininum;
+    config.merge_type = ray::MergeType::Mininum;
   }
   if (merge_type == "max")
   {
-    config.merge_type = MergeType::Maximum;
+    config.merge_type = ray::MergeType::Maximum;
   }
 
-  TransientFilter filter(config);
-  Progress progress;
+  ray::TransientFilter filter(config);
+  ray::Progress progress;
   std::atomic_bool quit_progress(false);
   std::thread progress_thread([&progress, &quit_progress]() { runProrgess(progress, quit_progress); });
 
   filter.filter(cloud, &progress);
-  const Cloud &transient = filter.transientResults();
-  const Cloud &fixed = filter.fixedResults();
 
   quit_progress = true;
   progress_thread.join();
 
-  return 0;
+  const ray::Cloud &transient = filter.transientCloud();
+  const ray::Cloud &fixed = filter.fixedCloud();
+
 #else   // NEW_FILTER
-  Cloud transient;
-  Cloud fixed;
-  cloud.findTransients(transient, fixed, merge_type, num_rays, colour);
+  ray::Merger merger;
+  merger.mergeSingleCloud(cloud, merge_type, num_rays, colour);
+
+  const ray::Cloud &transient = merger.differenceCloud();
+  const ray::Cloud &fixed = merger.fixedCloud();
 #endif  // NEW_FILTER
 
-  string file_stub = file;
+  std::string file_stub = file;
   if (file.substr(file.length() - 4) == ".ply")
     file_stub = file.substr(0, file.length() - 4);
 

@@ -11,6 +11,7 @@
 
 #if RAYLIB_WITH_TBB
 #include <tbb/parallel_for.h>
+#include <tbb/enumerable_thread_specific.h>
 #endif  // RAYLIB_WITH_TBB
 
 #include <algorithm>
@@ -19,6 +20,250 @@
 #include <set>
 
 using namespace ray;
+
+class EllipsoidTransientMarker
+{
+public:
+  EllipsoidTransientMarker(size_t ray_count)
+    : ray_tested(ray_count, false)
+  {}
+  EllipsoidTransientMarker(const EllipsoidTransientMarker &other)
+    : ray_tested(other.ray_tested.size(), false)
+  {}
+
+  /// Test a single @p ellipsoid against the @p ray_grid and resolve whether it should be marked as traisient.
+  /// The @p ellipsoid is considered transient if sufficient rays pass through or near it.
+  ///
+  /// @param ellipsoid The ellipsoid to check for transient marks.
+  /// @param transients Array of transient (?? for the ray set ??). Shared between threads.
+  /// @param ray_grid The voxelised representation of @p cloud .
+  /// @param num_rays Thresholding value indicating the number of nearby rays required to mark the ellipsoid as
+  /// transient.
+  /// @param merge_type The merging strategy.
+  /// @param self_transient ?? True if the @p ellipsoid was generated from @p cloud and is should test against its own
+  /// ray??
+  void mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transients, const Cloud &cloud,
+            const Grid<size_t> &ray_grid, double num_rays, MergeType merge_type, bool self_transient);
+
+private:
+  // Working memory.
+
+  /// Tracks which rays have been tested. Sized to match incoming cloud ray count.
+  std::vector<bool> ray_tested;
+  /// Ids of ray to test.
+  std::vector<size_t> test_ray_ids;
+  /// Ids of rays which intersect the ellipsoid with a @c IntersectResult::Passthrough result.
+  std::vector<size_t> pass_through_ids;
+};
+
+
+void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transients, const Cloud &cloud,
+                                    const Grid<size_t> &ray_grid, double num_rays, MergeType merge_type,
+                                    bool self_transient)
+{
+  if (ellipsoid->transient)
+  {
+    // Already marked for removal. Nothing to do.
+    return;
+  }
+
+  // unbounded rays cannot be a transient object
+  if (ellipsoid->extents == Eigen::Vector3d::Zero())
+  {
+    return;
+  }
+
+  if (ray_tested.size() != cloud.rayCount())
+  {
+    ray_tested.resize(cloud.rayCount(), false);
+  }
+  test_ray_ids.clear();
+  pass_through_ids.clear();
+
+  // get all the rays that overlap this ellipsoid
+  const Eigen::Vector3d ellipsoid_bounds_min =
+    (ellipsoid->pos - ellipsoid->extents - ray_grid.box_min) / ray_grid.voxel_width;
+  const Eigen::Vector3d ellipsoid_bounds_max =
+    (ellipsoid->pos + ellipsoid->extents - ray_grid.box_min) / ray_grid.voxel_width;
+
+  if (ellipsoid_bounds_max[0] < 0.0 || ellipsoid_bounds_max[1] < 0.0 || ellipsoid_bounds_max[2] < 0.0)
+  {
+    return;
+  }
+
+  if (ellipsoid_bounds_min[0] >= (double)ray_grid.dims[0] || ellipsoid_bounds_min[1] >= (double)ray_grid.dims[1] ||
+      ellipsoid_bounds_min[2] >= (double)ray_grid.dims[2])
+  {
+    // Out of bounds against the ray grid.
+    return;
+  }
+
+  Eigen::Vector3i bmin = maxVector(Eigen::Vector3i(0, 0, 0), Eigen::Vector3i(ellipsoid_bounds_min.cast<int>()));
+  Eigen::Vector3i bmax = minVector(Eigen::Vector3i(ellipsoid_bounds_max.cast<int>()),
+                                   Eigen::Vector3i(ray_grid.dims[0] - 1, ray_grid.dims[1] - 1, ray_grid.dims[2] - 1));
+
+  for (int x = bmin[0]; x <= bmax[0]; x++)
+  {
+    for (int y = bmin[1]; y <= bmax[1]; y++)
+    {
+      for (int z = bmin[2]; z <= bmax[2]; z++)
+      {
+        auto &ray_list = ray_grid.cell(x, y, z).data;
+        for (auto &ray_id : ray_list)
+        {
+          if (ray_tested[ray_id])
+          {
+            continue;
+          }
+          ray_tested[ray_id] = true;
+          test_ray_ids.push_back(ray_id);
+        }
+      }
+    }
+  }
+
+  double first_intersection_time = std::numeric_limits<double>::max();
+  double last_intersection_time = std::numeric_limits<double>::lowest();
+  unsigned hits = 0;
+  for (auto &ray_id : test_ray_ids)
+  {
+    ray_tested[ray_id] = false;
+
+    switch (ellipsoid->intersect(cloud.starts[ray_id], cloud.ends[ray_id]))
+    {
+    default:
+    case IntersectResult::Miss:
+      // misses the ellipsoid
+      break;
+    case IntersectResult::Passthrough:
+      pass_through_ids.push_back(ray_id);
+      break;
+    case IntersectResult::Hit:
+      ++hits;
+      first_intersection_time = std::min(first_intersection_time, cloud.times[ray_id]);
+      last_intersection_time = std::max(last_intersection_time, cloud.times[ray_id]);
+      break;
+    }
+
+    // last_ray_id = ray_id;
+  }
+
+  size_t num_before = 0, num_after = 0;
+  ellipsoid->num_rays = hits + pass_through_ids.size();
+  if (num_rays == 0 || self_transient)
+  {
+    ellipsoid->opacity = (double)hits / ((double)hits + (double)pass_through_ids.size());
+  }
+  if (ellipsoid->num_rays == 0 || ellipsoid->opacity == 0 || num_rays == 0)
+  {
+    return;
+  }
+  if (self_transient)
+  {
+    ellipsoid->num_gone = pass_through_ids.size();
+    // now get some density stats...
+    double misses = 0;
+    for (auto &ray_id : pass_through_ids)
+    {
+      if (cloud.times[ray_id] > last_intersection_time)
+      {
+        num_after++;
+      }
+      else if (cloud.times[ray_id] < first_intersection_time)
+      {
+        num_before++;
+      }
+      else
+      {
+        misses++;
+      }
+    }
+    double h = hits + 1e-8 - 1.0;  // subtracting 1 gives an unbiased opacity estimate
+    ellipsoid->opacity = h / (h + misses);
+    ellipsoid->num_gone = num_before + num_after;
+  }
+  else  // compare to other cloud
+  {
+    if (pass_through_ids.size() > 0)
+    {
+      if (cloud.times[pass_through_ids[0]] > ellipsoid->time)
+      {
+        num_after = pass_through_ids.size();
+      }
+      else
+      {
+        num_before = pass_through_ids.size();
+      }
+    }
+  }
+
+  double sequence_length = num_rays / ellipsoid->opacity;
+  int remove_ellipsoid = false;
+  // type:
+  // - 0 oldest
+  // - 1 newest
+  // - 2 min
+  // - 3 max
+  if (merge_type == MergeType::Oldest || merge_type == MergeType::Newest)
+  {
+    if (double(std::max(num_before, num_after)) < sequence_length)
+    {
+      return;
+    }
+    if (merge_type == MergeType::Oldest)
+    {  // if false then remove numAfter rays if > seqLength
+      remove_ellipsoid = double(num_before) >= sequence_length;
+    }
+    else  // Newest
+    {
+      // if false then remove numBefore rays if > seqLength
+      remove_ellipsoid = double(num_after) >= sequence_length;
+    }
+  }
+  else  // min/max
+  {
+    // we use sum rather than max below, because it better picks out moving objects that may have some
+    // pass through rays before and after the hit points.
+    if (double(num_before + num_after) < sequence_length)
+    {
+      // TODO: even a tiny bit of translucency will make a single ray not enough
+      return;
+    }
+    // min is remove ellipsoid, max is remove ray
+    remove_ellipsoid = merge_type == MergeType::Mininum;
+  }
+
+  if (remove_ellipsoid)
+  {
+    ellipsoid->transient = true;
+  }
+  else
+  {
+    // if we don't remove the ellipsoid then we should remove numBefore and numAfter rays if they're greater than
+    // sequence length
+    double d = 0.0;
+    for (size_t j = 0; j < pass_through_ids.size(); ++j)
+    {
+      d += ellipsoid->opacity;
+      if (d >= 1.0)
+      {
+        d--;
+      }
+      else
+      {
+        continue;
+      }
+
+      size_t ray_id = pass_through_ids[j];
+      if (!self_transient || cloud.times[ray_id] < first_intersection_time ||
+          cloud.times[ray_id] > last_intersection_time)
+      {
+        // remove ray i
+        (*transients)[ray_id] = true;
+      }
+    }
+  }
+}
 
 TransientFilter::TransientFilter(const TransientFilterConfig &config)
   : config_(config)
@@ -51,7 +296,7 @@ bool TransientFilter::filterWithEllipseGrid(const Cloud &cloud, Progress *progre
   clear();
 
   Eigen::Vector3d box_min, box_max;
-  cloud.generateEllipsoids(ellipsoids_, &box_min, &box_max, progress);
+  generateEllipsoids(&ellipsoids_, &box_min, &box_max, cloud, progress);
 
   progress->reset("initialise-marks", ellipsoids_.size());
   ellipsoids_marks_.reserve(ellipsoids_.size());
@@ -64,7 +309,7 @@ bool TransientFilter::filterWithEllipseGrid(const Cloud &cloud, Progress *progre
   }
 
   Grid<size_t> ellipse_grid(box_min, box_max, config_.voxel_size);
-  generateEllipseGrid(ellipse_grid, *progress);
+  fillEllipseGrid(&ellipse_grid, ellipsoids_, progress);
 
   markIntersectedEllipsoidsWithEllipseGrid(cloud, ellipse_grid, true, *progress);
 
@@ -86,18 +331,10 @@ bool TransientFilter::filterWithRayGrid(const Cloud &cloud, Progress *progress)
   clear();
 
   Eigen::Vector3d bounds_min, bounds_max;
-  if (!cloud.calcBounds(&bounds_min, &bounds_max, kBFEnd | kBFStart, progress))
-  {
-    // To calculate bounds.
-    return false;
-  }
+  generateEllipsoids(&ellipsoids_, &bounds_min, &bounds_max, cloud, progress);
 
-  progress->reset("build-ray-grid", cloud.rayCount());
   Grid<size_t> ray_grid(bounds_min, bounds_max, config_.voxel_size);
-  buildRayGrid(ray_grid, cloud.starts, cloud.ends, progress);
-
-  Eigen::Vector3d box_min, box_max;
-  cloud.generateEllipsoids(ellipsoids_, &box_min, &box_max, progress);
+  fillRayGrid(&ray_grid, cloud, progress);
 
   // Atomic do not support assignment and construction so we can't really retain the vector memory.
   std::vector<std::atomic_bool> transient_marks(cloud.rayCount());
@@ -119,20 +356,76 @@ void TransientFilter::clear()
 }
 
 
-void TransientFilter::generateEllipseGrid(Grid<size_t> &ellipse_grid, Progress &progress)
+void TransientFilter::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &cloud, Progress *progress)
 {
-  progress.reset("transient-ellipsoid-grid", ellipsoids_.size());
-
-  for (size_t i = 0; i < ellipsoids_.size(); ++i)
+  if (progress)
   {
-    const Ellipsoid &ellipsoid = ellipsoids_[i];
+    progress->reset("fillRayGrid", cloud.rayCount());
+  }
+
+  // next populate the grid with these ellipsoid centres
+  for (size_t i = 0; i < cloud.ends.size(); i++)
+  {
+    Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
+    Eigen::Vector3d dir_sign(ray::sgn(dir[0]), ray::sgn(dir[1]), ray::sgn(dir[2]));
+    Eigen::Vector3d start = (cloud.starts[i] - grid->box_min) / grid->voxel_width;
+    Eigen::Vector3d end = (cloud.ends[i] - grid->box_min) / grid->voxel_width;
+    Eigen::Vector3i start_index((int)floor(start[0]), (int)floor(start[1]), (int)floor(start[2]));
+    Eigen::Vector3i end_index((int)floor(end[0]), (int)floor(end[1]), (int)floor(end[2]));
+    double length_sqr = (end_index - start_index).squaredNorm();
+    Eigen::Vector3i index = start_index;
+    for (;;)
+    {
+      grid->insert(index[0], index[1], index[2], i);
+
+      if (index == end_index || (index - start_index).squaredNorm() > length_sqr)
+      {
+        break;
+      }
+      Eigen::Vector3d mid =
+        grid->box_min + grid->voxel_width * Eigen::Vector3d(index[0] + 0.5, index[1] + 0.5, index[2] + 0.5);
+      Eigen::Vector3d next_boundary = mid + 0.5 * grid->voxel_width * dir_sign;
+      Eigen::Vector3d delta = next_boundary - cloud.starts[i];
+      Eigen::Vector3d d(delta[0] / dir[0], delta[1] / dir[1], delta[2] / dir[2]);
+      if (d[0] < d[1] && d[0] < d[2])
+      {
+        index[0] += int(dir_sign[0]);
+      }
+      else if (d[1] < d[0] && d[1] < d[2])
+      {
+        index[1] += int(dir_sign[1]);
+      }
+      else
+      {
+        index[2] += int(dir_sign[2]);
+      }
+    }
+
+    if (progress)
+    {
+      progress->increment();
+    }
+  }
+}
+
+void TransientFilter::fillEllipseGrid(Grid<size_t> *ellipse_grid, const std::vector<Ellipsoid> &ellipsoids,
+                                      Progress *progress)
+{
+  if (progress)
+  {
+    progress->reset("fillEllipseGrid", ellipsoids.size());
+  }
+
+  for (size_t i = 0; i < ellipsoids.size(); ++i)
+  {
+    const Ellipsoid &ellipsoid = ellipsoids[i];
 
     Eigen::Vector3d ellipsoid_min = ellipsoid.pos - ellipsoid.extents;
     Eigen::Vector3d ellipsoid_max = ellipsoid.pos + ellipsoid.extents;
 
     // Add the ellipsoid to the appropriate grid cells.
-    Eigen::Vector3i index_min = ellipse_grid.index(ellipsoid_min, true);
-    Eigen::Vector3i index_max = ellipse_grid.index(ellipsoid_max, true);
+    Eigen::Vector3i index_min = ellipse_grid->index(ellipsoid_min, true);
+    Eigen::Vector3i index_max = ellipse_grid->index(ellipsoid_max, true);
 
     // Add to the overlapping voxels.
     // Note: this is an overestimated overlap. We hvae tried reduce the number of voxels by using an inverse
@@ -145,12 +438,15 @@ void TransientFilter::generateEllipseGrid(Grid<size_t> &ellipse_grid, Progress &
       {
         for (int x = index_min.x(); x <= index_max.x(); ++x)
         {
-          ellipse_grid.insert(x, y, z, i);
+          ellipse_grid->insert(x, y, z, i);
         }
       }
     }
 
-    progress.increment();
+    if (progress)
+    {
+      progress->increment();
+    }
   }
 }
 
@@ -319,26 +615,28 @@ void TransientFilter::markIntersectedEllipsoidsWithRayGrid(const Cloud &cloud, G
 {
   progress.reset("transient-mark-ellipsoids", cloud.ends.size());
 
-  // transient_marks_.resize(cloud.rayCount());
-  // for (size_t i = 0; i < cloud.rayCount(); ++i)
-  // {
-  //   transient_marks_.emplace_back();
-  // }
-
   // Check each ellipsoid against the ray grid for intersections.
 #if RAYLIB_WITH_TBB
+  // Declare thread local storage for ray_tested
+  using ThreadLocalRayMarkers = tbb::enumerable_thread_specific<EllipsoidTransientMarker>;
+  ThreadLocalRayMarkers thread_markers(EllipsoidTransientMarker(cloud.rayCount()));
+
   auto tbb_process_ellipsoid =
-    [this, &cloud, &ray_grid, &transient_marks, &progress, self_transient](size_t ellipsoid_id)  //
+    [this, &cloud, &ray_grid, &transient_marks, &thread_markers, &progress, self_transient](size_t ellipsoid_id)  //
   {
-    checkEllipsoid(&ellipsoids_[ellipsoid_id], &transient_marks, cloud, ray_grid, config_.num_rays_filter_threshold,
-                   config_.merge_type, self_transient);
+    // Resolve the ray marker for this thread.
+    EllipsoidTransientMarker &marker = thread_markers.local();
+    marker.mark(&ellipsoids_[ellipsoid_id], &transient_marks, cloud, ray_grid, config_.num_rays_filter_threshold,
+                config_.merge_type, self_transient);
     progress.increment();
   };
   tbb::parallel_for<size_t>(0u, cloud.rayCount(), tbb_process_ellipsoid);
 #else   // RAYLIB_WITH_TBB
+  std::vector<bool> ray_tested;
+  ray_tested.resize(cloud.rayCount(), false);
   for (size_t i = 0; i < ellipsoids_.size(); ++i)
   {
-    checkEllipsoid(&ellipsoids_[i], &transient_marks, cloud, ray_grid, config_.num_rays_filter_threshold,
+    checkEllipsoid(&ellipsoids_[i], &transient_marks, &ray_tested, cloud, ray_grid, config_.num_rays_filter_threshold,
                    config_.merge_type, self_transient);
     progress.increment();
   }
@@ -410,200 +708,5 @@ void TransientFilter::walkRay(const Cloud &cloud, const Grid<size_t> &ellipse_gr
   if (cloud.rayBounded(ray_id))
   {
     ellipse_grid.walkVoxels(cloud.starts[ray_id], cloud.ends[ray_id], visit, true);
-  }
-}
-
-
-void TransientFilter::checkEllipsoid(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transients,
-                                     const Cloud &cloud, const Grid<size_t> &ray_grid, double num_rays,
-                                     MergeType merge_type, bool self_transient) const
-{
-  if (ellipsoid->transient)
-  {
-    // Already marked for removal. Nothing to do.
-    return;
-  }
-
-  // unbounded rays cannot be a transient object
-  if (ellipsoid->extents == Eigen::Vector3d::Zero())
-  {
-    return;
-  }
-
-  // get all the rays that overlap this ellipsoid
-  const Eigen::Vector3d ellipsoid_bounds_min =
-    (ellipsoid->pos - ellipsoid->extents - ray_grid.box_min) / ray_grid.voxel_width;
-  const Eigen::Vector3d ellipsoid_bounds_max =
-    (ellipsoid->pos + ellipsoid->extents - ray_grid.box_min) / ray_grid.voxel_width;
-
-  if (ellipsoid_bounds_max[0] < 0.0 || ellipsoid_bounds_max[1] < 0.0 || ellipsoid_bounds_max[2] < 0.0)
-  {
-    return;
-  }
-
-  if (ellipsoid_bounds_min[0] > (double)ray_grid.dims[0] - 1.0 ||
-      ellipsoid_bounds_min[1] > (double)ray_grid.dims[1] - 1.0 ||
-      ellipsoid_bounds_min[2] > (double)ray_grid.dims[2] - 1.0)
-  {
-    // Out of bounds against the ray grid.
-    return;
-  }
-
-  Eigen::Vector3i bmin = maxVector(Eigen::Vector3i(0, 0, 0), Eigen::Vector3i(ellipsoid_bounds_min.cast<int>()));
-  Eigen::Vector3i bmax = minVector(Eigen::Vector3i(ellipsoid_bounds_max.cast<int>()),
-                                   Eigen::Vector3i(ray_grid.dims[0] - 1, ray_grid.dims[1] - 1, ray_grid.dims[2] - 1));
-
-  std::set<size_t> ray_ids;
-  for (int x = bmin[0]; x <= bmax[0]; x++)
-  {
-    for (int y = bmin[1]; y <= bmax[1]; y++)
-    {
-      for (int z = bmin[2]; z <= bmax[2]; z++)
-      {
-        auto &ray_list = ray_grid.cell(x, y, z).data;
-        for (auto &ray_id : ray_list)
-        {
-          ray_ids.emplace(ray_id);
-        }
-      }
-    }
-  }
-
-  double first_intersection_time = std::numeric_limits<double>::max();
-  double last_intersection_time = std::numeric_limits<double>::lowest();
-  unsigned hits = 0;
-  std::vector<size_t> pass_through_ids;
-  for (auto &ray_id : ray_ids)
-  {
-    switch (ellipsoid->intersect(cloud.starts[ray_id], cloud.ends[ray_id]))
-    {
-    default:
-    case IntersectResult::Miss:
-      // misses the ellipsoid
-      break;
-    case IntersectResult::Passthrough:
-      pass_through_ids.push_back(ray_id);
-      break;
-    case IntersectResult::Hit:
-      ++hits;
-      first_intersection_time = std::min(first_intersection_time, cloud.times[ray_id]);
-      last_intersection_time = std::max(last_intersection_time, cloud.times[ray_id]);
-      break;
-    }
-  }
-
-  size_t num_before = 0, num_after = 0;
-  ellipsoid->num_rays = hits + pass_through_ids.size();
-  if (num_rays == 0 || self_transient)
-  {
-    ellipsoid->opacity = (double)hits / ((double)hits + (double)pass_through_ids.size());
-  }
-  if (ellipsoid->num_rays == 0 || ellipsoid->opacity == 0 || num_rays == 0)
-  {
-    return;
-  }
-  if (self_transient)
-  {
-    ellipsoid->num_gone = pass_through_ids.size();
-    // now get some density stats...
-    double misses = 0;
-    for (auto &ray_id : pass_through_ids)
-    {
-      if (cloud.times[ray_id] > last_intersection_time)
-      {
-        num_after++;
-      }
-      else if (cloud.times[ray_id] < first_intersection_time)
-      {
-        num_before++;
-      }
-      else
-      {
-        misses++;
-      }
-    }
-    double h = hits + 1e-8 - 1.0;  // subtracting 1 gives an unbiased opacity estimate
-    ellipsoid->opacity = h / (h + misses);
-    ellipsoid->num_gone = num_before + num_after;
-  }
-  else  // compare to other cloud
-  {
-    if (pass_through_ids.size() > 0)
-    {
-      if (cloud.times[pass_through_ids[0]] > ellipsoid->time)
-      {
-        num_after = pass_through_ids.size();
-      }
-      else
-      {
-        num_before = pass_through_ids.size();
-      }
-    }
-  }
-
-  double sequence_length = num_rays / ellipsoid->opacity;
-  int remove_ellipsoid = false;
-  // type:
-  // - 0 oldest
-  // - 1 newest
-  // - 2 min
-  // - 3 max
-  if (merge_type == MergeType::Oldest || merge_type == MergeType::Newest)
-  {
-    if (double(std::max(num_before, num_after)) < sequence_length)
-    {
-      return;
-    }
-    if (merge_type == MergeType::Oldest)
-    {  // if false then remove numAfter rays if > seqLength
-      remove_ellipsoid = double(num_before) >= sequence_length;
-    }
-    else  // Newest
-    {
-      // if false then remove numBefore rays if > seqLength
-      remove_ellipsoid = double(num_after) >= sequence_length;
-    }
-  }
-  else  // min/max
-  {
-    // we use sum rather than max below, because it better picks out moving objects that may have some
-    // pass through rays before and after the hit points.
-    if (double(num_before + num_after) < sequence_length)
-    {
-      return;
-    }
-    // min is remove ellipsoid, max is remove ray
-    remove_ellipsoid = merge_type == MergeType::Maximum;
-  }
-
-  if (remove_ellipsoid)
-  {
-    ellipsoid->transient = true;
-  }
-  else
-  {
-    // if we don't remove the ellipsoid then we should remove numBefore and numAfter rays if they're greater than
-    // sequence length
-    double d = 0.0;
-    for (size_t j = 0; j < pass_through_ids.size(); ++j)
-    {
-      d += ellipsoid->opacity;
-      if (d >= 1.0)
-      {
-        d--;
-      }
-      else
-      {
-        continue;
-      }
-
-      size_t ray_id = pass_through_ids[j];
-      if (!self_transient || cloud.times[ray_id] < first_intersection_time ||
-          cloud.times[ray_id] > last_intersection_time)
-      {
-        // remove ray i
-        (*transients)[ray_id] = true;
-      }
-    }
   }
 }
