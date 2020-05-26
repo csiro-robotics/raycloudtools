@@ -8,6 +8,7 @@
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
 #include "raylib/rayprogress.h"
+#include "raylib/rayprogressthread.h"
 
 #define NEW_FILTER 1
 #if NEW_FILTER
@@ -36,67 +37,6 @@ void usage(int exit_code = 0)
   std::cout << " --colour     - also colours the clouds, to help tweak numRays. red: opacity, green: pass throughs, blue: "
           "planarity." << std::endl;
   exit(exit_code);
-}
-
-void runProrgess(const ray::Progress &progress, std::atomic_bool &quit)
-{
-  ray::Progress last;
-  ray::Progress current;
-  progress.read(&last);
-
-  const auto show_progress = [] (ray::Progress &p, bool finalise) //
-  {
-    if (finalise)
-    {
-      // Finalise progress == target.
-      if (p.target())
-      {
-        p.setProgress(p.target());
-      }
-    }
-
-    if (p.phase().length() || p.target() || p.progress())
-    {
-      std::cout << "\r                                    \r";
-      std::cout << p.phase() << ' ' << p.progress();
-      if (size_t target = p.target())
-      {
-        std::cout << " / " << target;
-      }
-
-      if (finalise)
-      {
-        std::cout << std::endl;
-      }
-      else
-      {
-        std::cout << std::flush;
-      }
-    }
-  };
-
-  while (!quit)
-  {
-    progress.read(&current);
-    if (current.phase() != last.phase())
-    {
-      // Ensure we finalise the display.
-      show_progress(last, true);
-    }
-
-    if ( current.progress() != last.progress() || current.target() != last.target())
-    {
-      show_progress(current, false);
-      current.read(&last);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  }
-
-  // Past update.
-  progress.read(&current);
-  // Do not finalise in case we didn't go full progress.
-  show_progress(last, false);
-  std::cout << std::endl;
 }
 
 int main(int argc, char *argv[])
@@ -147,15 +87,14 @@ int main(int argc, char *argv[])
 
   ray::TransientFilter filter(config);
   ray::Progress progress;
-  std::atomic_bool quit_progress(false);
-  std::thread progress_thread([&progress, &quit_progress]() { runProrgess(progress, quit_progress); });
+  ray::ProgressThread progress_thread(progress);
 
   filter.filter(cloud, &progress);
 
-  quit_progress = true;
+  progress_thread.requestQuit();
   progress_thread.join();
 
-  const ray::Cloud &transient = filter.transientCloud();
+  const ray::Cloud &transient = filter.differenceCloud();
   const ray::Cloud &fixed = filter.fixedCloud();
 
 #else   // NEW_FILTER

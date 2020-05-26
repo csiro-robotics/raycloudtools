@@ -9,6 +9,7 @@
 #include "raylib/raylibconfig.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <mutex>
 #include <string>
@@ -25,10 +26,12 @@ namespace ray
 /// The @c progress() value is either in the range `[0, target()]` when @c target() is known or has an unknown
 /// range. When @c target() is known, the progress may be reported as a ratio `[0, 1]`.
 ///
-/// Updating the progress value is threadsafe, however, the @c reset() operations are not.
+/// Updating the progress value is threadsafe, however, the @c begin() operations are not.
 class RAYLIB_EXPORT Progress
 {
 public:
+  using Clock = std::chrono::high_resolution_clock;
+
   /// Initialise a new progress tracker with the given @p target.
   Progress(size_t target = 0);
   /// Initialise a new progress tracker with the given @p phase name and @p target.
@@ -40,6 +43,9 @@ public:
     std::unique_lock<std::mutex> guard1(reset_mutex_);
     std::unique_lock<std::mutex> guard2(other->reset_mutex_);
     other->phase_ = phase_;
+    other->phase_start_ = phase_start_;
+    other->last_duration_ = last_duration_;
+    other->last_phase_ended_ = last_phase_ended_;
     guard1.unlock();
     other->progress_ = progress_.load();
     other->target_ = target_.load();
@@ -59,9 +65,15 @@ public:
   inline size_t progress() const { return progress_; }
 
   /// Initialise a the progress tracker to the given @p target.
-  void reset(size_t target = 0);
+  void begin(size_t target = 0);
   /// Initialise a the progress tracker to the given @p phase name and @p target.
-  void reset(const std::string &phase, size_t target = 0);
+  void begin(const std::string &phase, size_t target = 0);
+
+  /// End the current phase. The target progress is set to the end progress if @p set_progess is true.
+  void end(bool set_progess = true);
+
+  /// Query the last phase duration.
+  Clock::duration lastDuration() const;
 
   /// Query the current progress as a ratio `[0, 1]`.
   ///
@@ -79,8 +91,11 @@ public:
 private:
   mutable std::mutex reset_mutex_;
   std::string phase_;
+  Clock::time_point phase_start_;
+  Clock::duration last_duration_;
   std::atomic_size_t target_;
   std::atomic_size_t progress_;
+  bool last_phase_ended_ = false;
 };
 
 
@@ -97,18 +112,44 @@ inline Progress::Progress(const std::string &phase, size_t target)
 {}
 
 
-inline void Progress::reset(size_t target)
+inline void Progress::begin(size_t target)
 {
-  reset(std::string(), target);
+  begin(std::string(), target);
 }
 
 
-inline void Progress::reset(const std::string &phase, size_t target)
+inline void Progress::begin(const std::string &phase, size_t target)
 {
+  // Ensure the previous phase is correctly ended.
+  end(false);
   std::unique_lock<std::mutex> guard(reset_mutex_);
   phase_ = phase;
   target_ = target;
   progress_ = 0u;
+  last_phase_ended_ = false;
+  phase_start_ = Clock::now();
+}
+
+
+inline void Progress::end(bool set_progress)
+{
+  std::unique_lock<std::mutex> guard(reset_mutex_);
+  if (!last_phase_ended_)
+  {
+    if (set_progress)
+    {
+      progress_ = target_.load();
+    }
+    last_duration_ = Clock::now() - phase_start_;
+    last_phase_ended_ = true;
+  }
+}
+
+
+inline Progress::Clock::duration Progress::lastDuration() const
+{
+  std::unique_lock<std::mutex> guard(reset_mutex_);
+  return last_duration_;
 }
 
 

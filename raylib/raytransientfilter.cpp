@@ -294,6 +294,8 @@ bool TransientFilter::filter(const Cloud &cloud, Progress *progress)
 
   finaliseFilter(cloud, transient_marks);
 
+  progress->end();
+
   return true;
 }
 
@@ -308,7 +310,7 @@ void TransientFilter::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &clo
 {
   if (progress)
   {
-    progress->reset("fillRayGrid", cloud.rayCount());
+    progress->begin("fillRayGrid", cloud.rayCount());
   }
 
   // next populate the grid with these ellipsoid centres
@@ -360,7 +362,7 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
                                                 std::vector<std::atomic_bool> &transient_marks, bool self_transient,
                                                 Progress &progress)
 {
-  progress.reset("transient-mark-ellipsoids", cloud.ends.size());
+  progress->begin("transient-mark-ellipsoids", cloud.ends.size());
 
   // Check each ellipsoid against the ray grid for intersections.
 #if RAYLIB_WITH_TBB

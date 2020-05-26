@@ -19,7 +19,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
 {
   if (progress)
   {
-    progress->reset("generateEllipsoids", cloud.ends.size());
+    progress->begin("generateEllipsoids", cloud.ends.size());
   }
   ellipsoids->clear();
   ellipsoids->reserve(cloud.rayCount());

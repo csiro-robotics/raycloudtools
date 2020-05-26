@@ -205,7 +205,7 @@ bool Cloud::calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds,
 
   if (progress)
   {
-    progress->reset("calcBounds", rayCount());
+    progress->begin("calcBounds", rayCount());
   }
 
   *min_bounds = Vector3d(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(),
