@@ -2,7 +2,7 @@
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
 //
-// Author: Thomas Lowe
+// Author: Thomas Lowe, Kazys Stepanas
 #ifndef RAYLIB_RAYGRID_H
 #define RAYLIB_RAYGRID_H
 
@@ -13,6 +13,13 @@
 #include <functional>
 
 #define HASH_LOOKUP
+
+#if RAYLIB_WITH_TBB || defined(HASH_LOOKUP)
+#define RALIB_PARALLEL_GRID 1
+#if RALIB_PARALLEL_GRID
+#include <tbb/spin_mutex.h>
+#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_WITH_TBB
 
 namespace ray
 {
@@ -28,10 +35,36 @@ struct RAYLIB_EXPORT GridRayInfo
 template <class T>
 struct Grid
 {
+#if RALIB_PARALLEL_GRID
+  using Mutex = tbb::spin_mutex;
+#endif  // RALIB_PARALLEL_GRID
+
   struct Cell
   {
     std::vector<T> data;
     Eigen::Vector3i index;
+#if RALIB_PARALLEL_GRID
+    Mutex mutex;
+#endif  // RALIB_PARALLEL_GRID
+
+    inline Cell() {}
+    inline Cell(const Eigen::Vector3i &index, T initial_datum)
+      : index(index)
+    {
+      data.push_back(initial_datum);
+    }
+
+    /// Copy constructor, excludes mutex
+    inline Cell(const Cell &other)
+      : data(other.data)
+      , index(other.index)
+    {}
+
+    /// RValue constructor, excludes mutex
+    inline Cell(Cell &&other)
+      : data(std::move(other.data))
+      , index(other.index)
+    {}
   };
 
   using WalkVoxelsVisitFunction =
@@ -106,8 +139,8 @@ struct Grid
   Cell &cell(const Eigen::Vector3i &index)
   {
     int hash = hashFunc(index.x(), index.y(), index.z());
-    std::vector<Cell> &cells = buckets_.at(hash).cells;
-    for (auto &c : cells)
+    Bucket &bucket = buckets_.at(hash);
+    for (auto &c : bucket.cells)
       if (c.index == index)
         return c;
     return null_cell_;
@@ -118,8 +151,8 @@ struct Grid
   const Cell &cell(const Eigen::Vector3i &index) const
   {
     int hash = hashFunc(index.x(), index.y(), index.z());
-    const std::vector<Cell> &cells = buckets_.at(hash).cells;
-    for (auto &c : cells)
+    const Bucket &bucket = buckets_.at(hash);
+    for (const auto &c : bucket.cells)
       if (c.index == index)
         return c;
     return null_cell_;
@@ -129,19 +162,25 @@ struct Grid
   {
     Eigen::Vector3i index(x, y, z);
     int hash = hashFunc(x, y, z);
-    std::vector<Cell> &cell_list = buckets_.at(hash).cells;
-    for (auto &c : cell_list)
+    Bucket &bucket = buckets_.at(hash);
+#if RALIB_PARALLEL_GRID
+    Mutex::scoped_lock bucket_lock(bucket.mutex);
+#endif  // RALIB_PARALLEL_GRID
+    for (auto &c : bucket.cells)
     {
       if (c.index == index)
       {
-        c.data.emplace_back(value);
-        return;
+#if RALIB_PARALLEL_GRID
+        Mutex::scoped_lock cell_lock(c.mutex);
+#endif  // RALIB_PARALLEL_GRID
+        if (c.index == index)
+        {
+          c.data.emplace_back(value);
+          return;
+        }
       }
     }
-    Cell new_cell;
-    new_cell.index = index;
-    cell_list.emplace_back(new_cell);
-    cell_list.back().data.emplace_back(value);
+    bucket.cells.emplace_back(Cell(index, value));
   }
 
   void report()
@@ -155,7 +194,10 @@ struct Grid
       if (size > 0)
         count++;
       total_count += size;
-      for (auto &cell : bucket.cells) data_count += cell.data.size();
+      for (auto &cell : bucket.cells)
+      {
+        data_count += cell.data.size();
+      }
     }
     std::cout << "buckets filled: " << count << " out of " << buckets_.size() << " buckets, which is "
               << 100.0 * (double)count / (double)buckets_.size() << "%%" << std::endl;
@@ -188,6 +230,13 @@ protected:
   struct Bucket
   {
     std::vector<Cell> cells;
+#if RALIB_PARALLEL_GRID
+    Mutex mutex;
+#endif  // RALIB_PARALLEL_GRID
+
+    inline Bucket() = default;
+    inline Bucket(const Bucket &other) : cells(other.cells) {}
+    inline Bucket(Bucket &&other) : cells(std::move(other.cells)) {}
   };
 
   inline int hashFunc(int x, int y, int z) const { return int((x * 17 + y * 101 + z * 797) % buckets_.size()); }
@@ -309,7 +358,6 @@ size_t Grid<T>::walkVoxels(const Eigen::Vector3d &start_point, const Eigen::Vect
   // assert(added);
   return added;
 }
-
 
 #else   // HASH_LOOKUP
 
