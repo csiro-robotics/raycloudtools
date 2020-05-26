@@ -76,9 +76,33 @@ if(WITH_ROS)
   list(APPEND RAYTOOLS_LINK ${catkin_LIBRARIES})
 endif(WITH_ROS)
 if(WITH_TBB)
-  find_package(TBB REQUIRED)
-  list(APPEND RAYTOOLS_INCLUDE ${TBB_INCLUDE_DIRS})
-  list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
+# Helper macro to Find TBB prefering TBBConfig, falling back to FindTBB. TBB_LIBRARIES will be defined in both cases.
+# TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.
+macro(find_tbb)
+  # Try find TBB config file.
+  find_package(TBB QUIET CONFIG)
+  if(TBB_FOUND)
+    message(STATUS "TBB found using TBBConfig.cmake")
+    set(TBB_LIBRARIES "${TBB_IMPORTED_TARGETS}")
+  else(TBB_FOUND)
+    # No TBB config file. Try FindTBB.cmake
+    find_package(TBB QUIET)
+    if(TBB_FOUND)
+      message(STATUS "TBB found using FindTBB.cmake")
+    endif(TBB_FOUND)
+  endif(TBB_FOUND)
+endmacro(find_tbb)
+  # First try newer TBB versions which support TBBConfig.cmake
+  find_package(TBB QUIET CONFIG)
+  if(TBB_FOUND)
+    # Found using TBBConfig. Use import targets
+    list(APPEND RAYTOOLS_LINK ${TBB_IMPORTED_TARGETS})
+  else(TBB_FOUND)
+    # Failed. Fall back to FindTBB.cmake
+    find_package(TBB REQUIRED)
+    list(APPEND RAYTOOLS_INCLUDE ${TBB_INCLUDE_DIRS})
+    list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
+  endif(TBB_FOUND)
 endif(WITH_TBB)
 
 # Create libs
