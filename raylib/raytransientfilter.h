@@ -33,7 +33,7 @@ enum class RAYLIB_EXPORT MergeType : int
 /// Parameter configuration structure for @c TransientFilter
 struct RAYLIB_EXPORT TransientFilterConfig
 {
-  double voxel_size = 0.1;
+  double voxel_size = 0;  ///< Ray grid voxel size. Use zero use an estimated voxel size.
   double num_rays_filter_threshold = 20;
   MergeType merge_type = MergeType::Mininum;
   bool colour_cloud = true;
@@ -53,13 +53,19 @@ public:
 
   inline const TransientFilterConfig &config() const { return config_; }
 
-  /// Query the transient ray results. Empty before @c filter() is called.
-  inline const Cloud &transientCloud() const { return transient_; }
-  /// Query the non-transient ray results. Empty before @c filter() is called.
+  /// Query the removed ray results. Empty before @c filter() is called.
+  inline const Cloud &differenceCloud() const { return difference_; }
+  /// Query the preserved ray results. Empty before @c filter() is called.
   inline const Cloud &fixedCloud() const { return fixed_; }
 
   /// Perform the transient filtering on the given @p cloud .
   bool filter(const Cloud &cloud, Progress *progress = nullptr);
+
+  // /// Multi-merge
+  // bool filter(std::vector<Cloud> &clouds, Progress *progress = nullptr);
+
+  // /// Three way merger
+  // bool filter(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress = nullptr);
 
   /// Reset previous results. Memory is retained.
   void clear();
@@ -76,17 +82,14 @@ public:
   static void fillRayGrid(Grid<size_t> *grid, const Cloud &cloud, Progress *progress = nullptr);
 
 private:
-  void markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t> &ray_grid,
-                                 std::vector<std::atomic_bool> &transient_marks, bool self_transient,
-                                 Progress &progress);
+  void markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
+                                 std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
+                                 Progress *progress);
 
   /// Finalise the cloud filter and populate @c transientResults() and @c fixedResults() .
-  void finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_marks);
+  void finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_ray_marks);
 
-  /// Walk a ray
-  void walkRay(const Cloud &cloud, const Grid<size_t> &grid, size_t ray_id);
-
-  Cloud transient_;
+  Cloud difference_;
   Cloud fixed_;
   TransientFilterConfig config_;
   std::vector<Ellipsoid> ellipsoids_;

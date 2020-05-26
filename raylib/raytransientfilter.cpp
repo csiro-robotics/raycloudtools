@@ -35,14 +35,14 @@ public:
   /// The @p ellipsoid is considered transient if sufficient rays pass through or near it.
   ///
   /// @param ellipsoid The ellipsoid to check for transient marks.
-  /// @param transients Array of transient (?? for the ray set ??). Shared between threads.
+  /// @param transient_ray_marks Array marking which rays from @p cloud are transient and should be removed.
   /// @param ray_grid The voxelised representation of @p cloud .
   /// @param num_rays Thresholding value indicating the number of nearby rays required to mark the ellipsoid as
   /// transient.
   /// @param merge_type The merging strategy.
-  /// @param self_transient ?? True if the @p ellipsoid was generated from @p cloud and is should test against its own
-  /// ray??
-  void mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transients, const Cloud &cloud,
+  /// @param self_transient True when the @p ellipsoid was generated from @p cloud and we are looking for transient
+  /// points within this cloud.
+  void mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transient_ray_marks, const Cloud &cloud,
             const Grid<size_t> &ray_grid, double num_rays, MergeType merge_type, bool self_transient);
 
 private:
@@ -57,9 +57,9 @@ private:
 };
 
 
-void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transients, const Cloud &cloud,
-                                    const Grid<size_t> &ray_grid, double num_rays, MergeType merge_type,
-                                    bool self_transient)
+void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transient_ray_marks,
+                                    const Cloud &cloud, const Grid<size_t> &ray_grid, double num_rays,
+                                    MergeType merge_type, bool self_transient)
 {
   if (ellipsoid->transient)
   {
@@ -144,8 +144,6 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomi
       last_intersection_time = std::max(last_intersection_time, cloud.times[ray_id]);
       break;
     }
-
-    // last_ray_id = ray_id;
   }
 
   size_t num_before = 0, num_after = 0;
@@ -259,7 +257,7 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomi
           cloud.times[ray_id] > last_intersection_time)
       {
         // remove ray i
-        (*transients)[ray_id] = true;
+        (*transient_ray_marks)[ray_id] = true;
       }
     }
   }
@@ -285,23 +283,32 @@ bool TransientFilter::filter(const Cloud &cloud, Progress *progress)
   Eigen::Vector3d bounds_min, bounds_max;
   generateEllipsoids(&ellipsoids_, &bounds_min, &bounds_max, cloud, progress);
 
-  Grid<size_t> ray_grid(bounds_min, bounds_max, config_.voxel_size);
+  const double voxel_size = (config_.voxel_size > 0) ? config_.voxel_size : 4.0 * cloud.estimatePointSpacing();
+  if (config_.voxel_size == 0)
+  {
+    std::cout << "estimated required voxel size: " << voxel_size << std::endl;
+  }
+
+  Grid<size_t> ray_grid(bounds_min, bounds_max, voxel_size);
   fillRayGrid(&ray_grid, cloud, progress);
 
   // Atomic do not support assignment and construction so we can't really retain the vector memory.
-  std::vector<std::atomic_bool> transient_marks(cloud.rayCount());
-  markIntersectedEllipsoids(cloud, ray_grid, transient_marks, true, *progress);
+  std::vector<std::atomic_bool> transient_ray_marks(cloud.rayCount());
+  markIntersectedEllipsoids(cloud, ray_grid, &transient_ray_marks, true, progress);
 
-  finaliseFilter(cloud, transient_marks);
+  finaliseFilter(cloud, transient_ray_marks);
 
   progress->end();
 
   return true;
 }
 
+// bool TransientFlter::filter(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress)
+// {}
+
 void TransientFilter::clear()
 {
-  transient_.clear();
+  difference_.clear();
   fixed_.clear();
   ellipsoids_.clear();
 }
@@ -313,8 +320,7 @@ void TransientFilter::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &clo
     progress->begin("fillRayGrid", cloud.rayCount());
   }
 
-  // next populate the grid with these ellipsoid centres
-  for (size_t i = 0; i < cloud.ends.size(); i++)
+  const auto add_ray = [grid, &cloud, progress](size_t i)  //
   {
     Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
     Eigen::Vector3d dir_sign(ray::sgn(dir[0]), ray::sgn(dir[1]), ray::sgn(dir[2]));
@@ -355,12 +361,21 @@ void TransientFilter::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &clo
     {
       progress->increment();
     }
+  };
+
+#if RALIB_PARALLEL_GRID
+  tbb::parallel_for<size_t>(0u, cloud.rayCount(), add_ray);
+#else   // RALIB_PARALLEL_GRID
+  for (size_t i = 0; i < cloud.ends.size(); i++)
+  {
+    add_ray(i);
   }
+#endif  // RALIB_PARALLEL_GRID
 }
 
-void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t> &ray_grid,
-                                                std::vector<std::atomic_bool> &transient_marks, bool self_transient,
-                                                Progress &progress)
+void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
+                                                std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
+                                                Progress *progress)
 {
   progress->begin("transient-mark-ellipsoids", cloud.ends.size());
 
@@ -371,13 +386,13 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
   ThreadLocalRayMarkers thread_markers(EllipsoidTransientMarker(cloud.rayCount()));
 
   auto tbb_process_ellipsoid =
-    [this, &cloud, &ray_grid, &transient_marks, &thread_markers, &progress, self_transient](size_t ellipsoid_id)  //
+    [this, &cloud, &ray_grid, transient_ray_marks, &thread_markers, progress, self_transient](size_t ellipsoid_id)  //
   {
     // Resolve the ray marker for this thread.
     EllipsoidTransientMarker &marker = thread_markers.local();
-    marker.mark(&ellipsoids_[ellipsoid_id], &transient_marks, cloud, ray_grid, config_.num_rays_filter_threshold,
+    marker.mark(&ellipsoids_[ellipsoid_id], transient_ray_marks, cloud, ray_grid, config_.num_rays_filter_threshold,
                 config_.merge_type, self_transient);
-    progress.increment();
+    progress->increment();
   };
   tbb::parallel_for<size_t>(0u, cloud.rayCount(), tbb_process_ellipsoid);
 #else   // RAYLIB_WITH_TBB
@@ -385,15 +400,15 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, Grid<size_t>
   ray_tested.resize(cloud.rayCount(), false);
   for (size_t i = 0; i < ellipsoids_.size(); ++i)
   {
-    checkEllipsoid(&ellipsoids_[i], &transient_marks, &ray_tested, cloud, ray_grid, config_.num_rays_filter_threshold,
-                   config_.merge_type, self_transient);
-    progress.increment();
+    checkEllipsoid(&ellipsoids_[i], transient_ray_marks, &ray_tested, cloud, ray_grid,
+                   config_.num_rays_filter_threshold, config_.merge_type, self_transient);
+    progress->increment();
   }
 #endif  // RAYLIB_WITH_TBB
 }
 
 
-void TransientFilter::finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_marks)
+void TransientFilter::finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_ray_marks)
 {
   // Lastly, generate the new ray clouds from this sphere information
   for (size_t i = 0; i < ellipsoids_.size(); i++)
@@ -406,12 +421,12 @@ void TransientFilter::finaliseFilter(const Cloud &cloud, const std::vector<std::
       col.green = (uint8_t)((double)ellipsoids_[i].num_gone / ((double)ellipsoids_[i].num_gone + 10.0) * 255.0);
     }
 
-    if (ellipsoids_[i].transient || transient_marks[i])
+    if (ellipsoids_[i].transient || transient_ray_marks[i])
     {
-      transient_.starts.emplace_back(cloud.starts[i]);
-      transient_.ends.emplace_back(cloud.ends[i]);
-      transient_.times.emplace_back(cloud.times[i]);
-      transient_.colours.emplace_back(col);
+      difference_.starts.emplace_back(cloud.starts[i]);
+      difference_.ends.emplace_back(cloud.ends[i]);
+      difference_.times.emplace_back(cloud.times[i]);
+      difference_.colours.emplace_back(col);
     }
     else
     {
