@@ -21,6 +21,8 @@
 
 using namespace ray;
 
+namespace
+{
 class EllipsoidTransientMarker
 {
 public:
@@ -56,6 +58,44 @@ private:
   std::vector<size_t> pass_through_ids;
 };
 
+typedef Eigen::Matrix<double, 6, 1> Vector6i;
+struct Vector6iLess
+{
+  inline bool operator()(const Vector6i &a, const Vector6i &b) const
+  {
+    if (a[0] != b[0])
+      return a[0] < b[0];
+    if (a[1] != b[1])
+      return a[1] < b[1];
+    if (a[2] != b[2])
+      return a[2] < b[2];
+    if (a[3] != b[3])
+      return a[3] < b[3];
+    if (a[4] != b[4])
+      return a[4] < b[4];
+    return a[5] < b[5];
+  }
+};
+
+// TODO: Make config value
+const double test_width = 0.01;  // allows a minor variation when checking for similarity of rays
+
+void rayLookup(const ray::Cloud *cloud, std::set<Vector6i, Vector6iLess> &ray_lookup)
+{
+  for (size_t i = 0; i < cloud->rayCount(); i++)
+  {
+    const Eigen::Vector3d &point = cloud->ends[i];
+    const Eigen::Vector3d &start = cloud->starts[i];
+    Vector6i ray;
+    for (int j = 0; j < 3; j++)
+    {
+      ray[j] = int(floor(start[j] / test_width));
+      ray[3 + j] = int(floor(point[j] / test_width));
+    }
+    if (ray_lookup.find(ray) == ray_lookup.end())
+      ray_lookup.insert(ray);
+  }
+}
 
 void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transient_ray_marks,
                                     const Cloud &cloud, const Grid<size_t> &ray_grid, double num_rays,
@@ -262,6 +302,7 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomi
     }
   }
 }
+}  // namespace
 
 TransientFilter::TransientFilter(const TransientFilterConfig &config)
   : config_(config)
@@ -303,8 +344,231 @@ bool TransientFilter::filter(const Cloud &cloud, Progress *progress)
   return true;
 }
 
-// bool TransientFlter::filter(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress)
-// {}
+bool TransientFilter::filter(std::vector<Cloud> &clouds, Progress *progress)
+{
+  // Ensure we have a value progress pointer to update. This simplifies code below.
+  Progress tracker;
+  if (!progress)
+  {
+    progress = &tracker;
+  }
+
+  clear();
+
+  std::vector<ray::Grid<size_t>> grids(clouds.size());
+  for (size_t c = 0; c < clouds.size(); c++)
+  {
+    const double voxel_size = (config_.voxel_size > 0) ? config_.voxel_size : 4.0 * clouds[c].estimatePointSpacing();
+    if (config_.voxel_size == 0)
+    {
+      std::cout << "estimated required voxel size for cloud " << c << ": " << voxel_size << std::endl;
+    }
+
+    grids[c].init(clouds[c].calcMinBound(), clouds[c].calcMaxBound(), voxel_size);
+    fillRayGrid(&grids[c], clouds[c], progress);
+  }
+
+  std::vector<std::vector<std::atomic_bool>> transient_ray_marks;
+  transient_ray_marks.reserve(clouds.size());
+  for (size_t c = 0; c < clouds.size(); c++)
+  {
+    transient_ray_marks.emplace_back(std::vector<std::atomic_bool>(clouds[c].rayCount()));
+  }
+
+  // now for each cloud, look for other clouds that penetrate it
+  for (size_t c = 0; c < clouds.size(); c++)
+  {
+    generateEllipsoids(&ellipsoids_, nullptr, nullptr, clouds[c], progress);
+    // just set opacity
+    markIntersectedEllipsoids(clouds[c], grids[c], &transient_ray_marks[c], false, progress);
+
+    for (size_t d = 0; d < clouds.size(); d++)
+    {
+      if (d == c)
+      {
+        continue;
+      }
+      // use ellipsoid opacity to set transient flag true on transients
+      markIntersectedEllipsoids(clouds[d], grids[d], &transient_ray_marks[d], false, progress);
+    }
+
+    for (size_t i = 0; i < clouds[c].rayCount(); i++)
+    {
+      if (ellipsoids_[i].transient)
+      {
+        transient_ray_marks[c][i] = true;  // HACK, we need a better way to signal this!
+      }
+    }
+  }
+
+  for (size_t c = 0; c < clouds.size(); c++)
+  {
+    auto &cloud = clouds[c];
+    for (size_t i = 0; i < cloud.rayCount(); i++)
+    {
+      if (transient_ray_marks[c][i])
+      {
+        difference_.starts.push_back(cloud.starts[i]);
+        difference_.ends.push_back(cloud.ends[i]);
+        difference_.times.push_back(cloud.times[i]);
+        difference_.colours.push_back(cloud.colours[i]);
+      }
+      else
+      {
+        fixed_.starts.push_back(cloud.starts[i]);
+        fixed_.ends.push_back(cloud.ends[i]);
+        fixed_.times.push_back(cloud.times[i]);
+        fixed_.colours.push_back(cloud.colours[i]);
+      }
+    }
+  }
+
+  return true;
+}
+
+bool TransientFilter::merge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress)
+{
+  // The 3-way merge is similar to those performed on text files for version control systems. It attempts to apply the
+  // changes in both cloud 1 and cloud2 (compared to base_cloud). When there is a conflict (different changes in the
+  // same location) it resolves that according to the selected merge_type. unlike with text, a change requires a small
+  // threshold, since positions are floating point values. In our case, we define a ray as unchanged when the start and
+  // end points are within the same small voxel as they were in base_cloud. so the threshold is test_width.
+
+  // generate quick lookup for the existance of a particular (quantised) ray
+  ray::Cloud *clouds[2] = { &cloud1, &cloud2 };
+  std::set<Vector6i, Vector6iLess> base_ray_lookup;
+  rayLookup(&base_cloud, base_ray_lookup);
+  std::set<Vector6i, Vector6iLess> ray_lookups[2];
+  for (int c = 0; c < 2; c++) rayLookup(clouds[c], ray_lookups[c]);
+
+  std::cout << "set size " << ray_lookups[0].size() << ", " << ray_lookups[1].size() << ", " << base_ray_lookup.size()
+            << std::endl;
+
+  // now remove all similar rays to base_cloud and put them in the final cloud:
+  int preferred_cloud = clouds[0]->times[0] > clouds[1]->times[0] ? 0 : 1;
+  size_t u = 0;
+  for (int c = 0; c < 2; c++)
+  {
+    ray::Cloud &cloud = *clouds[c];
+    for (size_t i = 0; i < cloud.rayCount(); i++)
+    {
+      Eigen::Vector3d &point = cloud.ends[i];
+      Eigen::Vector3d &start = cloud.starts[i];
+      Vector6i ray;
+      for (int j = 0; j < 3; j++)
+      {
+        ray[j] = int(std::floor(start[j] / test_width));
+        ray[3 + j] = int(std::floor(point[j] / test_width));
+      }
+      int other = 1 - c;
+      // if the ray is in cloud1 and cloud2 there is no contention, so add the ray to the result
+      if (ray_lookups[other].find(ray) != ray_lookups[other].end())
+      {
+        if (c == preferred_cloud)
+        {
+          fixed_.starts.push_back(start);
+          fixed_.ends.push_back(point);
+          fixed_.times.push_back(cloud.times[i]);
+          fixed_.colours.push_back(cloud.colours[i]);
+          u++;
+        }
+      }
+      // we want to run the combine (which revolves conflicts) on only the changed parts
+      // so we want to keep only the changes for cloud[0] and cloud[1]...
+      // which means removing rays that aren't changed:
+      if (base_ray_lookup.find(ray) != base_ray_lookup.end())
+      {
+        cloud.starts[i] = cloud.starts.back();
+        cloud.starts.pop_back();
+        cloud.ends[i] = cloud.ends.back();
+        cloud.ends.pop_back();
+        cloud.times[i] = cloud.times.back();
+        cloud.times.pop_back();
+        cloud.colours[i] = cloud.colours.back();
+        cloud.colours.pop_back();
+        i--;
+      }
+    }
+  }
+  std::cout << u << " unaltered rays have been moved into combined cloud" << std::endl;
+  std::cout << clouds[0]->rayCount() << " and " << clouds[1]->rayCount() << " rays to combine, that are different"
+            << std::endl;
+#if defined VERBOSE_MERGE
+  fixed_.save("common_rays.ply");
+  clouds[0]->save("changes_0.ply");
+  clouds[1]->save("changes_1.ply");
+#endif
+  // KS: isn't this just a concetenation then, not a merge? Isn't the work about redundant?
+  // 'all' means keep all the changes, so we simply concatenate these rays into the result
+  if (config_.merge_type == MergeType::All)
+  {
+    for (int c = 0; c < 2; c++)
+    {
+      fixed_.starts.insert(fixed_.starts.end(), clouds[c]->starts.begin(), clouds[c]->starts.end());
+      fixed_.ends.insert(fixed_.ends.end(), clouds[c]->ends.begin(), clouds[c]->ends.end());
+      fixed_.times.insert(fixed_.times.end(), clouds[c]->times.begin(), clouds[c]->times.end());
+      fixed_.colours.insert(fixed_.colours.end(), clouds[c]->colours.begin(), clouds[c]->colours.end());
+    }
+    return true;
+  }
+  // otherwise we run combine on the altered clouds
+  // first, grid the rays for fast lookup
+  ray::Grid<size_t> grids[2];
+  for (int c = 0; c < 2; c++)
+  {
+    grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), 4.0 * clouds[c]->estimatePointSpacing());
+    fillRayGrid(&grids[c], *clouds[c], progress);
+  }
+
+  std::vector<std::atomic_bool> transients[2] = { std::vector<std::atomic_bool>(clouds[0]->rayCount()),
+                                                  std::vector<std::atomic_bool>(clouds[1]->rayCount()) };
+  // now for each cloud, represent the end points as ellipsoids, and ray cast the other cloud's rays against it
+  for (int c = 0; c < 2; c++)
+  {
+    if (clouds[c]->rayCount() == 0)
+    {
+      continue;
+    }
+    generateEllipsoids(&ellipsoids_, nullptr, nullptr, *clouds[c]);
+
+    // just set opacity
+    markIntersectedEllipsoids(*clouds[c], grids[c], &transients[c], false, progress);
+
+    int d = 1 - c;
+    // use ellipsoid opacity to set transient flag true on transients (intersected ellipsoids)
+    markIntersectedEllipsoids(*clouds[d], grids[d], &transients[d], false, progress);
+
+    for (size_t i = 0; i < ellipsoids_.size(); i++)
+    {
+      if (ellipsoids_[i].transient)
+      {
+        transients[c][i] = true;
+      }
+    }
+  }
+  for (int c = 0; c < 2; c++)
+  {
+    auto &cloud = *clouds[c];
+    size_t removed_count = 0;
+    for (size_t i = 0; i < transients[c].size(); i++)
+    {
+      if (!transients[c][i])
+      {
+        fixed_.starts.push_back(cloud.starts[i]);
+        fixed_.ends.push_back(cloud.ends[i]);
+        fixed_.times.push_back(cloud.times[i]);
+        fixed_.colours.push_back(cloud.colours[i]);
+      }
+      else
+      {
+        removed_count++;  // we aren't storing the differences. No current demand for this.
+      }
+    }
+    std::cout << removed_count << " removed rays, " << fixed_.rayCount() << " fixed rays." << std::endl;
+  }
+
+  return true;
+}
 
 void TransientFilter::clear()
 {
@@ -366,7 +630,7 @@ void TransientFilter::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &clo
 #if RALIB_PARALLEL_GRID
   tbb::parallel_for<size_t>(0u, cloud.rayCount(), add_ray);
 #else   // RALIB_PARALLEL_GRID
-  for (size_t i = 0; i < cloud.ends.size(); i++)
+  for (size_t i = 0; i < cloud.rayCount(); i++)
   {
     add_ray(i);
   }
@@ -377,7 +641,7 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, const Grid<s
                                                 std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
                                                 Progress *progress)
 {
-  progress->begin("transient-mark-ellipsoids", cloud.ends.size());
+  progress->begin("transient-mark-ellipsoids", cloud.rayCount());
 
   // Check each ellipsoid against the ray grid for intersections.
 #if RAYLIB_WITH_TBB

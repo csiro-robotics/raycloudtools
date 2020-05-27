@@ -31,7 +31,7 @@ struct RAYLIB_EXPORT Ellipsoid
   Eigen::Matrix3d eigen_mat;  // each row is a scaled eigenvector
   Eigen::Vector3d extents;
   double time;
-  double opacity;
+  double opacity; ///< A representation of certainty of this ellipsoid.
   double planarity;
   size_t num_rays;
   size_t num_gone;

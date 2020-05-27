@@ -24,10 +24,13 @@ class Progress;
 /// Mode selection for @c TransientFilter
 enum class RAYLIB_EXPORT MergeType : int
 {
+  /// Preserve oldest samples.
   Oldest,
+  /// Preserve newest samples.
   Newest,
   Mininum,
-  Maximum
+  Maximum,
+  All
 };
 
 /// Parameter configuration structure for @c TransientFilter
@@ -61,11 +64,11 @@ public:
   /// Perform the transient filtering on the given @p cloud .
   bool filter(const Cloud &cloud, Progress *progress = nullptr);
 
-  // /// Multi-merge
-  // bool filter(std::vector<Cloud> &clouds, Progress *progress = nullptr);
+  /// Multi-merge
+  bool filter(std::vector<Cloud> &clouds, Progress *progress = nullptr);
 
-  // /// Three way merger
-  // bool filter(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress = nullptr);
+  /// Three way merger
+  bool merge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress = nullptr);
 
   /// Reset previous results. Memory is retained.
   void clear();
