@@ -13,6 +13,7 @@
 #define NEW_FILTER 1
 #if NEW_FILTER
 #include "raylib/raytransientfilter.h"
+#include "raylib/raythreads.h"
 #else  // NEW_FILTER
 #include "raylib/raymerger.h"
 #endif // NEW_FILTER
@@ -61,6 +62,7 @@ int main(int argc, char *argv[])
   cloud.load(file);
 
 #if NEW_FILTER
+  ray::Threads::init();
   ray::TransientFilterConfig config;
   // Note: we actually get better multi-threaded performace with smaller voxels
   config.voxel_size = 0.1;
