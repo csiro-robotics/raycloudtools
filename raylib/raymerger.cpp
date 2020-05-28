@@ -656,8 +656,8 @@ double Merger::voxelSizeForCloud(const Cloud &cloud) const
 }
 
 void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
-                                                std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
-                                                Progress *progress)
+                                       std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
+                                       Progress *progress)
 {
   progress->begin("transient-mark-ellipsoids", cloud.rayCount());
 
@@ -680,10 +680,11 @@ void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &r
 #else   // RAYLIB_WITH_TBB
   std::vector<bool> ray_tested;
   ray_tested.resize(cloud.rayCount(), false);
+  EllipsoidTransientMarker ellipsoid_maker(cloud.rayCount());
   for (size_t i = 0; i < ellipsoids_.size(); ++i)
   {
-    checkEllipsoid(&ellipsoids_[i], transient_ray_marks, &ray_tested, cloud, ray_grid,
-                   config_.num_rays_filter_threshold, config_.merge_type, self_transient);
+    ellipsoid_maker.mark(&ellipsoids_[i], transient_ray_marks, cloud, ray_grid, config_.num_rays_filter_threshold,
+                         config_.merge_type, self_transient);
     progress->increment();
   }
 #endif  // RAYLIB_WITH_TBB

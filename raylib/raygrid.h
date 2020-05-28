@@ -14,7 +14,7 @@
 
 #define HASH_LOOKUP
 
-#if RAYLIB_WITH_TBB || defined(HASH_LOOKUP)
+#if RAYLIB_WITH_TBB && defined(HASH_LOOKUP)
 #define RALIB_PARALLEL_GRID 1
 #if RALIB_PARALLEL_GRID
 #include <tbb/spin_mutex.h>
