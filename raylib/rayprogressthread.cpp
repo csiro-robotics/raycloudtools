@@ -44,7 +44,7 @@ void ProgressThread::run()
   while (!quit_flag_)
   {
     progress_.read(&current);
-    if (current.phase() != last.phase())
+    if (current.phase() != last.phase() || current.target() != last.target())
     {
       // Ensure we finalise the display.
       auto duration = current.lastDuration();

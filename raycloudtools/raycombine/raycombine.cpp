@@ -4,10 +4,12 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/raydebugdraw.h"
 #include "raylib/raymerger.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
-#include "raylib/raydebugdraw.h"
+#include "raylib/rayprogressthread.h"
+#include "raylib/raythreads.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -16,26 +18,33 @@
 
 void usage(int exit_code = 0)
 {
-  std::cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to "
-          "the merge type specified."
-       << std::endl;
+  std::cout
+    << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to "
+       "the merge type specified."
+    << std::endl;
   std::cout << "Outputs the combined cloud and the residual cloud of differences." << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at "
-          "differences"
-       << std::endl;
-  std::cout << "                                                           20 is the number of pass through rays to define "
-          "a difference"
-       << std::endl;
+  std::cout
+    << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at "
+       "differences"
+    << std::endl;
+  std::cout
+    << "                                                           20 is the number of pass through rays to define "
+       "a difference"
+    << std::endl;
   std::cout
     << "           max    - maximal objects included. This is a form of volume intersection (rather than min: union)."
     << std::endl;
-  std::cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << std::endl;
-  std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << std::endl;
-  std::cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
-       << std::endl;
+  std::cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds."
+            << std::endl;
+  std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds."
+            << std::endl;
+  std::cout
+    << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
+    << std::endl;
   std::cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from "
-          "basecloud) at any differences. " << std::endl;
+               "basecloud) at any differences. "
+            << std::endl;
   std::cout << "For merge conflicts it uses the specified merge type." << std::endl;
   exit(exit_code);
 }
@@ -46,8 +55,8 @@ int main(int argc, char *argv[])
   ray::DebugDraw::init(argc, argv, "raycombine");
   if (argc < 4)
     usage();
-  bool threeway = std::string(argv[1])!="min" && std::string(argv[1])!="max" && std::string(argv[1])!="oldest" && 
-    std::string(argv[1])!="newest" && std::string(argv[1])!="all";
+  bool threeway = std::string(argv[1]) != "min" && std::string(argv[1]) != "max" && std::string(argv[1]) != "oldest" &&
+                  std::string(argv[1]) != "newest" && std::string(argv[1]) != "all";
   std::cout << "three way: " << threeway << std::endl;
   std::string merge_type = argv[threeway ? 2 : 1];
   bool concatenate = merge_type == "all";
@@ -88,29 +97,67 @@ int main(int argc, char *argv[])
   std::vector<ray::Cloud> clouds(files.size());
   for (int i = 0; i < (int)files.size(); i++) clouds[i].load(files[i]);
 
-  ray::Merger merger;
+  ray::Threads::init();
+  ray::MergerConfig config;
+  // Note: we actually get better multi-threaded performace with smaller voxels
+  config.voxel_size = 0.1;
+  config.num_rays_filter_threshold = num_rays;
+  config.merge_type = ray::MergeType::Mininum;
+
+  if (merge_type == "oldest")
+  {
+    config.merge_type = ray::MergeType::Oldest;
+  }
+  if (merge_type == "newest")
+  {
+    config.merge_type = ray::MergeType::Newest;
+  }
+  if (merge_type == "min")
+  {
+    config.merge_type = ray::MergeType::Mininum;
+  }
+  if (merge_type == "max")
+  {
+    config.merge_type = ray::MergeType::Maximum;
+  }
+  if (merge_type == "all")
+  {
+    config.merge_type = ray::MergeType::All;
+  }
+
+  ray::Merger merger(config);
+  ray::Progress progress;
+  ray::ProgressThread progress_thread(progress);
+  ray::Cloud concatenated_cloud;
+  const ray::Cloud *fixed_cloud = &merger.fixedCloud();
+
   if (threeway)
   {
     ray::Cloud base_cloud;
     base_cloud.load(argv[1]);
-    merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], merge_type, num_rays);
+    merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], &progress);
   }
   else if (concatenate)
   {
-    ray::Cloud &result = merger.fixedCloud();
+    fixed_cloud = &concatenated_cloud;
     for (auto &cloud : clouds)
     {
-      result.starts.insert(result.starts.end(), cloud.starts.begin(), cloud.starts.end());
-      result.ends.insert(result.ends.end(), cloud.ends.begin(), cloud.ends.end());
-      result.times.insert(result.times.end(), cloud.times.begin(), cloud.times.end());
-      result.colours.insert(result.colours.end(), cloud.colours.begin(), cloud.colours.end());
+      concatenated_cloud.starts.insert(concatenated_cloud.starts.end(), cloud.starts.begin(), cloud.starts.end());
+      concatenated_cloud.ends.insert(concatenated_cloud.ends.end(), cloud.ends.begin(), cloud.ends.end());
+      concatenated_cloud.times.insert(concatenated_cloud.times.end(), cloud.times.begin(), cloud.times.end());
+      concatenated_cloud.colours.insert(concatenated_cloud.colours.end(), cloud.colours.begin(), cloud.colours.end());
     }
   }
   else
   {
-    merger.mergeMultipleClouds(clouds, merge_type, num_rays);
+    merger.mergeMultiple(clouds, &progress);
+    std::cout << merger.differenceCloud().rayCount() << " transients, " << merger.fixedCloud().rayCount()
+              << " fixed rays." << std::endl;
     merger.differenceCloud().save(file_stub + "_differences.ply");
   }
-  merger.fixedCloud().save(file_stub + "_combined.ply");
+
+  progress_thread.join();
+
+  fixed_cloud->save(file_stub + "_combined.ply");
   return true;
 }

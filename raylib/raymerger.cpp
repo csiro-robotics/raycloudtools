@@ -3,7 +3,7 @@
 // ABN 41 687 119 230
 //
 // Author: Kazys Stepanas, Tom Lowe
-#include "raytransientfilter.h"
+#include "raymerger.h"
 
 #include "raygrid.h"
 #include "rayprogress.h"
@@ -304,13 +304,13 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomi
 }
 }  // namespace
 
-TransientFilter::TransientFilter(const TransientFilterConfig &config)
+Merger::Merger(const MergerConfig &config)
   : config_(config)
 {}
 
-TransientFilter::~TransientFilter() = default;
+Merger::~Merger() = default;
 
-bool TransientFilter::filter(const Cloud &cloud, Progress *progress)
+bool Merger::filter(const Cloud &cloud, Progress *progress)
 {
   // Ensure we have a value progress pointer to update. This simplifies code below.
   Progress tracker;
@@ -324,7 +324,7 @@ bool TransientFilter::filter(const Cloud &cloud, Progress *progress)
   Eigen::Vector3d bounds_min, bounds_max;
   generateEllipsoids(&ellipsoids_, &bounds_min, &bounds_max, cloud, progress);
 
-  const double voxel_size = (config_.voxel_size > 0) ? config_.voxel_size : 4.0 * cloud.estimatePointSpacing();
+  const double voxel_size = voxelSizeForCloud(cloud);
   if (config_.voxel_size == 0)
   {
     std::cout << "estimated required voxel size: " << voxel_size << std::endl;
@@ -344,7 +344,7 @@ bool TransientFilter::filter(const Cloud &cloud, Progress *progress)
   return true;
 }
 
-bool TransientFilter::filter(std::vector<Cloud> &clouds, Progress *progress)
+bool Merger::mergeMultiple(std::vector<Cloud> &clouds, Progress *progress)
 {
   // Ensure we have a value progress pointer to update. This simplifies code below.
   Progress tracker;
@@ -358,7 +358,7 @@ bool TransientFilter::filter(std::vector<Cloud> &clouds, Progress *progress)
   std::vector<ray::Grid<size_t>> grids(clouds.size());
   for (size_t c = 0; c < clouds.size(); c++)
   {
-    const double voxel_size = (config_.voxel_size > 0) ? config_.voxel_size : 4.0 * clouds[c].estimatePointSpacing();
+    const double voxel_size = voxelSizeForCloud(clouds[c]);
     if (config_.voxel_size == 0)
     {
       std::cout << "estimated required voxel size for cloud " << c << ": " << voxel_size << std::endl;
@@ -426,7 +426,7 @@ bool TransientFilter::filter(std::vector<Cloud> &clouds, Progress *progress)
   return true;
 }
 
-bool TransientFilter::merge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress)
+bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, Progress *progress)
 {
   // The 3-way merge is similar to those performed on text files for version control systems. It attempts to apply the
   // changes in both cloud 1 and cloud2 (compared to base_cloud). When there is a conflict (different changes in the
@@ -516,7 +516,7 @@ bool TransientFilter::merge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud
   ray::Grid<size_t> grids[2];
   for (int c = 0; c < 2; c++)
   {
-    grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), 4.0 * clouds[c]->estimatePointSpacing());
+    grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), voxelSizeForCloud(*clouds[c]));
     fillRayGrid(&grids[c], *clouds[c], progress);
   }
 
@@ -570,14 +570,14 @@ bool TransientFilter::merge(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud
   return true;
 }
 
-void TransientFilter::clear()
+void Merger::clear()
 {
   difference_.clear();
   fixed_.clear();
   ellipsoids_.clear();
 }
 
-void TransientFilter::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &cloud, Progress *progress)
+void Merger::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &cloud, Progress *progress)
 {
   if (progress)
   {
@@ -637,7 +637,25 @@ void TransientFilter::fillRayGrid(ray::Grid<size_t> *grid, const ray::Cloud &clo
 #endif  // RALIB_PARALLEL_GRID
 }
 
-void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
+double Merger::voxelSizeForCloud(const Cloud &cloud) const
+{
+  double voxel_size = config_.voxel_size;
+  if (voxel_size <= 0)
+  {
+    if (cloud.rayCount() > 0)
+    {
+      voxel_size = (config_.voxel_size > 0) ? config_.voxel_size : 4.0 * cloud.estimatePointSpacing();
+    }
+    else
+    {
+      // Set a reasonable default.
+      voxel_size = 0.25;
+    }
+  }
+  return voxel_size;
+}
+
+void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
                                                 std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
                                                 Progress *progress)
 {
@@ -672,7 +690,7 @@ void TransientFilter::markIntersectedEllipsoids(const Cloud &cloud, const Grid<s
 }
 
 
-void TransientFilter::finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_ray_marks)
+void Merger::finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_ray_marks)
 {
   // Lastly, generate the new ray clouds from this sphere information
   for (size_t i = 0; i < ellipsoids_.size(); i++)

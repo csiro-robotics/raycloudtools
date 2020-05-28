@@ -28,7 +28,6 @@ set(PUBLIC_HEADERS
   rayterraingen.h
   raythreads.h
   raytrajectory.h
-  raytransientfilter.h
   raytreegen.h
   rayunused.h
   rayutils.h
@@ -56,7 +55,6 @@ set(SOURCES
   rayterraingen.cpp
   raythreads.cpp
   raytrajectory.cpp
-  raytransientfilter.cpp
   raytreegen.cpp
 )
 
