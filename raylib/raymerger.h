@@ -1,4 +1,3 @@
-// Copyright (c) 2020
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
 //
@@ -48,6 +47,12 @@ struct RAYLIB_EXPORT MergerConfig
 class RAYLIB_EXPORT Merger
 {
 public:
+#if RAYLIB_WITH_TBB
+  using Bool = std::atomic_bool;
+#else   // RAYLIB_WITH_TBB
+  using Bool = bool;
+#endif  // RAYLIB_WITH_TBB
+
   Merger(const MergerConfig &config);
   ~Merger();
 
@@ -85,11 +90,11 @@ private:
   double voxelSizeForCloud(const Cloud &cloud) const;
 
   void markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
-                                 std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
+                                 std::vector<Bool> *transient_ray_marks, bool self_transient,
                                  Progress *progress);
 
   /// Finalise the cloud filter and populate @c transientResults() and @c fixedResults() .
-  void finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_ray_marks);
+  void finaliseFilter(const Cloud &cloud, const std::vector<Bool> &transient_ray_marks);
 
   Cloud difference_;
   Cloud fixed_;

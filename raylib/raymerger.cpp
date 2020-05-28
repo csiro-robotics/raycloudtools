@@ -21,6 +21,16 @@
 
 using namespace ray;
 
+#if RAYLIB_WITH_TBB
+// With threads we use std::atomic_bool for the transient marks. These are default initialised to false. No additional
+// argument required
+#define MARKER_BOOL_INIT
+#else  // RAYLIB_WITH_TBB
+// Without threads, we use bool for the transient marks. There is no default construction, so we must provide the
+// initialisation argument
+#define MARKER_BOOL_INIT , false
+#endif  // RAYLIB_WITH_TBB
+
 namespace
 {
 class EllipsoidTransientMarker
@@ -44,7 +54,7 @@ public:
   /// @param merge_type The merging strategy.
   /// @param self_transient True when the @p ellipsoid was generated from @p cloud and we are looking for transient
   /// points within this cloud.
-  void mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transient_ray_marks, const Cloud &cloud,
+  void mark(Ellipsoid *ellipsoid, std::vector<Merger::Bool> *transient_ray_marks, const Cloud &cloud,
             const Grid<size_t> &ray_grid, double num_rays, MergeType merge_type, bool self_transient);
 
 private:
@@ -97,7 +107,7 @@ void rayLookup(const ray::Cloud *cloud, std::set<Vector6i, Vector6iLess> &ray_lo
   }
 }
 
-void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<std::atomic_bool> *transient_ray_marks,
+void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<Merger::Bool> *transient_ray_marks,
                                     const Cloud &cloud, const Grid<size_t> &ray_grid, double num_rays,
                                     MergeType merge_type, bool self_transient)
 {
@@ -334,7 +344,7 @@ bool Merger::filter(const Cloud &cloud, Progress *progress)
   fillRayGrid(&ray_grid, cloud, progress);
 
   // Atomic do not support assignment and construction so we can't really retain the vector memory.
-  std::vector<std::atomic_bool> transient_ray_marks(cloud.rayCount());
+  std::vector<Bool> transient_ray_marks(cloud.rayCount() MARKER_BOOL_INIT);
   markIntersectedEllipsoids(cloud, ray_grid, &transient_ray_marks, true, progress);
 
   finaliseFilter(cloud, transient_ray_marks);
@@ -368,11 +378,11 @@ bool Merger::mergeMultiple(std::vector<Cloud> &clouds, Progress *progress)
     fillRayGrid(&grids[c], clouds[c], progress);
   }
 
-  std::vector<std::vector<std::atomic_bool>> transient_ray_marks;
+  std::vector<std::vector<Bool>> transient_ray_marks;
   transient_ray_marks.reserve(clouds.size());
   for (size_t c = 0; c < clouds.size(); c++)
   {
-    transient_ray_marks.emplace_back(std::vector<std::atomic_bool>(clouds[c].rayCount()));
+    transient_ray_marks.emplace_back(std::vector<Bool>(clouds[c].rayCount() MARKER_BOOL_INIT));
   }
 
   // now for each cloud, look for other clouds that penetrate it
@@ -520,8 +530,8 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
     fillRayGrid(&grids[c], *clouds[c], progress);
   }
 
-  std::vector<std::atomic_bool> transients[2] = { std::vector<std::atomic_bool>(clouds[0]->rayCount()),
-                                                  std::vector<std::atomic_bool>(clouds[1]->rayCount()) };
+  std::vector<Bool> transients[2] = { std::vector<Bool>(clouds[0]->rayCount() MARKER_BOOL_INIT),
+                                      std::vector<Bool>(clouds[1]->rayCount() MARKER_BOOL_INIT) };
   // now for each cloud, represent the end points as ellipsoids, and ray cast the other cloud's rays against it
   for (int c = 0; c < 2; c++)
   {
@@ -656,8 +666,7 @@ double Merger::voxelSizeForCloud(const Cloud &cloud) const
 }
 
 void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
-                                       std::vector<std::atomic_bool> *transient_ray_marks, bool self_transient,
-                                       Progress *progress)
+                                       std::vector<Bool> *transient_ray_marks, bool self_transient, Progress *progress)
 {
   progress->begin("transient-mark-ellipsoids", cloud.rayCount());
 
@@ -691,7 +700,7 @@ void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &r
 }
 
 
-void Merger::finaliseFilter(const Cloud &cloud, const std::vector<std::atomic_bool> &transient_ray_marks)
+void Merger::finaliseFilter(const Cloud &cloud, const std::vector<Bool> &transient_ray_marks)
 {
   // Lastly, generate the new ray clouds from this sphere information
   for (size_t i = 0; i < ellipsoids_.size(); i++)
