@@ -55,12 +55,7 @@ int main(int argc, char *argv[])
       double range2 = (cloud.ends[i + 1] - cloud.starts[i + 1]).norm();
       double min_dist = std::min(std::abs(range0 - range2), std::min(std::abs(range1 - range0), std::abs(range2 - range1)));
       if (!cloud.rayBounded(i) || min_dist < range_distance)
-      {
-        new_cloud.starts.push_back(cloud.starts[i]);
-        new_cloud.ends.push_back(cloud.ends[i]);
-        new_cloud.times.push_back(cloud.times[i]);
-        new_cloud.colours.push_back(cloud.colours[i]);
-      }
+        new_cloud.addRay(cloud, i);
     }
     std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
          << range_distance * 100.0 << " cm." << std::endl;
@@ -95,12 +90,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < (int)points.size(); i++)
     {
       if (!cloud.rayBounded(i) || (dists2(0, i) < 1e10 && dists2(0, i) < ray::sqr(distance)))
-      {
-        new_cloud.starts.push_back(cloud.starts[i]);
-        new_cloud.ends.push_back(cloud.ends[i]);
-        new_cloud.times.push_back(cloud.times[i]);
-        new_cloud.colours.push_back(cloud.colours[i]);
-      }
+        new_cloud.addRay(cloud, i);
     }
     std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
          << " cm from any other." << std::endl;
@@ -126,15 +116,15 @@ int main(int argc, char *argv[])
     Eigen::Vector3d dims(0,0,0);
     double cnt = 0.0;
     double nums = 0;
-    for (int i = 0; i < (int)matrices.size(); i++)
+    for (size_t i = 0; i < matrices.size(); i++)
     {
-      if (indices(0,i) == -1) // no neighbours in range, we consider this as noise
-        continue;
       bool is_noise = false;
       if (cloud.rayBounded(i))
       {
+        if (indices(0,i) == -1) // no neighbours in range, we consider this as noise
+          continue;
         int other_i = indices(0,i);
-        Eigen::Vector3d vec = cloud.ends[i] - centroids[other_i];//cloud.ends[otherI];
+        Eigen::Vector3d vec = cloud.ends[i] - centroids[other_i];
         Eigen::Vector3d newVec = matrices[other_i].transpose() * vec;
         newVec[0] /= dimensions[other_i][0];
         newVec[1] /= dimensions[other_i][1];
@@ -149,12 +139,7 @@ int main(int argc, char *argv[])
         is_noise = scale2 > sigmas*sigmas;
       }
       if (!is_noise)
-      {
-        new_cloud.starts.push_back(cloud.starts[i]);
-        new_cloud.ends.push_back(cloud.ends[i]);
-        new_cloud.times.push_back(cloud.times[i]);
-        new_cloud.colours.push_back(cloud.colours[i]);
-      }
+        new_cloud.addRay(cloud, i);
     }
     dims /= cnt;
     std::cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums/cnt << std::endl;

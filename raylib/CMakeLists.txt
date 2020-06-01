@@ -16,6 +16,7 @@ set(PUBLIC_HEADERS
   rayforestgen.h
   raygrid.h
   raylaz.h
+  raymerger.h
   raymesh.h
   rayply.h
   raypose.h
@@ -40,6 +41,7 @@ set(SOURCES
   rayconvexhull.cpp
   rayforestgen.cpp
   raylaz.cpp
+  raymerger.cpp
   raymesh.cpp
   rayply.cpp
   rayroomgen.cpp

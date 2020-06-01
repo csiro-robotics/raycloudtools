@@ -19,7 +19,6 @@ void usage(int exit_code = 0)
   cout << "usage:" << endl;
   cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm" << endl;
   cout << "raydecimate raycloud 4 rays - reduces to every fourth ray" << endl;
-  cout << "raydecimate raycloud 0.1 seconds - reduces to one ray every 0.1 seconds" << endl;
   exit(exit_code);
 }
 
@@ -32,9 +31,8 @@ int main(int argc, char *argv[])
   string file = argv[1];
   Cloud cloud;
   cloud.load(file);
-  vector<Vector3d> starts, ends;
-  vector<RGBA> colours;
-  vector<double> times;
+
+  Cloud new_cloud;
   string type = argv[3];
   if (type == "cm")
   {
@@ -44,37 +42,8 @@ int main(int argc, char *argv[])
   {
     int decimation = stoi(argv[2]);
     for (int i = 0; i < (int)cloud.ends.size(); i += decimation)
-    {
-      starts.push_back(cloud.starts[i]);
-      ends.push_back(cloud.ends[i]);
-      times.push_back(cloud.times[i]);
-      colours.push_back(cloud.colours[i]);
-    }
-    cloud.starts = starts;
-    cloud.ends = ends;
-    cloud.times = times;
-    cloud.colours = colours;
-  }
-  else if (type == "seconds" || type == "s")
-  {
-    double delta = stod(argv[2]);
-    double last_time = cloud.times[0];
-    for (int i = 0; i < (int)cloud.ends.size(); i++)
-    {
-      if (cloud.times[i] >= last_time + delta)
-      {
-        starts.push_back(cloud.starts[i]);
-        ends.push_back(cloud.ends[i]);
-        times.push_back(cloud.times[i]);
-        colours.push_back(cloud.colours[i]);
-        while (cloud.times[i] >= last_time + delta)  // in case delta is tiny
-          last_time += delta;
-      }
-    }
-    cloud.starts = starts;
-    cloud.ends = ends;
-    cloud.times = times;
-    cloud.colours = colours;
+      new_cloud.addRay(cloud, i);
+    cloud = new_cloud;
   }
   else
     usage(false);
