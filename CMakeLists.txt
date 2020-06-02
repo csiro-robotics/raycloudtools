@@ -31,20 +31,23 @@ option(WITH_QHULL "With libqhull support?" OFF)
 if(UNIX)
   option(WITH_ROS "With ROS rviz support for debug visualisation?" OFF)
 endif(UNIX)
+option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" ON)
 
 # Convert WITH_ options to 1/0 so we can use them in configuration headers.
 ras_bool_to_int(WITH_3ES)
 ras_bool_to_int(WITH_LAS)
 ras_bool_to_int(WITH_QHULL)
 ras_bool_to_int(WITH_ROS)
+ras_bool_to_int(WITH_TBB)
 
 # Required packages.
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(Threads)
 
 set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
-set(RAYTOOLS_LINK ${libnabo_LIBRARIES})
+set(RAYTOOLS_LINK ${libnabo_LIBRARIES} Threads::Threads)
 
 # Optionally configured packages.
 if(WITH_3ES)
@@ -72,6 +75,35 @@ if(WITH_ROS)
   list(APPEND RAYTOOLS_INCLUDE ${catkin_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${catkin_LIBRARIES})
 endif(WITH_ROS)
+if(WITH_TBB)
+# Helper macro to Find TBB prefering TBBConfig, falling back to FindTBB. TBB_LIBRARIES will be defined in both cases.
+# TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.
+macro(find_tbb)
+  # Try find TBB config file.
+  find_package(TBB QUIET CONFIG)
+  if(TBB_FOUND)
+    message(STATUS "TBB found using TBBConfig.cmake")
+    set(TBB_LIBRARIES "${TBB_IMPORTED_TARGETS}")
+  else(TBB_FOUND)
+    # No TBB config file. Try FindTBB.cmake
+    find_package(TBB QUIET)
+    if(TBB_FOUND)
+      message(STATUS "TBB found using FindTBB.cmake")
+    endif(TBB_FOUND)
+  endif(TBB_FOUND)
+endmacro(find_tbb)
+  # First try newer TBB versions which support TBBConfig.cmake
+  find_package(TBB QUIET CONFIG)
+  if(TBB_FOUND)
+    # Found using TBBConfig. Use import targets
+    list(APPEND RAYTOOLS_LINK ${TBB_IMPORTED_TARGETS})
+  else(TBB_FOUND)
+    # Failed. Fall back to FindTBB.cmake
+    find_package(TBB REQUIRED)
+    list(APPEND RAYTOOLS_INCLUDE ${TBB_INCLUDE_DIRS})
+    list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
+  endif(TBB_FOUND)
+endif(WITH_TBB)
 
 # Create libs
 add_subdirectory(3rd-party)

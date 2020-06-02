@@ -15,18 +15,34 @@
 #include <set>
 
 namespace ray
-{  
+{
+class Progress;
+
+/// Flags for use with @c Cloud::calcBounds()
+enum BoundsFlag
+{
+  /// Include ray end points in the bounds.
+  /// Include ray start points in the bounds.
+  kBFEnd = (1 << 0),
+  kBFStart = (1 << 1)
+};
+
 struct RAYLIB_EXPORT Cloud
 {
   std::vector<Eigen::Vector3d> starts;
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;
   std::vector<RGBA> colours;
+
+  void clear();
+
   inline bool rayBounded(size_t i) const { return colours[i].alpha > 0; }
   inline uint8_t rayIntensity(size_t i) const { return colours[i].alpha; }
 
-  void save(const std::string &file_namee);
-  bool load(const std::string &file_namee);
+  inline size_t rayCount() const { return ends.size(); }
+
+  void save(const std::string &file_name) const;
+  bool load(const std::string &file_name);
   bool load(const std::string &point_cloudd, const std::string &traj_filee);
 
   Eigen::Vector3d calcMinBound() const;
@@ -39,20 +55,31 @@ struct RAYLIB_EXPORT Cloud
 
   void removeUnboundedRays();
 
-  void getSurfels(int search_sizee, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
+  void getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                   std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats,
-                  Eigen::MatrixXi *neighbour_indicess);
-  std::vector<Eigen::Vector3d> generateNormals(int search_sizee = 16);
+                  Eigen::MatrixXi *neighbour_indices);
+  std::vector<Eigen::Vector3d> generateNormals(int search_size = 16);
 
   void split(Cloud &cloud1, Cloud &cloud2, std::function<bool(int i)> fptr);
   double estimatePointSpacing() const;
+
+  /// Calculate the ray cloud bounds. By default, the bounds only consder the ray end points. This behaviour
+  /// can be modified via the @p flags argument.
+  ///
+  /// Bounds are set to zero if the bounds are invalid.
+  /// @param[out] min_bounds The minimum bounds are written here.
+  /// @param[out] max_bounds The maxnimum bounds are written here.
+  /// @param flags @c BoundsFlag values use to modify how the bounds are calculated.
+  /// @return True if the cloud has bounded rays and bounds values have been calculated. On false, the value of
+  ///   @p min_bounds and @p max_bounds are undefined.
+  bool calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds, unsigned flags = kBFEnd,
+                  Progress *progress = nullptr) const;
 
 private:
   void calculateStarts(const Trajectory &trajectory);
   bool loadPLY(const std::string &file);
   bool loadLazTraj(const std::string &laz_filee, const std::string &traj_filee);
 };
-
 
 }  // namespace ray
 

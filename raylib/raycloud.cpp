@@ -4,18 +4,32 @@
 //
 // Author: Thomas Lowe
 #include "raycloud.h"
-#include "raytrajectory.h"
-#include "rayply.h"
-#include "raylaz.h"
+
 #include "raydebugdraw.h"
+#include "raylaz.h"
+#include "rayply.h"
+#include "rayprogress.h"
+#include "raytrajectory.h"
+
 #include <nabo/nabo.h>
+
+#include <iostream>
 #include <limits>
+#include <set>
 
 using namespace std;
 using namespace Eigen;
 using namespace ray;
 
-void Cloud::save(const std::string &file_name)
+void Cloud::clear()
+{
+  starts.clear();
+  ends.clear();
+  times.clear();
+  colours.clear();
+}
+
+void Cloud::save(const std::string &file_name) const
 {
   string name = file_name;
   if (name.substr(name.length() - 4) != ".ply")
@@ -96,7 +110,7 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
 
 Vector3d Cloud::calcMinBound() const
 {
-  Vector3d min_v(numeric_limits<double>::max(), numeric_limits<double>::max(), numeric_limits<double>::max()); 
+  Vector3d min_v(numeric_limits<double>::max(), numeric_limits<double>::max(), numeric_limits<double>::max());
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
@@ -107,13 +121,56 @@ Vector3d Cloud::calcMinBound() const
 
 Vector3d Cloud::calcMaxBound() const
 {
-  Vector3d max_v(numeric_limits<double>::lowest(), numeric_limits<double>::lowest(), numeric_limits<double>::lowest()); 
+  Vector3d max_v(numeric_limits<double>::lowest(), numeric_limits<double>::lowest(), numeric_limits<double>::lowest());
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
       max_v = maxVector(max_v, maxVector(starts[i], ends[i]));
   }
   return max_v;
+}
+
+bool Cloud::calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds, unsigned flags, Progress *progress) const
+{
+  if (rayCount() == 0)
+  {
+    return false;
+  }
+
+  if (progress)
+  {
+    progress->begin("calcBounds", rayCount());
+  }
+
+  *min_bounds = Vector3d(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(),
+                         std::numeric_limits<double>::max());
+  *max_bounds = Vector3d(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(),
+                         std::numeric_limits<double>::lowest());
+  bool invalid_bounds = true;
+  for (size_t i = 0; i < rayCount(); ++i)
+  {
+    if (rayBounded(i))
+    {
+      invalid_bounds = false;
+      if (flags & kBFEnd)
+      {
+        *min_bounds = minVector(*min_bounds, ends[i]);
+        *max_bounds = maxVector(*max_bounds, ends[i]);
+      }
+      if (flags & kBFStart)
+      {
+        *min_bounds = minVector(*min_bounds, starts[i]);
+        *max_bounds = maxVector(*max_bounds, starts[i]);
+      }
+    }
+
+    if (progress)
+    {
+      progress->increment();
+    }
+  }
+
+  return !invalid_bounds;
 }
 
 void Cloud::transform(const Pose &pose, double time_delta)
@@ -269,7 +326,10 @@ double Cloud::estimatePointSpacing() const
     }
   }
 
-  double width = 0.25 * sqrt(num_voxels/num_points); // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
+  double width =
+    0.25 *
+    sqrt(num_voxels /
+         num_points);  // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
   cout << "estimated point spacing: " << width << endl;
   return width;
 }
