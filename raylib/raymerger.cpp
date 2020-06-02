@@ -391,19 +391,9 @@ void ray::Merger::mergeSingleCloud(const ray::Cloud &cloud, const std::string &m
       col.green = (uint8_t)((double)ellipsoids[i].num_gone / ((double)ellipsoids[i].num_gone + 10.0) * 255.0);
     }
     if (ellipsoids[i].transient || transients[i])
-    {
-      differences_.starts.push_back(cloud.starts[i]);
-      differences_.ends.push_back(cloud.ends[i]);
-      differences_.times.push_back(cloud.times[i]);
-      differences_.colours.push_back(col);
-    }
+      differences_.addRay(cloud.starts[i], cloud.ends[i], cloud.times[i], col);
     else
-    {
-      result_.starts.push_back(cloud.starts[i]);
-      result_.ends.push_back(cloud.ends[i]);
-      result_.times.push_back(cloud.times[i]);
-      result_.colours.push_back(col);
-    }
+      result_.addRay(cloud.starts[i], cloud.ends[i], cloud.times[i], col);
   }
 }
 
@@ -448,18 +438,12 @@ void ray::Merger::mergeMultipleClouds(std::vector<ray::Cloud> &clouds, const std
       if (transients[c][i])
       {
         t++;
-        differences_.starts.push_back(cloud.starts[i]);
-        differences_.ends.push_back(cloud.ends[i]);
-        differences_.times.push_back(cloud.times[i]);
-        differences_.colours.push_back(cloud.colours[i]);
+        differences_.addRay(cloud, i);
       }
       else
       {
         f++;
-        result_.starts.push_back(cloud.starts[i]);
-        result_.ends.push_back(cloud.ends[i]);
-        result_.times.push_back(cloud.times[i]);
-        result_.colours.push_back(cloud.colours[i]);
+        result_.addRay(cloud, i);
       }
     }
     std::cout << t << " transients, " << f << " fixed rays." << std::endl;
@@ -507,10 +491,7 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
       {
         if (c == preferred_cloud)
         {
-          result_.starts.push_back(start);
-          result_.ends.push_back(point);
-          result_.times.push_back(cloud.times[i]);
-          result_.colours.push_back(cloud.colours[i]);
+          result_.addRay(start, point, cloud.times[i], cloud.colours[i]);
           u++;
         }
       }
@@ -587,10 +568,7 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
       if (!transients[c][i])
       {
         f++;
-        result_.starts.push_back(cloud.starts[i]);
-        result_.ends.push_back(cloud.ends[i]);
-        result_.times.push_back(cloud.times[i]);
-        result_.colours.push_back(cloud.colours[i]);
+        result_.addRay(cloud, i);
       }
       else
         t++; // we aren't storing the differences. No current demand for this.

@@ -22,8 +22,8 @@ struct RAYLIB_EXPORT Cloud
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;
   std::vector<RGBA> colours;
-  inline bool rayBounded(int i) const { return colours[i].alpha > 0; }
-  inline uint8_t rayIntensity(int i) const { return colours[i].alpha; }
+  inline bool rayBounded(size_t i) const { return colours[i].alpha > 0; }
+  inline uint8_t rayIntensity(size_t i) const { return colours[i].alpha; }
 
   void save(const std::string &file_namee);
   bool load(const std::string &file_namee);
@@ -34,6 +34,8 @@ struct RAYLIB_EXPORT Cloud
 
   void transform(const Pose &pose, double time_deltaa);
   void decimate(double voxel_widthh);
+  void addRay(const Eigen::Vector3d &start, const Eigen::Vector3d &end, double time, const RGBA &colour);
+  void addRay(const Cloud &other_cloud, size_t index);
 
   void removeUnboundedRays();
 
