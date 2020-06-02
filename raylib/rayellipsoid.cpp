@@ -108,7 +108,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     scatter /= num_neighbours;
 
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
-    ASSERT(eigen_solver.info() == Success);
+    ASSERT(eigen_solver.info() == Eigen::ComputationInfo::Success);
 
     Eigen::Vector3d eigen_value = eigen_solver.eigenvalues();
     Eigen::Matrix3d eigen_vector = eigen_solver.eigenvectors();
