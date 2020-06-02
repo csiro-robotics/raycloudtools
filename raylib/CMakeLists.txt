@@ -16,7 +16,6 @@ set(PUBLIC_HEADERS
   rayellipsoid.h
   rayforestgen.h
   raygrid.h
-  rayintersect.h
   raylaz.h
   raymerger.h
   raymesh.h
