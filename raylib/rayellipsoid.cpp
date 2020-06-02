@@ -21,10 +21,6 @@ namespace ray
 void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bounds_min, Eigen::Vector3d *bounds_max,
                         const Cloud &cloud, Progress *progress)
 {
-  if (progress)
-  {
-    progress->begin("generateEllipsoids", cloud.ends.size());
-  }
   ellipsoids->clear();
   ellipsoids->resize(cloud.rayCount());
   int search_size = 16;
@@ -32,6 +28,11 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
   Eigen::Vector3d ellipsoids_min(max_double, max_double, max_double);
   Eigen::Vector3d ellipsoids_max(-max_double, -max_double, -max_double);
   Nabo::Parameters params("bucketSize", 8);
+
+  if (progress)
+  {
+    progress->begin("generateEllipsoids - KDTree", 2);
+  }
 
   Eigen::MatrixXd points_p(3, cloud.ends.size());
   for (size_t i = 0; i < cloud.rayCount(); ++i)
@@ -45,9 +46,20 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
   Eigen::MatrixXd dists2;
   indices.resize(search_size, cloud.rayCount());
   dists2.resize(search_size, cloud.rayCount());
+
+  if (progress)
+  {
+    progress->increment();
+  }
   nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);
   nns.reset(nullptr);
 
+  if (progress)
+  {
+    progress->increment();
+    progress->end();
+    progress->begin("generateEllipsoids", cloud.ends.size());
+  }
   const auto generate_ellipsoid = [&](size_t i)  //
   {
     Ellipsoid &ellipsoid = (*ellipsoids)[i];
