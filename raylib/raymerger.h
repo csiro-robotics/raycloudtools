@@ -84,12 +84,12 @@ public:
   /// @param cloud The cloud which grid indices reference rays in.
   /// @param progress Optional progress tracker.
   /// @todo This needs a more global home
-  static void fillRayGrid(Grid<size_t> *grid, const Cloud &cloud, Progress *progress = nullptr);
+  static void fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress = nullptr);
 
 private:
   double voxelSizeForCloud(const Cloud &cloud) const;
 
-  void markIntersectedEllipsoids(const Cloud &cloud, const Grid<size_t> &ray_grid,
+  void markIntersectedEllipsoids(const Cloud &cloud, const Grid<unsigned> &ray_grid,
                                  std::vector<Bool> *transient_ray_marks, bool self_transient,
                                  Progress *progress);
 
