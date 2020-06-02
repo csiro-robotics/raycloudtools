@@ -319,23 +319,23 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
     neighbour_indices->resize(search_size, ends.size());
   for (int i = 0; i < (int)ray_ids.size(); i++)
   {
-    int ii = ray_ids[i];
+    int ray_id = ray_ids[i];
     if (neighbour_indices)
     {
       int j;
-      for (j = 0; j < search_size && indices(j, i) > -1; j++) (*neighbour_indices)(j, ii) = ray_ids[indices(j, i)];
+      for (j = 0; j < search_size && indices(j, i) > -1; j++) (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
       if (j < search_size)
-        (*neighbour_indices)(j, ii) = -1;
+        (*neighbour_indices)(j, ray_id) = -1;
     }
 
-    Vector3d centroid = ends[i];
+    Vector3d centroid = ends[ray_id];
     int num;
     for (num = 0; num < search_size && indices(num, i) > -1; num++) centroid += ends[ray_ids[indices(num, i)]];
     centroid /= (double)(num + 1);
     if (centroids)
-      (*centroids)[i] = centroid;
+      (*centroids)[ray_id] = centroid;
 
-    Matrix3d scatter = (ends[i] - centroid) * (ends[i] - centroid).transpose();
+    Matrix3d scatter = (ends[ray_id] - centroid) * (ends[ray_id] - centroid).transpose();
     for (int j = 0; j < num; j++)
     {
       Vector3d offset = ends[ray_ids[indices(j, i)]] - centroid;
@@ -348,17 +348,17 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
     if (normals)
     {
       Vector3d normal = eigen_solver.eigenvectors().col(0);
-      if ((ends[i] - starts[i]).dot(normal) > 0.0)
+      if ((ends[ray_id] - starts[ray_id]).dot(normal) > 0.0)
         normal = -normal;
-      (*normals)[i] = normal;
+      (*normals)[ray_id] = normal;
     }
     if (dimensions)
     {
       Vector3d eigenvals = maxVector(Vector3d(1e-10, 1e-10, 1e-10), eigen_solver.eigenvalues());
-      (*dimensions)[i] = Vector3d(sqrt(eigenvals[0]), sqrt(eigenvals[1]), sqrt(eigenvals[2]));
+      (*dimensions)[ray_id] = Vector3d(sqrt(eigenvals[0]), sqrt(eigenvals[1]), sqrt(eigenvals[2]));
     }
     if (mats)
-      (*mats)[i] = eigen_solver.eigenvectors();
+      (*mats)[ray_id] = eigen_solver.eigenvectors();
   }
 }
 
@@ -405,9 +405,23 @@ void Cloud::split(Cloud &cloud1, Cloud &cloud2, function<bool(int i)> fptr)
   for (int i = 0; i < (int)ends.size(); i++)
   {
     Cloud &cloud = fptr(i) ? cloud2 : cloud1;
-    cloud.starts.push_back(starts[i]);
-    cloud.ends.push_back(ends[i]);
-    cloud.times.push_back(times[i]);
-    cloud.colours.push_back(colours[i]);
+    cloud.addRay(*this, i);
   }
+}
+
+void Cloud::addRay(const Eigen::Vector3d &start, const Eigen::Vector3d &end, double time, const RGBA &colour)
+{
+  starts.push_back(start);
+  ends.push_back(end);
+  times.push_back(time);
+  colours.push_back(colour);
+}
+
+
+void Cloud::addRay(const Cloud &other_cloud, size_t index)
+{
+  starts.push_back(other_cloud.starts[index]);
+  ends.push_back(other_cloud.ends[index]);
+  times.push_back(other_cloud.times[index]);
+  colours.push_back(other_cloud.colours[index]);
 }

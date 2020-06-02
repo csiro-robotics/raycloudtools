@@ -418,17 +418,11 @@ bool Merger::mergeMultiple(std::vector<Cloud> &clouds, Progress *progress)
     {
       if (transient_ray_marks[c][i])
       {
-        difference_.starts.push_back(cloud.starts[i]);
-        difference_.ends.push_back(cloud.ends[i]);
-        difference_.times.push_back(cloud.times[i]);
-        difference_.colours.push_back(cloud.colours[i]);
+        difference_.addRay(cloud, i);
       }
       else
       {
-        fixed_.starts.push_back(cloud.starts[i]);
-        fixed_.ends.push_back(cloud.ends[i]);
-        fixed_.times.push_back(cloud.times[i]);
-        fixed_.colours.push_back(cloud.colours[i]);
+        fixed_.addRay(cloud, i);
       }
     }
   }
@@ -476,10 +470,7 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
       {
         if (c == preferred_cloud)
         {
-          fixed_.starts.push_back(start);
-          fixed_.ends.push_back(point);
-          fixed_.times.push_back(cloud.times[i]);
-          fixed_.colours.push_back(cloud.colours[i]);
+          fixed_.addRay(start, point, cloud.times[i], cloud.colours[i]);
           u++;
         }
       }
@@ -564,10 +555,7 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
     {
       if (!transients[c][i])
       {
-        fixed_.starts.push_back(cloud.starts[i]);
-        fixed_.ends.push_back(cloud.ends[i]);
-        fixed_.times.push_back(cloud.times[i]);
-        fixed_.colours.push_back(cloud.colours[i]);
+        fixed_.addRay(cloud, i);
       }
       else
       {

@@ -50,6 +50,8 @@ struct RAYLIB_EXPORT Cloud
 
   void transform(const Pose &pose, double time_deltaa);
   void decimate(double voxel_widthh);
+  void addRay(const Eigen::Vector3d &start, const Eigen::Vector3d &end, double time, const RGBA &colour);
+  void addRay(const Cloud &other_cloud, size_t index);
 
   void removeUnboundedRays();
 
