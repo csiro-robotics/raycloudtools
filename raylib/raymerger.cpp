@@ -247,11 +247,6 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<Merger::Bo
 
   double sequence_length = num_rays / ellipsoid->opacity;
   int remove_ellipsoid = false;
-  // type:
-  // - 0 oldest
-  // - 1 newest
-  // - 2 min
-  // - 3 max
   if (merge_type == MergeType::Oldest || merge_type == MergeType::Newest)
   {
     if (double(std::max(num_before, num_after)) < sequence_length)
@@ -625,14 +620,14 @@ void Merger::fillRayGrid(ray::Grid<unsigned> *grid, const ray::Cloud &cloud, Pro
     }
   };
 
-#if RALIB_PARALLEL_GRID
+#if RAYLIB_PARALLEL_GRID
   tbb::parallel_for<unsigned>(0u, unsigned(cloud.rayCount()), add_ray);
-#else   // RALIB_PARALLEL_GRID
-  for (size_t i = 0; i < cloud.rayCount(); i++)
+#else   // RAYLIB_PARALLEL_GRID
+  for (unsigned i = 0; i < unsigned(cloud.rayCount()); i++)
   {
     add_ray(i);
   }
-#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_PARALLEL_GRID
 }
 
 double Merger::voxelSizeForCloud(const Cloud &cloud) const

@@ -15,10 +15,10 @@
 #define HASH_LOOKUP
 
 #if RAYLIB_WITH_TBB && defined(HASH_LOOKUP)
-#define RALIB_PARALLEL_GRID 1
-#if RALIB_PARALLEL_GRID
+#define RAYLIB_PARALLEL_GRID 1
+#if RAYLIB_PARALLEL_GRID
 #include <tbb/spin_mutex.h>
-#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_PARALLEL_GRID
 #endif  // RAYLIB_WITH_TBB
 
 namespace ray
@@ -35,17 +35,17 @@ struct RAYLIB_EXPORT GridRayInfo
 template <class T>
 struct Grid
 {
-#if RALIB_PARALLEL_GRID
+#if RAYLIB_PARALLEL_GRID
   using Mutex = tbb::spin_mutex;
-#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_PARALLEL_GRID
 
   struct Cell
   {
     std::vector<T> data;
     Eigen::Vector3i index;
-#if RALIB_PARALLEL_GRID
+#if RAYLIB_PARALLEL_GRID
     Mutex mutex;
-#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_PARALLEL_GRID
 
     inline Cell() {}
     inline Cell(const Eigen::Vector3i &index, T initial_datum)
@@ -163,16 +163,16 @@ struct Grid
     Eigen::Vector3i index(x, y, z);
     int hash = hashFunc(x, y, z);
     Bucket &bucket = buckets_.at(hash);
-#if RALIB_PARALLEL_GRID
+#if RAYLIB_PARALLEL_GRID
     Mutex::scoped_lock bucket_lock(bucket.mutex);
-#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_PARALLEL_GRID
     for (auto &c : bucket.cells)
     {
       if (c.index == index)
       {
-#if RALIB_PARALLEL_GRID
+#if RAYLIB_PARALLEL_GRID
         Mutex::scoped_lock cell_lock(c.mutex);
-#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_PARALLEL_GRID
         if (c.index == index)
         {
           c.data.emplace_back(value);
@@ -207,9 +207,6 @@ struct Grid
     std::cout << "total data stored: " << data_count << std::endl;
   }
 
-  size_t walkVoxels(const Eigen::Vector3d &start, const Eigen::Vector3d &end, const WalkVoxelsVisitFunction &visit,
-                    bool include_end_point, double length_epsilon = 1e-6) const;
-
   void walkCells(const WalkCellsVisitFunction &visit) const
   {
     for (const auto &bucket : buckets_)
@@ -230,9 +227,9 @@ protected:
   struct Bucket
   {
     std::vector<Cell> cells;
-#if RALIB_PARALLEL_GRID
+#if RAYLIB_PARALLEL_GRID
     Mutex mutex;
-#endif  // RALIB_PARALLEL_GRID
+#endif  // RAYLIB_PARALLEL_GRID
 
     inline Bucket() = default;
     inline Bucket(const Bucket &other) : cells(other.cells) {}
@@ -244,120 +241,6 @@ protected:
   std::vector<Bucket> buckets_;
   Cell null_cell_;
 };
-
-
-template <typename T>
-size_t Grid<T>::walkVoxels(const Eigen::Vector3d &start_point, const Eigen::Vector3d &end_point,
-                           const WalkVoxelsVisitFunction &visit, bool include_end_point, double length_epsilon) const
-{
-  // see "A Faster Voxel Traversal Algorithm for Ray Tracing" by Amanatides & Woo
-  // Convert the start and end points to voxel indices. Do not clamp. Clamping would change the angle of the line.
-  // FIXME: (KS) support clamping the ray to the bounds.
-  Eigen::Vector3i start_index = index(start_point, false);
-  Eigen::Vector3i end_index = index(end_point, false);
-  Eigen::Vector3d direction = end_point - start_point;
-  double length = direction.squaredNorm();
-
-  // Very small segments which straddle a voxel boundary can be problematic. We want to avoid
-  // a sqrt on a very small number, but be robust enough to handle the situation.
-  // To that end, we skip normalising the direction for directions below a tenth of the voxel.
-  // Then we will exit either with start/end voxels being the same, or we will step from start
-  // to end in one go.
-  const bool valid_length = (length >= length_epsilon * length_epsilon);
-  if (valid_length)
-  {
-    length = std::sqrt(length);
-    direction *= 1.0 / length;
-  }
-
-  GridRayInfo ray_info;
-  ray_info.ray_start = start_point;
-  ray_info.ray_end = end_point;
-  ray_info.ray_direction = direction;
-  ray_info.ray_length = length;
-
-  if (start_index == end_index)
-  {
-    if (include_end_point)
-    {
-      visit(*this, end_index, ray_info);
-    }
-    return 1u;
-  }
-
-  if (!valid_length)
-  {
-    // Start/end points are in different, but adjacent voxels. Prevent issues with the loop by
-    // early out.
-    visit(*this, start_index, ray_info);
-    if (include_end_point)
-    {
-      visit(*this, end_index, ray_info);
-      return 2;
-    }
-    return 1;
-  }
-
-  int step[3] = { 0 };
-  Eigen::Vector3d voxel;
-  double time_max[3];
-  double time_delta[3];
-  double time_limit[3];
-  double next_voxel_border;
-  double direction_axis_inv;
-  size_t added = 0;
-  Eigen::Vector3i current_index = start_index;
-
-  voxel = voxelCentre(current_index);
-
-  // Compute step direction, increments and maximums along each axis.
-  for (unsigned i = 0; i < 3; ++i)
-  {
-    if (direction[i] != 0)
-    {
-      direction_axis_inv = 1.0 / direction[i];
-      step[i] = (direction[i] > 0) ? 1 : -1;
-      // Time delta is the ray time between voxel boundaries calculated for each axis.
-      time_delta[i] = voxel_width * std::abs(direction_axis_inv);
-      // Calculate the distance from the origin to the nearest voxel edge for this axis.
-      next_voxel_border = voxel[i] + step[i] * 0.5 * voxel_width;
-      time_max[i] = (next_voxel_border - start_point[i]) * direction_axis_inv;
-      time_limit[i] = std::abs((end_point[i] - start_point[i]) * direction_axis_inv);  // +0.5f * voxel_width;
-    }
-    else
-    {
-      time_max[i] = time_delta[i] = std::numeric_limits<double>::max();
-      time_limit[i] = 0;
-    }
-  }
-
-  int axis = 0;
-  bool limit_reached = false;
-  while (!limit_reached && current_index != end_index)
-  {
-    // Only visit indices which are in range.
-    if (0 <= current_index.x() && current_index.x() < dims.x() &&  //
-        0 <= current_index.y() && current_index.y() < dims.y() &&  //
-        0 <= current_index.z() && current_index.z() < dims.z())
-    {
-      visit(*this, current_index, ray_info);
-    }
-    ++added;
-    axis = (time_max[0] < time_max[2]) ? ((time_max[0] < time_max[1]) ? 0 : 1) : ((time_max[1] < time_max[2]) ? 1 : 2);
-    limit_reached = std::abs(time_max[axis]) > time_limit[axis];
-    current_index[axis] += step[axis];
-    time_max[axis] += time_delta[axis];
-  }
-
-  if (include_end_point)
-  {
-    visit(*this, end_index, ray_info);
-    ++added;
-  }
-
-  // assert(added);
-  return added;
-}
 
 #else   // HASH_LOOKUP
 

@@ -5,6 +5,8 @@
 // Author: Kazys Stepanas
 #include "rayprogressthread.h"
 
+#include "rayutils.h"
+
 #include <iostream>
 #include <locale>
 
@@ -90,7 +92,8 @@ void ProgressThread::showProgress(Progress &progress, bool finalise, const Progr
 
     if (duration)
     {
-      std::cout << ' ' << std::chrono::duration_cast<std::chrono::duration<double>>(*duration).count() << 's';
+      // Log duration with streaming operator from ray
+      logDuration(std::cout, *duration);
     }
 
     if (finalise)
