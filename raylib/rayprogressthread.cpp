@@ -93,6 +93,7 @@ void ProgressThread::showProgress(Progress &progress, bool finalise, const Progr
     if (duration)
     {
       // Log duration with streaming operator from ray
+      std::cout << ' ';
       logDuration(std::cout, *duration);
     }
 
