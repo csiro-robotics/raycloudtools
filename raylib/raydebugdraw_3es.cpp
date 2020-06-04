@@ -92,7 +92,7 @@ DebugDraw *DebugDraw::instance()
   return s_instance.get();
 }
 
-void DebugDraw::drawray::Cloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
+void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
 {
   if (points.empty())
   {
