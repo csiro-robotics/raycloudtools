@@ -78,4 +78,4 @@ bool Trajectory::load(const std::string &file_name)
 
   return true;
 }
-}
+} // ray

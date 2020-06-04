@@ -18,9 +18,8 @@
 
 #include <map>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
+namespace ray
+{
 
 struct lessThan
 {
@@ -62,7 +61,7 @@ void ConvexHull::construct(const std::vector<Eigen::Vector3d> &points, const Eig
       for (const orgQhull::QhullVertex &v : verts) index[i++] = v.point().id();
       Eigen::Vector3d norm = (points[index[1]] - points[index[0]]).cross(points[index[2]] - points[index[0]]);
       if (norm.dot(coords) < 0.0)
-        swap(index[1], index[2]);
+        std::swap(index[1], index[2]);
       mesh.index_list.push_back(index);
     }
   }
@@ -81,7 +80,7 @@ void ConvexHull::growOutwards(double maxCurvature)
   for (auto &p : points)
   {
     p -= centre;
-    p *= pow(p.squaredNorm(), (-1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
+    p *= std::pow(p.squaredNorm(), (-1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
   }
 
   construct(points, Eigen::Vector3d(0, 0, 0));
@@ -94,7 +93,7 @@ void ConvexHull::growInwards(double maxCurvature)
   for (auto &p : points)
   {
     p -= centre;
-    p *= pow(p.squaredNorm(), (1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
+    p *= std::pow(p.squaredNorm(), (1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
   }
 
   construct(points, Eigen::Vector3d(0, 0, 0));
@@ -113,5 +112,6 @@ void ConvexHull::growInDirection(double maxCurvature, const Eigen::Vector3d &dir
   }
 
   construct(points, dir);
+}
 }
 #endif

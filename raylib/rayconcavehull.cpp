@@ -19,10 +19,8 @@
 #include <map>
 #include <unordered_map>
 
-using namespace std;
-using namespace ray;
-using namespace Eigen;
-
+namespace ray
+{
 #ifdef __unix__
 #include <stdio.h>
 #include <termios.h>
@@ -59,7 +57,7 @@ public:
 ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
 {
   centre = mean(points);
-  unordered_map<Eigen::Vector2i, int, Hasher> edgeLookup(points.size() * 2);
+  std::unordered_map<Eigen::Vector2i, int, Hasher> edgeLookup(points.size() * 2);
 
   std::cout << "number of points: " << points.size() << std::endl;
   vertices = points;
@@ -80,7 +78,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
 
   orgQhull::QhullFacetList facets = hull.facetList();
   int maxFacets = 0;
-  for (const orgQhull::QhullFacet &f : facets) maxFacets = max(maxFacets, f.id() + 1);
+  for (const orgQhull::QhullFacet &f : facets) maxFacets = std::max(maxFacets, f.id() + 1);
   std::cout << "number of total facets: " << facets.size() << std::endl;
   tetrahedra.resize(maxFacets);
 
@@ -90,7 +88,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
     if (f.isUpperDelaunay())
       continue;
     qh_makeridges(hull.qh(), f.getFacetT());
-    for (const orgQhull::QhullRidge &r : f.ridges()) maxTris = max(maxTris, r.id() + 1);
+    for (const orgQhull::QhullRidge &r : f.ridges()) maxTris = std::max(maxTris, r.id() + 1);
   }
   triangles.resize(maxTris);
   std::cout << "maximum number of triangles: " << maxTris << std::endl;
@@ -153,7 +151,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
         {
           int a = triangles[rid].vertices[i];
           int b = triangles[rid].vertices[(i + 1) % 3];
-          Eigen::Vector2i v(min(a, b), max(a, b));
+          Eigen::Vector2i v(std::min(a, b), std::max(a, b));
           const auto &res = edgeLookup.find(v);
           if (res == edgeLookup.end())
           {
@@ -296,8 +294,8 @@ bool ConcaveHull::growFront(double maxCurvature)
     int tri2 = tetra.triangles[(faceIntersects + 1) % 3];
     if (tri2 == face.triangle)
       tri2 = tetra.triangles[(faceIntersects + 2) % 3];
-    int v0 = min(otherVertex, newVertex);
-    int v1 = max(otherVertex, newVertex);
+    int v0 = std::min(otherVertex, newVertex);
+    int v1 = std::max(otherVertex, newVertex);
     for (int i = 0; i < 3; i++)
     {
       Edge &edge = edges[triangles[tri2].edges[i]];
@@ -449,5 +447,6 @@ void ConcaveHull::growInDirection(double maxCurvature, const Eigen::Vector3d &di
     }
   }
   growSurface(maxCurvature);
+}
 }
 #endif

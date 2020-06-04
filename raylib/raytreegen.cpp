@@ -183,4 +183,4 @@ void TreeGen::generateRays(double ray_density)
     ray_starts.push_back(pos + from * 0.1 * r1);
   }
 }
-}
+} // ray

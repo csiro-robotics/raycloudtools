@@ -13,11 +13,10 @@
 #include <liblas/point.hpp>
 #endif  // RAYLIB_WITH_LAS
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
 
-bool ray::readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<ray::RGBA> &colours,
+namespace ray
+{
+bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<RGBA> &colours,
                   int decimation)
 {
 #if RAYLIB_WITH_LAS
@@ -29,7 +28,7 @@ bool ray::readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions
 
   if (!ifs.is_open())
   {
-    cerr << "readLas: failed to open stream" << std::endl;
+    std::cerr << "readLas: failed to open stream" << std::endl;
     return false;
   }
 
@@ -73,7 +72,8 @@ bool ray::readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
   RAYLIB_UNUSED(decimation);
-  cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+  std::cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
 }
+} // ray

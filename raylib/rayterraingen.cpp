@@ -4,10 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "rayterraingen.h"
-using namespace ray;
-using namespace std;
-using namespace Eigen;
-
+namespace ray
+{
 struct PlanarWave
 {
   PlanarWave() {}
@@ -73,3 +71,4 @@ void TerrainGen::generate()
     // it is a union)
   }
 }
+} // ray

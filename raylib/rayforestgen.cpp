@@ -66,4 +66,4 @@ std::vector<Eigen::Vector3d> ForestGen::getPointCloud()
 
   return cloud;
 }
-}
+} // ray

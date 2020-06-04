@@ -12,10 +12,8 @@
 
 #include <set>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
+namespace ray
+{
 struct Triangle
 {
   Eigen::Vector3d corners[3];
@@ -76,7 +74,7 @@ struct Triangle
   }
 };
 
-void Mesh::splitCloud(const ray::Cloud &cloud, double offset, ray::Cloud &inside, ray::Cloud &outside)
+void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside)
 {
   // Firstly, find the average vertex normals
   std::vector<Eigen::Vector3d> normals(vertices.size());
@@ -230,10 +228,11 @@ void Mesh::splitCloud(const ray::Cloud &cloud, double offset, ray::Cloud &inside
     inside_i[ind] = ins;
   for (int i = 0; i<(int)cloud.ends.size(); i++)
   {
-    ray::Cloud &out = inside_i[i] ? inside : outside;
+    Cloud &out = inside_i[i] ? inside : outside;
     out.starts.push_back(cloud.starts[i]);
     out.ends.push_back(cloud.ends[i]);
     out.times.push_back(cloud.times[i]);
     out.colours.push_back(cloud.colours[i]);
   }
 }
+} // ray

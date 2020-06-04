@@ -4,10 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "rayroomgen.h"
-using namespace ray;
-using namespace std;
-using namespace Eigen;
-
+namespace ray
+{
 struct Cuboid
 {
   Cuboid(const Eigen::Vector3d &min_b, const Eigen::Vector3d &max_b)
@@ -29,8 +27,8 @@ struct Cuboid
       double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
       double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
 
-      max_near_d = max(max_near_d, near_d);
-      min_far_d = min(min_far_d, far_d);
+      max_near_d = std::max(max_near_d, near_d);
+      min_far_d = std::min(min_far_d, far_d);
     }
     if (max_near_d > 0.0 && max_near_d < depth && max_near_d < min_far_d)
     {
@@ -53,8 +51,8 @@ struct Cuboid
       double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
       double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
 
-      max_near_d = max(max_near_d, near_d);
-      min_far_d = min(min_far_d, far_d);
+      max_near_d = std::max(max_near_d, near_d);
+      min_far_d = std::min(min_far_d, far_d);
     }
     if (max_near_d < min_far_d && min_far_d < depth)
     {
@@ -168,7 +166,7 @@ void RoomGen::generate()
         }
       }
       if (!intersected)
-        range = min(range, (hit - start).norm());
+        range = std::min(range, (hit - start).norm());
     }
     if (i > num_rays / 2)
     {
@@ -186,3 +184,4 @@ void RoomGen::generate()
     ray_bounded.push_back(range != max_range);
   }
 }
+} // ray
