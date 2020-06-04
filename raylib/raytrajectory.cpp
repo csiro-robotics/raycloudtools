@@ -4,13 +4,12 @@
 //
 // Author: Thomas Lowe
 #include "raytrajectory.h"
-using namespace std;
-using namespace ray;
-using namespace Eigen;
 
+namespace ray
+{
 void Trajectory::save(const std::string &file_name, double time_offset)
 {
-  ofstream ofs(file_name.c_str(), ios::out);
+  std::ofstream ofs(file_name.c_str(), std::ios::out);
   ofs.unsetf(std::ios::floatfield);
   ofs.precision(15);
   ofs << "%time x y z q0 q1 q2 q3 userfields" << std::endl;
@@ -30,10 +29,10 @@ bool Trajectory::load(const std::string &file_name)
   std::string line;
   int size = -1;
   {
-    ifstream ifs(file_name.c_str(), ios::in);
+    std::ifstream ifs(file_name.c_str(), std::ios::in);
     if (!ifs)
     {
-      cerr << "Failed to open trajectory file: " << file_name << std::endl;
+      std::cerr << "Failed to open trajectory file: " << file_name << std::endl;
       return false;
     }
     ASSERT(ifs.is_open());
@@ -45,10 +44,10 @@ bool Trajectory::load(const std::string &file_name)
       size++;
     }
   }
-  ifstream ifs(file_name.c_str(), ios::in);
+  std::ifstream ifs(file_name.c_str(), std::ios::in);
   if (!ifs)
   {
-    cerr << "Failed to open trajectory file: " << file_name << std::endl;
+    std::cerr << "Failed to open trajectory file: " << file_name << std::endl;
     return false;
   }
   getline(ifs, line);
@@ -57,7 +56,7 @@ bool Trajectory::load(const std::string &file_name)
   {
     if (!ifs)
     {
-      cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
+      std::cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
       return false;
     }
 
@@ -70,7 +69,7 @@ bool Trajectory::load(const std::string &file_name)
 
   if (!ifs)
   {
-    cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
+    std::cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
     return false;
   }
 
@@ -78,4 +77,5 @@ bool Trajectory::load(const std::string &file_name)
   nodes = trajectory;
 
   return true;
+}
 }

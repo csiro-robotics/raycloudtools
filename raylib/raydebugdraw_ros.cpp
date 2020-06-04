@@ -4,7 +4,7 @@
 
 #include <eigen3/Eigen/Geometry>
 #include <ros/ros.h>
-#include <sensor_msgs/Pointray::Cloud2.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/MarkerArray.h>
 
 using namespace ray;
@@ -27,8 +27,8 @@ std::unique_ptr<DebugDraw> DebugDraw::s_instance;
 DebugDraw::DebugDraw(const std::string &fixed_frame_id)
   : imp_(new DebugDrawDetail)
 {
-  imp_->cloud_publisher[0] = imp_->n.advertise<sensor_msgs::Pointray::Cloud2>("point_cloud1", 3, true);
-  imp_->cloud_publisher[1] = imp_->n.advertise<sensor_msgs::Pointray::Cloud2>("point_cloud2", 3, true);
+  imp_->cloud_publisher[0] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud1", 3, true);
+  imp_->cloud_publisher[1] = imp_->n.advertise<sensor_msgs::PointCloud2>("point_cloud2", 3, true);
   imp_->line_publisher = imp_->n.advertise<visualization_msgs::Marker>("lines", 3, true);
   imp_->cylinder_publisher[0] = imp_->n.advertise<visualization_msgs::MarkerArray>("cylinders1", 3, true);
   imp_->cylinder_publisher[1] = imp_->n.advertise<visualization_msgs::MarkerArray>("cylinders2", 3, true);
@@ -70,9 +70,9 @@ void setField2(sensor_msgs::PointField &field, const std::string &name, int offs
   field.count = count;
 }
 
-void DebugDraw::drawray::Cloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
+void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
 {
-  sensor_msgs::Pointray::Cloud2 point_cloud;
+  sensor_msgs::PointCloud2 point_cloud;
   point_cloud.header.frame_id = 3;
   point_cloud.header.stamp = ros::Time();
   unsigned int point_step = 0;

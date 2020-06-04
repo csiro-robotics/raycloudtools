@@ -5,8 +5,9 @@
 // Author: Thomas Lowe
 #include "rayforestgen.h"
 #include "rayutils.h"
-
-void ray::ForestGen::make(double random_factor)
+namespace ray
+{
+void ForestGen::make(double random_factor)
 {
   double field_width = 10;
   double max_tree_radius = 0.1;
@@ -14,17 +15,17 @@ void ray::ForestGen::make(double random_factor)
   double adult_tree_density = 0.04;  // #trees per m^2
 
   double rad = max_tree_radius;
-  double num_trees = ray::sqr(field_width) * adult_tree_density;
+  double num_trees = sqr(field_width) * adult_tree_density;
   for (int level = 0; level < 2; level++)
   {
     for (int i = 0; i < (int)num_trees; i++)
     {
-      double radius = rad * (1.0 + ray::random(-0.25, 0.5) * random_factor);
+      double radius = rad * (1.0 + random(-0.25, 0.5) * random_factor);
       Eigen::Vector3d root;
       bool found = false;
       while (!found)
       {
-        root = field_width * 0.5 * Eigen::Vector3d(ray::random(-1.0, 1.0), ray::random(-1.0, 1.0), 0.0);
+        root = field_width * 0.5 * Eigen::Vector3d(random(-1.0, 1.0), random(-1.0, 1.0), 0.0);
         found = true;
         for (auto &tree : trees)
         {
@@ -36,7 +37,7 @@ void ray::ForestGen::make(double random_factor)
           }
         }
       }
-      ray::TreeGen tree;
+      TreeGen tree;
       trees.push_back(tree);
       trees.back().make(root, radius, random_factor);
     }
@@ -45,12 +46,12 @@ void ray::ForestGen::make(double random_factor)
   }
 }
 
-void ray::ForestGen::generateRays(double ray_density)
+void ForestGen::generateRays(double ray_density)
 {
   for (auto &tree : trees) tree.generateRays(ray_density);
 }
 
-std::vector<Eigen::Vector3d> ray::ForestGen::getCanopy()
+std::vector<Eigen::Vector3d> ForestGen::getCanopy()
 {
   std::vector<Eigen::Vector3d> canopy;
   for (auto &tree : trees) canopy.insert(canopy.end(), tree.leaves.begin(), tree.leaves.end());
@@ -58,10 +59,11 @@ std::vector<Eigen::Vector3d> ray::ForestGen::getCanopy()
   return canopy;
 }
 
-std::vector<Eigen::Vector3d> ray::ForestGen::getPointCloud()
+std::vector<Eigen::Vector3d> ForestGen::getPointCloud()
 {
   std::vector<Eigen::Vector3d> cloud;
   for (auto &tree : trees) cloud.insert(cloud.end(), tree.ray_ends.begin(), tree.ray_ends.end());
 
   return cloud;
+}
 }

@@ -6,7 +6,7 @@
 #include "raydebugdraw.h"
 #include <nabo/nabo.h>
 
-namespace
+namespace ray
 {
 typedef Eigen::Matrix<double, 6, 1> Vector6i;
 struct Vector6iLess
@@ -28,7 +28,7 @@ struct Vector6iLess
 };
 const double test_width = 0.01; // allows a minor variation when checking for similarity of rays
 
-void rayLookup(const ray::Cloud *cloud, std::set<Vector6i, Vector6iLess> &ray_lookup)
+void rayLookup(const Cloud *cloud, std::set<Vector6i, Vector6iLess> &ray_lookup)
 {
   for (size_t i = 0; i<cloud->ends.size(); i++)
   {
@@ -73,7 +73,7 @@ struct Ellipsoid
 
 // Convert the cloud into a list of ellipsoids, which represent a volume around each cloud point, 
 // shaped by the distribution of its neighbouring points.
-void generateEllipsoids(const ray::Cloud &cloud, std::vector<Ellipsoid> &ellipsoids)
+void generateEllipsoids(const Cloud &cloud, std::vector<Ellipsoid> &ellipsoids)
 {
   std::cout << "generating " << cloud.ends.size() << " ellipsoids" << std::endl;
   ellipsoids.resize(cloud.ends.size());
@@ -154,13 +154,13 @@ void generateEllipsoids(const ray::Cloud &cloud, std::vector<Ellipsoid> &ellipso
 
 // Flag each ellipsoid that has been intersected by a ray in the grid structure, for removal. 
 // Depending on the merge_type, we may instead flag the ray for removal instead (using the transients vector)
-void markIntersectedEllipsoids(const ray::Cloud &cloud, ray::Grid<int> &grid, std::vector<bool> &transients, std::vector<Ellipsoid> &ellipsoids,
+void markIntersectedEllipsoids(const Cloud &cloud, Grid<int> &grid, std::vector<bool> &transients, std::vector<Ellipsoid> &ellipsoids,
                                const std::string &merge_type, double num_rays, bool self_transient)
 {
   std::cout << "mark intersected ellipsoids, num_rays: " << num_rays << ", merge_type: " << merge_type << std::endl;
-  if (ray::DebugDraw::instance())
+  if (DebugDraw::instance())
   {
-    ray::DebugDraw::instance()->drawCloud(cloud.ends, 1.0, 0);
+    DebugDraw::instance()->drawCloud(cloud.ends, 1.0, 0);
   }
   int type = merge_type == "oldest" ? 0 : (merge_type == "newest" ? 1 : (merge_type == "min" ? 2 : 3));
   std::vector<bool> ray_tested;
@@ -183,9 +183,9 @@ void markIntersectedEllipsoids(const ray::Cloud &cloud, ray::Grid<int> &grid, st
     if (b_min[0] >= (double)grid.dims[0] || b_min[1] >= (double)grid.dims[1] ||
         b_min[2] >= (double)grid.dims[2])
       continue;
-    Eigen::Vector3i bmin = ray::maxVector(Eigen::Vector3i(0, 0, 0), Eigen::Vector3i(b_min.cast<int>()));
+    Eigen::Vector3i bmin = maxVector(Eigen::Vector3i(0, 0, 0), Eigen::Vector3i(b_min.cast<int>()));
     Eigen::Vector3i bmax =
-      ray::minVector(Eigen::Vector3i(b_max.cast<int>()), Eigen::Vector3i(grid.dims[0] - 1, grid.dims[1] - 1, grid.dims[2] - 1));
+      minVector(Eigen::Vector3i(b_max.cast<int>()), Eigen::Vector3i(grid.dims[0] - 1, grid.dims[1] - 1, grid.dims[2] - 1));
 
     std::vector<int> ray_ids;
     for (int x = bmin[0]; x <= bmax[0]; x++)
@@ -324,7 +324,7 @@ void markIntersectedEllipsoids(const ray::Cloud &cloud, ray::Grid<int> &grid, st
 }
 
 // Fill the grid acceleration structure with the rays in a ray cloud
-void fillGrid(ray::Grid<int> &grid, const ray::Cloud &cloud)
+void fillGrid(Grid<int> &grid, const Cloud &cloud)
 {
   std::cout << "filling grid with " << cloud.ends.size() << " rays" << std::endl;
   // next populate the grid with these ellipsoid centres
@@ -333,7 +333,7 @@ void fillGrid(ray::Grid<int> &grid, const ray::Cloud &cloud)
     if (!(i % 20000))
       std::cout << i << "/" << cloud.ends.size() << std::endl;
     Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
-    Eigen::Vector3d dir_sign(ray::sgn(dir[0]), ray::sgn(dir[1]), ray::sgn(dir[2]));
+    Eigen::Vector3d dir_sign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Eigen::Vector3d start = (cloud.starts[i] - grid.box_min) / grid.voxel_width;
     Eigen::Vector3d end = (cloud.ends[i] - grid.box_min) / grid.voxel_width;
     Eigen::Vector3i start_index((int)floor(start[0]), (int)floor(start[1]), (int)floor(start[2]));
@@ -362,9 +362,7 @@ void fillGrid(ray::Grid<int> &grid, const ray::Cloud &cloud)
   grid.report();
 }
 
-}
-
-void ray::Merger::mergeSingleCloud(const ray::Cloud &cloud, const std::string &merge_type, double num_rays, bool colour_cloud)
+void Merger::mergeSingleCloud(const Cloud &cloud, const std::string &merge_type, double num_rays, bool colour_cloud)
 {
   const double voxel_width = 4.0 * cloud.estimatePointSpacing();
   std::cout << "find transients" << std::endl;
@@ -372,7 +370,7 @@ void ray::Merger::mergeSingleCloud(const ray::Cloud &cloud, const std::string &m
   std::vector<Ellipsoid> ellipsoids;
   generateEllipsoids(cloud, ellipsoids);
 
-  ray::Grid<int> grid(cloud.calcMinBound(), cloud.calcMaxBound(), voxel_width);
+  Grid<int> grid(cloud.calcMinBound(), cloud.calcMaxBound(), voxel_width);
   fillGrid(grid, cloud);
 
   std::vector<bool> transients;
@@ -383,7 +381,7 @@ void ray::Merger::mergeSingleCloud(const ray::Cloud &cloud, const std::string &m
   // Lastly, generate the new ray clouds from this sphere information
   for (int i = 0; i < (int)ellipsoids.size(); i++)
   {
-    ray::RGBA col = cloud.colours[i];
+    RGBA col = cloud.colours[i];
     if (colour_cloud)
     {
       col.red = (uint8_t)((1.0 - ellipsoids[i].planarity) * 255.0);
@@ -407,9 +405,9 @@ void ray::Merger::mergeSingleCloud(const ray::Cloud &cloud, const std::string &m
   }
 }
 
-void ray::Merger::mergeMultipleClouds(std::vector<ray::Cloud> &clouds, const std::string &merge_type, double num_rays)
+void Merger::mergeMultipleClouds(std::vector<Cloud> &clouds, const std::string &merge_type, double num_rays)
 {
-  std::vector<ray::Grid<int>> grids(clouds.size());
+  std::vector<Grid<int>> grids(clouds.size());
   for (int c = 0; c < (int)clouds.size(); c++)
   {
     grids[c].init(clouds[c].calcMinBound(), clouds[c].calcMaxBound(), 4.0*clouds[c].estimatePointSpacing());
@@ -466,7 +464,7 @@ void ray::Merger::mergeMultipleClouds(std::vector<ray::Cloud> &clouds, const std
   }
 }
 
-void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1, ray::Cloud &cloud2, const std::string &merge_type, double num_rays)
+void Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2, const std::string &merge_type, double num_rays)
 {
   // The 3-way merge is similar to those performed on text files for version control systems. It attempts to apply the 
   // changes in both cloud 1 and cloud2 (compared to base_cloud). When there is a conflict (different changes in the same 
@@ -476,7 +474,7 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
   // so the threshold is test_width.
 
   // generate quick lookup for the existance of a particular (quantised) ray
-  ray::Cloud *clouds[2] = {&cloud1, &cloud2};
+  Cloud *clouds[2] = {&cloud1, &cloud2};
   std::set<Vector6i, Vector6iLess> base_ray_lookup;
   rayLookup(&base_cloud, base_ray_lookup);
   std::set<Vector6i, Vector6iLess> ray_lookups[2];
@@ -490,7 +488,7 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
   int u = 0;
   for (int c = 0; c < 2; c++)
   {
-    ray::Cloud &cloud = *clouds[c];
+    Cloud &cloud = *clouds[c];
     for (int i = 0; i<(int)cloud.ends.size(); i++)
     {
       Eigen::Vector3d &point = cloud.ends[i];
@@ -548,7 +546,7 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
   }
   // otherwise we run combine on the altered clouds
   // first, grid the rays for fast lookup
-  ray::Grid<int> grids[2];
+  Grid<int> grids[2];
   for (int c = 0; c < 2; c++)
   {
     grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), 4.0*clouds[c]->estimatePointSpacing());
@@ -597,4 +595,5 @@ void ray::Merger::mergeThreeWay(const ray::Cloud &base_cloud, ray::Cloud &cloud1
     }
     std::cout << t << " transients, " << f << " fixed rays." << std::endl;
   }
+}
 }

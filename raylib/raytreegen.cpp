@@ -8,10 +8,8 @@
 #include <fstream>
 #include <stdlib.h>
 
-using namespace ray;
-using namespace std;
-using namespace Eigen;
-
+namespace ray
+{
 void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, double &main_branch_radius,
                    double &secondary_branch_radius)
 {
@@ -26,15 +24,15 @@ void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, dou
 
 static const int kBranchAngleSize = 400;
 static double branch_angle_lookup[kBranchAngleSize];
-double ray::getMainBranchAngle(double covariance_angle)
+double getMainBranchAngle(double covariance_angle)
 {
   double x = covariance_angle * (double)kBranchAngleSize / (0.5 * kPi);
-  int i = max(0, min((int)x, kBranchAngleSize - 2));
-  double blend = max(0.0, min(x - (double)i, 1.0));
+  int i = std::max(0, std::min((int)x, kBranchAngleSize - 2));
+  double blend = std::max(0.0, std::min(x - (double)i, 1.0));
   return branch_angle_lookup[i] * (1.0 - blend) + branch_angle_lookup[i + 1] * blend;
 }
 
-void ray::fillBranchAngleLookup()
+void fillBranchAngleLookup()
 {
   double last_g = 0.0;
   double last_ang1 = 0.0;
@@ -47,7 +45,7 @@ void ray::fillBranchAngleLookup()
   while (ang1 != splitAngle * 0.5)
   {
     ang1 *= 1.0 + scale;
-    ang1 = min(ang1, splitAngle * 0.5);
+    ang1 = std::min(ang1, splitAngle * 0.5);
     //  double ang1 = splitAngle*0.5 * (double)i/(double)(numSamples-1);
     double ang2, l1, l2;
     getBranchInfo(ang1, ang2, l1, l2);
@@ -85,7 +83,7 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, double rando
   pose.position = pose * Eigen::Vector3d(0, 0, radius * branchGradient * rand_scale);
   double phi = (sqrt(5) + 1.0) / 2.0;
   rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
-  pose.rotation = pose.rotation * Quaterniond(AngleAxisd(2.0 * kPi * phi * rand_scale, Eigen::Vector3d(0, 0, 1)));
+  pose.rotation = pose.rotation * Eigen::Quaterniond(Eigen::AngleAxisd(2.0 * kPi * phi * rand_scale, Eigen::Vector3d(0, 0, 1)));
   Branch branch;
   branch.tip = pose.position;
   branch.radius = radius;
@@ -105,8 +103,8 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, double rando
   radius1 *= radius;
   radius2 *= radius;
 
-  Quaterniond q1(AngleAxisd(angle1, Eigen::Vector3d(1, 0, 0)));
-  Quaterniond q2(AngleAxisd(angle2, Eigen::Vector3d(-1, 0, 0)));
+  Eigen::Quaterniond q1(Eigen::AngleAxisd(angle1, Eigen::Vector3d(1, 0, 0)));
+  Eigen::Quaterniond q2(Eigen::AngleAxisd(angle2, Eigen::Vector3d(-1, 0, 0)));
 
   child1.rotation = child1.rotation * q1;
   child2.rotation = child2.rotation * q2;
@@ -120,7 +118,7 @@ void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double 
   com.setZero();
   total_mass = 0.0;
 
-  Pose base(root_pos, Quaterniond(AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
+  Pose base(root_pos, Eigen::Quaterniond(Eigen::AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
   Branch branch;
   branch.tip = root_pos;
   branch.parent_index = -1;
@@ -184,4 +182,5 @@ void TreeGen::generateRays(double ray_density)
       from = -from;
     ray_starts.push_back(pos + from * 0.1 * r1);
   }
+}
 }

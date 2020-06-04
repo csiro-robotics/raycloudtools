@@ -5,23 +5,22 @@
 // Author: Thomas Lowe
 #include "rayply.h"
 #include <iostream>
-using namespace std;
-using namespace Eigen;
-using namespace ray;
 
+namespace ray
+{
 // Save the polygon file to disk
-void ray::writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
-                   const std::vector<double> &times, const std::vector<ray::RGBA> &colours)
+void writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                   const std::vector<double> &times, const std::vector<RGBA> &colours)
 {
   std::cout << "saving to " << file_name << ", " << ends.size() << " rays." << std::endl;
 
-  std::vector<ray::RGBA> rgb(times.size());
+  std::vector<RGBA> rgb(times.size());
   if (colours.size() > 0)
     rgb = colours;
   else
     colourByTime(times, rgb);
 
-  std::vector<Matrix<float, 9, 1>> vertices(ends.size());  // 4d to give space for colour
+  std::vector<Eigen::Matrix<float, 9, 1>> vertices(ends.size());  // 4d to give space for colour
   bool warned = false;
   for (size_t i = 0; i < ends.size(); i++)
   {
@@ -56,7 +55,7 @@ void ray::writePly(const std::string &file_name, const std::vector<Eigen::Vector
     vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)u.f[0], (float)u.f[1], (float)n[0],
       (float)n[1], (float)n[2], (float &)rgb[i];
   }
-  ofstream out(file_name, ios::binary | ios::out);
+  std::ofstream out(file_name, std::ios::binary | std::ios::out);
 
   // do we put the starts in as normals?
   out << "ply" << std::endl;
@@ -76,16 +75,16 @@ void ray::writePly(const std::string &file_name, const std::vector<Eigen::Vector
   out << "property uchar alpha" << std::endl;
   out << "end_header" << std::endl;
 
-  out.write((const char *)&vertices[0], sizeof(Matrix<float, 9, 1>) * vertices.size());
+  out.write((const char *)&vertices[0], sizeof(Eigen::Matrix<float, 9, 1>) * vertices.size());
 }
 
-bool ray::readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times,
-                  std::vector<ray::RGBA> &colours)
+bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times,
+                  std::vector<RGBA> &colours)
 {
-  ifstream input(file_name.c_str());
+  std::ifstream input(file_name.c_str());
   if (!input.is_open())
   {
-    cerr << "Couldn't open file: " << file_name << std::endl;
+    std::cerr << "Couldn't open file: " << file_name << std::endl;
     return false;
   }
   std::string line;
@@ -126,16 +125,16 @@ bool ray::readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &st
   }
   if (offset == -1)
   {
-    cerr << "could not find position properties of file: " << file_name << std::endl;
+    std::cerr << "could not find position properties of file: " << file_name << std::endl;
     return false;
   }
   if (normal_offset == -1)
   {
-    cerr << "could not find normal properties of file: " << file_name << std::endl;
+    std::cerr << "could not find normal properties of file: " << file_name << std::endl;
     return false;
   }
 
-  streampos start = input.tellg();
+  std::streampos start = input.tellg();
   input.seekg(0, input.end);
   size_t length = input.tellg() - start;
   input.seekg(start);
@@ -215,7 +214,7 @@ bool ray::readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &st
 
     if (colour_offset != -1)
     {
-      ray::RGBA colour = (ray::RGBA &)vertices[row_size * i + colour_offset];
+      RGBA colour = (RGBA &)vertices[row_size * i + colour_offset];
       colours.push_back(colour);
       if (colour.alpha > 0)
         num_bounded++;
@@ -256,7 +255,7 @@ bool ray::readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &st
     sort(time_list.begin(), time_list.end(), [](const Temp &a, const Temp &b) { return a.time < b.time; });
     std::vector<Eigen::Vector3d> new_starts(starts.size()), new_ends(ends.size());
     std::vector<double> new_times(times.size());
-    std::vector<ray::RGBA> new_colours(colours.size());
+    std::vector<RGBA> new_colours(colours.size());
     for (size_t i = 0; i < starts.size(); i++)
     {
       new_starts[i] = starts[time_list[i].index];
@@ -275,11 +274,11 @@ bool ray::readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &st
   return true;
 }
 
-void ray::writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_normals)
+void writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_normals)
 {
   std::cout << "saving to " << file_name << ", " << mesh.vertices.size() << " vertices." << std::endl;
 
-  std::vector<Vector4f> vertices(mesh.vertices.size());  // 4d to give space for colour
+  std::vector<Eigen::Vector4f> vertices(mesh.vertices.size());  // 4d to give space for colour
   for (size_t i = 0; i < mesh.vertices.size(); i++)
     vertices[i] << (float)mesh.vertices[i][0], (float)mesh.vertices[i][1], (float)mesh.vertices[i][2], 1.0;
 
@@ -300,26 +299,26 @@ void ray::writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip
   fprintf(fid, "property list int int vertex_indices\n");
   fprintf(fid, "end_header\n");
 
-  fwrite(&vertices[0], sizeof(Vector4f), vertices.size(), fid);
+  fwrite(&vertices[0], sizeof(Eigen::Vector4f), vertices.size(), fid);
 
-  std::vector<Vector4i> triangles(mesh.index_list.size());
+  std::vector<Eigen::Vector4i> triangles(mesh.index_list.size());
   if (flip_normals)
     for (size_t i = 0; i < mesh.index_list.size(); i++)
-      triangles[i] = Vector4i(3, mesh.index_list[i][2], mesh.index_list[i][1], mesh.index_list[i][0]);
+      triangles[i] = Eigen::Vector4i(3, mesh.index_list[i][2], mesh.index_list[i][1], mesh.index_list[i][0]);
   else
     for (size_t i = 0; i < mesh.index_list.size(); i++)
-      triangles[i] = Vector4i(3, mesh.index_list[i][0], mesh.index_list[i][1], mesh.index_list[i][2]);
-  fwrite(&triangles[0], sizeof(Vector4i), triangles.size(), fid);
+      triangles[i] = Eigen::Vector4i(3, mesh.index_list[i][0], mesh.index_list[i][1], mesh.index_list[i][2]);
+  fwrite(&triangles[0], sizeof(Eigen::Vector4i), triangles.size(), fid);
   fclose(fid);
 }
 
 
-bool ray::readPlyMesh(const std::string &file, Mesh &mesh)
+bool readPlyMesh(const std::string &file, Mesh &mesh)
 {
-  ifstream input(file.c_str());
+  std::ifstream input(file.c_str());
   if (!input.is_open())
   {
-    cerr << "Couldn't open file: " << file << std::endl;
+    std::cerr << "Couldn't open file: " << file << std::endl;
     return false;
   }
   std::string line;
@@ -344,11 +343,11 @@ bool ray::readPlyMesh(const std::string &file, Mesh &mesh)
       sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_faces);
   }
 
-  std::vector<Vector4f> vertices(number_of_vertices);
+  std::vector<Eigen::Vector4f> vertices(number_of_vertices);
   // read data as a block:
-  input.read((char *)&vertices[0], sizeof(Vector4f) * vertices.size());
-  std::vector<Vector4i> triangles(number_of_faces);
-  input.read((char *)&triangles[0], sizeof(Vector4i) * triangles.size());
+  input.read((char *)&vertices[0], sizeof(Eigen::Vector4f) * vertices.size());
+  std::vector<Eigen::Vector4i> triangles(number_of_faces);
+  input.read((char *)&triangles[0], sizeof(Eigen::Vector4i) * triangles.size());
 
   mesh.vertices.resize(vertices.size());
   for (int i = 0; i < (int)vertices.size(); i++)
@@ -359,4 +358,5 @@ bool ray::readPlyMesh(const std::string &file, Mesh &mesh)
     mesh.index_list[i] = Eigen::Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
   std::cout << "reading from " << file << ", " << mesh.index_list.size() << " triangles." << std::endl;
   return true;
+}
 }
