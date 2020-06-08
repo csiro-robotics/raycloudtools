@@ -19,15 +19,20 @@
 #include <map>
 #include <unordered_map>
 
-namespace ray
-{
 #ifdef __unix__
 #include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#else  // windows?
+#include <conio.h>
+#endif
 
+namespace ray
+{
+
+#ifdef __unix__
 bool kbhit(void)
 {
   struct timeval tv;
@@ -42,8 +47,6 @@ bool kbhit(void)
   select(STDIN_FILENO + 1, &rdfs, NULL, NULL, &tv);
   return (bool)FD_ISSET(STDIN_FILENO, &rdfs);
 }
-#else  // windows?
-#include <conio.h>
 #endif
 
 static const double deadFace = 1e10;
@@ -74,7 +77,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
 
   orgQhull::Qhull hull;
   hull.setOutputStream(&std::cout);
-  hull.runQhull("", 3, points.size(), coordinates.data(), "d Qbb Qt");
+  hull.runQhull("", 3, int(points.size()), coordinates.data(), "d Qbb Qt");
 
   orgQhull::QhullFacetList facets = hull.facetList();
   int maxFacets = 0;
@@ -155,7 +158,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
           const auto &res = edgeLookup.find(v);
           if (res == edgeLookup.end())
           {
-            triangles[rid].edges[i] = edges.size();
+            triangles[rid].edges[i] = int(edges.size());
             edgeLookup.insert({ v, edges.size() });
             edges.push_back(Edge(v[0], v[1]));
           }

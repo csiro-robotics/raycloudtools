@@ -5,8 +5,10 @@
 // Author: Thomas Lowe
 #include "rayforestgen.h"
 #include "rayutils.h"
+
 namespace ray
 {
+
 void ForestGen::make(double random_factor)
 {
   double field_width = 10;
