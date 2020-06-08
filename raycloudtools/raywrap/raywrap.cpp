@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
         for (int i = 0; i < 3; i++) vs[i] = concave_hull.vertices[tri_verts[i]];
         Eigen::Vector3d normal = (vs[2] - vs[0]).cross(vs[1] - vs[0]);
         if ((centroid - vs[0]).dot(normal) < 0.0)
-          swap(tri_verts[1], tri_verts[2]);
+          std::swap(tri_verts[1], tri_verts[2]);
       }
       else
         num_bads++;
