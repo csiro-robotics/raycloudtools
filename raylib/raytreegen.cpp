@@ -8,10 +8,8 @@
 #include <fstream>
 #include <stdlib.h>
 
-using namespace ray;
-using namespace std;
-using namespace Eigen;
-
+namespace ray
+{
 void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, double &main_branch_radius,
                    double &secondary_branch_radius)
 {
@@ -26,15 +24,15 @@ void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, dou
 
 static const int kBranchAngleSize = 400;
 static double branch_angle_lookup[kBranchAngleSize];
-double ray::getMainBranchAngle(double covariance_angle)
+double getMainBranchAngle(double covariance_angle)
 {
   double x = covariance_angle * (double)kBranchAngleSize / (0.5 * kPi);
-  int i = max(0, min((int)x, kBranchAngleSize - 2));
-  double blend = max(0.0, min(x - (double)i, 1.0));
+  int i = std::max(0, std::min((int)x, kBranchAngleSize - 2));
+  double blend = std::max(0.0, std::min(x - (double)i, 1.0));
   return branch_angle_lookup[i] * (1.0 - blend) + branch_angle_lookup[i + 1] * blend;
 }
 
-void ray::fillBranchAngleLookup()
+void fillBranchAngleLookup()
 {
   double last_g = 0.0;
   double last_ang1 = 0.0;
@@ -47,7 +45,7 @@ void ray::fillBranchAngleLookup()
   while (ang1 != splitAngle * 0.5)
   {
     ang1 *= 1.0 + scale;
-    ang1 = min(ang1, splitAngle * 0.5);
+    ang1 = std::min(ang1, splitAngle * 0.5);
     //  double ang1 = splitAngle*0.5 * (double)i/(double)(numSamples-1);
     double ang2, l1, l2;
     getBranchInfo(ang1, ang2, l1, l2);
@@ -70,7 +68,7 @@ void ray::fillBranchAngleLookup()
 }
 
 static const double kMinimumRadius = 0.001;
-static Vector3d com(0, 0, 0);
+static Eigen::Vector3d com(0, 0, 0);
 static double total_mass = 0.0;
 
 void TreeGen::addBranch(int parent_index, Pose pose, double radius, double random_factor)
@@ -80,12 +78,12 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, double rando
     leaves.push_back(pose.position);
     return;
   }
-  Vector3d p1 = pose.position;
+  Eigen::Vector3d p1 = pose.position;
   double rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
-  pose.position = pose * Vector3d(0, 0, radius * branchGradient * rand_scale);
+  pose.position = pose * Eigen::Vector3d(0, 0, radius * branchGradient * rand_scale);
   double phi = (sqrt(5) + 1.0) / 2.0;
   rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
-  pose.rotation = pose.rotation * Quaterniond(AngleAxisd(2.0 * kPi * phi * rand_scale, Vector3d(0, 0, 1)));
+  pose.rotation = pose.rotation * Eigen::Quaterniond(Eigen::AngleAxisd(2.0 * kPi * phi * rand_scale, Eigen::Vector3d(0, 0, 1)));
   Branch branch;
   branch.tip = pose.position;
   branch.radius = radius;
@@ -105,8 +103,8 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, double rando
   radius1 *= radius;
   radius2 *= radius;
 
-  Quaterniond q1(AngleAxisd(angle1, Vector3d(1, 0, 0)));
-  Quaterniond q2(AngleAxisd(angle2, Vector3d(-1, 0, 0)));
+  Eigen::Quaterniond q1(Eigen::AngleAxisd(angle1, Eigen::Vector3d(1, 0, 0)));
+  Eigen::Quaterniond q2(Eigen::AngleAxisd(angle2, Eigen::Vector3d(-1, 0, 0)));
 
   child1.rotation = child1.rotation * q1;
   child2.rotation = child2.rotation * q2;
@@ -115,12 +113,12 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, double rando
 }
 
 // create the tree structure, and list of leaf points
-void TreeGen::make(const Vector3d &root_pos, double trunk_radius, double random_factor)
+void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double random_factor)
 {
   com.setZero();
   total_mass = 0.0;
 
-  Pose base(root_pos, Quaterniond(AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Vector3d(0, 0, 1))));
+  Pose base(root_pos, Eigen::Quaterniond(Eigen::AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
   Branch branch;
   branch.tip = root_pos;
   branch.parent_index = -1;
@@ -129,7 +127,7 @@ void TreeGen::make(const Vector3d &root_pos, double trunk_radius, double random_
   addBranch(0, base, trunk_radius, random_factor);
 
   com /= total_mass;
-  // cout << "COM: " << COM.transpose() << ", grad = " << COM[2]/trunkRadius << endl;
+  // std::cout << "COM: " << COM.transpose() << ", grad = " << COM[2]/trunkRadius << std::endl;
   double scale = branchGradient / (com[2] / trunk_radius);
   for (auto &leaf : leaves) leaf = root_pos + (leaf - root_pos) * scale;
   for (auto &start : ray_starts) start = root_pos + (start - root_pos) * scale;
@@ -140,7 +138,7 @@ void TreeGen::make(const Vector3d &root_pos, double trunk_radius, double random_
 // create a set of rays covering the tree at a roughly uniform distribution
 void TreeGen::generateRays(double ray_density)
 {
-  vector<double> cumulative_size(branches.size());
+  std::vector<double> cumulative_size(branches.size());
   cumulative_size[0] = 0;
   for (int i = 1; i < (int)branches.size(); i++)
   {
@@ -168,20 +166,21 @@ void TreeGen::generateRays(double ray_density)
     double r2 = branch.radius + 0.1 * (parent_branch.radius - branch.radius);
     double r = sqrt(random(sqr(r1), sqr(r2)));
     double t = (r - r1) / (r2 - r1);
-    Vector3d online = branch.tip + (parent_branch.tip - branch.tip) * t;
+    Eigen::Vector3d online = branch.tip + (parent_branch.tip - branch.tip) * t;
     double angle = random(0.0, 2.0 * kPi);
-    Vector3d up = (branch.tip - parent_branch.tip).normalized();
-    Vector3d side = up.cross(Vector3d(1, 2, 3));
-    Vector3d fwd = up.cross(side).normalized();
+    Eigen::Vector3d up = (branch.tip - parent_branch.tip).normalized();
+    Eigen::Vector3d side = up.cross(Eigen::Vector3d(1, 2, 3));
+    Eigen::Vector3d fwd = up.cross(side).normalized();
     side = fwd.cross(up);
-    Vector3d offset = side * sin(angle) + fwd * cos(angle);
-    Vector3d pos = online + offset * r;
+    Eigen::Vector3d offset = side * sin(angle) + fwd * cos(angle);
+    Eigen::Vector3d pos = online + offset * r;
     if (!(pos[0] == pos[0]))
-      cout << "bad pos" << pos.transpose() << endl;
+      std::cout << "bad pos" << pos.transpose() << std::endl;
     ray_ends.push_back(pos);
-    Vector3d from = Vector3d(random(-1, 1), random(-1, 1), random(-1, 1));
+    Eigen::Vector3d from = Eigen::Vector3d(random(-1, 1), random(-1, 1), random(-1, 1));
     if (from.dot(offset) < 0.0)
       from = -from;
     ray_starts.push_back(pos + from * 0.1 * r1);
   }
 }
+} // ray

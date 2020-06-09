@@ -4,36 +4,35 @@
 //
 // Author: Thomas Lowe
 #include "raytrajectory.h"
-using namespace std;
-using namespace ray;
-using namespace Eigen;
 
-void Trajectory::save(const string &file_name, double time_offset)
+namespace ray
 {
-  ofstream ofs(file_name.c_str(), ios::out);
+void Trajectory::save(const std::string &file_name, double time_offset)
+{
+  std::ofstream ofs(file_name.c_str(), std::ios::out);
   ofs.unsetf(std::ios::floatfield);
   ofs.precision(15);
-  ofs << "%time x y z q0 q1 q2 q3 userfields" << endl;
+  ofs << "%time x y z q0 q1 q2 q3 userfields" << std::endl;
   for (size_t i = 0; i < nodes.size(); i++)
   {
     const Pose &pose = nodes[i].pose;
     ofs << nodes[i].time + time_offset << " " << pose.position[0] << " " << pose.position[1] << " " << pose.position[2]
         << " " << pose.rotation.w() << " " << pose.rotation.x() << " " << pose.rotation.y() << " " << pose.rotation.z()
-        << " " << endl;
+        << " " << std::endl;
   }
 }
 
 /**Loads the trajectory into the supplied vector and returns if successful*/
-bool Trajectory::load(const string &file_name)
+bool Trajectory::load(const std::string &file_name)
 {
-  cout << "loading " << file_name << endl;
-  string line;
+  std::cout << "loading " << file_name << std::endl;
+  std::string line;
   int size = -1;
   {
-    ifstream ifs(file_name.c_str(), ios::in);
+    std::ifstream ifs(file_name.c_str(), std::ios::in);
     if (!ifs)
     {
-      cerr << "Failed to open trajectory file: " << file_name << endl;
+      std::cerr << "Failed to open trajectory file: " << file_name << std::endl;
       return false;
     }
     ASSERT(ifs.is_open());
@@ -45,24 +44,24 @@ bool Trajectory::load(const string &file_name)
       size++;
     }
   }
-  ifstream ifs(file_name.c_str(), ios::in);
+  std::ifstream ifs(file_name.c_str(), std::ios::in);
   if (!ifs)
   {
-    cerr << "Failed to open trajectory file: " << file_name << endl;
+    std::cerr << "Failed to open trajectory file: " << file_name << std::endl;
     return false;
   }
   getline(ifs, line);
-  vector<Node> trajectory(size);
+  std::vector<Node> trajectory(size);
   for (size_t i = 0; i < trajectory.size(); i++)
   {
     if (!ifs)
     {
-      cerr << "Invalid stream when loading trajectory file: " << file_name << endl;
+      std::cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
       return false;
     }
 
     getline(ifs, line);
-    istringstream iss(line);
+    std::istringstream iss(line);
     iss >> trajectory[i].time >> trajectory[i].pose.position[0] >> trajectory[i].pose.position[1] >>
       trajectory[i].pose.position[2] >> trajectory[i].pose.rotation.w() >> trajectory[i].pose.rotation.x() >>
       trajectory[i].pose.rotation.y() >> trajectory[i].pose.rotation.z();
@@ -70,7 +69,7 @@ bool Trajectory::load(const string &file_name)
 
   if (!ifs)
   {
-    cerr << "Invalid stream when loading trajectory file: " << file_name << endl;
+    std::cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
     return false;
   }
 
@@ -79,3 +78,4 @@ bool Trajectory::load(const string &file_name)
 
   return true;
 }
+} // ray

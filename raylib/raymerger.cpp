@@ -19,8 +19,6 @@
 #include <iostream>
 #include <set>
 
-using namespace ray;
-
 #if RAYLIB_WITH_TBB
 // With threads we use std::atomic_bool for the transient marks. These are default initialised to false. No additional
 // argument required
@@ -31,7 +29,7 @@ using namespace ray;
 #define MARKER_BOOL_INIT , false
 #endif  // RAYLIB_WITH_TBB
 
-namespace
+namespace ray
 {
 class EllipsoidTransientMarker
 {
@@ -90,7 +88,7 @@ struct Vector6iLess
 // TODO: Make config value
 const double test_width = 0.01;  // allows a minor variation when checking for similarity of rays
 
-void rayLookup(const ray::Cloud *cloud, std::set<Vector6i, Vector6iLess> &ray_lookup)
+void rayLookup(const Cloud *cloud, std::set<Vector6i, Vector6iLess> &ray_lookup)
 {
   for (size_t i = 0; i < cloud->rayCount(); i++)
   {
@@ -307,7 +305,6 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<Merger::Bo
     }
   }
 }
-}  // namespace
 
 Merger::Merger(const MergerConfig &config)
   : config_(config)
@@ -360,7 +357,7 @@ bool Merger::mergeMultiple(std::vector<Cloud> &clouds, Progress *progress)
 
   clear();
 
-  std::vector<ray::Grid<unsigned>> grids(clouds.size());
+  std::vector<Grid<unsigned>> grids(clouds.size());
   for (size_t c = 0; c < clouds.size(); c++)
   {
     const double voxel_size = voxelSizeForCloud(clouds[c]);
@@ -434,7 +431,7 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
   // end points are within the same small voxel as they were in base_cloud. so the threshold is test_width.
 
   // generate quick lookup for the existance of a particular (quantised) ray
-  ray::Cloud *clouds[2] = { &cloud1, &cloud2 };
+  Cloud *clouds[2] = { &cloud1, &cloud2 };
   std::set<Vector6i, Vector6iLess> base_ray_lookup;
   rayLookup(&base_cloud, base_ray_lookup);
   std::set<Vector6i, Vector6iLess> ray_lookups[2];
@@ -448,7 +445,7 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
   size_t u = 0;
   for (int c = 0; c < 2; c++)
   {
-    ray::Cloud &cloud = *clouds[c];
+    Cloud &cloud = *clouds[c];
     for (size_t i = 0; i < cloud.rayCount(); i++)
     {
       Eigen::Vector3d &point = cloud.ends[i];
@@ -509,7 +506,7 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
   }
   // otherwise we run combine on the altered clouds
   // first, grid the rays for fast lookup
-  ray::Grid<unsigned> grids[2];
+  Grid<unsigned> grids[2];
   for (int c = 0; c < 2; c++)
   {
     grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), voxelSizeForCloud(*clouds[c]));
@@ -570,7 +567,7 @@ void Merger::clear()
   ellipsoids_.clear();
 }
 
-void Merger::fillRayGrid(ray::Grid<unsigned> *grid, const ray::Cloud &cloud, Progress *progress)
+void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress)
 {
   if (progress)
   {
@@ -580,7 +577,7 @@ void Merger::fillRayGrid(ray::Grid<unsigned> *grid, const ray::Cloud &cloud, Pro
   const auto add_ray = [grid, &cloud, progress](unsigned i)  //
   {
     Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
-    Eigen::Vector3d dir_sign(ray::sgn(dir[0]), ray::sgn(dir[1]), ray::sgn(dir[2]));
+    Eigen::Vector3d dir_sign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
     Eigen::Vector3d start = (cloud.starts[i] - grid->box_min) / grid->voxel_width;
     Eigen::Vector3d end = (cloud.ends[i] - grid->box_min) / grid->voxel_width;
     Eigen::Vector3i start_index((int)floor(start[0]), (int)floor(start[1]), (int)floor(start[2]));
@@ -712,3 +709,4 @@ void Merger::finaliseFilter(const Cloud &cloud, const std::vector<Bool> &transie
     }
   }
 }
+} // namespace ray

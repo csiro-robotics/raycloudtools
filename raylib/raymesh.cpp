@@ -12,16 +12,14 @@
 
 #include <set>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
+namespace ray
+{
 struct Triangle
 {
-  Vector3d corners[3];
-  Vector3d normal;
+  Eigen::Vector3d corners[3];
+  Eigen::Vector3d normal;
   bool tested;
-  bool intersectsRay(const Vector3d &ray_start, const Vector3d &ray_end, double &depth)
+  bool intersectsRay(const Eigen::Vector3d &ray_start, const Eigen::Vector3d &ray_end, double &depth)
   {
     // 1. plane test:
     double d1 = (ray_start - corners[0]).dot(normal);
@@ -30,23 +28,23 @@ struct Triangle
       return false;
 
     depth = d1/(d1-d2);
-    Vector3d contact_point = ray_start + (ray_end - ray_start) * depth;
+    Eigen::Vector3d contact_point = ray_start + (ray_end - ray_start) * depth;
 
     // next we have to test every sideways direction
     for (int i = 0; i<3; i++)
     {
-      Vector3d side = (corners[(i+1)%3] - corners[i]).cross(normal);
+      Eigen::Vector3d side = (corners[(i+1)%3] - corners[i]).cross(normal);
       if ((contact_point - corners[i]).dot(side) >= 0.0)
         return false;
     }
     return true;
   }
-  double distSqrToPoint(const Vector3d &point)
+  double distSqrToPoint(const Eigen::Vector3d &point)
   {
-    Vector3d pos = point - normal*(point - corners[0]).dot(normal);
+    Eigen::Vector3d pos = point - normal*(point - corners[0]).dot(normal);
     bool outs[3];
     double ds[3];
-    Vector3d sides[3];
+    Eigen::Vector3d sides[3];
     for (int i = 0; i<3; i++)
     {
       sides[i] = (corners[(i+1)%3] - corners[i]).cross(normal);
@@ -67,7 +65,7 @@ struct Triangle
       pos -= sides[2]*ds[2]/sides[2].squaredNorm();
     return (point - pos).squaredNorm();
   }
-  bool intersectsCube(const Vector3d &cube_min, double cube_width)
+  bool intersectsCube(const Eigen::Vector3d &cube_min, double cube_width)
   {
     RAYLIB_UNUSED(cube_min);
     RAYLIB_UNUSED(cube_width);
@@ -79,12 +77,12 @@ struct Triangle
 void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside)
 {
   // Firstly, find the average vertex normals
-  vector<Vector3d> normals(vertices.size());
+  std::vector<Eigen::Vector3d> normals(vertices.size());
   for (auto &normal: normals)
     normal.setZero();
   for (auto &index: index_list)
   {
-    Vector3d normal = (vertices[index[1]]-vertices[index[0]]).cross(vertices[index[2]]-vertices[index[0]]);
+    Eigen::Vector3d normal = (vertices[index[1]]-vertices[index[0]]).cross(vertices[index[2]]-vertices[index[0]]);
     for (int i = 0; i<3; i++)
       normals[index[i]] += normal;
   }
@@ -92,8 +90,8 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     normal.normalize();
 
   // convert to separate triangles for convenience
-  vector<Triangle> triangles(index_list.size());
-  Vector3d box_min(1e10,1e10,1e10), box_max(-1e10,-1e10,-1e10);
+  std::vector<Triangle> triangles(index_list.size());
+  Eigen::Vector3d box_min(1e10,1e10,1e10), box_max(-1e10,-1e10,-1e10);
   for (int i = 0; i<(int)index_list.size(); i++)
   {
     Triangle &tri = triangles[i];
@@ -110,21 +108,21 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
 
   // Thirdly, put the triangles into a grid
   double voxel_width = 1.0;
-  vector<int> inside_indices;
+  std::vector<int> inside_indices;
   {
     int inside_val = offset >= 0.0 ? 1 : 0;
     Grid<Triangle *> grid(box_min, box_max, voxel_width);
     for (auto &tri: triangles)
     {
-      Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
-      Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
+      Eigen::Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
+      Eigen::Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
       for (int x = (int)tri_min[0]; x<=(int)tri_max[0]; x++)
       {
         for (int y = (int)tri_min[1]; y<=(int)tri_max[1]; y++)
         {
           for (int z = (int)tri_min[2]; z<=(int)tri_max[2]; z++)
           {
- //           if (tri.intersectsCube(box_min + voxel_width*Vector3d(x,y,z), voxel_width))
+ //           if (tri.intersectsCube(box_min + voxel_width*Eigen::Vector3d(x,y,z), voxel_width))
               grid.insert(x,y,z, &tri);
           }
         }
@@ -132,7 +130,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     }
 
     // Fourthly, drop each end point downwards to decide whether it is inside or outside..
-    vector<Triangle *> tris_tested;
+    std::vector<Triangle *> tris_tested;
     tris_tested.reserve(100.0);
     for (int r = 0; r<(int)cloud.ends.size(); r++)
     {
@@ -140,8 +138,8 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
      // for (int dir = -1; dir<=1; dir += 2)
       int dir = -1;
       {
-        Vector3d start = (cloud.ends[r] - box_min)/voxel_width;
-        Vector3i index(start.cast<int>());
+        Eigen::Vector3d start = (cloud.ends[r] - box_min)/voxel_width;
+        Eigen::Vector3i index(start.cast<int>());
         int end_i = dir < 0 ? 0 : grid.dims[2]-1;
         tris_tested.clear();
         for (int z = clamped(index[2], 0, grid.dims[2]-1); (z*dir)<=end_i; z+=dir)
@@ -154,7 +152,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
             tri->tested = true;
             tris_tested.push_back(tri);
             double depth;
-            if (tri->intersectsRay(cloud.ends[r], cloud.ends[r] + (double)dir*Vector3d(0.0,0.0,1e3), depth))
+            if (tri->intersectsRay(cloud.ends[r], cloud.ends[r] + (double)dir*Eigen::Vector3d(0.0,0.0,1e3), depth))
               intersections++;
           }    
         }
@@ -165,7 +163,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
         inside_indices.push_back(r);
     }
   }
-  cout << inside_indices.size()<<"/"<<cloud.ends.size() << " inside mesh" << endl;
+  std::cout << inside_indices.size()<<"/"<<cloud.ends.size() << " inside mesh" << std::endl;
 
   // what if offset is negative?
   // we have to ...
@@ -177,16 +175,16 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     for (int i = 0; i<(int)index_list.size(); i++)
     {
       if (!(i%100000))
-        cout << "filling volumes " << i << "/" << index_list.size() << endl;
+        std::cout << "filling volumes " << i << "/" << index_list.size() << std::endl;
       Triangle &tri = triangles[i];
-      Vector3d extruded_corners[3];
+      Eigen::Vector3d extruded_corners[3];
       for (int j = 0; j<3; j++)
         extruded_corners[j] = tri.corners[j] + normals[index_list[i][j]]*offset;
       
-      Vector3d tri_min = minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2]));
-      Vector3d tri_max = maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2]));
-      Vector3d tri_min2 = minVector(extruded_corners[0], minVector(extruded_corners[1], extruded_corners[2]));
-      Vector3d tri_max2 = maxVector(extruded_corners[0], maxVector(extruded_corners[1], extruded_corners[2]));
+      Eigen::Vector3d tri_min = minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2]));
+      Eigen::Vector3d tri_max = maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2]));
+      Eigen::Vector3d tri_min2 = minVector(extruded_corners[0], minVector(extruded_corners[1], extruded_corners[2]));
+      Eigen::Vector3d tri_max2 = maxVector(extruded_corners[0], maxVector(extruded_corners[1], extruded_corners[2]));
 
       tri_min = (minVector(tri_min, tri_min2) - box_min)/voxel_width;
       tri_max = (maxVector(tri_max, tri_max2) - box_min)/voxel_width;
@@ -196,15 +194,15 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
             grid2.insert(x,y,z, &tri);
     }  
     // now go through the remaining inside points
-    vector<int> new_insides;
+    std::vector<int> new_insides;
     double offset_sqr = sqr(offset);
     int p = 0;
     for (auto &r: inside_indices)
     {
       if (!(p++%1000000))
-        cout << "checking points " << p-1 << "/" << inside_indices.size() << endl;
-      Vector3d pos = (cloud.ends[r] - box_min)/voxel_width;
-      Vector3i index(pos.cast<int>());
+        std::cout << "checking points " << p-1 << "/" << inside_indices.size() << std::endl;
+      Eigen::Vector3d pos = (cloud.ends[r] - box_min)/voxel_width;
+      Eigen::Vector3i index(pos.cast<int>());
       auto &tris = grid2.cell(index[0], index[1], index[2]).data;
       bool in_tri = false;
       for (auto &tri: tris)
@@ -218,11 +216,11 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
       if (!in_tri)
         new_insides.push_back(r);
     }
-    cout << "new inside count: " << new_insides.size() << "/" << cloud.ends.size() << endl;
+    std::cout << "new inside count: " << new_insides.size() << "/" << cloud.ends.size() << std::endl;
     inside_indices = new_insides;
   }
 
-  vector<bool> inside_i(cloud.ends.size());
+  std::vector<bool> inside_i(cloud.ends.size());
   int ins = offset >= 0.0;
   for (int i = 0; i<(int)cloud.ends.size(); i++)
     inside_i[i] = !ins;
@@ -234,3 +232,4 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     out.addRay(cloud, i);
   }
 }
+} // ray

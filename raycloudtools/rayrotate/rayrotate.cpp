@@ -9,17 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
 
 void usage(int exit_code = 0)
 {
-  cout << "Rotate a raycloud about the origin" << endl;
-  cout << "usage:" << endl;
-  cout << "rayrotate raycloud 30,0,0  - rotation (rx,ry,rz) is a rotation vector in degrees:" << endl;
-  cout << "                             so this example rotates the cloud by 30 degrees in the x axis." << endl;
+  std::cout << "Rotate a raycloud about the origin" << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "rayrotate raycloud 30,0,0  - rotation (rx,ry,rz) is a rotation vector in degrees:" << std::endl;
+  std::cout << "                             so this example rotates the cloud by 30 degrees in the x axis." << std::endl;
   exit(exit_code);
 }
 
@@ -28,12 +24,12 @@ int main(int argc, char *argv[])
   if (argc != 3)
     usage();
 
-  string file = argv[1];
-  Pose pose;
-  pose.position = Vector3d(0, 0, 0);
+  std::string file = argv[1];
+  ray::Pose pose;
+  pose.position = Eigen::Vector3d(0, 0, 0);
 
-  stringstream ss(argv[2]);
-  Vector3d axis;
+  std::stringstream ss(argv[2]);
+  Eigen::Vector3d axis;
   ss >> axis[0];
   ss.ignore(1);
   ss >> axis[1];
@@ -42,9 +38,9 @@ int main(int argc, char *argv[])
 
   double angle = axis.norm();
   axis /= angle;
-  pose.rotation = Quaterniond(AngleAxisd(angle * kPi / 180.0, axis));
+  pose.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(angle * ray::kPi / 180.0, axis));
 
-  Cloud cloud;
+  ray::Cloud cloud;
   cloud.load(file);
   cloud.transform(pose, 0.0);
   cloud.save(file);

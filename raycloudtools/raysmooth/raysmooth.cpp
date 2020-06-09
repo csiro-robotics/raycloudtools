@@ -12,19 +12,15 @@
 #include <string.h>
 #include <iostream>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
 void usage(int exit_code = 0)
 {
-  cout << "Smooth a ray cloud. Nearby off-surface points are moved onto the nearest surface." << endl;
-  cout << "usage:" << endl;
-  cout << "raysmooth raycloud" << endl;
+  std::cout << "Smooth a ray cloud. Nearby off-surface points are moved onto the nearest surface." << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raysmooth raycloud" << std::endl;
   exit(exit_code);
 }
 
-void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, int num_neighbors,
+void smoothPointCloud(std::vector<Eigen::Vector3d> &positions, std::vector<Eigen::Vector3d> &normals, int num_neighbors,
                       int smoothing_iterations, double r_bar)
 {
   ASSERT(positions.size() == normals.size());
@@ -33,11 +29,11 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
   double eps = 0.1;
   double max_radius = std::numeric_limits<double>::infinity();
 
-  cout << "smooth_pointcloud with " << positions.size() << " points, " << num_neighbors << " neighbours, "
-       << smoothing_iterations << " iters, rbar " << r_bar << endl;
+  std::cout << "smooth_pointcloud with " << positions.size() << " points, " << num_neighbors << " neighbours, "
+       << smoothing_iterations << " iters, rbar " << r_bar << std::endl;
 
   // Set up structures for search (pNumDims,numPoints)
-  MatrixXd data(6, positions.size());
+  Eigen::MatrixXd data(6, positions.size());
   for (unsigned int i = 0; i < positions.size(); i++) data.col(i) << positions[i], normals[i];
 
   Nabo::NNSearchD *nns;
@@ -53,29 +49,29 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
 
   // Set up data structures for output
 
-  vector<Vector3d> smooth_normals = normals;
+  std::vector<Eigen::Vector3d> smooth_normals = normals;
 
-  const double rbar2 = sqr(r_bar);
+  const double rbar2 = ray::sqr(r_bar);
 
   for (int iter = 1; iter < smoothing_iterations; ++iter)
   {
 #pragma omp parallel for schedule(guided, 128)
     for (unsigned int i = 0; i < positions.size(); ++i)
     {
-      Vector3d normal = normals[i];
-      Matrix3d scatter = normal * normal.transpose();
+      Eigen::Vector3d normal = normals[i];
+      Eigen::Matrix3d scatter = normal * normal.transpose();
 
       for (int j = 0; j < num_neighbors && indices(j, i) > -1; ++j)
       {
         int k = indices(j, i);
         double d = 1.0 - (normals[k].dot(normal));
-        double weight = (d > 1.0) ? 0.0 : (1.0 / (1 + sqr(d) / rbar2));
+        double weight = (d > 1.0) ? 0.0 : (1.0 / (1 + ray::sqr(d) / rbar2));
         scatter += weight * normals[k] * normals[k].transpose();
       }
 
-      SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
       ASSERT(eigen_solver.info() == Success);
-      Matrix3d eigen_vector = eigen_solver.eigenvectors();
+      Eigen::Matrix3d eigen_vector = eigen_solver.eigenvectors();
 
       for (int j = 0; j < 3; ++j) smooth_normals[i][j] = eigen_vector.coeff(j, 2);
 
@@ -89,13 +85,13 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
   }
 
   const double surface_r_bar = 0.05;
-  vector<Vector3d> smooth_points(positions.size());
+  std::vector<Eigen::Vector3d> smooth_points(positions.size());
 
 #pragma omp parallel for schedule(guided, 128)
   for (unsigned int i = 0; i < positions.size(); ++i)
   {
     int j, k;
-    Vector3d normal = normals[i];
+    Eigen::Vector3d normal = normals[i];
     double t, t0;
     t = t0 = normal.dot(positions[i]);
 
@@ -106,10 +102,10 @@ void smoothPointCloud(vector<Vector3d> &positions, vector<Vector3d> &normals, in
       for (j = 0; j < num_neighbors && indices(j, i) > -1; ++j)
       {
         k = indices(j, i);
-        if (normal.dot(normals[k]) < cos(45. / 180. * kPi))
+        if (normal.dot(normals[k]) < cos(45.0 / 180.0 * ray::kPi))
           continue;
         double distance = normal.dot(positions[k]) - t;
-        double weight = 1.0 / (1.0 + sqr(distance / surface_r_bar));
+        double weight = 1.0 / (1.0 + ray::sqr(distance / surface_r_bar));
         total_distance += weight * distance;
         total_weight += weight;
       }
@@ -128,11 +124,11 @@ int main(int argc, char *argv[])
   if (argc != 2)
     usage();
 
-  string file = argv[1];
-  Cloud cloud;
+  std::string file = argv[1];
+  ray::Cloud cloud;
   cloud.load(file);
 
-  vector<Vector3d> normals = cloud.generateNormals();
+  std::vector<Eigen::Vector3d> normals = cloud.generateNormals();
 
   smoothPointCloud(cloud.ends, normals, 15, 10, 10);
 

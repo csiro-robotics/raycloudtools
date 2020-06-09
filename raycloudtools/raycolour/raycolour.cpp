@@ -9,19 +9,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-using namespace std;
-using namespace Eigen;
-using namespace ray;
 
 void usage(int exit_code = 0)
 {
-  cout << "Colour the ray cloud, and/or shade it" << endl;
-  cout << "usage:" << endl;
-  cout << "raycolour raycloud time shaded  - colour by time, and shaded (optional on all types)" << endl;
-  cout << "                   height       - colour by height" << endl;
-  cout << "                   shape        - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << endl;
-  cout << "                   normal       - colour by normal" << endl;
-  cout << "                   1,1,1 shaded - just (r,g,b) shaded" << endl;
+  std::cout << "Colour the ray cloud, and/or shade it" << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "raycolour raycloud time shaded  - colour by time, and shaded (optional on all types)" << std::endl;
+  std::cout << "                   height       - colour by height" << std::endl;
+  std::cout << "                   shape        - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
+  std::cout << "                   normal       - colour by normal" << std::endl;
+  std::cout << "                   1,1,1 shaded - just (r,g,b) shaded" << std::endl;
   exit(exit_code);
 }
 
@@ -35,31 +32,30 @@ int main(int argc, char *argv[])
   if (argc == 4)
   {
     shaded = true;
-    if (string(argv[3]) != "shaded")
+    if (std::string(argv[3]) != "shaded")
       usage();
   }
-  string file = argv[1];
-  Cloud cloud;
+  std::string file = argv[1];
+  ray::Cloud cloud;
   cloud.load(file);
-  string type = string(argv[2]);
+  std::string type = std::string(argv[2]);
 
   // what I need is the normal, curvature, eigenvalues, per point.
   struct Data
   {
-    Vector3d normal;
-    Vector3d dimensions;
+    Eigen::Vector3d normal;
+    Eigen::Vector3d dimensions;
     double curvature;
   };
-  vector<Data> data(cloud.ends.size());
+  std::vector<Data> data(cloud.ends.size());
   const int search_size = 20;
-  vector<Vector3d> centroids;
-  vector<Vector3d> dimensions;
-  vector<Vector3d> normals;
-  vector<Matrix3d> matrices;
-  MatrixXi indices;
-  vector<Vector3d> *cents = NULL, *dims = NULL, *norms = NULL;
-  vector<Matrix3d> *mats = NULL;
-  MatrixXi *inds = NULL;
+  std::vector<Eigen::Vector3d> centroids;
+  std::vector<Eigen::Vector3d> dimensions;
+  std::vector<Eigen::Vector3d> normals;
+  Eigen::MatrixXi indices;
+  std::vector<Eigen::Vector3d> *cents = NULL, *dims = NULL, *norms = NULL;
+  std::vector<Eigen::Matrix3d> *mats = NULL;
+  Eigen::MatrixXi *inds = NULL;
 
   // what do we want to calculate...
   bool calc_surfels = true;
@@ -79,10 +75,10 @@ int main(int argc, char *argv[])
   if (calc_surfels)
     cloud.getSurfels(search_size, cents, norms, dims, mats, inds);
 
-  if (type.find(",") != string::npos)
+  if (type.find(",") != std::string::npos)
   {
-    stringstream ss(type);
-    Vector3d vec;
+    std::stringstream ss(type);
+    Eigen::Vector3d vec;
     ss >> vec[0];
     ss.ignore(1);
     ss >> vec[1];
@@ -101,7 +97,7 @@ int main(int argc, char *argv[])
   }
   else if (type == "height")
   {
-    vector<double> heights(cloud.ends.size());
+    std::vector<double> heights(cloud.ends.size());
     for (int i = 0; i < (int)cloud.ends.size(); i++) heights[i] = cloud.ends[i][2];
     redGreenBlueSpectrum(heights, cloud.colours, 10.0, false);
   }
@@ -135,7 +131,7 @@ int main(int argc, char *argv[])
 
   if (shaded)
   {
-    vector<double> curvatures(cloud.ends.size());
+    std::vector<double> curvatures(cloud.ends.size());
     for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
       if (!cloud.rayBounded(i))
@@ -144,7 +140,7 @@ int main(int argc, char *argv[])
       for (int j = 0; j < search_size && indices(j, i) > -1; j++)
       {
         int id = indices(j, i);
-        Vector3d flat = cloud.ends[id] - centroids[i];
+        Eigen::Vector3d flat = cloud.ends[id] - centroids[i];
         double y = flat.dot(normals[i]);
         flat -= y * normals[i];
         double x = flat.squaredNorm();
@@ -161,7 +157,7 @@ int main(int argc, char *argv[])
       else
         curvatures[i] = (n * sum_xy - sum_x * sum_y) / den;
     }
-    Vector3d light_dir = Vector3d(0.2, 0.4, 1.0).normalized();
+    Eigen::Vector3d light_dir = Eigen::Vector3d(0.2, 0.4, 1.0).normalized();
     double curve_scale = 4.0;
     for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
@@ -169,14 +165,14 @@ int main(int argc, char *argv[])
         continue;
       double scale1 = 0.5 + 0.5 * normals[i].dot(light_dir);
       double scale2 = 0.5 - 0.5 * curvatures[i] / curve_scale;
-      double s = 0.25 + 0.75 * clamped((scale1 + scale2) / 2.0, 0.0, 1.0);
+      double s = 0.25 + 0.75 * ray::clamped((scale1 + scale2) / 2.0, 0.0, 1.0);
       cloud.colours[i].red = (uint8_t)((double)cloud.colours[i].red * s);
       cloud.colours[i].green = (uint8_t)((double)cloud.colours[i].green * s);
       cloud.colours[i].blue = (uint8_t)((double)cloud.colours[i].blue * s);
     }
   }
 
-  string file_stub = file;
+  std::string file_stub = file;
   if (file.substr(file.length() - 4) == ".ply")
     file_stub = file.substr(0, file.length() - 4);
   cloud.save(file_stub + "_coloured.ply");

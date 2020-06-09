@@ -13,23 +13,22 @@
 #include <liblas/point.hpp>
 #endif  // RAYLIB_WITH_LAS
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
 
-bool ray::readLas(string file_name, vector<Vector3d> &positions, vector<double> &times, vector<RGBA> &colours,
+namespace ray
+{
+bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<RGBA> &colours,
                   int decimation)
 {
 #if RAYLIB_WITH_LAS
-  vector<double> intensities;
-  cout << "readLas: filename: " << file_name << endl;
+  std::vector<double> intensities;
+  std::cout << "readLas: filename: " << file_name << std::endl;
 
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
 
   if (!ifs.is_open())
   {
-    cerr << "readLas: failed to open stream" << endl;
+    std::cerr << "readLas: failed to open stream" << std::endl;
     return false;
   }
 
@@ -47,7 +46,7 @@ bool ray::readLas(string file_name, vector<Vector3d> &positions, vector<double> 
     // we're downsampling to 1/decimation of the orginal file.
     if ((i % decimation) == 0)
     {
-      Vector3d position;
+      Eigen::Vector3d position;
       position[0] = point.GetX();
       position[1] = point.GetY();
       position[2] = point.GetZ();
@@ -65,7 +64,7 @@ bool ray::readLas(string file_name, vector<Vector3d> &positions, vector<double> 
   for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
     colours[i].alpha = uint8_t(255.0 * clamped(intensities[i], 0.0, 1.0));
 
-  cout << "loaded " << file_name << " with " << positions.size() << " points" << endl;
+  std::cout << "loaded " << file_name << " with " << positions.size() << " points" << std::endl;
   return true;
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
@@ -73,7 +72,8 @@ bool ray::readLas(string file_name, vector<Vector3d> &positions, vector<double> 
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
   RAYLIB_UNUSED(decimation);
-  cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << endl;
+  std::cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
 }
+} // ray

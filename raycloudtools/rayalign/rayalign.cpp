@@ -16,43 +16,39 @@
 #include <iostream>
 #include <complex>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
-
 void usage(int exit_code = 0)
 {
-  cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << endl;
-  cout << "usage:" << endl;
-  cout << "rayalign raycloudA raycloudB" << endl;
-  cout << "                             --rigid    - rigid alignment only" << endl;
-  cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << endl;
-  cout
+  std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "rayalign raycloudA raycloudB" << std::endl;
+  std::cout << "                             --rigid    - rigid alignment only" << std::endl;
+  std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
+  std::cout
     << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
-    << endl;
+    << std::endl;
   exit(exit_code);
 }
 
-void getSurfel(const vector<Vector3d> &points, const vector<int> &ids, Vector3d &centroid, Vector3d &width,
-               Matrix3d &mat)
+void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int> &ids, Eigen::Vector3d &centroid, Eigen::Vector3d &width,
+               Eigen::Matrix3d &mat)
 {
-  Vector3d total(0, 0, 0);
+  Eigen::Vector3d total(0, 0, 0);
   for (auto &id : ids) total += points[id];
   centroid = total / (double)ids.size();
 
-  Matrix3d scatter;
+  Eigen::Matrix3d scatter;
   scatter.setZero();
   for (auto &id : ids)
   {
-    Vector3d offset = points[id] - centroid;
+    Eigen::Vector3d offset = points[id] - centroid;
     scatter += offset * offset.transpose();
   }
   scatter / (double)ids.size();
 
-  SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
   ASSERT(eigen_solver.info() == Success);
-  width = maxVector(eigen_solver.eigenvalues(), Vector3d(1e-5, 1e-5, 1e-5));
-  width = Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
+  width = ray::maxVector(eigen_solver.eigenvalues(), Eigen::Vector3d(1e-5, 1e-5, 1e-5));
+  width = Eigen::Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
   mat = eigen_solver.eigenvectors();
 }
 
@@ -62,7 +58,7 @@ int main(int argc, char *argv[])
   // For less, we can additionally repeat this procedure for small scale cubic sections (perhaps 20% of map width)
   // then use the fft power spectrum (low res) as a descriptor into the knn to find matching locations,
   // then pick the best match.
-  DebugDraw &draw = *DebugDraw::init(argc, argv, "rayalign");
+  ray::DebugDraw &draw = *ray::DebugDraw::init(argc, argv, "rayalign");
 
   if (argc < 3 || argc > 6)
     usage();
@@ -71,23 +67,23 @@ int main(int argc, char *argv[])
   bool local_only = false;
   for (int a = 3; a < argc; a++)
   {
-    if (string(argv[a]) == "--verbose" || string(argv[a]) == "-v")
+    if (std::string(argv[a]) == "--verbose" || std::string(argv[a]) == "-v")
       verbose = true;
-    else if (string(argv[a]) == "--rigid" || string(argv[a]) == "-r")
+    else if (std::string(argv[a]) == "--rigid" || std::string(argv[a]) == "-r")
       rigid_only = true;
-    else if (string(argv[a]) == "--local" || string(argv[a]) == "-l")
+    else if (std::string(argv[a]) == "--local" || std::string(argv[a]) == "-l")
       local_only = true;
     else
       usage();
   }
 
-  string file_a = argv[1];
-  string file_b = argv[2];
-  string file_stub = file_a;
+  std::string file_a = argv[1];
+  std::string file_b = argv[2];
+  std::string file_stub = file_a;
   if (file_stub.substr(file_stub.length() - 4) == ".ply")
     file_stub = file_stub.substr(0, file_stub.length() - 4);
 
-  AlignTranslationYaw aligner;
+  ray::AlignTranslationYaw aligner;
   aligner.clouds[0].load(file_a);
   aligner.clouds[1].load(file_b);
 
@@ -107,20 +103,20 @@ int main(int argc, char *argv[])
   // 5. solve a weighted least squares to find the transform of best fit
   // 6. apply the transform to cloud0 and save it out.
 
-  vector<Matrix3d> matrices[2];
+  std::vector<Eigen::Matrix3d> matrices[2];
 
-  vector<Vector3d> centroids[2];
-  vector<Vector3d> normals[2];
-  vector<Vector3d> widths[2];
-  vector<bool> is_plane[2];
-  Vector3d centres[2];
+  std::vector<Eigen::Vector3d> centroids[2];
+  std::vector<Eigen::Vector3d> normals[2];
+  std::vector<Eigen::Vector3d> widths[2];
+  std::vector<bool> is_plane[2];
+  Eigen::Vector3d centres[2];
   for (int c = 0; c < 2; c++)
   {
     // 1. decimate quite fine
-    vector<int64_t> decimated = voxelSubsample(aligner.clouds[c].ends, 0.1);
-    vector<Vector3d> decimated_points;
+    std::vector<int64_t> decimated = ray::voxelSubsample(aligner.clouds[c].ends, 0.1);
+    std::vector<Eigen::Vector3d> decimated_points;
     decimated_points.reserve(decimated.size());
-    vector<Vector3d> decimated_starts;
+    std::vector<Eigen::Vector3d> decimated_starts;
     decimated_starts.reserve(decimated.size());
     centres[c].setZero();
     for (size_t i = 0; i < decimated.size(); i++)
@@ -135,9 +131,9 @@ int main(int argc, char *argv[])
     centres[c] /= (double)decimated_points.size(); 
 
     // 2. find the coarser random candidate points. We just want a fairly even spread but not the voxel centres
-    vector<int64_t> candidates = voxelSubsample(decimated_points, 1.0);
-    vector<Vector3d> candidate_points(candidates.size());
-    vector<Vector3d> candidate_starts(candidates.size());
+    std::vector<int64_t> candidates = ray::voxelSubsample(decimated_points, 1.0);
+    std::vector<Eigen::Vector3d> candidate_points(candidates.size());
+    std::vector<Eigen::Vector3d> candidate_starts(candidates.size());
     for (int64_t i = 0; i < (int64_t)candidates.size(); i++)
     {
       candidate_points[i] = decimated_points[candidates[i]];
@@ -149,15 +145,15 @@ int main(int argc, char *argv[])
     size_t p_size = decimated_points.size();
 
     Nabo::NNSearchD *nns;
-    MatrixXd points_q(3, q_size);
+    Eigen::MatrixXd points_q(3, q_size);
     for (size_t i = 0; i < q_size; i++) points_q.col(i) = candidate_points[i];
-    MatrixXd points_p(3, p_size);
+    Eigen::MatrixXd points_p(3, p_size);
     for (size_t i = 0; i < p_size; i++) points_p.col(i) = decimated_points[i];
     nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
     // Run the search
-    MatrixXi indices;
-    MatrixXd dists2;
+    Eigen::MatrixXi indices;
+    Eigen::MatrixXd dists2;
     indices.resize(search_size, q_size);
     dists2.resize(search_size, q_size);
     nns->knn(points_q, indices, dists2, search_size, 0.01, 0, 1.0);
@@ -168,7 +164,7 @@ int main(int argc, char *argv[])
     widths[c].reserve(q_size);
     matrices[c].reserve(q_size);
     is_plane[c].reserve(q_size);
-    vector<int> ids;
+    std::vector<int> ids;
     ids.reserve(search_size);
     const size_t min_points_per_ellipsoid = 5;
     for (size_t i = 0; i < q_size; i++)
@@ -179,9 +175,9 @@ int main(int argc, char *argv[])
       if (ids.size() < min_points_per_ellipsoid)  // not dense enough
         continue;
 
-      Vector3d centroid;
-      Vector3d width;
-      Matrix3d mat;
+      Eigen::Vector3d centroid;
+      Eigen::Vector3d width;
+      Eigen::Matrix3d mat;
       getSurfel(decimated_points, ids, centroid, width, mat);
       double q1 = width[0] / width[1];
       double q2 = width[1] / width[2];
@@ -206,7 +202,7 @@ int main(int argc, char *argv[])
       }
       else
       {
-        Vector3d normal = mat.col(0);
+        Eigen::Vector3d normal = mat.col(0);
         if ((centroid - candidate_starts[i]).dot(normal) > 0.0)
           normal = -normal;
         // now repeat but removing back facing points. This deals better with double walls, which are quite common
@@ -238,19 +234,19 @@ int main(int argc, char *argv[])
     }
     draw.drawCloud(decimated_points, 0.5 + 0.4 * (double)c, c);
   }
-  draw.drawEllipsoids(centroids[1], matrices[1], widths[1], Vector3d(0, 1, 0), 1);
+  draw.drawEllipsoids(centroids[1], matrices[1], widths[1], Eigen::Vector3d(0, 1, 0), 1);
 
   // Now we have the ellipsoids, we need to do a nearest neighbour on this set of data, trying to match orientation as
   // well as location
   struct Match
   {
     int ids[2];
-    Vector3d normal;
+    Eigen::Vector3d normal;
   };
-  vector<Match> matches;
+  std::vector<Match> matches;
   {
     // with these matches we now run the iterative reweighted least squares..
-    Pose pose = Pose::identity();
+    ray::Pose pose = ray::Pose::identity();
     int max_iterations = 8;
     const double translation_weight = 0.4;  // smaller finds matches further away
     const double max_normal_difference = 0.5;
@@ -258,31 +254,31 @@ int main(int argc, char *argv[])
     {
       //   if (it < 3) // the distribution of re-matching within the iterations is open to adjustment
       {
-        vector<Vector3d> line_starts;
-        vector<Vector3d> line_ends;
+        std::vector<Eigen::Vector3d> line_starts;
+        std::vector<Eigen::Vector3d> line_ends;
         int search_size = 1;
         size_t q_size = centroids[0].size();
         size_t p_size = centroids[1].size();
         Nabo::NNSearchD *nns;
-        MatrixXd points_q(7, q_size);
+        Eigen::MatrixXd points_q(7, q_size);
         for (size_t i = 0; i < q_size; i++)
         {
-          Vector3d p = centroids[0][i] * translation_weight;
+          Eigen::Vector3d p = centroids[0][i] * translation_weight;
           p[2] *= 2.0;  // doen't make much difference...
           points_q.col(i) << p, normals[0][i], is_plane[0][i] ? 1.0 : 0.0;
         }
-        MatrixXd points_p(7, p_size);
+        Eigen::MatrixXd points_p(7, p_size);
         for (size_t i = 0; i < p_size; i++)
         {
-          Vector3d p = centroids[1][i] * translation_weight;
+          Eigen::Vector3d p = centroids[1][i] * translation_weight;
           p[2] *= 2.0;
           points_p.col(i) << p, normals[1][i], is_plane[1][i] ? 1.0 : 0.0;
         }
         nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 7);
 
         // Run the search
-        MatrixXi indices;
-        MatrixXd dists2;
+        Eigen::MatrixXi indices;
+        Eigen::MatrixXd dists2;
         indices.resize(search_size, q_size);
         dists2.resize(search_size, q_size);
         nns->knn(points_q, indices, dists2, search_size, 0.01, 0, max_normal_difference);
@@ -299,7 +295,7 @@ int main(int argc, char *argv[])
             bool plane = is_plane[0][i];
             if (plane != is_plane[1][indices(j, i)])
               continue;
-            Vector3d mid_norm = (normals[0][i] + normals[1][indices(j, i)]).normalized();
+            Eigen::Vector3d mid_norm = (normals[0][i] + normals[1][indices(j, i)]).normalized();
             if (plane)
             {
               match.normal = mid_norm;
@@ -308,7 +304,7 @@ int main(int argc, char *argv[])
             else
             {
               // a cylinder is like two normal constraints
-              match.normal = mid_norm.cross(Vector3d(1, 2, 3)).normalized();
+              match.normal = mid_norm.cross(Eigen::Vector3d(1, 2, 3)).normalized();
               matches.push_back(match);
               match.normal = mid_norm.cross(match.normal);
               matches.push_back(match);
@@ -318,44 +314,44 @@ int main(int argc, char *argv[])
           }
         }
         draw.drawLines(line_starts, line_ends);
-        draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Vector3d(1, 0, 0), 0);
+        draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Eigen::Vector3d(1, 0, 0), 0);
       }
 
       // don't go above 30*... or below 10*...
       double d = 20.0 * (double)it / (double)max_iterations;
       const int state_size = 12;
-      Matrix<double, state_size, state_size> at_a;
+      Eigen::Matrix<double, state_size, state_size> at_a;
       at_a.setZero();
-      Matrix<double, state_size, 1> at_b;
+      Eigen::Matrix<double, state_size, 1> at_b;
       at_b.setZero();
       double square_error = 0.0;
       for (size_t i = 0; i < matches.size(); i++)
       {
         auto &match = matches[i];
-        Vector3d positions[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
+        Eigen::Vector3d positions[2] = { centroids[0][match.ids[0]], centroids[1][match.ids[1]] };
         double error = (positions[1] - positions[0]).dot(match.normal);  // mahabolonis instead?
         double error_sqr;
         if (is_plane[0][match.ids[0]])
-          error_sqr = sqr(error * translation_weight);
+          error_sqr = ray::sqr(error * translation_weight);
         else
         {
-          Vector3d flat = positions[1] - positions[0];
-          Vector3d norm = normals[0][match.ids[0]];
+          Eigen::Vector3d flat = positions[1] - positions[0];
+          Eigen::Vector3d norm = normals[0][match.ids[0]];
           flat -= norm * flat.dot(norm);
           error_sqr = (flat * translation_weight).squaredNorm();
         }
         // the normal difference is part of the error,
         error_sqr += (normals[0][match.ids[0]] - normals[1][match.ids[1]]).squaredNorm();
-        double weight = pow(max(1.0 - error_sqr / sqr(max_normal_difference), 0.0), d * d);
-        square_error += sqr(error);
-        Matrix<double, state_size, 1> at;  // the Jacobian
+        double weight = pow(std::max(1.0 - error_sqr / ray::sqr(max_normal_difference), 0.0), d * d);
+        square_error += ray::sqr(error);
+        Eigen::Matrix<double, state_size, 1> at;  // the Jacobian
         at.setZero();
 
         for (int i = 0; i < 3; i++)  // change in error with change in raycloud translation
           at[i] = match.normal[i];
         for (int i = 0; i < 3; i++)  // change in error with change in raycloud orientation
         {
-          Vector3d axis(0, 0, 0);
+          Eigen::Vector3d axis(0, 0, 0);
           axis[i] = 1.0;
           at[3 + i] = -(positions[0].cross(axis)).dot(match.normal);
         }
@@ -363,45 +359,45 @@ int main(int argc, char *argv[])
         {
           positions[0] -= centres[0];
           positions[1] -= centres[1];
-          at[6] = sqr(positions[0][0]) * match.normal[0];
-          at[7] = sqr(positions[0][0]) * match.normal[1];
-          at[8] = sqr(positions[0][1]) * match.normal[0];
-          at[9] = sqr(positions[0][1]) * match.normal[1];
+          at[6] = ray::sqr(positions[0][0]) * match.normal[0];
+          at[7] = ray::sqr(positions[0][0]) * match.normal[1];
+          at[8] = ray::sqr(positions[0][1]) * match.normal[0];
+          at[9] = ray::sqr(positions[0][1]) * match.normal[1];
           at[10] = positions[0][0] * positions[0][1] * match.normal[0];
           at[11] = positions[0][0] * positions[0][1] * match.normal[1];
         }
         at_a += at * weight * at.transpose();
         at_b += at * weight * error;
       }
-      Matrix<double, state_size, 1> x = at_a.ldlt().solve(at_b);
-      cout << "rmse: " << sqrt(square_error / (double)matches.size()) << endl;
-      cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4]
-           << ", " << x[5] << endl;
-      Vector3d rot(x[3], x[4], x[5]);
-      Vector3d a(x[6], x[7], 0), b(x[8], x[9], 0), c(x[10], x[11], 0);
+      Eigen::Matrix<double, state_size, 1> x = at_a.ldlt().solve(at_b);
+      std::cout << "rmse: " << sqrt(square_error / (double)matches.size()) << std::endl;
+      std::cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4]
+           << ", " << x[5] << std::endl;
+      Eigen::Vector3d rot(x[3], x[4], x[5]);
+      Eigen::Vector3d a(x[6], x[7], 0), b(x[8], x[9], 0), c(x[10], x[11], 0);
       double angle = rot.norm();
       rot.normalize();
-      Pose shift(Vector3d(x[0], x[1], x[2]), Quaterniond(AngleAxisd(angle, rot)));
+      ray::Pose shift(Eigen::Vector3d(x[0], x[1], x[2]), Eigen::Quaterniond(Eigen::AngleAxisd(angle, rot)));
       pose = shift * pose;
       for (size_t i = 0; i < centroids[0].size(); i++)
       {
-        Vector3d &pos = centroids[0][i];
-        Vector3d relPos = pos - centres[0];
+        Eigen::Vector3d &pos = centroids[0][i];
+        Eigen::Vector3d relPos = pos - centres[0];
         if (!rigid_only)
-          pos += a * sqr(relPos[0]) + b * sqr(relPos[1]) + c * relPos[0] * relPos[1];
+          pos += a * ray::sqr(relPos[0]) + b * ray::sqr(relPos[1]) + c * relPos[0] * relPos[1];
         pos = shift * pos;
         normals[0][i] = shift.rotation * normals[0][i];
       }
-      Quaterniond half_rot(AngleAxisd(angle / 2.0, rot));
+      Eigen::Quaterniond half_rot(Eigen::AngleAxisd(angle / 2.0, rot));
       for (auto &match : matches) match.normal = half_rot * match.normal;
 
       // TODO: transforming the whole cloud each time is a bit slow,
       // we should be able to concatenate these transforms and only apply them once at the end
       for (auto &end : aligner.clouds[0].ends)
       {
-        Vector3d relPos = end - centres[0];
+        Eigen::Vector3d relPos = end - centres[0];
         if (!rigid_only)
-          end += a * sqr(relPos[0]) + b * sqr(relPos[1]) + c * relPos[0] * relPos[1];
+          end += a * ray::sqr(relPos[0]) + b * ray::sqr(relPos[1]) + c * relPos[0] * relPos[1];
         end = shift * end;
       }
     }

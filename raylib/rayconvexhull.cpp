@@ -18,21 +18,20 @@
 
 #include <map>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
+namespace ray
+{
 
 struct lessThan
 {
-  bool operator()(const Vector3d &v1, const Vector3d &v2) const
+  bool operator()(const Eigen::Vector3d &v1, const Eigen::Vector3d &v2) const
   {
     return v1[0] + kPi * v1[1] + kPi * kPi * v1[2] < v2[0] + kPi * v2[1] + kPi * kPi * v2[2];
   }
 };
 
-void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignoreDirection)
+void ConvexHull::construct(const std::vector<Eigen::Vector3d> &points, const Eigen::Vector3d ignoreDirection)
 {
-  vector<double> coordinates(points.size() * 3);
+  std::vector<double> coordinates(points.size() * 3);
   for (int i = 0; i < (int)points.size(); i++)
   {
     coordinates[3 * i + 0] = points[i][0];
@@ -41,77 +40,78 @@ void ConvexHull::construct(const vector<Vector3d> &points, const Vector3d ignore
   }
 
   orgQhull::Qhull hull;
-  hull.setOutputStream(&cout);
+  hull.setOutputStream(&std::cout);
   hull.runQhull("", 3, int(points.size()), coordinates.data(), "Qt");
 
   orgQhull::QhullFacetList facets = hull.facetList();
-  cout << "number of triangles: " << facets.size() << endl;
+  std::cout << "number of triangles: " << facets.size() << std::endl;
   mesh.index_list.reserve(facets.size());
-  cout << "ignore direction: " << ignoreDirection.transpose() << endl;
+  std::cout << "ignore direction: " << ignoreDirection.transpose() << std::endl;
   int count = 0;
   for (const orgQhull::QhullFacet &f : facets)
   {
     double *c = f.hyperplane().coordinates();
-    Vector3d coords(c[0], c[1], c[2]);
+    Eigen::Vector3d coords(c[0], c[1], c[2]);
     if (coords.dot(ignoreDirection) <= 0.0)
     {
       count++;
       orgQhull::QhullVertexSet verts = f.vertices();
       int i = 0;
-      Vector3i index;
+      Eigen::Vector3i index;
       for (const orgQhull::QhullVertex &v : verts) index[i++] = v.point().id();
-      Vector3d norm = (points[index[1]] - points[index[0]]).cross(points[index[2]] - points[index[0]]);
+      Eigen::Vector3d norm = (points[index[1]] - points[index[0]]).cross(points[index[2]] - points[index[0]]);
       if (norm.dot(coords) < 0.0)
-        swap(index[1], index[2]);
+        std::swap(index[1], index[2]);
       mesh.index_list.push_back(index);
     }
   }
-  cout << "num remaining triangles: " << count << endl;
+  std::cout << "num remaining triangles: " << count << std::endl;
 }
 
-ConvexHull::ConvexHull(const vector<Vector3d> &points)
+ConvexHull::ConvexHull(const std::vector<Eigen::Vector3d> &points)
 {
   mesh.vertices = points;
 }
 
 void ConvexHull::growOutwards(double maxCurvature)
 {
-  Vector3d centre = mean(mesh.vertices);
-  vector<Vector3d> points = mesh.vertices;
+  Eigen::Vector3d centre = mean(mesh.vertices);
+  std::vector<Eigen::Vector3d> points = mesh.vertices;
   for (auto &p : points)
   {
     p -= centre;
-    p *= pow(p.squaredNorm(), (-1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
+    p *= std::pow(p.squaredNorm(), (-1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
   }
 
-  construct(points, Vector3d(0, 0, 0));
+  construct(points, Eigen::Vector3d(0, 0, 0));
 }
 
 void ConvexHull::growInwards(double maxCurvature)
 {
-  Vector3d centre = mean(mesh.vertices);
-  vector<Vector3d> points = mesh.vertices;
+  Eigen::Vector3d centre = mean(mesh.vertices);
+  std::vector<Eigen::Vector3d> points = mesh.vertices;
   for (auto &p : points)
   {
     p -= centre;
-    p *= pow(p.squaredNorm(), (1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
+    p *= std::pow(p.squaredNorm(), (1.0 / (1.0 + maxCurvature) - 1.0) * 0.5);
   }
 
-  construct(points, Vector3d(0, 0, 0));
+  construct(points, Eigen::Vector3d(0, 0, 0));
 }
 
-void ConvexHull::growInDirection(double maxCurvature, const Vector3d &dir)
+void ConvexHull::growInDirection(double maxCurvature, const Eigen::Vector3d &dir)
 {
-  Vector3d centre = mean(mesh.vertices);
-  vector<Vector3d> points = mesh.vertices;
+  Eigen::Vector3d centre = mean(mesh.vertices);
+  std::vector<Eigen::Vector3d> points = mesh.vertices;
 
   for (auto &p : points)
   {
-    Vector3d flat = p - centre;
+    Eigen::Vector3d flat = p - centre;
     flat -= dir * dir.dot(flat);
     p += dir * flat.squaredNorm() * maxCurvature;
   }
 
   construct(points, dir);
+}
 }
 #endif
