@@ -2,26 +2,125 @@
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
 //
-// Author: Thomas Lowe
+// Author: Thomas Lowe, Kazys Stepanas
 #ifndef RAYLIB_RAYGRID_H
 #define RAYLIB_RAYGRID_H
 
 #include "raylib/raylibconfig.h"
 
 #include "rayutils.h"
+
+#include <functional>
+
 #define HASH_LOOKUP
+
+#if RAYLIB_WITH_TBB && defined(HASH_LOOKUP)
+#define RAYLIB_PARALLEL_GRID 1
+#if RAYLIB_PARALLEL_GRID
+#include <tbb/spin_mutex.h>
+#endif  // RAYLIB_PARALLEL_GRID
+#endif  // RAYLIB_WITH_TBB
 
 namespace ray
 {
+struct RAYLIB_EXPORT GridRayInfo
+{
+  Eigen::Vector3d ray_start;
+  Eigen::Vector3d ray_end;
+  Eigen::Vector3d ray_direction;
+  double ray_length;
+};
+
 #if defined HASH_LOOKUP
 template <class T>
 struct Grid
 {
+#if RAYLIB_PARALLEL_GRID
+  using Mutex = tbb::spin_mutex;
+#endif  // RAYLIB_PARALLEL_GRID
+
+  struct Cell
+  {
+    std::vector<T> data;
+    Eigen::Vector3i index;
+#if RAYLIB_PARALLEL_GRID
+    Mutex mutex;
+#endif  // RAYLIB_PARALLEL_GRID
+
+    inline Cell() {}
+    inline Cell(const Eigen::Vector3i &index, T initial_datum)
+      : index(index)
+    {
+      data.push_back(initial_datum);
+    }
+
+    /// Copy constructor, excludes mutex
+    inline Cell(const Cell &other)
+      : data(other.data)
+      , index(other.index)
+    {}
+
+    /// RValue constructor, excludes mutex
+    inline Cell(Cell &&other)
+      : data(std::move(other.data))
+      , index(other.index)
+    {}
+  };
+
+  using WalkVoxelsVisitFunction =
+    std::function<void(const Grid<T> &, const Eigen::Vector3i &, const GridRayInfo &info)>;
+  using WalkCellsVisitFunction = std::function<void(const Grid<T> &, const Cell &)>;
+
   Grid() {}
   Grid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
   {
     init(box_min, box_max, voxel_width);
   }
+
+  /// Generate a grid indexer from a spatial position.
+  /// @p spatial_pos is first clamped to the bounds if @c clamp is true. Otherwise, the return value may be out of
+  /// range.
+  Eigen::Vector3i index(const Eigen::Vector3d &spatial_pos, bool clamp = true) const
+  {
+    Eigen::Vector3d coord = spatial_pos;
+    // Bounds check.
+    for (int i = 0; i < 3; ++i)
+    {
+      if (coord(i) < box_min(i))
+      {
+        if (!clamp)
+        {
+          return Eigen::Vector3i(-1, -1, -1);
+        }
+        coord(i) = box_min(i);
+      }
+      if (coord(i) > box_max(i))
+      {
+        if (!clamp)
+        {
+          return Eigen::Vector3i(-1, -1, -1);
+        }
+        coord(i) = box_max(i);
+      }
+
+      coord(i) = (coord(i) - box_min(i)) / voxel_width + 0.5;
+    }
+
+    return coord.cast<int>();
+  }
+
+  Eigen::Vector3d voxelCentre(const Eigen::Vector3i &index) const
+  {
+    return voxelCentre(index.x(), index.y(), index.z());
+  }
+
+  Eigen::Vector3d voxelCentre(int x, int y, int z) const
+  {
+    return Eigen::Vector3d(box_min.x() + x * voxel_width + 0.5 * voxel_width,
+                           box_min.y() + y * voxel_width + 0.5 * voxel_width,
+                           box_min.z() + z * voxel_width + 0.5 * voxel_width);
+  }
+
   void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
   {
     this->box_min = box_min;
@@ -35,44 +134,54 @@ struct Grid
     buckets_.resize(bucket_size);
     null_cell_.index = Eigen::Vector3i(-1, -1, -1);
   }
-  struct Cell
-  {
-    std::vector<T> data;
-    Eigen::Vector3i index;
-  };
 
-  Cell &cell(int x, int y, int z)
+  Cell &cell(int x, int y, int z) { return cell(Eigen::Vector3i(x, y, z)); }
+  Cell &cell(const Eigen::Vector3i &index)
   {
-    Eigen::Vector3i index(x, y, z);
-    int hash = (x * 17 + y * 101 + z * 797) % (int)buckets_.size();
-    std::vector<Cell> &cells = buckets_[hash].cells;
-    for (auto &c : cells)
+    int hash = hashFunc(index.x(), index.y(), index.z());
+    Bucket &bucket = buckets_.at(hash);
+    for (auto &c : bucket.cells)
       if (c.index == index)
         return c;
     return null_cell_;
   }
+
+
+  const Cell &cell(int x, int y, int z) const { return cell(Eigen::Vector3i(x, y, z)); }
+  const Cell &cell(const Eigen::Vector3i &index) const
+  {
+    int hash = hashFunc(index.x(), index.y(), index.z());
+    const Bucket &bucket = buckets_.at(hash);
+    for (const auto &c : bucket.cells)
+      if (c.index == index)
+        return c;
+    return null_cell_;
+  }
+
   void insert(int x, int y, int z, const T &value)
   {
     Eigen::Vector3i index(x, y, z);
-    int hash = (x * 17 + y * 101 + z * 797) % (int)buckets_.size();
-    std::vector<Cell> &cell_list = buckets_[hash].cells;
-    for (auto &c : cell_list)
+    int hash = hashFunc(x, y, z);
+    Bucket &bucket = buckets_.at(hash);
+#if RAYLIB_PARALLEL_GRID
+    Mutex::scoped_lock bucket_lock(bucket.mutex);
+#endif  // RAYLIB_PARALLEL_GRID
+    for (auto &c : bucket.cells)
     {
       if (c.index == index)
       {
-        c.data.push_back(value);
-        return;
+#if RAYLIB_PARALLEL_GRID
+        Mutex::scoped_lock cell_lock(c.mutex);
+#endif  // RAYLIB_PARALLEL_GRID
+        if (c.index == index)
+        {
+          c.data.emplace_back(value);
+          return;
+        }
       }
     }
-    Cell new_cell;
-    new_cell.index = index;
-    cell_list.push_back(new_cell);
-    cell_list.back().data.push_back(value);
+    bucket.cells.emplace_back(Cell(index, value));
   }
-
-  Eigen::Vector3d box_min, box_max;
-  double voxel_width;
-  Eigen::Vector3i dims;
 
   void report()
   {
@@ -85,7 +194,10 @@ struct Grid
       if (size > 0)
         count++;
       total_count += size;
-      for (auto &cell : bucket.cells) data_count += cell.data.size();
+      for (auto &cell : bucket.cells)
+      {
+        data_count += cell.data.size();
+      }
     }
     std::cout << "buckets filled: " << count << " out of " << buckets_.size() << " buckets, which is "
               << 100.0 * (double)count / (double)buckets_.size() << "%%" << std::endl;
@@ -95,11 +207,37 @@ struct Grid
     std::cout << "total data stored: " << data_count << std::endl;
   }
 
+  void walkCells(const WalkCellsVisitFunction &visit) const
+  {
+    for (const auto &bucket : buckets_)
+    {
+      for (const auto &cell : bucket.cells)
+      {
+        visit(*this, cell);
+      }
+    }
+    visit(*this, null_cell_);
+  }
+
+  Eigen::Vector3d box_min, box_max;
+  double voxel_width;
+  Eigen::Vector3i dims;
+
 protected:
   struct Bucket
   {
     std::vector<Cell> cells;
+#if RAYLIB_PARALLEL_GRID
+    Mutex mutex;
+#endif  // RAYLIB_PARALLEL_GRID
+
+    inline Bucket() = default;
+    inline Bucket(const Bucket &other) : cells(other.cells) {}
+    inline Bucket(Bucket &&other) : cells(std::move(other.cells)) {}
   };
+
+  inline int hashFunc(int x, int y, int z) const { return int((x * 17 + y * 101 + z * 797) % buckets_.size()); }
+
   std::vector<Bucket> buckets_;
   Cell null_cell_;
 };
@@ -137,7 +275,7 @@ struct Grid
   {
     if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
       std::cout << "warning: bad input coordinates: " << x << ", " << y << ", " << z << std::endl;
-    cell(x, y, z).data.push_back(value);
+    cell(x, y, z).data.emplace_back(value);
   }
   void report()
   {

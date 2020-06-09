@@ -8,16 +8,18 @@
 
 #include "raylib/raylibconfig.h"
 
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <numeric>
+#include <set>
 #include <string>
 #include <vector>
-#include <cstdlib>
-#include <algorithm>
-#include <iostream>
-#include <cmath>
-#include <numeric>
-#include <fstream>
-#include <assert.h>
-#include <set>
 
 #include <Eigen/Dense>
 
@@ -222,6 +224,68 @@ inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<
 inline void colourByTime(const std::vector<double> &values, std::vector<RGBA> &gradient, bool replace_alpha = true)
 {
   redGreenBlueSpectrum(values, gradient, 10.0, replace_alpha);
+}
+
+
+/// Log a @c std::chrono::clock::duration to an output stream.
+///
+/// The resulting string displays in the smallest possible unit to show three three
+/// decimal places with display units ranging from seconds to nanoseconds. The table below
+/// shows some example times.
+///
+/// Time(s)     | Display
+/// ----------- | --------
+/// 0.000000018 | 18ns
+/// 0.000029318 | 29.318us
+/// 0.0295939   | 29.593ms
+/// 0.93        | 930ms
+/// 15.023      | 15.023s
+/// 15.000025   | 15.000s
+///
+/// Note that times are truncated, not rounded.
+///
+/// @tparam D The duration type of the form @c std::chrono::clock::duration.
+/// @param out The output stream to log to.
+/// @param duration The duration to convert to string.
+template <typename D>
+inline std::ostream &logDuration(std::ostream &out, const D &duration)
+{
+  const bool negative = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() < 0;
+  const char *sign = (!negative) ? "" : "-";
+  D abs_duration = (!negative) ? duration : duration * -1;
+  auto s = std::chrono::duration_cast<std::chrono::seconds>(abs_duration).count();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(abs_duration).count();
+  ms = ms % 1000;
+
+  if (s)
+  {
+    out << sign << s << "." << std::setw(3) << std::setfill('0') << ms << "s";
+  }
+  else
+  {
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(abs_duration).count();
+    us = us % 1000;
+
+    if (ms)
+    {
+      out << sign << ms << "." << std::setw(3) << std::setfill('0') << us << "ms";
+    }
+    else
+    {
+      auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(abs_duration).count();
+      ns = ns % 1000;
+
+      if (us)
+      {
+        out << sign << us << "." << std::setw(3) << std::setfill('0') << ns << "us";
+      }
+      else
+      {
+        out << sign << ns << "ns";
+      }
+    }
+  }
+  return out;
 }
 }  // namespace ray
 

@@ -229,10 +229,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
   for (int i = 0; i<(int)cloud.ends.size(); i++)
   {
     Cloud &out = inside_i[i] ? inside : outside;
-    out.starts.push_back(cloud.starts[i]);
-    out.ends.push_back(cloud.ends[i]);
-    out.times.push_back(cloud.times[i]);
-    out.colours.push_back(cloud.colours[i]);
+    out.addRay(cloud, i);
   }
 }
 } // ray
