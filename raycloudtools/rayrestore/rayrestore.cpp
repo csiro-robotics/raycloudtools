@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
   if (argc != 5)
     usage();
 
-  if (std::string(argv[3]) != "cm")
+  if (std::string(argv[3]) != "cm" && std::string(argv[3]) != "rays")
     usage();
   std::string decimated_file = argv[1];
   ray::Cloud decimated_cloud;
@@ -33,12 +33,24 @@ int main(int argc, char *argv[])
   ray::Cloud full_cloud;
   full_cloud.load(full_file);
 
-  double voxel_width = 0.01 * std::stod(argv[2]);
-
-  std::cout << "decimating" << std::endl;
-  ray::Cloud full_decimated = full_cloud;
+  bool spatial_decimation = std::string(argv[3]) == "cm";
   std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
-  full_decimated.decimate(voxel_width, &voxel_set); 
+  double voxel_width = 0;
+  int ray_step = 0;
+  ray::Cloud full_decimated;
+  std::cout << "decimating..." << std::endl;
+  if (spatial_decimation)
+  {
+    voxel_width = 0.01 * std::stod(argv[2]);
+    full_decimated = full_cloud;
+    full_decimated.decimate(voxel_width, &voxel_set); 
+  }
+  else
+  {
+    ray_step = std::stoi(argv[2]);
+    for (int i = 0; i < (int)full_cloud.ends.size(); i += ray_step)
+      full_decimated.addRay(full_cloud, i);
+  }
 
   std::cout << "decimated size: " << full_decimated.ends.size() << " changed cloud size: " << decimated_cloud.ends.size() << std::endl;
 
@@ -67,12 +79,21 @@ int main(int argc, char *argv[])
     }
     else
     {
-      Eigen::Vector3d ps = full_decimated.ends[i];
-      Eigen::Vector3i place(int(std::floor(ps[0] / voxel_width)), int(std::floor(ps[1] / voxel_width)),
-                            int(std::floor(ps[2] / voxel_width)));
-      voxel_set.erase(place);
+      if (spatial_decimation)
+      {
+        Eigen::Vector3d ps = full_decimated.ends[i];
+        Eigen::Vector3i place(int(std::floor(ps[0] / voxel_width)), int(std::floor(ps[1] / voxel_width)),
+                              int(std::floor(ps[2] / voxel_width)));
+        voxel_set.erase(place);
+      }
       count++;
     }
+  }
+  // finish adding the missing points
+  while (j<(int)decimated_cloud.times.size()-1)
+  {
+    missings.push_back(j);
+    j++;
   }
   std::cout << "number of matched pairs: " << pairs.size() << ", number of removed points: " << count << ", number added: " << missings.size() << std::endl;
  
@@ -93,7 +114,7 @@ int main(int argc, char *argv[])
   {
     fullPs[i] -= fullPs[0];
     decPs[i] -= decPs[0];
-    if ((fullPs[i] - decPs[i]).norm() > 0.01)
+    if (abs(fullPs[i].norm() - decPs[i].norm()) > 0.01)
       std::cout << "warning, matched points aren't a very similar distance apart: " << fullPs[i].norm() <<
       ", " << decPs[i].norm() << " a non-rigid transform may have been applied" << std::endl;
   }
@@ -111,12 +132,28 @@ int main(int argc, char *argv[])
   std::vector<Eigen::Vector3d> &ps = full_cloud.ends;
   std::vector<unsigned int> indices;
   indices.reserve(full_cloud.ends.size());
-  for (unsigned int i = 0; i<ps.size(); i++)
+
+  if (spatial_decimation)
   {
-    Eigen::Vector3i place(int(std::floor(ps[i][0] / voxel_width)), int(std::floor(ps[i][1] / voxel_width)),
-                          int(std::floor(ps[i][2] / voxel_width)));
-    if (voxel_set.find(place) != voxel_set.end())
-      indices.push_back(i);
+    for (unsigned int i = 0; i<ps.size(); i++)
+    {
+      Eigen::Vector3i place(int(std::floor(ps[i][0] / voxel_width)), int(std::floor(ps[i][1] / voxel_width)),
+                            int(std::floor(ps[i][2] / voxel_width)));
+      if (voxel_set.find(place) != voxel_set.end())
+        indices.push_back(i);
+    }
+  }
+  else
+  {
+    int pair_index = 0;
+    for (unsigned int i = 0; i<ps.size(); i++)
+    {
+      int closest_index = (i+ray_step/2)/ray_step;
+      while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size()-1)
+        pair_index++;
+      if (pairs[pair_index][0] == closest_index)
+        indices.push_back(i);
+    }
   }
   ray::Cloud new_cloud;
   new_cloud.starts.reserve(indices.size());
@@ -125,8 +162,8 @@ int main(int argc, char *argv[])
   new_cloud.colours.reserve(indices.size());
   for (auto &i: indices)
     new_cloud.addRay(full_cloud, i);
-  
   full_cloud = new_cloud;
+  
 
   double r = ray::sqr(rotation.x()) + ray::sqr(rotation.y()) + ray::sqr(rotation.z());
   if (r > 1e-16 || translation.squaredNorm() > 1e-16)
