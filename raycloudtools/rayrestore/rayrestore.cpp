@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
   // 1. detect alignment
   if (full_decimated.ends.size() == decimated_cloud.ends.size()) // no points added or removed, so look for a rigid transformation
   {
+    std::cout << "looking for a Euclidean transformation" << std::endl;
     // should we assume the point ordering is the same? I think we have to, otherwise we'd need to do a rayalign,
     // or at least use the covariance matrix to get the rigid transformation (bad if spherical!)
 
@@ -75,6 +76,8 @@ int main(int argc, char *argv[])
     }
 
     // how to get rotation from two triangles? do it in two stages:
+    if (abs(fullPs[1].norm() - decPs[1].norm()) > 0.01)
+      std::cout << "problem, not the same: " << fullPs[1].norm() << ", " << decPs[1].norm() << std::endl;
     Eigen::Quaterniond quat = Eigen::Quaterniond::FromTwoVectors(fullPs[1], decPs[1]);
     Eigen::Vector3d p1 = decPs[1].cross(decPs[2]);
     Eigen::Vector3d p2 = (fullPs[1].cross(fullPs[2]));
@@ -82,10 +85,12 @@ int main(int argc, char *argv[])
     Eigen::Quaterniond rotation = quat2 * quat;
 
     Eigen::Vector3d translation = midDec - rotation * midFull;
+    std::cout << "translation: " << translation.transpose() << ", rotation: " << rotation.z() << std::endl;
     full_cloud.transform(ray::Pose(translation, rotation), decimated_cloud.times[is[0]] - full_decimated.times[is[0]]);
   }
   else // points have been added or removed, so apply these additions and removals to the whole set of voxel points
   {
+    std::cout << "looking for additions/removals" << std::endl;
     std::set<Eigen::Vector3i, ray::Vector3iLess> test_set;
     // first build test_set:
     std::vector<Eigen::Vector3d> &points = decimated_cloud.ends;
