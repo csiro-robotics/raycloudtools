@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
   else
   {
     ray_step = std::stoi(argv[2]);
-    for (int i = 0; i < (int)full_cloud.ends.size(); i += ray_step)
+    for (size_t i = 0; i < full_cloud.ends.size(); i += ray_step)
       full_decimated.addRay(full_cloud, i);
   }
   std::cout << "full cloud decimated size: " << full_decimated.ends.size() << " modified cloud size: " << decimated_cloud.ends.size() << std::endl;
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
   const double time_eps = 1e-6; // small enough to account for 200,000 rays per second, 
                                 // but large enough to ignore file format/compression errors
   int num_removed_rays = 0;
-  for (int i = 0; i<(int)full_decimated.ends.size() && j<(int)decimated_cloud.times.size(); i++)
+  for (size_t i = 0; i<full_decimated.ends.size() && j<(int)decimated_cloud.times.size(); i++)
   {
     while (decimated_cloud.times[j] < full_decimated.times[i]-time_eps && j<(int)decimated_cloud.times.size()-1)
     {
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
   full_cloud_indices.reserve(full_cloud.ends.size());
   if (spatial_decimation)
   {
-    for (unsigned int i = 0; i<ps.size(); i++)
+    for (int i = 0; i<(int)ps.size(); i++)
     {
       Eigen::Vector3i place(int(std::floor(ps[i][0] / voxel_width)), int(std::floor(ps[i][1] / voxel_width)),
                             int(std::floor(ps[i][2] / voxel_width)));
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
   else
   {
     int pair_index = 0;
-    for (unsigned int i = 0; i<ps.size(); i++)
+    for (int i = 0; i<(int)ps.size(); i++)
     {
       int closest_index = (i+ray_step/2)/ray_step;
       while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size()-1)

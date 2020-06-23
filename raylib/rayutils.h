@@ -106,7 +106,7 @@ inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &p
   for (int64_t i = 0; i<numIndices/2; i++)
     std::swap(indices[i], indices[numIndices - 1 - i]);
   if (voxel_set != NULL)
-    *voxel_set = vox_set;
+    *voxel_set = std::move(vox_set);
   return indices;
 }
 
