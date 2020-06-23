@@ -141,9 +141,7 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
   size_t length = input.tellg() - start;
   input.seekg(start);
   size_t size = length / row_size;
-  std::vector<unsigned char> vertices(length);
-  // read data as a block:
-  input.read((char *)&vertices[0], length);
+  std::vector<unsigned char> vertices(row_size);
   bool times_need_sorting = false;
   size_t num_bounded = 0;
   size_t num_unbounded = 0;
@@ -159,14 +157,15 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
 
   for (size_t i = 0; i < size; i++)
   {
+    input.read((char *)&vertices[0], row_size);
     Eigen::Vector3d end;
     if (pos_is_float)
     {
-      Eigen::Vector3f e = (Eigen::Vector3f &)vertices[row_size * i + offset];
+      Eigen::Vector3f e = (Eigen::Vector3f &)vertices[offset];
       end = Eigen::Vector3d(e[0], e[1], e[2]);
     }
     else
-      end = (Eigen::Vector3d &)vertices[row_size * i + offset];
+      end = (Eigen::Vector3d &)vertices[offset];
     bool end_valid = end == end;
     if (!warning_set)
     {
@@ -189,11 +188,11 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
     {
       if (normal_is_float)
       {
-        Eigen::Vector3f n = (Eigen::Vector3f &)vertices[row_size * i + normal_offset];
+        Eigen::Vector3f n = (Eigen::Vector3f &)vertices[normal_offset];
         normal = Eigen::Vector3d(n[0], n[1], n[2]);
       }
       else
-        normal = (Eigen::Vector3d &)vertices[row_size * i + normal_offset];
+        normal = (Eigen::Vector3d &)vertices[normal_offset];
       bool norm_valid = normal == normal;
       if (!warning_set)
       {
@@ -217,9 +216,9 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
     {
       double time;
       if (time_is_float)
-        time = (double)((float &)vertices[row_size * i + time_offset]);
+        time = (double)((float &)vertices[time_offset]);
       else
-        time = (double &)vertices[row_size * i + time_offset];
+        time = (double &)vertices[time_offset];
       if (times.size() > 0 && times.back() > time)
         times_need_sorting = true;
       times.push_back(time);
@@ -228,7 +227,7 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
 
     if (colour_offset != -1)
     {
-      RGBA colour = (RGBA &)vertices[row_size * i + colour_offset];
+      RGBA colour = (RGBA &)vertices[colour_offset];
       colours.push_back(colour);
       if (colour.alpha > 0)
         num_bounded++;
@@ -236,14 +235,13 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
         num_unbounded++;
     }
   }
-  vertices.clear();
-  vertices.shrink_to_fit();
   if (times.size() == 0)
   {
     std::cout << "warning: no time information found in " << file_name << ", setting times at 1 second intervals per ray"
          << std::endl;
     times.resize(ends.size());
-    for (size_t i = 0; i < times.size(); i++) times[i] = (double)i;
+    for (size_t i = 0; i < times.size(); i++) 
+      times[i] = (double)i;
   }
   std::cout << "reading from " << file_name << ", " << size << " rays, of which " << num_bounded << " bounded and "
        << num_unbounded << " unbounded" << std::endl;
@@ -261,27 +259,34 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
       time_list[i].time = times[i];
       time_list[i].index = i;
     }
+    // now how can I sort in-place, without wasting memory?
+    // one idea is to do it one variable at a time!
     sort(time_list.begin(), time_list.end(), [](const Temp &a, const Temp &b) { return a.time < b.time; });
-    std::vector<Eigen::Vector3d> new_starts(starts.size()), new_ends(ends.size());
-    std::vector<double> new_times(times.size());
-    std::vector<RGBA> new_colours;
-    if (colour_offset != -1)
-      new_colours.resize(colours.size());
+    std::vector<Eigen::Vector3d> new_starts(starts.size());
     for (size_t i = 0; i < starts.size(); i++)
-    {
       new_starts[i] = starts[time_list[i].index];
+    starts = new_starts;  
+    new_starts.clear();
+    new_starts.shrink_to_fit(); // deallocate
+    std::vector<Eigen::Vector3d> new_ends(ends.size());
+    for (size_t i = 0; i < ends.size(); i++)
       new_ends[i] = ends[time_list[i].index];
-      new_times[i] = time_list[i].time;
-      if (colour_offset != -1)
-        new_colours[i] = colours[time_list[i].index];
-      if (i > 0 && new_times[i] < new_times[i - 1])
-        std::cout << "sorting failed" << std::endl;
-    }
-    starts = new_starts;
     ends = new_ends;
+    new_ends.clear();
+    new_ends.shrink_to_fit();
+    std::vector<double> new_times(times.size());
+    for (size_t i = 0; i < times.size(); i++)
+      new_times[i] = time_list[i].time;
     times = new_times;
+    new_times.clear();
+    new_times.shrink_to_fit();
     if (colour_offset != -1)
+    {
+      std::vector<RGBA> new_colours(colours.size());
+      for (size_t i = 0; i < colours.size(); i++)
+        new_colours[i] = colours[time_list[i].index];
       colours = new_colours;
+    }
     std::cout << "finished sorting" << std::endl;
   }
   if (colours.size() == 0)
