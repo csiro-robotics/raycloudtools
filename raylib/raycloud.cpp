@@ -56,7 +56,7 @@ bool Cloud::load(const std::string &point_cloud, const std::string &traj_file)
 {
   string name_end = point_cloud.substr(point_cloud.size() - 4);
   if (name_end == ".ply")
-    readPly(point_cloud, starts, ends, times, colours);
+    readPly(point_cloud, starts, ends, times, colours, false); // special case of reading a non-ray-cloud ply
   else if (name_end == ".laz" || name_end == ".las")
     readLas(point_cloud, ends, times, colours, 1);
   else
@@ -73,7 +73,7 @@ bool Cloud::load(const std::string &point_cloud, const std::string &traj_file)
 
 bool Cloud::loadPLY(const string &file)
 {
-  return readPly(file, starts, ends, times, colours);
+  return readPly(file, starts, ends, times, colours, true);
 }
 
 bool Cloud::loadLazTraj(const string &laz_file, const string &traj_file)

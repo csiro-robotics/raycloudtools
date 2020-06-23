@@ -79,8 +79,9 @@ void writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &
 }
 
 bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times,
-                  std::vector<RGBA> &colours)
+                  std::vector<RGBA> &colours, bool is_ray_cloud)
 {
+  std::cout << "reading: " << file_name << std::endl;
   std::ifstream input(file_name.c_str());
   if (!input.is_open())
   {
@@ -128,9 +129,10 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
     std::cerr << "could not find position properties of file: " << file_name << std::endl;
     return false;
   }
-  if (normal_offset == -1)
+  if (is_ray_cloud && normal_offset == -1)
   {
     std::cerr << "could not find normal properties of file: " << file_name << std::endl;
+    std::cerr << "ray clouds store the ray starts using the normal field" << std::endl;
     return false;
   }
 
@@ -146,6 +148,15 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
   size_t num_bounded = 0;
   size_t num_unbounded = 0;
   bool warning_set = false;
+
+  // pre-reserving avoids memory fragmentation
+  ends.reserve(size);
+  starts.reserve(size);
+  if (time_offset != -1)
+    times.reserve(size);
+  if (colour_offset != -1)
+    colours.reserve(size);
+
   for (size_t i = 0; i < size; i++)
   {
     Eigen::Vector3d end;
@@ -173,30 +184,33 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
     if (!end_valid)
       continue;
 
-    Eigen::Vector3d normal;
-    if (normal_is_float)
+    Eigen::Vector3d normal(0,0,0);
+    if (is_ray_cloud)
     {
-      Eigen::Vector3f n = (Eigen::Vector3f &)vertices[row_size * i + normal_offset];
-      normal = Eigen::Vector3d(n[0], n[1], n[2]);
-    }
-    else
-      normal = (Eigen::Vector3d &)vertices[row_size * i + normal_offset];
-    bool norm_valid = normal == normal;
-    if (!warning_set)
-    {
+      if (normal_is_float)
+      {
+        Eigen::Vector3f n = (Eigen::Vector3f &)vertices[row_size * i + normal_offset];
+        normal = Eigen::Vector3d(n[0], n[1], n[2]);
+      }
+      else
+        normal = (Eigen::Vector3d &)vertices[row_size * i + normal_offset];
+      bool norm_valid = normal == normal;
+      if (!warning_set)
+      {
+        if (!norm_valid)
+        {
+          std::cout << "warning, NANs in raystart stored in normal " << i << ", removing all such rays." << std::endl;
+          warning_set = true;
+        }
+        if (abs(normal[0]) > 100000.0)
+        {
+          std::cout << "warning: very large data in normal " << i << ", suspicious: " << normal.transpose() << std::endl;
+          warning_set = true;
+        }
+      }
       if (!norm_valid)
-      {
-        std::cout << "warning, NANs in raystart stored in normal " << i << ", removing all such rays." << std::endl;
-        warning_set = true;
-      }
-      if (abs(normal[0]) > 100000.0)
-      {
-        std::cout << "warning: very large data in normal " << i << ", suspicious: " << normal.transpose() << std::endl;
-        warning_set = true;
-      }
+        continue;
     }
-    if (!norm_valid)
-      continue;
 
     ends.push_back(end);
     if (time_offset != -1)
@@ -222,19 +236,14 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
         num_unbounded++;
     }
   }
+  vertices.clear();
+  vertices.shrink_to_fit();
   if (times.size() == 0)
   {
     std::cout << "warning: no time information found in " << file_name << ", setting times at 1 second intervals per ray"
          << std::endl;
     times.resize(ends.size());
     for (size_t i = 0; i < times.size(); i++) times[i] = (double)i;
-  }
-  if (colours.size() == 0)
-  {
-    std::cout << "warning: no colour information found in " << file_name
-         << ", setting colours red->green->blue based on time" << std::endl;
-    colourByTime(times, colours);
-    num_bounded = ends.size();
   }
   std::cout << "reading from " << file_name << ", " << size << " rays, of which " << num_bounded << " bounded and "
        << num_unbounded << " unbounded" << std::endl;
@@ -255,21 +264,32 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
     sort(time_list.begin(), time_list.end(), [](const Temp &a, const Temp &b) { return a.time < b.time; });
     std::vector<Eigen::Vector3d> new_starts(starts.size()), new_ends(ends.size());
     std::vector<double> new_times(times.size());
-    std::vector<RGBA> new_colours(colours.size());
+    std::vector<RGBA> new_colours;
+    if (colour_offset != -1)
+      new_colours.resize(colours.size());
     for (size_t i = 0; i < starts.size(); i++)
     {
       new_starts[i] = starts[time_list[i].index];
       new_ends[i] = ends[time_list[i].index];
       new_times[i] = time_list[i].time;
-      new_colours[i] = colours[time_list[i].index];
+      if (colour_offset != -1)
+        new_colours[i] = colours[time_list[i].index];
       if (i > 0 && new_times[i] < new_times[i - 1])
         std::cout << "sorting failed" << std::endl;
     }
     starts = new_starts;
     ends = new_ends;
     times = new_times;
-    colours = new_colours;
+    if (colour_offset != -1)
+      colours = new_colours;
     std::cout << "finished sorting" << std::endl;
+  }
+  if (colours.size() == 0)
+  {
+    std::cout << "warning: no colour information found in " << file_name
+         << ", setting colours red->green->blue based on time" << std::endl;
+    colourByTime(times, colours);
+    num_bounded = ends.size();
   }
   return true;
 }
