@@ -49,7 +49,7 @@ struct RAYLIB_EXPORT Cloud
   Eigen::Vector3d calcMaxBound() const;
 
   void transform(const Pose &pose, double time_deltaa);
-  void decimate(double voxel_widthh);
+  void decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set = NULL);
   void addRay(const Eigen::Vector3d &start, const Eigen::Vector3d &end, double time, const RGBA &colour);
   void addRay(const Cloud &other_cloud, size_t index);
 
