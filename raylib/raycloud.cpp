@@ -17,9 +17,8 @@
 #include <limits>
 #include <set>
 
-using namespace std;
-using namespace Eigen;
-using namespace ray;
+namespace ray
+{
 
 void Cloud::clear()
 {
@@ -31,7 +30,7 @@ void Cloud::clear()
 
 void Cloud::save(const std::string &file_name) const
 {
-  string name = file_name;
+  std::string name = file_name;
   if (name.substr(name.length() - 4) != ".ply")
     name += ".ply";
   writePly(name, starts, ends, times, colours);
@@ -42,11 +41,12 @@ bool Cloud::load(const std::string &file_name)
   // look first for the raycloud PLY
   if (file_name.substr(file_name.size() - 4) == ".ply")
     return loadPLY(file_name);
-  if (ifstream((file_name + ".ply").c_str(), ios::in))
+  if (std::ifstream((file_name + ".ply").c_str(), std::ios::in))
     return loadPLY(file_name + ".ply");
 
   // otherwise, look for a .laz and _traj.txt file by that name
-  if (ifstream((file_name + ".laz").c_str(), ios::in) && ifstream((file_name + "_traj.txt").c_str(), ios::in))
+  if (std::ifstream((file_name + ".laz").c_str(), std::ios::in) && 
+      std::ifstream((file_name + "_traj.txt").c_str(), std::ios::in))
     return loadLazTraj(file_name + ".laz", file_name + "_traj.txt");
 
   return false;
@@ -54,14 +54,14 @@ bool Cloud::load(const std::string &file_name)
 
 bool Cloud::load(const std::string &point_cloud, const std::string &traj_file)
 {
-  string name_end = point_cloud.substr(point_cloud.size() - 4);
+  std::string name_end = point_cloud.substr(point_cloud.size() - 4);
   if (name_end == ".ply")
     readPly(point_cloud, starts, ends, times, colours);
   else if (name_end == ".laz" || name_end == ".las")
     readLas(point_cloud, ends, times, colours, 1);
   else
   {
-    cout << "Error converting unknown type: " << point_cloud << endl;
+    std::cout << "Error converting unknown type: " << point_cloud << std::endl;
     return false;
   }
 
@@ -71,12 +71,12 @@ bool Cloud::load(const std::string &point_cloud, const std::string &traj_file)
   return true;
 }
 
-bool Cloud::loadPLY(const string &file)
+bool Cloud::loadPLY(const std::string &file)
 {
   return readPly(file, starts, ends, times, colours);
 }
 
-bool Cloud::loadLazTraj(const string &laz_file, const string &traj_file)
+bool Cloud::loadLazTraj(const std::string &laz_file, const std::string &traj_file)
 {
   bool success = readLas(laz_file, ends, times, colours, 1);
   if (!success)
@@ -105,12 +105,12 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
     }
   }
   else
-    cout << "can only recalculate when a trajectory is available" << endl;
+    std::cout << "can only recalculate when a trajectory is available" << std::endl;
 }
 
-Vector3d Cloud::calcMinBound() const
+Eigen::Vector3d Cloud::calcMinBound() const
 {
-  Vector3d min_v(numeric_limits<double>::max(), numeric_limits<double>::max(), numeric_limits<double>::max());
+  Eigen::Vector3d min_v(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
@@ -119,9 +119,9 @@ Vector3d Cloud::calcMinBound() const
   return min_v;
 }
 
-Vector3d Cloud::calcMaxBound() const
+Eigen::Vector3d Cloud::calcMaxBound() const
 {
-  Vector3d max_v(numeric_limits<double>::lowest(), numeric_limits<double>::lowest(), numeric_limits<double>::lowest());
+  Eigen::Vector3d max_v(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest());
   for (int i = 0; i < (int)ends.size(); i++)
   {
     if (rayBounded(i))
@@ -142,9 +142,9 @@ bool Cloud::calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds,
     progress->begin("calcBounds", rayCount());
   }
 
-  *min_bounds = Vector3d(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(),
+  *min_bounds = Eigen::Vector3d(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(),
                          std::numeric_limits<double>::max());
-  *max_bounds = Vector3d(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(),
+  *max_bounds = Eigen::Vector3d(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(),
                          std::numeric_limits<double>::lowest());
   bool invalid_bounds = true;
   for (size_t i = 0; i < rayCount(); ++i)
@@ -185,7 +185,7 @@ void Cloud::transform(const Pose &pose, double time_delta)
 
 void Cloud::removeUnboundedRays()
 {
-  vector<int> valids;
+  std::vector<int> valids;
   for (int i = 0; i < (int)ends.size(); i++)
     if (rayBounded(i))
       valids.push_back(i);
@@ -204,7 +204,7 @@ void Cloud::removeUnboundedRays()
 
 void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set)
 {
-  vector<int64_t> subsample = voxelSubsample(ends, voxel_width, voxel_set);
+  std::vector<int64_t> subsample = voxelSubsample(ends, voxel_width, voxel_set);
   for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
   {
     int64_t id = subsample[i];
@@ -219,8 +219,9 @@ void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess>
   times.resize(subsample.size());
 }
 
-void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vector3d> *normals,
-                       vector<Vector3d> *dimensions, vector<Matrix3d> *mats, MatrixXi *neighbour_indices)
+void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
+                       std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats, 
+                       Eigen::MatrixXi *neighbour_indices)
 {
   // simplest scheme... find 3 nearest neighbours and do cross product
   if (centroids)
@@ -232,18 +233,18 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
   if (mats)
     mats->resize(ends.size());
   Nabo::NNSearchD *nns;
-  vector<int> ray_ids;
+  std::vector<int> ray_ids;
   ray_ids.reserve(ends.size());
   for (unsigned int i = 0; i < ends.size(); i++)
     if (rayBounded(i))
       ray_ids.push_back(i);
-  MatrixXd points_p(3, ray_ids.size());
+  Eigen::MatrixXd points_p(3, ray_ids.size());
   for (unsigned int i = 0; i < ray_ids.size(); i++) points_p.col(i) = ends[ray_ids[i]];
   nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
   // Run the search
-  MatrixXi indices;
-  MatrixXd dists2;
+  Eigen::MatrixXi indices;
+  Eigen::MatrixXd dists2;
   indices.resize(search_size, ray_ids.size());
   dists2.resize(search_size, ray_ids.size());
   nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);  // TODO: needs to sort here
@@ -262,34 +263,34 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
         (*neighbour_indices)(j, ray_id) = -1;
     }
 
-    Vector3d centroid = ends[ray_id];
+    Eigen::Vector3d centroid = ends[ray_id];
     int num;
     for (num = 0; num < search_size && indices(num, i) > -1; num++) centroid += ends[ray_ids[indices(num, i)]];
     centroid /= (double)(num + 1);
     if (centroids)
       (*centroids)[ray_id] = centroid;
 
-    Matrix3d scatter = (ends[ray_id] - centroid) * (ends[ray_id] - centroid).transpose();
+    Eigen::Matrix3d scatter = (ends[ray_id] - centroid) * (ends[ray_id] - centroid).transpose();
     for (int j = 0; j < num; j++)
     {
-      Vector3d offset = ends[ray_ids[indices(j, i)]] - centroid;
+      Eigen::Vector3d offset = ends[ray_ids[indices(j, i)]] - centroid;
       scatter += offset * offset.transpose();
     }
     scatter /= (double)(num + 1);
 
-    SelfAdjointEigenSolver<Matrix3d> eigen_solver(scatter.transpose());
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
     ASSERT(eigen_solver.info() == Success);
     if (normals)
     {
-      Vector3d normal = eigen_solver.eigenvectors().col(0);
+      Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);
       if ((ends[ray_id] - starts[ray_id]).dot(normal) > 0.0)
         normal = -normal;
       (*normals)[ray_id] = normal;
     }
     if (dimensions)
     {
-      Vector3d eigenvals = maxVector(Vector3d(1e-10, 1e-10, 1e-10), eigen_solver.eigenvalues());
-      (*dimensions)[ray_id] = Vector3d(sqrt(eigenvals[0]), sqrt(eigenvals[1]), sqrt(eigenvals[2]));
+      Eigen::Vector3d eigenvals = maxVector(Eigen::Vector3d(1e-10, 1e-10, 1e-10), eigen_solver.eigenvalues());
+      (*dimensions)[ray_id] = Eigen::Vector3d(std::sqrt(eigenvals[0]), std::sqrt(eigenvals[1]), std::sqrt(eigenvals[2]));
     }
     if (mats)
       (*mats)[ray_id] = eigen_solver.eigenvectors();
@@ -297,9 +298,9 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
 }
 
 // starts are required to get the normal the right way around
-vector<Vector3d> Cloud::generateNormals(int search_size)
+std::vector<Eigen::Vector3d> Cloud::generateNormals(int search_size)
 {
-  vector<Vector3d> normals;
+  std::vector<Eigen::Vector3d> normals;
   getSurfels(search_size, NULL, &normals, NULL, NULL, NULL);
   return normals;
 }
@@ -315,7 +316,7 @@ double Cloud::estimatePointSpacing() const
     if (rayBounded(i))
     {
       num_points++;
-      const Vector3d &point = ends[i];
+      const Eigen::Vector3d &point = ends[i];
       Eigen::Vector3i place(int(std::floor(point[0] / v_width)), int(std::floor(point[1] / v_width)),
                             int(std::floor(point[2] / v_width)));
       if (test_set.find(place) == test_set.end())
@@ -326,15 +327,14 @@ double Cloud::estimatePointSpacing() const
     }
   }
 
-  double width =
-    0.25 *
-    sqrt(num_voxels /
-         num_points);  // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
-  cout << "estimated point spacing: " << width << endl;
+  // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
+  double width = 0.25 * sqrt(num_voxels / num_points);    
+  
+  std::cout << "estimated point spacing: " << width << std::endl;
   return width;
 }
 
-void Cloud::split(Cloud &cloud1, Cloud &cloud2, function<bool(int i)> fptr)
+void Cloud::split(Cloud &cloud1, Cloud &cloud2, std::function<bool(int i)> fptr)
 {
   for (int i = 0; i < (int)ends.size(); i++)
   {
@@ -359,3 +359,5 @@ void Cloud::addRay(const Cloud &other_cloud, size_t index)
   times.push_back(other_cloud.times[index]);
   colours.push_back(other_cloud.colours[index]);
 }
+
+} // namespace ray
