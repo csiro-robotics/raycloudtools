@@ -17,7 +17,7 @@
 
 namespace ray
 {
-struct Cloud;
+class Cloud;
 class Progress;
 
 /// Mode selection for @c Merger

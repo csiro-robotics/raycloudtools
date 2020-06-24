@@ -21,8 +21,9 @@ namespace ray
 double RAYLIB_EXPORT getMainBranchAngle(double covariance_anglee);
 void RAYLIB_EXPORT fillBranchAngleLookup();
 
-struct RAYLIB_EXPORT TreeGen
+class RAYLIB_EXPORT TreeGen
 {
+public:
   std::vector<Eigen::Vector3d> leaves;
   std::vector<Eigen::Vector3d> ray_starts, ray_ends;
   struct Branch

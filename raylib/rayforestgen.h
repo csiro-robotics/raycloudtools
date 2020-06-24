@@ -13,8 +13,9 @@
 
 namespace ray
 {
-struct RAYLIB_EXPORT ForestGen
+class RAYLIB_EXPORT ForestGen
 {
+public:
   void make(double random_factorr = 0.0);
   void generateRays(double ray_densityy);
   std::vector<Eigen::Vector3d> getCanopy();

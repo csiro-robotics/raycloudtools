@@ -14,8 +14,9 @@
 #if RAYLIB_WITH_QHULL
 namespace ray
 {
-struct RAYLIB_EXPORT ConcaveHull
+class RAYLIB_EXPORT ConcaveHull
 {
+public:
   ConcaveHull(const std::vector<Eigen::Vector3d> &points);
 
   void growInwards(double maxCurvature);
@@ -25,16 +26,18 @@ struct RAYLIB_EXPORT ConcaveHull
   void growTopDown(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, -1)); }
 
 
-  struct SurfaceFace
+  class SurfaceFace
   {
+  public:
     SurfaceFace() { triangle = -1; }
     int tetrahedron;
     int triangle;
     double curvature;
   };
 
-  struct Edge
+  class Edge
   {
+  public:
     Edge() {}
     Edge(int v1, int v2)
     {
@@ -45,8 +48,9 @@ struct RAYLIB_EXPORT ConcaveHull
     int vertices[2];
     bool has_had_face;
   };
-  struct Triangle
+  class Triangle
   {
+  public:
     Triangle()
     {
       vertices[0] = vertices[1] = vertices[2] = -1;
@@ -62,8 +66,9 @@ struct RAYLIB_EXPORT ConcaveHull
     int tetrahedra[2];
     SurfaceFace surface_face_cached;
   };
-  struct Tetrahedron
+  class Tetrahedron
   {
+  public:
     Tetrahedron()
     {
       vertices[0] = vertices[1] = vertices[2] = vertices[3] = -1;
@@ -102,8 +107,9 @@ struct RAYLIB_EXPORT ConcaveHull
   std::vector<Tetrahedron> tetrahedra;
   Eigen::Vector3d centre;
 
-  struct FaceComp
+  class FaceComp
   {
+  public:
     bool operator()(const SurfaceFace &lhs, const SurfaceFace &rhs) const
     {
       if (lhs.curvature == rhs.curvature)

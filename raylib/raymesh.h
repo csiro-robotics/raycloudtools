@@ -13,8 +13,9 @@
 
 namespace ray
 {
-struct RAYLIB_EXPORT Mesh
+class RAYLIB_EXPORT Mesh
 {
+public:
   std::vector<Eigen::Vector3d> vertices;
   std::vector<Eigen::Vector3i> index_list;
 

@@ -14,10 +14,12 @@
 namespace ray
 {
 
-struct RAYLIB_EXPORT Trajectory
+class RAYLIB_EXPORT Trajectory
 {
-  struct Node
+public:
+  class Node
   {
+  public:
     Pose pose;
     double time;
 

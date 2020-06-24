@@ -12,8 +12,9 @@
 
 namespace ray
 {
-struct RAYLIB_EXPORT RoomGen
+class RAYLIB_EXPORT RoomGen
 {
+public:
   void generate();
   std::vector<Eigen::Vector3d> ray_starts, ray_ends;
   std::vector<bool> ray_bounded;

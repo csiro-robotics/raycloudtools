@@ -25,8 +25,9 @@ enum class RAYLIB_EXPORT IntersectResult
   Hit,
 };
 
-struct RAYLIB_EXPORT Ellipsoid
+class RAYLIB_EXPORT Ellipsoid
 {
+public:
   Eigen::Vector3d pos;
   Eigen::Matrix3d eigen_mat;  // each row is a scaled eigenvector
   Eigen::Vector3d extents;

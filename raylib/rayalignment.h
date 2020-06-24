@@ -17,8 +17,9 @@ typedef std::complex<double> Complex;
 
 namespace ray
 {
-struct RAYLIB_EXPORT Array3D
+class RAYLIB_EXPORT Array3D
 {
+public:
   void init(const Eigen::Vector3d &box_minn, const Eigen::Vector3d &box_maxx, double voxel_widthh);
 
   void fft();
@@ -65,8 +66,9 @@ struct RAYLIB_EXPORT Array3D
   Complex null_cell;
 };
 
-struct RAYLIB_EXPORT Array1D
+class RAYLIB_EXPORT Array1D
 {
+public:
   void init(int length);
 
   void fft();
@@ -87,8 +89,9 @@ struct RAYLIB_EXPORT Array1D
   std::vector<Complex> cells;
 };
 
-struct AlignTranslationYaw
+class AlignTranslationYaw
 {
+public:
   void alignCloud0ToCloud1(double voxel_widthh, bool verbose = false);
   Cloud clouds[2];
 };
