@@ -225,7 +225,8 @@ inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<
 
 inline void colourByTime(const std::vector<double> &values, std::vector<RGBA> &gradient, bool replace_alpha = true)
 {
-  redGreenBlueSpectrum(values, gradient, 60.0, replace_alpha);
+  const double colour_repeat_period = 60.0; // repeating per minute gives a quick way to assess the scan length
+  redGreenBlueSpectrum(values, gradient, colour_repeat_period, replace_alpha);
 }
 
 
