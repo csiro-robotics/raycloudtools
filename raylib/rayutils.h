@@ -211,7 +211,7 @@ inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<
   orange *= purple.norm();
 
   gradient.resize(values.size());
-  for (unsigned int i = 0; i < values.size(); i++)
+  for (size_t i = 0; i < values.size(); i++)
   {
     double angle = (2.0 * kPi) * values[i] / wavelength;
     Eigen::Vector3d col = Eigen::Vector3d(0.5, 0.5, 0.5) + purple * cos(angle) + orange * sin(angle);
@@ -225,7 +225,8 @@ inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<
 
 inline void colourByTime(const std::vector<double> &values, std::vector<RGBA> &gradient, bool replace_alpha = true)
 {
-  redGreenBlueSpectrum(values, gradient, 10.0, replace_alpha);
+  const double colour_repeat_period = 60.0; // repeating per minute gives a quick way to assess the scan length
+  redGreenBlueSpectrum(values, gradient, colour_repeat_period, replace_alpha);
 }
 
 
