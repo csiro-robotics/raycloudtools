@@ -13,12 +13,22 @@
 
 namespace ray
 {
+/// A triangular mesh data structure. For mesh based operations. 
 struct RAYLIB_EXPORT Mesh
 {
-  std::vector<Eigen::Vector3d> vertices;
-  std::vector<Eigen::Vector3i> index_list;
-
+  /// Use the mesh to split a @c cloud based on which side of the mesh its end points are on
+  /// The two resulting clouds are @c inside and @c outside
   void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);
+
+  /// access the mesh's vertices
+  inline std::vector<Eigen::Vector3d> &vertices(){ return vertices_; }
+  inline const std::vector<Eigen::Vector3d> &vertices() const { return vertices_; }
+  /// access the mesh's index list
+  inline std::vector<Eigen::Vector3i> &index_list(){ return index_list_; }
+  inline const std::vector<Eigen::Vector3i> &index_list() const { return index_list_; }
+private:
+  std::vector<Eigen::Vector3d> vertices_;
+  std::vector<Eigen::Vector3i> index_list_; // one per triangle, gives the index into the vertices_ array for each corner
 };
 
 

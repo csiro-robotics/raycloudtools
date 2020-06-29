@@ -64,8 +64,8 @@ void TerrainGen::generate()
 
     const double range_noise = 0.03;
     Eigen::Vector3d end = start + (range + random(-range_noise, range_noise)) * dir;
-    ray_starts.push_back(start);
-    ray_ends.push_back(end);
+    ray_starts_.push_back(start);
+    ray_ends_.push_back(end);
 
     // what I really need to do is to expose a distance function... then the ray tracer can just pick the minimum (when
     // it is a union)

@@ -31,24 +31,6 @@
 
 namespace ray
 {
-
-#ifdef __unix__
-bool kbhit(void)
-{
-  struct timeval tv;
-  fd_set rdfs;
-
-  tv.tv_sec = 0;
-  tv.tv_usec = 0;
-
-  FD_ZERO(&rdfs);
-  FD_SET(STDIN_FILENO, &rdfs);
-
-  select(STDIN_FILENO + 1, &rdfs, NULL, NULL, &tv);
-  return (bool)FD_ISSET(STDIN_FILENO, &rdfs);
-}
-#endif
-
 static const double deadFace = 1e10;
 
 class Hasher
@@ -59,13 +41,13 @@ public:
 
 ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
 {
-  centre = mean(points);
+  centre_ = mean(points);
   std::unordered_map<Eigen::Vector2i, int, Hasher> edgeLookup(points.size() * 2);
 
   std::cout << "number of points: " << points.size() << std::endl;
-  vertices = points;
-  vertex_on_surface.resize(vertices.size());
-  for (int i = 0; i < (int)vertex_on_surface.size(); i++) vertex_on_surface[i] = false;
+  vertices_ = points;
+  vertex_on_surface_.resize(vertices_.size());
+  for (int i = 0; i < (int)vertex_on_surface_.size(); i++) vertex_on_surface_[i] = false;
 
   std::vector<double> coordinates(points.size() * 3);
   for (int i = 0; i < (int)points.size(); i++)
@@ -81,9 +63,10 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
 
   orgQhull::QhullFacetList facets = hull.facetList();
   int maxFacets = 0;
-  for (const orgQhull::QhullFacet &f : facets) maxFacets = std::max(maxFacets, f.id() + 1);
+  for (const orgQhull::QhullFacet &f : facets) 
+    maxFacets = std::max(maxFacets, f.id() + 1);
   std::cout << "number of total facets: " << facets.size() << std::endl;
-  tetrahedra.resize(maxFacets);
+  tetrahedra_.resize(maxFacets);
 
   int maxTris = 0;
   for (const orgQhull::QhullFacet &f : facets)
@@ -93,7 +76,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
     qh_makeridges(hull.qh(), f.getFacetT());
     for (const orgQhull::QhullRidge &r : f.ridges()) maxTris = std::max(maxTris, r.id() + 1);
   }
-  triangles.resize(maxTris);
+  triangles_.resize(maxTris);
   std::cout << "maximum number of triangles: " << maxTris << std::endl;
 
   int c = 0;
@@ -110,7 +93,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
       const double *data = v.point().coordinates();
       Eigen::Vector3d vec(data[0], data[1], data[2]);
       tetra.vertices[i++] = v.point().id();
-      if ((vertices[v.point().id()] - vec).squaredNorm() > 1e-8)
+      if ((vertices_[v.point().id()] - vec).squaredNorm() > 1e-8)
         std::cout << "vertex data doesn't match its id" << std::endl;
     }
 
@@ -128,19 +111,19 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
         std::cout << "bad rid" << std::endl;
       int j = 0;
       int rid = r.id();
-      if (rid >= (int)triangles.size() || r.id() < 0)
+      if (rid >= (int)triangles_.size() || r.id() < 0)
         std::cout << "bag bad" << std::endl;
-      if (triangles[rid].valid())
+      if (triangles_[rid].valid())
       {
-        if (triangles[rid].tetrahedra[0] != r.topFacet().id() && triangles[rid].tetrahedra[0] != r.bottomFacet().id())
+        if (triangles_[rid].tetrahedra[0] != r.topFacet().id() && triangles_[rid].tetrahedra[0] != r.bottomFacet().id())
           std::cout << "replacing with bad data" << std::endl;
       }
       else
       {
-        triangles[rid].tetrahedra[0] = r.topFacet().id();
-        triangles[rid].tetrahedra[1] = r.bottomFacet().id();
-        triangles[rid].is_surface = r.topFacet().isUpperDelaunay() != r.bottomFacet().isUpperDelaunay();
-        if (triangles[rid].tetrahedra[0] != f.id() && triangles[rid].tetrahedra[1] != f.id())
+        triangles_[rid].tetrahedra[0] = r.topFacet().id();
+        triangles_[rid].tetrahedra[1] = r.bottomFacet().id();
+        triangles_[rid].is_surface = r.topFacet().isUpperDelaunay() != r.bottomFacet().isUpperDelaunay();
+        if (triangles_[rid].tetrahedra[0] != f.id() && triangles_[rid].tetrahedra[1] != f.id())
           std::cout << "bad too" << std::endl;
         for (const orgQhull::QhullVertex &v : r.vertices())
         {
@@ -148,29 +131,29 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
           if (vid != tetra.vertices[0] && vid != tetra.vertices[1] && vid != tetra.vertices[2] &&
               vid != tetra.vertices[3])
             std::cout << "bad" << std::endl;
-          triangles[rid].vertices[j++] = vid;
+          triangles_[rid].vertices[j++] = vid;
         }
         for (int i = 0; i < 3; i++)
         {
-          int a = triangles[rid].vertices[i];
-          int b = triangles[rid].vertices[(i + 1) % 3];
+          int a = triangles_[rid].vertices[i];
+          int b = triangles_[rid].vertices[(i + 1) % 3];
           Eigen::Vector2i v(std::min(a, b), std::max(a, b));
           const auto &res = edgeLookup.find(v);
           if (res == edgeLookup.end())
           {
-            triangles[rid].edges[i] = int(edges.size());
-            edgeLookup.insert({ v, edges.size() });
-            edges.push_back(Edge(v[0], v[1]));
+            triangles_[rid].edges[i] = int(edges_.size());
+            edgeLookup.insert({ v, edges_.size() });
+            edges_.push_back(Edge(v[0], v[1]));
           }
           else
-            triangles[rid].edges[i] = res->second;
+            triangles_[rid].edges[i] = res->second;
         }
       }
     }
 
-    if (f.id() >= (int)tetrahedra.size())
+    if (f.id() >= (int)tetrahedra_.size())
       std::cout << "bad" << std::endl;
-    tetrahedra[f.id()] = tetra;
+    tetrahedra_[f.id()] = tetra;
 
     c++;
   }
@@ -179,9 +162,9 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
 
 double ConcaveHull::circumcurvature(const ConcaveHull::Tetrahedron &tetra, int triangleID)
 {
-  Triangle &triangle = triangles[triangleID];
+  Triangle &triangle = triangles_[triangleID];
   Eigen::Vector3d vs[4];
-  for (int i = 0; i < 4; i++) vs[i] = vertices[tetra.vertices[i]];
+  for (int i = 0; i < 4; i++) vs[i] = vertices_[tetra.vertices[i]];
 
   Eigen::Vector3d m1 = (vs[0] + vs[1]) * 0.5;
   Eigen::Vector3d m2 = (vs[0] + vs[2]) * 0.5;
@@ -198,21 +181,21 @@ double ConcaveHull::circumcurvature(const ConcaveHull::Tetrahedron &tetra, int t
 
   // intersection of line and plane is midway between all four points
   double t = (m - midbase).dot(dir) / normal.dot(dir);
-  Eigen::Vector3d circumcentre = midbase + normal * t;
-  Eigen::Vector3d centre = (vs[0] + vs[1] + vs[2] + vs[3]) * 0.25;
+  Eigen::Vector3d circumcentre_ = midbase + normal * t;
+  Eigen::Vector3d centre_ = (vs[0] + vs[1] + vs[2] + vs[3]) * 0.25;
 
-  // return the distance from a vertex to this circumcentre
-  double circumradius = (circumcentre - vs[0]).norm();
+  // return the distance from a vertex to this circumcentre_
+  double circumradius = (circumcentre_ - vs[0]).norm();
 
   Eigen::Vector3d cs[3];
-  for (int i = 0; i < 3; i++) cs[i] = vertices[triangle.vertices[i]];
+  for (int i = 0; i < 3; i++) cs[i] = vertices_[triangle.vertices[i]];
 
   Eigen::Vector3d triNormal = (cs[2] - cs[0]).cross(cs[1] - cs[0]);
-  double circumcentreSide = (circumcentre - cs[0]).dot(triNormal);
-  if (circumcentreSide * (centre - cs[0]).dot(triNormal) > 0.0)
+  double circumcentre_Side = (circumcentre_ - cs[0]).dot(triNormal);
+  if (circumcentre_Side * (centre_ - cs[0]).dot(triNormal) > 0.0)
   {
     // we are ready to make this a dead face, but before we do, it is possible that the tetrahedron in question includes
-    // an existing surface face in which case, the circumcentre might not in fact be above the current surface.
+    // an existing surface face in which case, the circumcentre_ might not in fact be above the current surface.
 
     int faceIntersects = -1;
     int numFaceIntersects = 0;
@@ -220,7 +203,7 @@ double ConcaveHull::circumcurvature(const ConcaveHull::Tetrahedron &tetra, int t
     {
       if (tetra.triangles[j] == triangleID)
         continue;
-      if (triangles[tetra.triangles[j]].surface_face_cached.triangle != -1)
+      if (triangles_[tetra.triangles[j]].surface_face_cached.triangle != -1)
       {
         numFaceIntersects++;
         faceIntersects = j;
@@ -229,13 +212,13 @@ double ConcaveHull::circumcurvature(const ConcaveHull::Tetrahedron &tetra, int t
     if (numFaceIntersects == 1)
     {
       int otherFace = tetra.triangles[faceIntersects];
-      Triangle tri = triangles[otherFace];
+      Triangle tri = triangles_[otherFace];
       Eigen::Vector3d ds[3];
-      for (int i = 0; i < 3; i++) ds[i] = vertices[tri.vertices[i]];
+      for (int i = 0; i < 3; i++) ds[i] = vertices_[tri.vertices[i]];
 
       Eigen::Vector3d triNormal2 = (ds[2] - ds[0]).cross(ds[1] - ds[0]);
-      double circumcentreSide2 = (circumcentre - ds[0]).dot(triNormal2);
-      bool aboveOtherFace = circumcentreSide2 * (centre - ds[0]).dot(triNormal2) > 0.0;
+      double circumcentre_Side2 = (circumcentre_ - ds[0]).dot(triNormal2);
+      bool aboveOtherFace = circumcentre_Side2 * (centre_ - ds[0]).dot(triNormal2) > 0.0;
       if (aboveOtherFace)
         return deadFace;
     }
@@ -250,23 +233,23 @@ static int newTriCount = 0;
 
 bool ConcaveHull::growFront(double maxCurvature)
 {
-  SurfaceFace face = *surface.begin();
+  SurfaceFace face = *surface_.begin();
   if (face.curvature == deadFace || face.curvature > maxCurvature)
     return false;
   int vertexI = 0;
   for (int i = 0; i < 4; i++)
   {
-    int v = tetrahedra[face.tetrahedron].vertices[i];
-    Triangle &tri = triangles[face.triangle];
+    int v = tetrahedra_[face.tetrahedron].vertices[i];
+    Triangle &tri = triangles_[face.triangle];
     if (v != tri.vertices[0] && v != tri.vertices[1] && v != tri.vertices[2])
     {
       vertexI = i;
       break;
     }
   }
-  Tetrahedron &tetra = tetrahedra[face.tetrahedron];
+  Tetrahedron &tetra = tetrahedra_[face.tetrahedron];
   int newVertex = tetra.vertices[vertexI];
-  bool intersects = vertex_on_surface[newVertex];
+  bool intersects = vertex_on_surface_[newVertex];
   int faceIntersects = -1;
   int numFaceIntersects = 0;
   const SurfaceFace *faceIntersectTri = NULL;
@@ -274,23 +257,23 @@ bool ConcaveHull::growFront(double maxCurvature)
   {
     if (tetra.triangles[j] == face.triangle)
       continue;
-    if (triangles[tetra.triangles[j]].surface_face_cached.triangle != -1)
+    if (triangles_[tetra.triangles[j]].surface_face_cached.triangle != -1)
     {
       numFaceIntersects++;
       faceIntersects = j;
-      faceIntersectTri = &triangles[tetra.triangles[j]].surface_face_cached;
+      faceIntersectTri = &triangles_[tetra.triangles[j]].surface_face_cached;
     }
   }
 
-  surface.erase(surface.begin());
+  surface_.erase(surface_.begin());
   if (numFaceIntersects == 1)
   {
     intersects = false;
     int otherVertex = 0;
     for (int i = 0; i < 3; i++)
     {
-      int v = triangles[face.triangle].vertices[i];
-      Triangle &tri = triangles[tetra.triangles[faceIntersects]];
+      int v = triangles_[face.triangle].vertices[i];
+      Triangle &tri = triangles_[tetra.triangles[faceIntersects]];
       if (v != tri.vertices[0] && v != tri.vertices[1] && v != tri.vertices[2])
         otherVertex = v;
     }
@@ -301,18 +284,18 @@ bool ConcaveHull::growFront(double maxCurvature)
     int v1 = std::max(otherVertex, newVertex);
     for (int i = 0; i < 3; i++)
     {
-      Edge &edge = edges[triangles[tri2].edges[i]];
+      Edge &edge = edges_[triangles_[tri2].edges[i]];
       if (edge.vertices[0] == v0 && edge.vertices[1] == v1 && edge.has_had_face)
         intersects = true;
     }
     if (!intersects)
-      surface.erase(*faceIntersectTri);
+      surface_.erase(*faceIntersectTri);
   }
   if (intersects)
   {
     face.curvature = deadFace;
-    triangles[face.triangle].surface_face_cached = face;
-    surface.insert(face);  // put it at the back of the queue
+    triangles_[face.triangle].surface_face_cached = face;
+    surface_.insert(face);  // put it at the back of the queue
     return true;
   }
 
@@ -325,15 +308,16 @@ bool ConcaveHull::growFront(double maxCurvature)
 
     newFace.tetrahedron = tetra.neighbours[i];
     newFace.triangle = tetra.triangles[i];
-    for (int j = 0; j < 3; j++) vertex_on_surface[triangles[newFace.triangle].vertices[j]] = true;
+    for (int j = 0; j < 3; j++) 
+      vertex_on_surface_[triangles_[newFace.triangle].vertices[j]] = true;
     double grad;
-    if (triangles[newFace.triangle].is_surface)
+    if (triangles_[newFace.triangle].is_surface)
       newFace.curvature = grad = deadFace;
     else
-      newFace.curvature = circumcurvature(tetrahedra[newFace.tetrahedron], newFace.triangle);
-    triangles[newFace.triangle].surface_face_cached = newFace;
-    for (int j = 0; j < 3; j++) edges[triangles[newFace.triangle].edges[j]].has_had_face = true;
-    surface.insert(newFace);
+      newFace.curvature = circumcurvature(tetrahedra_[newFace.tetrahedron], newFace.triangle);
+    triangles_[newFace.triangle].surface_face_cached = newFace;
+    for (int j = 0; j < 3; j++) edges_[triangles_[newFace.triangle].edges[j]].has_had_face = true;
+    surface_.insert(newFace);
   }
   return true;
 }
@@ -344,20 +328,19 @@ void ConcaveHull::growSurface(double maxCurvature)
   {
     if (!(newTriCount % 1600))
     {
-      std::cout << "max curvature of structure: " << surface.begin()->curvature << std::endl;
+      std::cout << "max curvature of structure: " << surface_.begin()->curvature << std::endl;
       std::vector<std::vector<Eigen::Vector3d>> tris;
-      for (auto &tri : surface)
+      for (auto &tri : surface_)
       {
         std::vector<Eigen::Vector3d> corners(3);
-        for (int i = 0; i < 3; i++) corners[i] = vertices[triangles[tri.triangle].vertices[i]];
+        for (int i = 0; i < 3; i++) 
+          corners[i] = vertices_[triangles_[tri.triangle].vertices[i]];
         tris.push_back(corners);
       }
       // if (DebugDraw *debug = DebugDraw::instance())
       // {
       //   debug->drawTriangles(tris, 0.5);
       // }
-      if (kbhit())
-        return;
     }
   } while (growFront(maxCurvature));
 }
@@ -365,18 +348,18 @@ void ConcaveHull::growSurface(double maxCurvature)
 // starting with given tetrahedron, grow it outwards to achieve a maximum curvature
 void ConcaveHull::growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature)
 {
-  surface.clear();
+  surface_.clear();
   for (int i = 0; i < 4; i++)
   {
     SurfaceFace face;
     face.tetrahedron = tetra.neighbours[i];
     face.triangle = tetra.triangles[i];
-    if (triangles[face.triangle].is_surface)
+    if (triangles_[face.triangle].is_surface)
       face.curvature = deadFace;
     else
-      face.curvature = circumcurvature(tetrahedra[face.tetrahedron], face.triangle);
-    triangles[face.triangle].surface_face_cached = face;
-    surface.insert(face);
+      face.curvature = circumcurvature(tetrahedra_[face.tetrahedron], face.triangle);
+    triangles_[face.triangle].surface_face_cached = face;
+    surface_.insert(face);
   }
   growSurface(maxCurvature);
 }
@@ -384,9 +367,9 @@ void ConcaveHull::growOutwards(const ConcaveHull::Tetrahedron &tetra, double max
 void ConcaveHull::growOutwards(double maxCurvature)
 {
   bool found = false;
-  for (auto &tetra : tetrahedra)
+  for (auto &tetra : tetrahedra_)
   {
-    if (insideTetrahedron(centre, tetra))
+    if (insideTetrahedron(centre_, tetra))
     {
       growOutwards(tetra, maxCurvature);
       found = true;
@@ -394,62 +377,93 @@ void ConcaveHull::growOutwards(double maxCurvature)
   }
   if (!found)
     std::cout << "could not find a tetrahedron at the point cloud mean location" << std::endl;
+  convertToMesh();
 }
 
 // starting with the outer (convex) surface mesh, grow inwards up to the maxCurvature value
 void ConcaveHull::growInwards(double maxCurvature)
 {
-  surface.clear();
+  surface_.clear();
   // find the surface triangles...
-  for (int i = 0; i < (int)triangles.size(); i++)
+  for (int i = 0; i < (int)triangles_.size(); i++)
   {
-    Triangle &tri = triangles[i];
+    Triangle &tri = triangles_[i];
     if (tri.is_surface)
     {
       SurfaceFace face;
-      face.tetrahedron = tetrahedra[tri.tetrahedra[0]].valid() ? tri.tetrahedra[0] : tri.tetrahedra[1];
+      face.tetrahedron = tetrahedra_[tri.tetrahedra[0]].valid() ? tri.tetrahedra[0] : tri.tetrahedra[1];
       face.triangle = i;
-      face.curvature = circumcurvature(tetrahedra[face.tetrahedron], face.triangle);
-      triangles[i].surface_face_cached = face;
-      surface.insert(face);
+      face.curvature = circumcurvature(tetrahedra_[face.tetrahedron], face.triangle);
+      triangles_[i].surface_face_cached = face;
+      surface_.insert(face);
     }
   }
   growSurface(maxCurvature);
+  convertToMesh();
 }
 
 void ConcaveHull::growInDirection(double maxCurvature, const Eigen::Vector3d &dir)
 {
-  surface.clear();
+  surface_.clear();
   // find the surface triangles...
-  for (int i = 0; i < (int)triangles.size(); i++)
+  for (int i = 0; i < (int)triangles_.size(); i++)
   {
-    Triangle &tri = triangles[i];
+    Triangle &tri = triangles_[i];
     if (tri.is_surface)
     {
       SurfaceFace face;
-      face.tetrahedron = tetrahedra[tri.tetrahedra[0]].valid() ? tri.tetrahedra[0] : tri.tetrahedra[1];
+      face.tetrahedron = tetrahedra_[tri.tetrahedra[0]].valid() ? tri.tetrahedra[0] : tri.tetrahedra[1];
       if (face.tetrahedron < 0)
         std::cout << "bad face tetrahedron" << std::endl;
       Eigen::Vector3d mid(0, 0, 0);
-      for (int j = 0; j < 4; j++) mid += vertices[tetrahedra[face.tetrahedron].vertices[j]] / 4.0;
-      Eigen::Vector3d normal = (vertices[tri.vertices[2]] - vertices[tri.vertices[0]])
-                          .cross(vertices[tri.vertices[1]] - vertices[tri.vertices[0]]);
-      if ((mid - vertices[tri.vertices[0]]).dot(normal) < 0.0)
+      for (int j = 0; j < 4; j++) mid += vertices_[tetrahedra_[face.tetrahedron].vertices[j]] / 4.0;
+      Eigen::Vector3d normal = (vertices_[tri.vertices[2]] - vertices_[tri.vertices[0]])
+                          .cross(vertices_[tri.vertices[1]] - vertices_[tri.vertices[0]]);
+      if ((mid - vertices_[tri.vertices[0]]).dot(normal) < 0.0)
         normal = -normal;
       if (normal.dot(dir) < 0.0)  // downwards facing
         continue;
       face.triangle = i;
       for (int j = 0; j < 3; j++)
       {
-        vertex_on_surface[tri.vertices[j]] = true;
-        edges[tri.edges[j]].has_had_face = true;
+        vertex_on_surface_[tri.vertices[j]] = true;
+        edges_[tri.edges[j]].has_had_face = true;
       }
-      face.curvature = circumcurvature(tetrahedra[face.tetrahedron], face.triangle);
-      triangles[i].surface_face_cached = face;
-      surface.insert(face);
+      face.curvature = circumcurvature(tetrahedra_[face.tetrahedron], face.triangle);
+      triangles_[i].surface_face_cached = face;
+      surface_.insert(face);
     }
   }
   growSurface(maxCurvature);
+  convertToMesh();
+}
+
+void ConcaveHull::convertToMesh()
+{
+  mesh_.vertices() = vertices_;
+  int num_bads = 0;
+  for (auto &face : surface_)
+  {
+    Eigen::Vector3d centroid(0, 0, 0);
+    ray::ConcaveHull::Tetrahedron &tetra = tetrahedra_[face.tetrahedron];
+    Eigen::Vector3i tri_verts = triangles_[face.triangle].vertices;
+    if (tri_verts[0] == -1)
+      std::cout << "bad vertices in the surface" << std::endl;
+    if (tetra.vertices[0] != -1)
+    {
+      for (int i = 0; i < 4; i++) centroid += vertices_[tetra.vertices[i]] / 4.0;
+      Eigen::Vector3d vs[3];
+      for (int i = 0; i < 3; i++) vs[i] = vertices_[tri_verts[i]];
+      Eigen::Vector3d normal = (vs[2] - vs[0]).cross(vs[1] - vs[0]);
+      if ((centroid - vs[0]).dot(normal) < 0.0)
+        std::swap(tri_verts[1], tri_verts[2]);
+    }
+    else
+      num_bads++;
+    mesh_.index_list().push_back(tri_verts);
+  }
+  if (num_bads > 0)
+    std::cout << "number of surfaces that didn't have enough information to orient: " << num_bads << std::endl;
 }
 }
 #endif

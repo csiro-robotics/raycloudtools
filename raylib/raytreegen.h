@@ -18,27 +18,42 @@ namespace ray
 #define splitAngle (45.0 * kPi / 180.0)  // angle in the Y shape, usually around 45 degrees
 #define branchGradient 20.0              // length per radius
 
-double RAYLIB_EXPORT getMainBranchAngle(double covariance_anglee);
+double RAYLIB_EXPORT getMainBranchAngle(double covariance_angle);
 void RAYLIB_EXPORT fillBranchAngleLookup();
 
+/// Random generation of semi-realistic trees. These are based on a self-similar branching structure
+/// for the @c pitchAngle @c splitAngle and @c branchGradient constants, with an additional @c random_factor
 struct RAYLIB_EXPORT TreeGen
 {
-  std::vector<Eigen::Vector3d> leaves;
-  std::vector<Eigen::Vector3d> ray_starts, ray_ends;
+  /// create the tree structure, and list of leaf points
+  void make(const Eigen::Vector3d &root_pos, double trunk_radius, double random_factor = 0.0);  // 0 to 1
+  /// create a set of rays covering the tree at a roughly uniform distribution
+  void generateRays(double ray_density);
+
+  /// the ray cloud attributes
+  inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
+  inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
+  
   struct Branch
   {
     Eigen::Vector3d tip;
     double radius;
     int parent_index;
   };
-  std::vector<Branch> branches;
-  Eigen::Vector3d root;
+  /// access the geometry of the tree as a list of branches
+  const std::vector<Branch> &branches() const { return branches_; }
+  /// access the leaves of the tree
+  const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }
+  /// the position of the base of the tree trunk
+  const Eigen::Vector3d &root() const { return root_; }
+  
+private:
+  std::vector<Eigen::Vector3d> leaves_;
+  std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
+  std::vector<Branch> branches_;
+  Eigen::Vector3d root_;
 
-  void addBranch(int parent_index, Pose pose, double radius, double random_factorr);
-  // create the tree structure, and list of leaf points
-  void make(const Eigen::Vector3d &root_poss, double trunk_radiuss, double random_factorr = 0.0);  // 0 to 1
-  // create a set of rays covering the tree at a roughly uniform distribution
-  void generateRays(double ray_densityy);
+  void addBranch(int parent_index, Pose pose, double radius, double random_factor);
 };
 
 }  // namespace ray

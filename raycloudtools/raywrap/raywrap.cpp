@@ -66,32 +66,7 @@ int main(int argc, char *argv[])
     else
       usage();
 
-    ray::Mesh mesh;
-    mesh.vertices = concave_hull.vertices;
-    int num_bads = 0;
-    for (auto &face : concave_hull.surface)
-    {
-      Eigen::Vector3d centroid(0, 0, 0);
-      ray::ConcaveHull::Tetrahedron &tetra = concave_hull.tetrahedra[face.tetrahedron];
-      Eigen::Vector3i tri_verts = concave_hull.triangles[face.triangle].vertices;
-      if (tri_verts[0] == -1)
-        std::cout << "bad vertices in the surface" << std::endl;
-      if (tetra.vertices[0] != -1)
-      {
-        for (int i = 0; i < 4; i++) centroid += concave_hull.vertices[tetra.vertices[i]] / 4.0;
-        Eigen::Vector3d vs[3];
-        for (int i = 0; i < 3; i++) vs[i] = concave_hull.vertices[tri_verts[i]];
-        Eigen::Vector3d normal = (vs[2] - vs[0]).cross(vs[1] - vs[0]);
-        if ((centroid - vs[0]).dot(normal) < 0.0)
-          std::swap(tri_verts[1], tri_verts[2]);
-      }
-      else
-        num_bads++;
-      mesh.index_list.push_back(tri_verts);
-    }
-    if (num_bads > 0)
-      std::cout << "number of surfaces that didn't have enough information to orient: " << num_bads << std::endl;
-    writePlyMesh(file + "_mesh.ply", mesh, true);
+    writePlyMesh(file + "_mesh.ply", concave_hull.mesh(), true);
   }
   else
   {

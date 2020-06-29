@@ -15,7 +15,7 @@
 
 namespace ray
 {
-// 3d orientation and position
+// A Euclidean transformation class (3d orientation and position). 
 struct RAYLIB_EXPORT Pose
 {
   Eigen::Vector3d position;
@@ -65,7 +65,7 @@ struct RAYLIB_EXPORT Pose
 
   /// Normalise in-place
   void normalise() { rotation.normalize(); }
-  /// Return normalized pose
+  /// Return normalised pose
   Pose normalised() const
   {
     Pose result = *this;

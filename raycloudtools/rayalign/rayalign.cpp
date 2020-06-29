@@ -83,15 +83,16 @@ int main(int argc, char *argv[])
   if (file_stub.substr(file_stub.length() - 4) == ".ply")
     file_stub = file_stub.substr(0, file_stub.length() - 4);
 
-  ray::AlignTranslationYaw aligner;
-  aligner.clouds[0].load(file_a);
-  aligner.clouds[1].load(file_b);
+  ray::Cloud clouds[2];
+  clouds[0].load(file_a);
+  clouds[1].load(file_b);
+  ray::AlignTranslationYaw aligner(clouds);
 
   if (!local_only)
   {
     aligner.alignCloud0ToCloud1(0.5, verbose);
     if (verbose)
-      aligner.clouds[0].save(file_stub + "_coarse_aligned.ply");
+      clouds[0].save(file_stub + "_coarse_aligned.ply");
   }
 
   // Next the fine grained alignment.
@@ -113,7 +114,7 @@ int main(int argc, char *argv[])
   for (int c = 0; c < 2; c++)
   {
     // 1. decimate quite fine
-    std::vector<int64_t> decimated = ray::voxelSubsample(aligner.clouds[c].ends, 0.1);
+    std::vector<int64_t> decimated = ray::voxelSubsample(clouds[c].ends, 0.1);
     std::vector<Eigen::Vector3d> decimated_points;
     decimated_points.reserve(decimated.size());
     std::vector<Eigen::Vector3d> decimated_starts;
@@ -121,11 +122,11 @@ int main(int argc, char *argv[])
     centres[c].setZero();
     for (size_t i = 0; i < decimated.size(); i++)
     {
-      if (aligner.clouds[c].rayBounded((int)decimated[i]))
+      if (clouds[c].rayBounded((int)decimated[i]))
       {
-        decimated_points.push_back(aligner.clouds[c].ends[decimated[i]]);
+        decimated_points.push_back(clouds[c].ends[decimated[i]]);
         centres[c] += decimated_points.back();
-        decimated_starts.push_back(aligner.clouds[c].starts[decimated[i]]);
+        decimated_starts.push_back(clouds[c].starts[decimated[i]]);
       }
     }
     centres[c] /= (double)decimated_points.size(); 
@@ -393,7 +394,7 @@ int main(int argc, char *argv[])
 
       // TODO: transforming the whole cloud each time is a bit slow,
       // we should be able to concatenate these transforms and only apply them once at the end
-      for (auto &end : aligner.clouds[0].ends)
+      for (auto &end : clouds[0].ends)
       {
         Eigen::Vector3d relPos = end - centres[0];
         if (!rigid_only)
@@ -403,6 +404,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  aligner.clouds[0].save(file_stub + "_aligned.ply");
+  clouds[0].save(file_stub + "_aligned.ply");
   return true;
 }

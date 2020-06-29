@@ -32,6 +32,9 @@ struct RAYLIB_EXPORT GridRayInfo
 };
 
 #if defined HASH_LOOKUP
+/// 3D grid container class based on hash lookup, to accelerate the access to spatial data by location
+/// A hash lookup is used because ray cloud geometry is generally sparse, and so continuous 3D voxel arrays are memory
+/// intensive
 template <class T>
 struct Grid
 {
@@ -121,6 +124,7 @@ struct Grid
                            box_min.z() + z * voxel_width + 0.5 * voxel_width);
   }
 
+  /// the grid is axis aligned, so initialised from a bounding box and a voxel width
   void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
   {
     this->box_min = box_min;
@@ -140,6 +144,7 @@ struct Grid
   {
     int hash = hashFunc(index.x(), index.y(), index.z());
     Bucket &bucket = buckets_.at(hash);
+    // linearly search through the bucket
     for (auto &c : bucket.cells)
       if (c.index == index)
         return c;
@@ -183,6 +188,8 @@ struct Grid
     bucket.cells.emplace_back(Cell(index, value));
   }
 
+  /// debugging statistics on the grid structure. This can be used to assess how efficient this grid 
+  /// structure is for a given @c voxel_width. 
   void report()
   {
     size_t count = 0;
@@ -207,6 +214,7 @@ struct Grid
     std::cout << "total data stored: " << data_count << std::endl;
   }
 
+  /// applies the @c visit function for all cells in the grid
   void walkCells(const WalkCellsVisitFunction &visit) const
   {
     for (const auto &bucket : buckets_)
@@ -271,6 +279,12 @@ struct Grid
       return null_cell_;
     return cells[x + dims[0] * y + dims[0] * dims[1] * z];
   }
+  inline const Cell &cell(int x, int y, int z) const
+  {
+    if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
+      return null_cell_;
+    return cells[x + dims[0] * y + dims[0] * dims[1] * z];
+  }
   inline void insert(int x, int y, int z, const T &value)
   {
     if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
@@ -290,7 +304,7 @@ struct Grid
       totalCount += size;
     }
     std::cout << "voxels filled: " << count << " out of " << cells.size() << " cells, which is "
-              << 100.0 * (double)count / (double)cells.size() << "\%" << std::endl;
+              << 100.0 * (double)count / (double)cells.size() << "%" << std::endl;
     std::cout << "average data per filled voxel: " << (double)totalCount / (double)count << std::endl;
     std::cout << "total data stored: " << totalCount << std::endl;
   }

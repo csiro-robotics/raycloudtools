@@ -12,6 +12,7 @@
 
 namespace ray
 {
+/// Read a laz or las file, into the fields passed by reference. 
 bool RAYLIB_EXPORT readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times,
                            std::vector<RGBA> &colours, int decimation);
 }

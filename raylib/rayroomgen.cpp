@@ -179,9 +179,9 @@ void RoomGen::generate()
     Eigen::Vector3d ray_end =
       Eigen::Vector3d(s[0] * cos(room_yaw) + s[1] * sin(room_yaw), -s[0] * sin(room_yaw) + s[1] * cos(room_yaw), s[2]) +
       floor_centre;
-    ray_starts.push_back(ray_start);
-    ray_ends.push_back(ray_end);
-    ray_bounded.push_back(range != max_range);
+    ray_starts_.push_back(ray_start);
+    ray_ends_.push_back(ray_end);
+    ray_bounded_.push_back(range != max_range);
   }
 }
 } // ray
