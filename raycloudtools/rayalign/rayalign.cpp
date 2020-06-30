@@ -21,7 +21,7 @@ void usage(int exit_code = 0)
   std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayalign raycloudA raycloudB" << std::endl;
-  std::cout << "                             --rigid    - rigid alignment only" << std::endl;
+  std::cout << "                             --nonrigid    - nonrigid (quadratic) alignment" << std::endl;
   std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
   std::cout
     << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
@@ -63,14 +63,14 @@ int main(int argc, char *argv[])
   if (argc < 3 || argc > 6)
     usage();
   bool verbose = false;
-  bool rigid_only = false;
+  bool non_rigid = false;
   bool local_only = false;
   for (int a = 3; a < argc; a++)
   {
     if (std::string(argv[a]) == "--verbose" || std::string(argv[a]) == "-v")
       verbose = true;
-    else if (std::string(argv[a]) == "--rigid" || std::string(argv[a]) == "-r")
-      rigid_only = true;
+    else if (std::string(argv[a]) == "--nonrigid" || std::string(argv[a]) == "-n")
+      non_rigid = true;
     else if (std::string(argv[a]) == "--local" || std::string(argv[a]) == "-l")
       local_only = true;
     else
@@ -110,10 +110,19 @@ int main(int argc, char *argv[])
   std::vector<Eigen::Vector3d> widths[2];
   std::vector<bool> is_plane[2];
   Eigen::Vector3d centres[2];
+  double point_spacings[2];
+  double avg_max_spacing = 0.0; 
   for (int c = 0; c < 2; c++)
   {
+    point_spacings[c] = aligner.clouds[c].estimatePointSpacing();
+    const double min_spacing_scale = 2.0;
+    const double max_spacing_scale = 20.0;
+    double min_spacing = min_spacing_scale*point_spacings[c];
+    double max_spacing = max_spacing_scale*point_spacings[c];
+    avg_max_spacing += 0.5*max_spacing;
+    std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing << "m" << std::endl;
     // 1. decimate quite fine
-    std::vector<int64_t> decimated = ray::voxelSubsample(aligner.clouds[c].ends, 0.1);
+    std::vector<int64_t> decimated = ray::voxelSubsample(aligner.clouds[c].ends, min_spacing);
     std::vector<Eigen::Vector3d> decimated_points;
     decimated_points.reserve(decimated.size());
     std::vector<Eigen::Vector3d> decimated_starts;
@@ -131,7 +140,7 @@ int main(int argc, char *argv[])
     centres[c] /= (double)decimated_points.size(); 
 
     // 2. find the coarser random candidate points. We just want a fairly even spread but not the voxel centres
-    std::vector<int64_t> candidates = ray::voxelSubsample(decimated_points, 1.0);
+    std::vector<int64_t> candidates = ray::voxelSubsample(decimated_points, max_spacing);
     std::vector<Eigen::Vector3d> candidate_points(candidates.size());
     std::vector<Eigen::Vector3d> candidate_starts(candidates.size());
     for (int64_t i = 0; i < (int64_t)candidates.size(); i++)
@@ -156,7 +165,7 @@ int main(int argc, char *argv[])
     Eigen::MatrixXd dists2;
     indices.resize(search_size, q_size);
     dists2.resize(search_size, q_size);
-    nns->knn(points_q, indices, dists2, search_size, 0.01, 0, 1.0);
+    nns->knn(points_q, indices, dists2, search_size, 0.01*max_spacing, 0, max_spacing);
     delete nns;
 
     centroids[c].reserve(q_size);
@@ -248,74 +257,71 @@ int main(int argc, char *argv[])
     // with these matches we now run the iterative reweighted least squares..
     ray::Pose pose = ray::Pose::identity();
     int max_iterations = 8;
-    const double translation_weight = 0.4;  // smaller finds matches further away
+    const double translation_weight = 0.4 / avg_max_spacing;  // smaller finds matches further away
     const double max_normal_difference = 0.5;
     for (int it = 0; it < max_iterations; it++)
     {
-      //   if (it < 3) // the distribution of re-matching within the iterations is open to adjustment
+      std::vector<Eigen::Vector3d> line_starts;
+      std::vector<Eigen::Vector3d> line_ends;
+      int search_size = 1;
+      size_t q_size = centroids[0].size();
+      size_t p_size = centroids[1].size();
+      Nabo::NNSearchD *nns;
+      Eigen::MatrixXd points_q(7, q_size);
+      for (size_t i = 0; i < q_size; i++)
       {
-        std::vector<Eigen::Vector3d> line_starts;
-        std::vector<Eigen::Vector3d> line_ends;
-        int search_size = 1;
-        size_t q_size = centroids[0].size();
-        size_t p_size = centroids[1].size();
-        Nabo::NNSearchD *nns;
-        Eigen::MatrixXd points_q(7, q_size);
-        for (size_t i = 0; i < q_size; i++)
-        {
-          Eigen::Vector3d p = centroids[0][i] * translation_weight;
-          p[2] *= 2.0;  // doen't make much difference...
-          points_q.col(i) << p, normals[0][i], is_plane[0][i] ? 1.0 : 0.0;
-        }
-        Eigen::MatrixXd points_p(7, p_size);
-        for (size_t i = 0; i < p_size; i++)
-        {
-          Eigen::Vector3d p = centroids[1][i] * translation_weight;
-          p[2] *= 2.0;
-          points_p.col(i) << p, normals[1][i], is_plane[1][i] ? 1.0 : 0.0;
-        }
-        nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 7);
-
-        // Run the search
-        Eigen::MatrixXi indices;
-        Eigen::MatrixXd dists2;
-        indices.resize(search_size, q_size);
-        dists2.resize(search_size, q_size);
-        nns->knn(points_q, indices, dists2, search_size, 0.01, 0, max_normal_difference);
-        delete nns;
-        matches.clear();
-
-        for (int i = 0; i < (int)q_size; i++)
-        {
-          for (int j = 0; j < search_size && indices(j, i) > -1; j++)
-          {
-            Match match;
-            match.ids[0] = i;
-            match.ids[1] = indices(j, i);
-            bool plane = is_plane[0][i];
-            if (plane != is_plane[1][indices(j, i)])
-              continue;
-            Eigen::Vector3d mid_norm = (normals[0][i] + normals[1][indices(j, i)]).normalized();
-            if (plane)
-            {
-              match.normal = mid_norm;
-              matches.push_back(match);
-            }
-            else
-            {
-              // a cylinder is like two normal constraints
-              match.normal = mid_norm.cross(Eigen::Vector3d(1, 2, 3)).normalized();
-              matches.push_back(match);
-              match.normal = mid_norm.cross(match.normal);
-              matches.push_back(match);
-            }
-            line_starts.push_back(centroids[0][i]);
-            line_ends.push_back(centroids[1][indices(j, i)]);
-          }
-        }
-        draw.drawLines(line_starts, line_ends);
-        draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Eigen::Vector3d(1, 0, 0), 0);
+        Eigen::Vector3d p = centroids[0][i] * translation_weight;
+        p[2] *= 2.0;  // doen't make much difference...
+        points_q.col(i) << p, normals[0][i], is_plane[0][i] ? 1.0 : 0.0;
       }
+      Eigen::MatrixXd points_p(7, p_size);
+      for (size_t i = 0; i < p_size; i++)
+      {
+        Eigen::Vector3d p = centroids[1][i] * translation_weight;
+        p[2] *= 2.0;
+        points_p.col(i) << p, normals[1][i], is_plane[1][i] ? 1.0 : 0.0;
+      }
+      nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 7);
+
+      // Run the search
+      Eigen::MatrixXi indices;
+      Eigen::MatrixXd dists2;
+      indices.resize(search_size, q_size);
+      dists2.resize(search_size, q_size);
+      nns->knn(points_q, indices, dists2, search_size, 0.01, 0, max_normal_difference);
+      delete nns;
+      matches.clear();
+
+      for (int i = 0; i < (int)q_size; i++)
+      {
+        for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+        {
+          Match match;
+          match.ids[0] = i;
+          match.ids[1] = indices(j, i);
+          bool plane = is_plane[0][i];
+          if (plane != is_plane[1][indices(j, i)])
+            continue;
+          Eigen::Vector3d mid_norm = (normals[0][i] + normals[1][indices(j, i)]).normalized();
+          if (plane)
+          {
+            match.normal = mid_norm;
+            matches.push_back(match);
+          }
+          else
+          {
+            // a cylinder is like two normal constraints
+            match.normal = mid_norm.cross(Eigen::Vector3d(1, 2, 3)).normalized();
+            matches.push_back(match);
+            match.normal = mid_norm.cross(match.normal);
+            matches.push_back(match);
+          }
+          line_starts.push_back(centroids[0][i]);
+          line_ends.push_back(centroids[1][indices(j, i)]);
+        }
+      }
+      draw.drawLines(line_starts, line_ends);
+      draw.drawEllipsoids(centroids[0], matrices[0], widths[0], Eigen::Vector3d(1, 0, 0), 0);
 
       // don't go above 30*... or below 10*...
       double d = 20.0 * (double)it / (double)max_iterations;
@@ -355,7 +361,7 @@ int main(int argc, char *argv[])
           axis[i] = 1.0;
           at[3 + i] = -(positions[0].cross(axis)).dot(match.normal);
         }
-        if (!rigid_only) 
+        if (non_rigid) 
         {
           positions[0] -= centres[0];
           positions[1] -= centres[1];
@@ -383,7 +389,7 @@ int main(int argc, char *argv[])
       {
         Eigen::Vector3d &pos = centroids[0][i];
         Eigen::Vector3d relPos = pos - centres[0];
-        if (!rigid_only)
+        if (non_rigid)
           pos += a * ray::sqr(relPos[0]) + b * ray::sqr(relPos[1]) + c * relPos[0] * relPos[1];
         pos = shift * pos;
         normals[0][i] = shift.rotation * normals[0][i];
@@ -396,7 +402,7 @@ int main(int argc, char *argv[])
       for (auto &end : aligner.clouds[0].ends)
       {
         Eigen::Vector3d relPos = end - centres[0];
-        if (!rigid_only)
+        if (non_rigid)
           end += a * ray::sqr(relPos[0]) + b * ray::sqr(relPos[1]) + c * relPos[0] * relPos[1];
         end = shift * end;
       }
