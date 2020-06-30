@@ -399,7 +399,7 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose)
 
 /************************************************************************************/
 
-void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
+void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
 {
   // first we need to decimate the clouds into intensity grids..
   // I need to get a maximum box width, and individual box_min, boxMaxs

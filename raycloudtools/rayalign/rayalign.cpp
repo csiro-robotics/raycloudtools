@@ -86,11 +86,10 @@ int main(int argc, char *argv[])
   ray::Cloud clouds[2];
   clouds[0].load(file_a);
   clouds[1].load(file_b);
-  ray::AlignTranslationYaw aligner(clouds);
 
   if (!local_only)
   {
-    aligner.alignCloud0ToCloud1(0.5, verbose);
+    alignCloud0ToCloud1(clouds, 0.5, verbose);
     if (verbose)
       clouds[0].save(file_stub + "_coarse_aligned.ply");
   }

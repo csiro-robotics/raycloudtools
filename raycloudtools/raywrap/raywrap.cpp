@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     else
       usage();
 
-    writePlyMesh(file + "_mesh.ply", convexHull.mesh, true);
+    writePlyMesh(file + "_mesh.ply", convexHull.mesh(), true);
   }
 
 
