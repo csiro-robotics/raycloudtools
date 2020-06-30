@@ -398,7 +398,8 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose)
 }
 
 /************************************************************************************/
-
+namespace ray // this may move to the top, once the google style2 PR is in.
+{
 void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
 {
   // first we need to decimate the clouds into intensity grids..
@@ -529,4 +530,5 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
 
   Pose transform(pos, Quaterniond::Identity());
   clouds[0].transform(transform, 0.0);
+}
 }
