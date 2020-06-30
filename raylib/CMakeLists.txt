@@ -70,7 +70,6 @@ else(WITH_3ES)
 endif(WITH_3ES)
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
-find_package(QHull REQUIRED)
 
 ras_add_library(raylib
   TYPE SHARED
@@ -84,11 +83,12 @@ ras_add_library(raylib
       # The simple_fft dependency is also added as an INTERFACE library, which will be propagated in the dependency
       # chain.
       "${SIMPLE_FFT_INCLUDE_DIRS}"
-  LIBS PUBLIC 
-         ${RAYTOOLS_LINK}
-       PRIVATE 
-         Qhull::qhullcpp  
-         Qhull::qhullstatic_r
+  LIBS
+    PUBLIC
+      ${RAYTOOLS_LINK}
+    PRIVATE
+      Qhull::qhullcpp
+      Qhull::qhullstatic_r
   PUBLIC_HEADERS ${PUBLIC_HEADERS}
   GENERATED PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h"
   SOURCES ${SOURCES}
