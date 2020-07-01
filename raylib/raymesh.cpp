@@ -14,8 +14,9 @@
 
 namespace ray
 {
-struct Triangle
+class Triangle
 {
+public:
   Eigen::Vector3d corners[3];
   Eigen::Vector3d normal;
   bool tested;

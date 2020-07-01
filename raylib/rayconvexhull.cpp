@@ -21,8 +21,9 @@
 namespace ray
 {
 
-struct lessThan
+class lessThan
 {
+public:
   bool operator()(const Eigen::Vector3d &v1, const Eigen::Vector3d &v2) const
   {
     return v1[0] + kPi * v1[1] + kPi * kPi * v1[2] < v2[0] + kPi * v2[1] + kPi * kPi * v2[2];
