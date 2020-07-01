@@ -6,8 +6,9 @@
 #include "rayterraingen.h"
 namespace ray
 {
-struct PlanarWave
+class PlanarWave
 {
+public:
   PlanarWave() {}
   PlanarWave(const Eigen::Vector2d &dir, double amplitude)
     : dir(dir)

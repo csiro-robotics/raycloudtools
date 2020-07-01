@@ -15,8 +15,9 @@
 
 namespace ray
 {
-struct RAYLIB_EXPORT ConvexHull
+class RAYLIB_EXPORT ConvexHull
 {
+public:
   ConvexHull(const std::vector<Eigen::Vector3d> &points);
 
   void growOutwards(double maxCurvature);

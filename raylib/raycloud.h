@@ -27,8 +27,9 @@ enum BoundsFlag
   kBFStart = (1 << 1)
 };
 
-struct RAYLIB_EXPORT Cloud
+class RAYLIB_EXPORT Cloud
 {
+public:
   std::vector<Eigen::Vector3d> starts;
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;

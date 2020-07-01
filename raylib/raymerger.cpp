@@ -67,8 +67,9 @@ private:
 };
 
 typedef Eigen::Matrix<double, 6, 1> Vector6i;
-struct Vector6iLess
+class Vector6iLess
 {
+public:
   inline bool operator()(const Vector6i &a, const Vector6i &b) const
   {
     if (a[0] != b[0])

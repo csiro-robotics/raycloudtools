@@ -12,8 +12,9 @@
 
 namespace ray
 {
-struct RAYLIB_EXPORT TerrainGen
+class RAYLIB_EXPORT TerrainGen
 {
+public:
   void generate();
   std::vector<Eigen::Vector3d> ray_starts, ray_ends;
 };

@@ -16,8 +16,9 @@
 namespace ray
 {
 // 3d orientation and position
-struct RAYLIB_EXPORT Pose
+class RAYLIB_EXPORT Pose
 {
+public:
   Eigen::Vector3d position;
   Eigen::Quaterniond rotation;
 

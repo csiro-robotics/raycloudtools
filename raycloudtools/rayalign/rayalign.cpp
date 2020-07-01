@@ -115,6 +115,7 @@ int main(int argc, char *argv[])
   for (int c = 0; c < 2; c++)
   {
     point_spacings[c] = aligner.clouds[c].estimatePointSpacing();
+    ASSERT(point_spacings[c] >= 0.0);
     const double min_spacing_scale = 2.0;
     const double max_spacing_scale = 20.0;
     double min_spacing = min_spacing_scale*point_spacings[c];

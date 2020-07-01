@@ -6,8 +6,9 @@
 #include "rayroomgen.h"
 namespace ray
 {
-struct Cuboid
+class Cuboid
 {
+public:
   Cuboid(const Eigen::Vector3d &min_b, const Eigen::Vector3d &max_b)
     : min_bound(min_b)
     , max_bound(max_b)
