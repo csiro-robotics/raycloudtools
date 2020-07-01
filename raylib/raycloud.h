@@ -48,7 +48,7 @@ struct RAYLIB_EXPORT Cloud
   Eigen::Vector3d calcMinBound() const;
   Eigen::Vector3d calcMaxBound() const;
 
-  void transform(const Pose &pose, double time_deltaa);
+  void transform(const Pose &pose, double time_delta);
   void decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set = NULL);
   void addRay(const Eigen::Vector3d &start, const Eigen::Vector3d &end, double time, const RGBA &colour);
   void addRay(const Cloud &other_cloud, size_t index);
@@ -68,7 +68,7 @@ struct RAYLIB_EXPORT Cloud
   ///
   /// Bounds are set to zero if the bounds are invalid.
   /// @param[out] min_bounds The minimum bounds are written here.
-  /// @param[out] max_bounds The maxnimum bounds are written here.
+  /// @param[out] max_bounds The maximum bounds are written here.
   /// @param flags @c BoundsFlag values use to modify how the bounds are calculated.
   /// @return True if the cloud has bounded rays and bounds values have been calculated. On false, the value of
   ///   @p min_bounds and @p max_bounds are undefined.

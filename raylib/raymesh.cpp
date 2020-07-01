@@ -91,7 +91,9 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
 
   // convert to separate triangles for convenience
   std::vector<Triangle> triangles(index_list.size());
-  Eigen::Vector3d box_min(1e10,1e10,1e10), box_max(-1e10,-1e10,-1e10);
+  double mx = std::numeric_limits<double>::max();
+  double mn = std::numeric_limits<double>::lowest();
+  Eigen::Vector3d box_min(mx,mx,mx), box_max(mn,mn,mn);
   for (int i = 0; i<(int)index_list.size(); i++)
   {
     Triangle &tri = triangles[i];

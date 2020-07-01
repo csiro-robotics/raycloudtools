@@ -5,12 +5,11 @@
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
 
-#include <nabo/nabo.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <nabo/nabo.h>
 
 void usage(int exit_code = 0)
 {
@@ -80,7 +79,7 @@ int main(int argc, char *argv[])
     const int search_size = 10;
     indices.resize(search_size, points.size());
     dists2.resize(search_size, points.size());
-    nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);
+    nns->knn(points_p, indices, dists2, search_size, ray::kNearestNeighbourEpsilon, 0);
     delete nns;
 
     new_cloud.starts.reserve(cloud.starts.size());

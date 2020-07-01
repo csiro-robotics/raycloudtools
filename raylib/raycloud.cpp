@@ -238,7 +238,8 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
     if (rayBounded(i))
       ray_ids.push_back(i);
   MatrixXd points_p(3, ray_ids.size());
-  for (unsigned int i = 0; i < ray_ids.size(); i++) points_p.col(i) = ends[ray_ids[i]];
+  for (unsigned int i = 0; i < ray_ids.size(); i++) 
+    points_p.col(i) = ends[ray_ids[i]];
   nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
   // Run the search
@@ -246,7 +247,7 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
   MatrixXd dists2;
   indices.resize(search_size, ray_ids.size());
   dists2.resize(search_size, ray_ids.size());
-  nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);  // TODO: needs to sort here
+  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
   delete nns;
 
   if (neighbour_indices)
@@ -257,7 +258,8 @@ void Cloud::getSurfels(int search_size, vector<Vector3d> *centroids, vector<Vect
     if (neighbour_indices)
     {
       int j;
-      for (j = 0; j < search_size && indices(j, i) > -1; j++) (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
+      for (j = 0; j < search_size && indices(j, i) > -1; j++) 
+        (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
       if (j < search_size)
         (*neighbour_indices)(j, ray_id) = -1;
     }

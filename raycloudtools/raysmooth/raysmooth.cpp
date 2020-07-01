@@ -26,8 +26,6 @@ void smoothPointCloud(std::vector<Eigen::Vector3d> &positions, std::vector<Eigen
   ASSERT(positions.size() == normals.size());
   ASSERT(num_neighbors > 0);
   ASSERT(num_neighbors <= (int)positions.size());
-  double eps = 0.1;
-  double max_radius = std::numeric_limits<double>::infinity();
 
   std::cout << "smooth_pointcloud with " << positions.size() << " points, " << num_neighbors << " neighbours, "
        << smoothing_iterations << " iters, rbar " << r_bar << std::endl;
@@ -45,7 +43,7 @@ void smoothPointCloud(std::vector<Eigen::Vector3d> &positions, std::vector<Eigen
   Eigen::MatrixXd dists2;
   indices.resize(num_neighbors, positions.size());
   dists2.resize(num_neighbors, positions.size());
-  nns->knn(data, indices, dists2, num_neighbors, eps, 0, max_radius);
+  nns->knn(data, indices, dists2, num_neighbors, ray::kNearestNeighbourEpsilon, 0);
 
   // Set up data structures for output
 
