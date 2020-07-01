@@ -22,6 +22,7 @@ namespace ray
 /// This is a cross-correlation method that requires a @c voxel_width (typically on the order of a metre)
 /// the @c verbose argument saves out plan-view images at each step of the method.
 /// The method uses a scale-free Fourier-Mellin transform to efficiently cross-correlate the cloud's end point densities.
+/// NOTE @c clouds is a pair of clouds, it should point to an array with at least 2 elements
 void RAYLIB_EXPORT alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose = false);
 }  // namespace ray
 
