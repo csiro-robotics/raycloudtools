@@ -26,7 +26,7 @@ public:
   void growTopDown(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, -1)); }
 
 
-  class SurfaceFace
+  class RAYLIB_EXPORT SurfaceFace
   {
   public:
     SurfaceFace() { triangle = -1; }
@@ -35,7 +35,7 @@ public:
     double curvature;
   };
 
-  class Edge
+  class RAYLIB_EXPORT Edge
   {
   public:
     Edge() {}
@@ -48,7 +48,7 @@ public:
     int vertices[2];
     bool has_had_face;
   };
-  class Triangle
+  class RAYLIB_EXPORT Triangle
   {
   public:
     Triangle()
@@ -66,7 +66,7 @@ public:
     int tetrahedra[2];
     SurfaceFace surface_face_cached;
   };
-  class Tetrahedron
+  class RAYLIB_EXPORT Tetrahedron
   {
   public:
     Tetrahedron()
@@ -107,7 +107,7 @@ public:
   std::vector<Tetrahedron> tetrahedra;
   Eigen::Vector3d centre;
 
-  class FaceComp
+  class RAYLIB_EXPORT FaceComp
   {
   public:
     bool operator()(const SurfaceFace &lhs, const SurfaceFace &rhs) const

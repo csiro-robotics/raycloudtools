@@ -17,7 +17,7 @@ namespace ray
 class RAYLIB_EXPORT Trajectory
 {
 public:
-  class Node
+  class RAYLIB_EXPORT Node
   {
   public:
     Pose pose;

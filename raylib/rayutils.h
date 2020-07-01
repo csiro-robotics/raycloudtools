@@ -72,7 +72,7 @@ inline double random(double min, double max)
 {
   return min + (max - min) * (double(rand()) / double(RAND_MAX));
 }
-class Vector3iLess
+class RAYLIB_EXPORT Vector3iLess
 {
 public:
   bool operator()(const Eigen::Vector3i &a, const Eigen::Vector3i &b) const

@@ -14,7 +14,7 @@
 #include <iostream>
 #include <complex>
 
-typedef std::complex<double> Complex;
+using Complex = std::complex<double>;
 static const double kHighPassPower = 0.25;  // This fixes inout->inout11, inoutD->inoutB2 and house_inside->house3.
                                             // Doesn't break any. power=0.25. 0 is turned off.
 namespace ray
