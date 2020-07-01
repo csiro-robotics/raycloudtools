@@ -15,9 +15,10 @@
 
 namespace ray
 {
-// A Euclidean transformation class (3d orientation and position). 
-struct RAYLIB_EXPORT Pose
+/// A Euclidean transformation class (3d orientation and position). 
+class RAYLIB_EXPORT Pose
 {
+public:
   Eigen::Vector3d position;
   Eigen::Quaterniond rotation;
 

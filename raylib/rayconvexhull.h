@@ -20,8 +20,9 @@ namespace ray
 /// of the cloud. The result is a non-convex 'vacuum wrapping' of the ray cloud that is computationally much faster than
 /// convex hull, but which does not support overhangs. 
 /// Multiple wrap directions allow it to be used in a variety of situations.
-struct RAYLIB_EXPORT ConvexHull
+class RAYLIB_EXPORT ConvexHull
 {
+public:
   /// construct the hull from the end points of a ray cloud
   ConvexHull(const std::vector<Eigen::Vector3d> &points);
 

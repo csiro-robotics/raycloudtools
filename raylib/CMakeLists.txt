@@ -71,6 +71,14 @@ endif(WITH_3ES)
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
 
+if(WITH_QHULL)
+set(QHULL_LIBS
+    Qhull::qhullcpp
+    Qhull::qhullstatic_r)
+else(WITH_QHULL)
+set(QHULL_LIBS)
+endif(WITH_QHULL)
+
 ras_add_library(raylib
   TYPE SHARED
   INCLUDE_PREFIX "raylib"
@@ -87,8 +95,7 @@ ras_add_library(raylib
     PUBLIC
       ${RAYTOOLS_LINK}
     PRIVATE
-      Qhull::qhullcpp
-      Qhull::qhullstatic_r
+      ${QHULL_LIBS}
   PUBLIC_HEADERS ${PUBLIC_HEADERS}
   GENERATED PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h"
   SOURCES ${SOURCES}

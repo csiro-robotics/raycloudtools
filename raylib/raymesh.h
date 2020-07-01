@@ -14,8 +14,9 @@
 namespace ray
 {
 /// A triangular mesh data structure. For mesh based operations. 
-struct RAYLIB_EXPORT Mesh
+class RAYLIB_EXPORT Mesh
 {
+public:
   /// Use the mesh to split a @c cloud based on which side of the mesh its end points are on
   /// The two resulting clouds are @c inside and @c outside
   void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);

@@ -14,8 +14,9 @@ namespace ray
 {
 /// Terrain raycloud generation class. Generates the ray cloud attributes for a a random section of hilly terrain, 
 /// as though scanned from a circular path over the terrain
-struct RAYLIB_EXPORT TerrainGen
+class RAYLIB_EXPORT TerrainGen
 {
+public:
   /// terrain generation function. The random seed can be specified with @c srand()
   void generate();
 

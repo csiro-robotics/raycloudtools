@@ -14,8 +14,9 @@ namespace ray
 {
 /// Room raycloud generation class. Generates the attributes of a ray cloud for a randomly generated
 /// single room, containing a table, a wardrobe, a door and a window
-struct RAYLIB_EXPORT RoomGen
+class RAYLIB_EXPORT RoomGen
 {
+public:
   /// randomly generated room. The random seed can be chosen using @c srand()
   void generate();
 

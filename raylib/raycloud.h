@@ -31,8 +31,9 @@ enum BoundsFlag
 /// Rays are stored as line segments ( @c starts[i] to @c ends[i] ) together with a @c time and @c colour
 /// The colour's alpha channel is used to store intensity, and so alpha=0 represents an unbounded ray
 /// The end point of unbounded rays are not considered as part of the observed geometry of the scene
-struct RAYLIB_EXPORT Cloud
+class RAYLIB_EXPORT Cloud
 {
+public:
   std::vector<Eigen::Vector3d> starts;
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;

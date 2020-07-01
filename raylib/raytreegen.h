@@ -23,8 +23,9 @@ void RAYLIB_EXPORT fillBranchAngleLookup();
 
 /// Random generation of semi-realistic trees. These are based on a self-similar branching structure
 /// for the @c pitchAngle @c splitAngle and @c branchGradient constants, with an additional @c random_factor
-struct RAYLIB_EXPORT TreeGen
+class RAYLIB_EXPORT TreeGen
 {
+public:
   /// create the tree structure, and list of leaf points
   void make(const Eigen::Vector3d &root_pos, double trunk_radius, double random_factor = 0.0);  // 0 to 1
   /// create a set of rays covering the tree at a roughly uniform distribution

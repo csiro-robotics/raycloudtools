@@ -36,14 +36,16 @@ struct RAYLIB_EXPORT GridRayInfo
 /// A hash lookup is used because ray cloud geometry is generally sparse, and so continuous 3D voxel arrays are memory
 /// intensive
 template <class T>
-struct Grid
+class Grid
 {
+public:
 #if RAYLIB_PARALLEL_GRID
   using Mutex = tbb::spin_mutex;
 #endif  // RAYLIB_PARALLEL_GRID
 
-  struct Cell
+  class Cell
   {
+  public:
     std::vector<T> data;
     Eigen::Vector3i index;
 #if RAYLIB_PARALLEL_GRID
@@ -232,8 +234,9 @@ struct Grid
   Eigen::Vector3i dims;
 
 protected:
-  struct Bucket
+  class Bucket
   {
+  public:
     std::vector<Cell> cells;
 #if RAYLIB_PARALLEL_GRID
     Mutex mutex;
@@ -253,8 +256,9 @@ protected:
 #else   // HASH_LOOKUP
 
 template <class T>
-struct Grid
+class Grid
 {
+public:
   Grid() {}
   Grid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
   {

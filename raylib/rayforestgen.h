@@ -15,8 +15,9 @@ namespace ray
 {
 /// Forest ray cloud generation class. This generates a realistic random distribution of trees, each of which
 /// has the attributes of a ray cloud. The random distribution can be seeded using @c srand()
-struct RAYLIB_EXPORT ForestGen
+class RAYLIB_EXPORT ForestGen
 {
+public:
   /// makes the forest geometry
   void make(double random_factor = 0.0);
   /// converts the forest geometry into a set of rays, for a chosen @c ray_density
