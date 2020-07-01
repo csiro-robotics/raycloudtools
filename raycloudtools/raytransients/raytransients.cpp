@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
   ray::Threads::init();
   ray::MergerConfig config;
   // Note: we actually get better multi-threaded performace with smaller voxels
-  config.voxel_size = 0.1;
+  config.voxel_size = 0.0;
   config.num_rays_filter_threshold = num_rays;
   config.merge_type = ray::MergeType::Mininum;
   config.colour_cloud = colour;
