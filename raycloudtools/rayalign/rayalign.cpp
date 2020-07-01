@@ -288,7 +288,7 @@ int main(int argc, char *argv[])
       Eigen::MatrixXd dists2;
       indices.resize(search_size, q_size);
       dists2.resize(search_size, q_size);
-      nns->knn(points_q, indices, dists2, search_size, 0.01*max_normal_difference, 0, max_normal_difference);
+      nns->knn(points_q, indices, dists2, search_size, ray::kNearestNeighbourEpsilon*max_normal_difference, 0, max_normal_difference);
       delete nns;
       matches.clear();
 
