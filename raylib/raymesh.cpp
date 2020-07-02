@@ -78,12 +78,12 @@ public:
 void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside)
 {
   // Firstly, find the average vertex normals
-  std::vector<Eigen::Vector3d> normals(vertices.size());
+  std::vector<Eigen::Vector3d> normals(vertices_.size());
   for (auto &normal: normals)
     normal.setZero();
-  for (auto &index: index_list)
+  for (auto &index: index_list_)
   {
-    Eigen::Vector3d normal = (vertices[index[1]]-vertices[index[0]]).cross(vertices[index[2]]-vertices[index[0]]);
+    Eigen::Vector3d normal = (vertices_[index[1]]-vertices_[index[0]]).cross(vertices_[index[2]]-vertices_[index[0]]);
     for (int i = 0; i<3; i++)
       normals[index[i]] += normal;
   }
@@ -91,13 +91,13 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     normal.normalize();
 
   // convert to separate triangles for convenience
-  std::vector<Triangle> triangles(index_list.size());
+  std::vector<Triangle> triangles(index_list_.size());
   Eigen::Vector3d box_min(1e10,1e10,1e10), box_max(-1e10,-1e10,-1e10);
-  for (int i = 0; i<(int)index_list.size(); i++)
+  for (int i = 0; i<(int)index_list_.size(); i++)
   {
     Triangle &tri = triangles[i];
     for (int j = 0; j<3; j++)
-      tri.corners[j] = vertices[index_list[i][j]];
+      tri.corners[j] = vertices_[index_list_[i][j]];
     tri.tested = false;
     tri.normal = (tri.corners[1]-tri.corners[0]).cross(tri.corners[2]-tri.corners[0]).normalized();
     for (int j = 0; j<3; j++)
@@ -173,14 +173,14 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     // Thirdly, put the triangles into a grid
     double voxel_width = 1.0;
     Grid<Triangle *> grid2(box_min, box_max, voxel_width);
-    for (int i = 0; i<(int)index_list.size(); i++)
+    for (int i = 0; i<(int)index_list_.size(); i++)
     {
       if (!(i%100000))
-        std::cout << "filling volumes " << i << "/" << index_list.size() << std::endl;
+        std::cout << "filling volumes " << i << "/" << index_list_.size() << std::endl;
       Triangle &tri = triangles[i];
       Eigen::Vector3d extruded_corners[3];
       for (int j = 0; j<3; j++)
-        extruded_corners[j] = tri.corners[j] + normals[index_list[i][j]]*offset;
+        extruded_corners[j] = tri.corners[j] + normals[index_list_[i][j]]*offset;
       
       Eigen::Vector3d tri_min = minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2]));
       Eigen::Vector3d tri_max = maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2]));

@@ -15,7 +15,7 @@
 
 namespace ray
 {
-// 3d orientation and position
+/// A Euclidean transformation class (3d orientation and position). 
 class RAYLIB_EXPORT Pose
 {
 public:
@@ -66,7 +66,7 @@ public:
 
   /// Normalise in-place
   void normalise() { rotation.normalize(); }
-  /// Return normalized pose
+  /// Return normalised pose
   Pose normalised() const
   {
     Pose result = *this;

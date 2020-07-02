@@ -6,7 +6,7 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 *Dependencies:*
 
-Eigen: sudo apt-get install Eigen3 should do it
+Eigen: sudo apt-get install libeigen3-dev should do it
 
 LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
 
@@ -82,8 +82,9 @@ For rayconvert to work from .laz files:
 
 For raywrap:
 
-* http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it into a folder parallel to raycloudtools. So there is xxx/raycloudtools and xxx/qhull-2019-1. In qhull, cd build cmake .., make and sudo make install. 
-* cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
+* http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it. 
+* In qhull: cd build cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make and sudo make install. 
+* in raycloudtools/bin: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
 
 ## Notes
 

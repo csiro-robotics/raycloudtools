@@ -46,7 +46,7 @@ void ConvexHull::construct(const std::vector<Eigen::Vector3d> &points, const Eig
 
   orgQhull::QhullFacetList facets = hull.facetList();
   std::cout << "number of triangles: " << facets.size() << std::endl;
-  mesh.index_list.reserve(facets.size());
+  mesh_.index_list().reserve(facets.size());
   std::cout << "ignore direction: " << ignoreDirection.transpose() << std::endl;
   int count = 0;
   for (const orgQhull::QhullFacet &f : facets)
@@ -63,7 +63,7 @@ void ConvexHull::construct(const std::vector<Eigen::Vector3d> &points, const Eig
       Eigen::Vector3d norm = (points[index[1]] - points[index[0]]).cross(points[index[2]] - points[index[0]]);
       if (norm.dot(coords) < 0.0)
         std::swap(index[1], index[2]);
-      mesh.index_list.push_back(index);
+      mesh_.index_list().push_back(index);
     }
   }
   std::cout << "num remaining triangles: " << count << std::endl;
@@ -71,13 +71,13 @@ void ConvexHull::construct(const std::vector<Eigen::Vector3d> &points, const Eig
 
 ConvexHull::ConvexHull(const std::vector<Eigen::Vector3d> &points)
 {
-  mesh.vertices = points;
+  mesh_.vertices() = points;
 }
 
 void ConvexHull::growOutwards(double maxCurvature)
 {
-  Eigen::Vector3d centre = mean(mesh.vertices);
-  std::vector<Eigen::Vector3d> points = mesh.vertices;
+  Eigen::Vector3d centre = mean(mesh_.vertices());
+  std::vector<Eigen::Vector3d> points = mesh_.vertices();
   for (auto &p : points)
   {
     p -= centre;
@@ -89,8 +89,8 @@ void ConvexHull::growOutwards(double maxCurvature)
 
 void ConvexHull::growInwards(double maxCurvature)
 {
-  Eigen::Vector3d centre = mean(mesh.vertices);
-  std::vector<Eigen::Vector3d> points = mesh.vertices;
+  Eigen::Vector3d centre = mean(mesh_.vertices());
+  std::vector<Eigen::Vector3d> points = mesh_.vertices();
   for (auto &p : points)
   {
     p -= centre;
@@ -102,8 +102,8 @@ void ConvexHull::growInwards(double maxCurvature)
 
 void ConvexHull::growInDirection(double maxCurvature, const Eigen::Vector3d &dir)
 {
-  Eigen::Vector3d centre = mean(mesh.vertices);
-  std::vector<Eigen::Vector3d> points = mesh.vertices;
+  Eigen::Vector3d centre = mean(mesh_.vertices());
+  std::vector<Eigen::Vector3d> points = mesh_.vertices();
 
   for (auto &p : points)
   {
