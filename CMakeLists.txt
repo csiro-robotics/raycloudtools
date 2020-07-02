@@ -62,7 +62,13 @@ if(WITH_LAS)
   list(APPEND RAYTOOLS_LINK ${libLAS_LIBRARIES})
 endif(WITH_LAS)
 if(WITH_QHULL)
-  find_package(QHull REQUIRED)
+  # Find the qhull that provides a config with targets first
+  find_package(Qhull CONFIG QUIET)
+  # Otherwise we try and use our own findQhull.cmake script
+  if(NOT Qhull_FOUND)
+    find_package(Qhull REQUIRED)
+  endif(NOT Qhull_FOUND)
+  
   list(APPEND RAYTOOLS_INCLUDE ${QHULL_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${QHULL_LIBRARIES})
 endif(WITH_QHULL)
@@ -165,6 +171,9 @@ endif(RAYCLOUD_BUILD_DOXYGEN)
 # Installation
 include(InstallRequiredSystemLibraries)
 include(CMakePackageConfigHelpers)
+
+
+
 
 install(EXPORT ${CMAKE_PROJECT_NAME}-targets
   FILE ${CMAKE_PROJECT_NAME}-targets.cmake

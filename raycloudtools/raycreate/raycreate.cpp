@@ -41,8 +41,8 @@ int main(int argc, char *argv[])
     // create room
     ray::RoomGen room_gen;
     room_gen.generate();
-    cloud.starts = room_gen.ray_starts;
-    cloud.ends = room_gen.ray_ends;
+    cloud.starts = room_gen.rayStarts();
+    cloud.ends = room_gen.rayEnds();
     double time = 0.0;
     double time_delta = 0.01;
     for (int i = 0; i < (int)cloud.starts.size(); i++)
@@ -53,7 +53,8 @@ int main(int argc, char *argv[])
       time += time_delta;
     }
     colourByTime(cloud.times, cloud.colours);
-    for (int i = 0; i < (int)cloud.colours.size(); i++) cloud.colours[i].alpha = room_gen.ray_bounded[i] ? 255 : 0;
+    for (int i = 0; i < (int)cloud.colours.size(); i++) 
+      cloud.colours[i].alpha = room_gen.rayBounded()[i] ? 255 : 0;
   }
   else if (type == "building")
   {
@@ -72,8 +73,8 @@ int main(int argc, char *argv[])
       ray::TreeGen tree_gen;
       tree_gen.make(Eigen::Vector3d(0, 0, 0), 0.1, 0.25);
       tree_gen.generateRays(density);
-      cloud.starts = tree_gen.ray_starts;
-      cloud.ends = tree_gen.ray_ends;
+      cloud.starts = tree_gen.rayStarts();
+      cloud.ends = tree_gen.rayEnds();
       for (int i = 0; i < (int)cloud.starts.size(); i++)
       {
         cloud.times.push_back(time);
@@ -86,11 +87,11 @@ int main(int argc, char *argv[])
       ray::ForestGen forest_gen;
       forest_gen.make(0.25);
       forest_gen.generateRays(density);
-      for (auto &tree : forest_gen.trees)
+      for (auto &tree : forest_gen.trees())
       {
-        cloud.starts.insert(cloud.starts.end(), tree.ray_starts.begin(), tree.ray_starts.end());
-        cloud.ends.insert(cloud.ends.end(), tree.ray_ends.begin(), tree.ray_ends.end());
-        for (int i = 0; i < (int)tree.ray_ends.size(); i++)
+        cloud.starts.insert(cloud.starts.end(), tree.rayStarts().begin(), tree.rayStarts().end());
+        cloud.ends.insert(cloud.ends.end(), tree.rayEnds().begin(), tree.rayEnds().end());
+        for (int i = 0; i < (int)tree.rayEnds().size(); i++)
         {
           cloud.times.push_back(time);
           time += time_delta;
@@ -114,8 +115,8 @@ int main(int argc, char *argv[])
   {
     ray::TerrainGen terrain;
     terrain.generate();
-    cloud.starts = terrain.ray_starts;
-    cloud.ends = terrain.ray_ends;
+    cloud.starts = terrain.rayStarts();
+    cloud.ends = terrain.rayEnds();
     double time = 0.0;
     double time_delta = 0.01;
     for (int i = 0; i < (int)cloud.starts.size(); i++)

@@ -12,12 +12,20 @@
 
 namespace ray
 {
+/// Room raycloud generation class. Generates the attributes of a ray cloud for a randomly generated
+/// single room, containing a table, a wardrobe, a door and a window
 class RAYLIB_EXPORT RoomGen
 {
 public:
+  /// randomly generated room. The random seed can be chosen using @c srand()
   void generate();
-  std::vector<Eigen::Vector3d> ray_starts, ray_ends;
-  std::vector<bool> ray_bounded;
+
+  inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
+  inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
+  inline const std::vector<bool> rayBounded() const { return ray_bounded_; }
+private:
+  std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
+  std::vector<bool> ray_bounded_;
 };
 }  // namespace ray
 
