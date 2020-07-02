@@ -239,7 +239,8 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
     if (rayBounded(i))
       ray_ids.push_back(i);
   Eigen::MatrixXd points_p(3, ray_ids.size());
-  for (unsigned int i = 0; i < ray_ids.size(); i++) points_p.col(i) = ends[ray_ids[i]];
+  for (unsigned int i = 0; i < ray_ids.size(); i++) 
+    points_p.col(i) = ends[ray_ids[i]];
   nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
   // Run the search
@@ -247,7 +248,7 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
   Eigen::MatrixXd dists2;
   indices.resize(search_size, ray_ids.size());
   dists2.resize(search_size, ray_ids.size());
-  nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);  // TODO: needs to sort here
+  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
   delete nns;
 
   if (neighbour_indices)
@@ -258,6 +259,8 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
     if (neighbour_indices)
     {
       int j;
+      for (j = 0; j < search_size && indices(j, i) > -1; j++) 
+        (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
       if (j < search_size)
         (*neighbour_indices)(j, ray_id) = -1;
     }
@@ -306,18 +309,30 @@ std::vector<Eigen::Vector3d> Cloud::generateNormals(int search_size)
 
 double Cloud::estimatePointSpacing() const
 {
-  double v_width = 0.25;
+  // two-iteration estimation, modelling the point distribution by the below exponent.
+  // larger exponents (towards 2.5) match thick forests, lower exponents (towards 2) match smooth terrain and surfaces
+  const double cloud_exponent = 2.0; // model num_points = (cloud_width/voxel_width)^cloud_exponent
+
+  Eigen::Vector3d min_bound, max_bound;
+  calcBounds(&min_bound, &max_bound, kBFEnd);
+  Eigen::Vector3d extent = max_bound - min_bound;
+  int num_points = 0;
+  for (unsigned int i = 0; i < ends.size(); i++)
+    if (rayBounded(i))
+      num_points++;
+  double cloud_width = pow(extent[0]*extent[1]*extent[2], 1.0/3.0); // an average
+  double voxel_width = cloud_width / pow((double)ends.size(), 1.0/cloud_exponent);
+  voxel_width *= 5.0; // we want to use a larger width because this process only works when the width is an overestimation
+  std::cout << "initial voxel width estimate: " << voxel_width << std::endl;
   double num_voxels = 0;
-  double num_points = 0;
   std::set<Eigen::Vector3i, Vector3iLess> test_set;
   for (unsigned int i = 0; i < ends.size(); i++)
   {
     if (rayBounded(i))
     {
-      num_points++;
       const Eigen::Vector3d &point = ends[i];
-      Eigen::Vector3i place(int(std::floor(point[0] / v_width)), int(std::floor(point[1] / v_width)),
-                            int(std::floor(point[2] / v_width)));
+      Eigen::Vector3i place(int(std::floor(point[0] / voxel_width)), int(std::floor(point[1] / voxel_width)),
+                            int(std::floor(point[2] / voxel_width)));
       if (test_set.find(place) == test_set.end())
       {
         test_set.insert(place);
@@ -325,10 +340,8 @@ double Cloud::estimatePointSpacing() const
       }
     }
   }
-
-  // since points roughly represent 2D surfaces. Also matches empirical tests of optimal speed
-  double width = 0.25 * sqrt(num_voxels / num_points);    
-  
+  double points_per_voxel = (double)num_points / num_voxels;
+  double width = voxel_width / pow(points_per_voxel, 1.0/cloud_exponent);
   std::cout << "estimated point spacing: " << width << std::endl;
   return width;
 }

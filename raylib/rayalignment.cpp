@@ -403,7 +403,9 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   Eigen::Vector3d box_mins[2], box_width(0, 0, 0);
   for (int c = 0; c < 2; c++)
   {
-    Eigen::Vector3d box_min(1e10, 1e10, 1e10), box_max(-1e10, -1e10, -1e10);
+    const double mx = std::numeric_limits<double>::max();
+    const double mn = std::numeric_limits<double>::lowest();
+    Eigen::Vector3d box_min(mx,mx,mx), box_max(mn,mn,mn);
     for (int i = 0; i < (int)clouds[c].ends.size(); i++)
     {
       if (clouds[c].rayBounded(i))
@@ -458,7 +460,8 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
     Pose pose(Eigen::Vector3d(0, 0, 0), Eigen::Quaterniond(Eigen::AngleAxisd(angle, Eigen::Vector3d(0, 0, 1))));
     clouds[0].transform(pose, 0.0);
 
-    box_mins[0] = Eigen::Vector3d(1e10, 1e10, 1e10);
+    const double mx = std::numeric_limits<double>::max();
+    box_mins[0] = Eigen::Vector3d(mx,mx,mx);
     for (int i = 0; i < (int)clouds[0].ends.size(); i++)
       if (clouds[0].rayBounded(i))
         box_mins[0] = minVector(box_mins[0], clouds[0].ends[i]);

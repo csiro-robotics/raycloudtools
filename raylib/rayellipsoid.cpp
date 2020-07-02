@@ -51,7 +51,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
   {
     progress->increment();
   }
-  nns->knn(points_p, indices, dists2, search_size, 0.01, 0, 1.0);
+  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
   nns.reset(nullptr);
 
   if (progress)
@@ -60,7 +60,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     progress->end();
     progress->begin("generateEllipsoids", cloud.ends.size());
   }
-  const auto generate_ellipsoid = [&](size_t i)  //
+  const auto generate_ellipsoid = [&](size_t i)  // 
   {
     Ellipsoid &ellipsoid = (*ellipsoids)[i];
     ellipsoid.clear();

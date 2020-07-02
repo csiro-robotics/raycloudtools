@@ -18,7 +18,7 @@ public:
   bool rayIntersectBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth)
   {
     double max_near_d = 0;
-    double min_far_d = 1e10;
+    double min_far_d = std::numeric_limits<double>::max();
     Eigen::Vector3d centre = (min_bound + max_bound) / 2.0;
     Eigen::Vector3d extent = (max_bound - min_bound) / 2.0;
     Eigen::Vector3d to_centre = centre - start;

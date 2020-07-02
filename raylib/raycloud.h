@@ -90,7 +90,7 @@ public:
   ///
   /// Bounds are set to zero if the bounds are invalid.
   /// @param[out] min_bounds The minimum bounds are written here.
-  /// @param[out] max_bounds The maxnimum bounds are written here.
+  /// @param[out] max_bounds The maximum bounds are written here.
   /// @param flags @c BoundsFlag values use to modify how the bounds are calculated.
   /// @return True if the cloud has bounded rays and bounds values have been calculated. On false, the value of
   ///   @p min_bounds and @p max_bounds are undefined.

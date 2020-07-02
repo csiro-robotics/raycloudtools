@@ -26,6 +26,9 @@
 namespace ray
 {
 const double kPi = M_PI;
+// while this is an absolute value, it has little effect on results unless point spacing is signficantly less
+// than this small value in metres. However, the computation time is better for having a value greater than 0..
+const double kNearestNeighbourEpsilon = 0.001; 
 #define ASSERT(X) assert(X);
 
 inline std::vector<std::string> split(const std::string &s, char delim)
