@@ -7,26 +7,40 @@
 #define RAYLIB_RAYCONCAVEHULL_H
 
 #include "raylib/raylibconfig.h"
-
+#include "raylib/raymesh.h"
 #include "rayutils.h"
 #include <set>
 
 #if RAYLIB_WITH_QHULL
 namespace ray
 {
+/// Class for calculating concave hulls. This is a single, simply connected polyhedron with a maximum allowed
+/// concave curvature @c maxCurvature. It is a generalisation of a convex hull (@c maxCurvature=0) to any 
+/// concave curvature. It is used like a vacuum wrapping of a ray cloud, particularly to extract ground terrain.
+/// It contains multiple methods for generating the hull, depending on which direction it should grow
 class RAYLIB_EXPORT ConcaveHull
 {
 public:
+  /// construct the hull from the ray cloud's end points
   ConcaveHull(const std::vector<Eigen::Vector3d> &points);
 
+  /// inwards growth is for wrapping an object from the outside, such as a plane
   void growInwards(double maxCurvature);
+  /// outwards growth is for wrapping a scene from within it, such as for getting a mesh of a room or a cave
   void growOutwards(double maxCurvature);
+  /// growth in a single direction
   void growInDirection(double maxCurvature, const Eigen::Vector3d &dir);
+  /// upwards growth is for extracting the ground mesh underneath a (potentially cluttered) scene
   void growUpwards(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, 1)); }
+  /// downwards growth is for extracting a 'blanket mesh' of a forest canopy or of building roofs
   void growTopDown(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, -1)); }
 
+  /// access the generated mesh
+  Mesh &mesh(){ return mesh_; }
+  const Mesh &mesh() const { return mesh_; }
 
-  class RAYLIB_EXPORT SurfaceFace
+private:
+  class SurfaceFace
   {
   public:
     SurfaceFace() { triangle = -1; }
@@ -34,8 +48,7 @@ public:
     int triangle;
     double curvature;
   };
-
-  class RAYLIB_EXPORT Edge
+  class Edge
   {
   public:
     Edge() {}
@@ -48,7 +61,7 @@ public:
     int vertices[2];
     bool has_had_face;
   };
-  class RAYLIB_EXPORT Triangle
+  class Triangle
   {
   public:
     Triangle()
@@ -66,7 +79,7 @@ public:
     int tetrahedra[2];
     SurfaceFace surface_face_cached;
   };
-  class RAYLIB_EXPORT Tetrahedron
+  class Tetrahedron
   {
   public:
     Tetrahedron()
@@ -82,32 +95,7 @@ public:
     int id;
     bool seen;
   };
-  bool insideTetrahedron(const Eigen::Vector3d &pos, const Tetrahedron &tetra)
-  {
-    Eigen::Vector3d mid(0, 0, 0);
-    if (tetra.vertices[0] == -1 || tetra.vertices[1] == -1 || tetra.vertices[2] == -1 ||
-        tetra.vertices[3] == -1)  // an outer tetrahedron
-      return false;
-    for (int j = 0; j < 4; j++) mid += vertices[tetra.vertices[j]] / 4.0;
-    for (int i = 0; i < 4; i++)
-    {
-      Eigen::Vector3d vs[3];
-      for (int j = 0; j < 3; j++) vs[j] = vertices[triangles[tetra.triangles[i]].vertices[j]];
-      Eigen::Vector3d normal = (vs[1] - vs[0]).cross(vs[2] - vs[0]);
-      if ((pos - vs[0]).dot(normal) * (mid - vs[0]).dot(normal) < 0)
-        return false;
-    }
-    return true;
-  }
-  std::vector<bool> vertex_on_surface;
-  std::vector<Eigen::Vector3d> vertices;
-  std::vector<Edge> edges;
-
-  std::vector<Triangle> triangles;
-  std::vector<Tetrahedron> tetrahedra;
-  Eigen::Vector3d centre;
-
-  class RAYLIB_EXPORT FaceComp
+  class FaceComp
   {
   public:
     bool operator()(const SurfaceFace &lhs, const SurfaceFace &rhs) const
@@ -121,13 +109,38 @@ public:
       return lhs.curvature < rhs.curvature;
     }
   };
-  std::set<SurfaceFace, FaceComp> surface;
 
-protected:
+  inline bool insideTetrahedron(const Eigen::Vector3d &pos, const Tetrahedron &tetra)
+  {
+    Eigen::Vector3d mid(0, 0, 0);
+    if (tetra.vertices[0] == -1 || tetra.vertices[1] == -1 || tetra.vertices[2] == -1 ||
+        tetra.vertices[3] == -1)  // an outer tetrahedron
+      return false;
+    for (int j = 0; j < 4; j++) mid += vertices_[tetra.vertices[j]] / 4.0;
+    for (int i = 0; i < 4; i++)
+    {
+      Eigen::Vector3d vs[3];
+      for (int j = 0; j < 3; j++) vs[j] = vertices_[triangles_[tetra.triangles[i]].vertices[j]];
+      Eigen::Vector3d normal = (vs[1] - vs[0]).cross(vs[2] - vs[0]);
+      if ((pos - vs[0]).dot(normal) * (mid - vs[0]).dot(normal) < 0)
+        return false;
+    }
+    return true;
+  }
   void growSurface(double maxCurvature);
   bool growFront(double maxCurvature);
   double circumcurvature(const ConcaveHull::Tetrahedron &tetra, int triangleID);
   void growOutwards(const ConcaveHull::Tetrahedron &tetra, double maxCurvature);
+  void convertToMesh();
+
+  std::vector<bool> vertex_on_surface_;
+  std::vector<Eigen::Vector3d> vertices_;
+  std::vector<Edge> edges_;
+  std::vector<Triangle> triangles_;
+  std::vector<Tetrahedron> tetrahedra_;
+  Eigen::Vector3d centre_;
+  std::set<SurfaceFace, FaceComp> surface_;
+  Mesh mesh_;
 };
 }  // namespace ray
 

@@ -19,6 +19,74 @@ static const double kHighPassPower = 0.25;  // This fixes inout->inout11, inoutD
                                             // Doesn't break any. power=0.25. 0 is turned off.
 namespace ray
 {
+struct Array3D
+{
+  void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width);
+
+  void fft();
+  void inverseFft();
+
+  void operator*=(const Array3D &other);
+
+  inline Complex &operator()(int x, int y, int z) { return cells_[x + dims_[0] * y + dims_[0] * dims_[1] * z]; }
+  inline const Complex &operator()(int x, int y, int z) const { return cells_[x + dims_[0] * y + dims_[0] * dims_[1] * z]; }
+  inline Complex &operator()(const Eigen::Vector3i &index) { return (*this)(index[0], index[1], index[2]); }
+  inline const Complex &operator()(const Eigen::Vector3i &index) const { return (*this)(index[0], index[1], index[2]); }
+  Complex &operator()(const Eigen::Vector3d &pos)
+  {
+    Eigen::Vector3d index = (pos - box_min_) / voxel_width_;
+    if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && index[0] < (double)dims_[0] &&
+        index[1] < (double)dims_[1] && index[2] < (double)dims_[2])
+      return (*this)(Eigen::Vector3i(index.cast<int>()));
+    return null_cell_;
+  }
+  const Complex &operator()(const Eigen::Vector3d &pos) const
+  {
+    Eigen::Vector3d index = (pos - box_min_) / voxel_width_;
+    if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && index[0] < (double)dims_[0] &&
+        index[1] < (double)dims_[1] && index[2] < (double)dims_[2])
+      return (*this)(Eigen::Vector3i(index.cast<int>()));
+    return null_cell_;
+  }
+  void conjugate();
+  Eigen::Vector3i maxRealIndex() const;
+  void fillWithRays(const Cloud &cloud);
+  inline Eigen::Vector3i &dimensions(){ return dims_; }
+  inline const Eigen::Vector3i &dimensions() const { return dims_; }
+  inline double voxelWidth(){ return voxel_width_; }
+  void clearCells(){ cells_.clear(); }
+private:
+  Eigen::Vector3d box_min_, box_max_;
+  double voxel_width_;
+  Eigen::Vector3i dims_;
+  std::vector<Complex> cells_;
+  Complex null_cell_;
+};
+
+struct Array1D
+{
+  void init(int length);
+  void fft();
+  void inverseFft();
+
+  void operator*=(const Array1D &other);
+  inline Complex &operator()(const int &x) { return cells_[x]; }
+  inline const Complex &operator()(const int &x) const { return cells_[x]; }
+  inline void operator+=(const Array1D &other)
+  {
+    for (int i = 0; i < (int)cells_.size(); i++) cells_[i] += other.cells_[i];
+  }
+  void polarCrossCorrelation(const Array3D *arrays, bool verbose);
+
+  int maxRealIndex() const;
+  void conjugate();
+  int numCells(){ return (int)cells_.size(); }
+  Complex &cell(int i){ return cells_[i]; }
+  const Complex &cell(int i) const { return cells_[i]; }
+private:
+  std::vector<Complex> cells_;
+};
+
 struct Col
 {
   uint8_t r, g, b, a;
@@ -26,39 +94,42 @@ struct Col
 
 void Array3D::init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
 {
-  this->box_min = box_min;
-  this->box_max = box_max;
-  this->voxel_width = voxel_width;
+  box_min_ = box_min;
+  box_max_ = box_max;
+  voxel_width_ = voxel_width;
   Eigen::Vector3d diff = (box_max - box_min) / voxel_width;
   // HERE we need to make it a power of two
-  for (int i = 0; i < 3; i++) dims[i] = 1 << (int)ceil(log2(ceil(diff[i])));  // next power of two larger than diff
-  cells.resize(dims[0] * dims[1] * dims[2]);
-  memset(&cells[0], 0, cells.size() * sizeof(Complex));
-  null_cell = 0;
+  for (int i = 0; i < 3; i++) 
+    dims_[i] = 1 << (int)ceil(log2(ceil(diff[i])));  // next power of two larger than diff
+  cells_.resize(dims_[0] * dims_[1] * dims_[2]);
+  memset(&cells_[0], 0, cells_.size() * sizeof(Complex));
+  null_cell_ = 0;
 }
 
 void Array3D::operator*=(const Array3D &other)
 {
-  for (int i = 0; i < (int)cells.size(); i++) cells[i] *= other.cells[i];
+  for (int i = 0; i < (int)cells_.size(); i++) 
+    cells_[i] *= other.cells_[i];
 }
 
 void Array3D::conjugate()
 {
-  for (int i = 0; i < (int)cells.size(); i++) cells[i] = conj(cells[i]);
+  for (int i = 0; i < (int)cells_.size(); i++) 
+    cells_[i] = conj(cells_[i]);
 }
 
 void Array3D::fft()
 {
   const char *error = nullptr;
   // TODO: change to in-place (cells not repeated)
-  if (!simple_fft::FFT(*this, *this, dims[0], dims[1], dims[2], error))
+  if (!simple_fft::FFT(*this, *this, dims_[0], dims_[1], dims_[2], error))
     std::cout << "failed to calculate FFT: " << error << std::endl;
 }
 
 void Array3D::inverseFft()
 {
   const char *error = nullptr;
-  if (!simple_fft::IFFT(*this, *this, dims[0], dims[1], dims[2], error))
+  if (!simple_fft::IFFT(*this, *this, dims_[0], dims_[1], dims_[2], error))
     std::cout << "failed to calculate inverse FFT: " << error << std::endl;
 }
 
@@ -66,12 +137,12 @@ Eigen::Vector3i Array3D::maxRealIndex() const
 {
   Eigen::Vector3i index;
   double highest = std::numeric_limits<double>::lowest();
-  for (int i = 0; i < (int)cells.size(); i++)
+  for (int i = 0; i < (int)cells_.size(); i++)
   {
-    const double &score = cells[i].real();
+    const double &score = cells_[i].real();
     if (score > highest)
     {
-      index = Eigen::Vector3i(i % dims[0], (i / dims[0]) % dims[1], i / (dims[0] * dims[1]));
+      index = Eigen::Vector3i(i % dims_[0], (i / dims_[0]) % dims_[1], i / (dims_[0] * dims_[1]));
       highest = score;
     }
   }
@@ -87,20 +158,20 @@ void Array3D::fillWithRays(const Cloud &cloud)
     // TODO: Should be a lambda function!
     Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
     Eigen::Vector3d dir_sign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
-    Eigen::Vector3d start = (cloud.starts[i] - box_min) / voxel_width;
-    Eigen::Vector3d end = (cloud.ends[i] - box_min) / voxel_width;
+    Eigen::Vector3d start = (cloud.starts[i] - box_min_) / voxel_width_;
+    Eigen::Vector3d end = (cloud.ends[i] - box_min_) / voxel_width_;
     Eigen::Vector3i start_index(start.cast<int>());
     Eigen::Vector3i end_index(end.cast<int>());
     double length_sqr = (end_index - start_index).squaredNorm();
     Eigen::Vector3i index = start_index;
     while ((index - start_index).squaredNorm() <= length_sqr + 1e-10)
     {
-      if (index[0] >= 0 && index[0] < dims[0] && index[1] >= 0 && index[1] < dims[1] && index[2] >= 0 &&
-          index[2] < dims[2])
+      if (index[0] >= 0 && index[0] < dims_[0] && index[1] >= 0 && index[1] < dims_[1] && index[2] >= 0 &&
+          index[2] < dims_[2])
         (*this)(index[0], index[1], index[2]) += Complex(1, 0);  // add weight to these areas...
 
-      Eigen::Vector3d mid = box_min + voxel_width * Eigen::Vector3d(index[0] + 0.5, index[1] + 0.5, index[2] + 0.5);
-      Eigen::Vector3d next_boundary = mid + 0.5 * voxel_width * dir_sign;
+      Eigen::Vector3d mid = box_min_ + voxel_width_ * Eigen::Vector3d(index[0] + 0.5, index[1] + 0.5, index[2] + 0.5);
+      Eigen::Vector3d next_boundary = mid + 0.5 * voxel_width_ * dir_sign;
       Eigen::Vector3d delta = next_boundary - cloud.starts[i];
       Eigen::Vector3d d(delta[0] / dir[0], delta[1] / dir[1], delta[2] / dir[2]);
       if (d[0] < d[1] && d[0] < d[2])
@@ -117,32 +188,34 @@ void Array3D::fillWithRays(const Cloud &cloud)
 
 void Array1D::init(int length)
 {
-  cells.resize(length);
-  memset(&cells[0], 0, cells.size() * sizeof(Complex));
+  cells_.resize(length);
+  memset(&cells_[0], 0, cells_.size() * sizeof(Complex));
 }
 
 void Array1D::operator*=(const Array1D &other)
 {
-  for (int i = 0; i < (int)cells.size(); i++) cells[i] *= other.cells[i];
+  for (int i = 0; i < (int)cells_.size(); i++) 
+    cells_[i] *= other.cells_[i];
 }
 
 void Array1D::conjugate()
 {
-  for (int i = 0; i < (int)cells.size(); i++) cells[i] = conj(cells[i]);
+  for (int i = 0; i < (int)cells_.size(); i++) 
+    cells_[i] = conj(cells_[i]);
 }
 
 void Array1D::fft()
 {
   const char *error = nullptr;
   // TODO: change to in-place (cells not repeated)
-  if (!simple_fft::FFT(*this, *this, cells.size(), error))
+  if (!simple_fft::FFT(*this, *this, cells_.size(), error))
     std::cout << "failed to calculate FFT: " << error << std::endl;
 }
 
 void Array1D::inverseFft()
 {
   const char *error = nullptr;
-  if (!simple_fft::IFFT(*this, *this, cells.size(), error))
+  if (!simple_fft::IFFT(*this, *this, cells_.size(), error))
     std::cout << "failed to calculate inverse FFT: " << error << std::endl;
 }
 
@@ -150,9 +223,9 @@ int Array1D::maxRealIndex() const
 {
   int index = 0;
   double highest = std::numeric_limits<double>::lowest();
-  for (int i = 0; i < (int)cells.size(); i++)
+  for (int i = 0; i < (int)cells_.size(); i++)
   {
-    const double &score = cells[i].real();
+    const double &score = cells_[i].real();
     if (score > highest)
     {
       index = i;
@@ -253,8 +326,8 @@ void drawArray(const std::vector<Array1D> &arrays, const Eigen::Vector3i &dims, 
 void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose)
 {
   // OK cool, so next I need to re-map the two arrays into 4x1 grids...
-  int max_rad = std::max(arrays[0].dims[0], arrays[0].dims[1]) / 2;
-  Eigen::Vector3i polar_dims = Eigen::Vector3i(4 * max_rad, max_rad, arrays[0].dims[2]);
+  int max_rad = std::max(arrays[0].dimensions()[0], arrays[0].dimensions()[1]) / 2;
+  Eigen::Vector3i polar_dims = Eigen::Vector3i(4 * max_rad, max_rad, arrays[0].dimensions()[2]);
   std::vector<Array1D> polars[2];
   for (int c = 0; c < 2; c++)
   {
@@ -271,15 +344,15 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose)
       for (int j = 0; j < polar_dims[1]; j++)
       {
         double radius = (0.5 + (double)j) / (double)polar_dims[1];
-        Eigen::Vector2d pos = radius * 0.5 * Eigen::Vector2d((double)a.dims[0] * sin(angle), (double)a.dims[1] * cos(angle));
+        Eigen::Vector2d pos = radius * 0.5 * Eigen::Vector2d((double)a.dimensions()[0] * sin(angle), (double)a.dimensions()[1] * cos(angle));
         if (pos[0] < 0.0)
-          pos[0] += a.dims[0];
+          pos[0] += a.dimensions()[0];
         if (pos[1] < 0.0)
-          pos[1] += a.dims[1];
+          pos[1] += a.dimensions()[1];
         int x = pos.cast<int>()[0];
         int y = pos.cast<int>()[1];
-        int x2 = (x + 1) % a.dims[0];
-        int y2 = (y + 1) % a.dims[1];
+        int x2 = (x + 1) % a.dimensions()[0];
+        int y2 = (y + 1) % a.dimensions()[1];
         double blend_x = pos[0] - (double)x;
         double blend_y = pos[1] - (double)y;
         for (int z = 0; z < polar_dims[2]; z++)
@@ -302,8 +375,8 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose)
         polar[i].fft();
         if (kHighPassPower > 0.0)
         {
-          for (int l = 0; l < (int)polar[i].cells.size(); l++)
-            polar[i].cells[l] *= std::pow(std::min((double)l, (double)(polar[i].cells.size() - l)), kHighPassPower);
+          for (int l = 0; l < polar[i].numCells(); l++)
+            polar[i].cell(l) *= std::pow(std::min((double)l, (double)(polar[i].numCells() - l)), kHighPassPower);
         }
       }
     }
@@ -323,8 +396,7 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose)
 }
 
 /************************************************************************************/
-
-void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
+void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
 {
   // first we need to decimate the clouds into intensity grids..
   // I need to get a maximum box width, and individual box_min, boxMaxs
@@ -357,7 +429,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
         arrays[c](clouds[c].ends[i]) += Complex(1, 0);
     arrays[c].fft();
     if (verbose)
-      drawArray(arrays[c], arrays[c].dims, "translationInvariant", c);
+      drawArray(arrays[c], arrays[c].dimensions(), "translationInvariant", c);
   }
 
   if (rotation_to_estimate)
@@ -369,7 +441,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
     int index = polar.maxRealIndex();
     // add a little bit of sub-pixel accuracy:
     double angle;
-    int dim = int(polar.cells.size());
+    int dim = polar.numCells();
     int back = (index + dim - 1) % dim;
     int fwd = (index + 1) % dim;
     double y0 = polar(back).real();
@@ -379,7 +451,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
     // but the FFT wraps around, so:
     if (angle > dim / 2)
       angle -= dim;
-    angle *= 2.0 * kPi / (double)polar.cells.size();
+    angle *= 2.0 * kPi / (double)polar.numCells();
     std::cout << "estimated yaw rotation: " << angle << std::endl;
 
     // ok, so let's rotate A towards B, and re-run the translation FFT
@@ -390,7 +462,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
     for (int i = 0; i < (int)clouds[0].ends.size(); i++)
       if (clouds[0].rayBounded(i))
         box_mins[0] = minVector(box_mins[0], clouds[0].ends[i]);
-    arrays[0].cells.clear();
+    arrays[0].clearCells();
     arrays[0].init(box_mins[0], box_mins[0] + box_width, voxel_width);
 
     for (int i = 0; i < (int)clouds[0].ends.size(); i++)
@@ -399,28 +471,28 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
 
     arrays[0].fft();
     if (verbose)
-      drawArray(arrays[0], arrays[0].dims, "translationInvariantWeighted", 0);
+      drawArray(arrays[0], arrays[0].dimensions(), "translationInvariantWeighted", 0);
   }
 
   if (kHighPassPower > 0.0)
   {
     for (int c = 0; c < 2; c++)
     {
-      for (int x = 0; x < arrays[c].dims[0]; x++)
+      for (int x = 0; x < arrays[c].dimensions()[0]; x++)
       {
-        double coord_x = x < arrays[c].dims[0] / 2 ? x : arrays[c].dims[0] - x;
-        for (int y = 0; y < arrays[c].dims[1]; y++)
+        double coord_x = x < arrays[c].dimensions()[0] / 2 ? x : arrays[c].dimensions()[0] - x;
+        for (int y = 0; y < arrays[c].dimensions()[1]; y++)
         {
-          double coord_y = y < arrays[c].dims[1] / 2 ? y : arrays[c].dims[1] - y;
-          for (int z = 0; z < arrays[c].dims[2]; z++)
+          double coord_y = y < arrays[c].dimensions()[1] / 2 ? y : arrays[c].dimensions()[1] - y;
+          for (int z = 0; z < arrays[c].dimensions()[2]; z++)
           {
-            double coord_z = z < arrays[c].dims[2] / 2 ? z : arrays[c].dims[2] - z;
+            double coord_z = z < arrays[c].dimensions()[2] / 2 ? z : arrays[c].dimensions()[2] - z;
             arrays[c](x, y, z) *= pow(sqr(coord_x) + sqr(coord_y) + sqr(coord_z), kHighPassPower);
           }
         }
       }
       if (verbose)
-        drawArray(arrays[c], arrays[c].dims, "normalised", c);
+        drawArray(arrays[c], arrays[c].dimensions(), "normalised", c);
     }
   }
   /****************************************************************************************************/
@@ -437,7 +509,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
   for (int axis = 0; axis < 3; axis++)
   {
     Eigen::Vector3i back = ind, fwd = ind;
-    int &dim = array.dims[axis];
+    int &dim = array.dimensions()[axis];
     back[axis] = (ind[axis] + dim - 1) % dim;
     fwd[axis] = (ind[axis] + 1) % dim;
     double y0 = array(back).real();
@@ -449,7 +521,7 @@ void AlignTranslationYaw::alignCloud0ToCloud1(double voxel_width, bool verbose)
     if (pos[axis] > dim / 2)
       pos[axis] -= dim;
   }
-  pos *= -array.voxel_width;
+  pos *= -array.voxelWidth();
   pos += box_mins[1] - box_mins[0];
   std::cout << "estimated translation: " << pos.transpose() << std::endl;
 
