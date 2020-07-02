@@ -40,7 +40,7 @@ public:
   const Mesh &mesh() const { return mesh_; }
 
 private:
-  class RAYLIB_EXPORT SurfaceFace
+  class SurfaceFace
   {
   public:
     SurfaceFace() { triangle = -1; }
@@ -48,7 +48,7 @@ private:
     int triangle;
     double curvature;
   };
-  class RAYLIB_EXPORT Edge
+  class Edge
   {
   public:
     Edge() {}
@@ -61,7 +61,7 @@ private:
     int vertices[2];
     bool has_had_face;
   };
-  class RAYLIB_EXPORT Triangle
+  class Triangle
   {
   public:
     Triangle()
@@ -79,7 +79,7 @@ private:
     int tetrahedra[2];
     SurfaceFace surface_face_cached;
   };
-  class RAYLIB_EXPORT Tetrahedron
+  class Tetrahedron
   {
   public:
     Tetrahedron()
@@ -95,7 +95,7 @@ private:
     int id;
     bool seen;
   };
-  class RAYLIB_EXPORT FaceComp
+  class FaceComp
   {
   public:
     bool operator()(const SurfaceFace &lhs, const SurfaceFace &rhs) const
