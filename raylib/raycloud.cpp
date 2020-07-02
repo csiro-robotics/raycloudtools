@@ -258,7 +258,6 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
     if (neighbour_indices)
     {
       int j;
-      for (j = 0; j < search_size && indices(j, i) > -1; j++) (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
       if (j < search_size)
         (*neighbour_indices)(j, ray_id) = -1;
     }
