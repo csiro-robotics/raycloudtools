@@ -7,6 +7,7 @@
 #include "raylib/raytreegen.h"
 #include "raylib/rayforestgen.h"
 #include "raylib/rayroomgen.h"
+#include "raylib/raybuildinggen.h"
 #include "raylib/rayterraingen.h"
 
 #include <stdio.h>
@@ -59,7 +60,22 @@ int main(int argc, char *argv[])
   else if (type == "building")
   {
     // create building...
-    std::cout << "Sorry, building generation not implemented yet" << std::endl;
+    ray::BuildingGen building_gen;
+    building_gen.generate();
+    cloud.starts = building_gen.rayStarts();
+    cloud.ends = building_gen.rayEnds();
+    double time = 0.0;
+    double time_delta = 0.01;
+    for (int i = 0; i < (int)cloud.starts.size(); i++)
+    {
+      cloud.times.push_back(time);
+      if (i == (int)cloud.starts.size() / 2)
+        time += 0.5;
+      time += time_delta;
+    }
+    colourByTime(cloud.times, cloud.colours);
+    for (int i = 0; i < (int)cloud.colours.size(); i++) 
+      cloud.colours[i].alpha = building_gen.rayBounded()[i] ? 255 : 0;
   }
   else if (type == "tree" || type == "forest")
   {
