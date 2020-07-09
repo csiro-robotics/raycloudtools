@@ -243,7 +243,7 @@ void BuildingGen::generate()
 {
   std::cout << "generating" << std::endl;
   // create the building outer shape
-  const double point_density = 1500.0;
+  const double point_density = 3000.0;
   const double building_width = random(7.0, 30.0);
   const double building_length = random(20.0, 80.0);
   const double building_height = random(3.0, 14.0);
@@ -394,6 +394,5 @@ void BuildingGen::generate()
     ray_ends_.push_back(ray_end);
     ray_bounded_.push_back(range != max_range);
   }
-  std::cout << "finished ray cast" << std::endl;
 }
 } // ray
