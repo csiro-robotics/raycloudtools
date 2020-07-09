@@ -83,7 +83,7 @@ public:
 static double table_density = 0; // items per square metre
 static double cupboard_density = 0; // items per metre along wall
 
-void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector<Cuboid> &furniture)
+void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture)
 {
   const double room_scales[3] = {5.0, 5.0, 2.7};
   const double door_height = 2.0;
@@ -97,9 +97,7 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector<Cuboi
   int ax = r < ext[0] ? 0 : r<ext[0] + ext[1] ? 1 : 2;
   if (ext[2] > 2.0*room_scales[2] && random(0.0,1.0) < distinct_floor_likelihood)
     ax = 2.0;
- // int ax = ext[2] > ext[1] ? (ext[2] > ext[0] ? 2 : 0) : (ext[1] > ext[0] ? 1 : 0);
   double length = ext[ax]; 
- // std::cout << "room size " << (cuboid.max_bound - cuboid.min_bound).transpose() << " splitting on " << ax << " axis." << std::endl; 
   if (length > 2.0*room_scales[ax])
   {
     double split_point = cuboid.min_bound[ax] + random(room_scales[ax], length - room_scales[ax]);
@@ -128,6 +126,7 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector<Cuboi
       door.max_bound[2] = cuboid.min_bound[2] + door_height;
       cuboids.push_back(door);
     }
+    furniture.push_back(std::vector<Cuboid>());
     split(rooms[0], cuboids, furniture);
     split(rooms[1], cuboids, furniture);
   }
@@ -141,6 +140,7 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector<Cuboi
     // tables:
     double floor_area = (room.max_bound[0]-room.min_bound[0]) * (room.max_bound[1]-room.min_bound[1]);
     int num_tables = (int)(floor_area * table_density);
+    std::vector<Cuboid> added;
     for (int i = 0; i<num_tables; i++)
     {
       double table_width = 1.0;
@@ -155,15 +155,7 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector<Cuboi
       Cuboid table;
       table.min_bound = table_pos - table_rad;
       table.max_bound = table_pos + table_rad;
-      bool overlaps = false;
-      for (auto &other: furniture)
-        if (other.overlaps(table))
-          overlaps = true;
-      for (auto &other: cuboids)
-        if (other.overlaps(table))
-          overlaps = true;
-      if (!overlaps)
-        furniture.push_back(table);
+      added.push_back(table);
     }
     // cupboards:
     double wall_length = 2.0*((room.max_bound[0]-room.min_bound[0]) + (room.max_bound[1]-room.min_bound[1]));
@@ -193,15 +185,21 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector<Cuboi
       Cuboid cupboard;
       cupboard.min_bound = cupboard_pos - cupboard_rad;
       cupboard.max_bound = cupboard_pos + cupboard_rad;
-      bool overlaps = false;
-      for (auto &other: furniture)
-        if (other.overlaps(cupboard))
+      added.push_back(cupboard);
+    }
+    bool overlaps = false;
+    int f_id = cuboids.size();
+    furniture.push_back(std::vector<Cuboid>());
+    for (auto &item: added)
+    {
+      for (auto &other: furniture[f_id])
+        if (other.overlaps(item))
           overlaps = true;
       for (auto &other: cuboids)
-        if (other.overlaps(cupboard))
+        if (other.overlaps(item))
           overlaps = true;
       if (!overlaps)
-        furniture.push_back(cupboard);
+        furniture[f_id].push_back(item);
     }
     cuboids.push_back(room);
   }
@@ -244,11 +242,12 @@ void buildPath(const Eigen::Vector3d &start_pos, int id, int last_id, const std:
 // A room with a door, window, table and cupboard
 void BuildingGen::generate()
 {
+  std::cout << "generating" << std::endl;
   // create the building outer shape
-  const double point_density = 600.0;
+  const double point_density = 1500.0;
   const double building_width = random(7.0, 30.0);
   const double building_length = random(20.0, 80.0);
-  const double building_height = random(3.0, 12.0);
+  const double building_height = random(3.0, 14.0);
   table_density = random(0.03, 0.07); // items per square metre
   cupboard_density = random(0.05, 0.15); // items per metre along wall
 
@@ -259,7 +258,7 @@ void BuildingGen::generate()
 
   // we generate the building as a list of negative cuboids, using a KD-tree type splitting
   std::vector<Cuboid> cuboids;
-  std::vector<Cuboid> furniture;
+  std::vector< std::vector<Cuboid> > furniture;
   split(building, cuboids, furniture);
 
   // now we need to generate a path through the building...  
@@ -297,46 +296,98 @@ void BuildingGen::generate()
     window.max_bound[0] += building_width;
     cuboids.push_back(window);
   }
+  furniture.resize(cuboids.size());
 
-  // now for every ray, we need to intersect it with the cuboids...
-  // currently brute force, for p points and c cuboids it takes O(pc^2) because each cuboid has to test overlap with every other
-
-  // alternative1: maintain a sorted list of in/out locations, for each cuboid, insert the start/end points and remove excess
-  // should be O(pcn) where n are the number of actually intersecting cuboids, or O(pclog n) if a binary insert
-
-  // alternative2: create a graph of overlapping negative spaces, walk the graph, (searching the start node to start with)
+  std::cout << "ray casting" << std::endl;
+  
+  // create a graph of overlapping negative spaces, walk the graph, (searching the start node to start with)
   // should be: O(p)  <-- this looks not much harder than alternative1, but definitely faster
-
+  std::vector< std::vector<int> > neighbours(cuboids.size());
+  for (int i = 0; i<(int)cuboids.size(); i++)
+    for (int j = 0; j<(int)cuboids.size(); j++)
+      if (i!=j && cuboids[i].overlaps(cuboids[j]))
+        neighbours[i].push_back(j);
+  // find start location:
+  int start_id = 0;
+  int num_brute_force = 0;
   for (int i = 0; i<(int)points.size(); i++)
   {
     Eigen::Vector3d &start = points[i];
     Eigen::Vector3d &dir = dirs[i];
 
     const double max_range = 20.0;
-    std::vector<Eigen::Vector3d> hits;
-    for (int i = 0; i < (int)cuboids.size(); i++)
-    {
-      double new_range = max_range;
-      if (cuboids[i].rayIntersectNegativeBox(start, dir, new_range))
-        hits.push_back(start + dir * (new_range + 1e-6));
-    }
     double range = max_range;
-    for (auto &hit : hits)
+    // first, adjust startID:
+    if (!cuboids[start_id].intersects(start))
     {
-      bool intersected = false;
-      for (auto &cuboid : cuboids)
+      bool found_start = false;
+      for (auto &id: neighbours[start_id]) // we assume that subsequent rays must be adjacent.
       {
-        if (cuboid.intersects(hit))
+        if (cuboids[id].intersects(start))
         {
-          intersected = true;
+          start_id = id;
+          found_start = true;
           break;
         }
       }
-      if (!intersected)
-        range = std::min(range, (hit - start).norm());
+      if (!found_start)
+      {
+        num_brute_force++;
+        for (int id = 0; id<(int)cuboids.size(); id++)
+        {
+          if (cuboids[id].intersects(start))
+          {
+            start_id = id;
+            found_start = true;
+            break;
+          }
+        }
+        if (!found_start)
+          continue; // don't add this ray, as it starts outside the building
+      }
     }
-    for (auto &cuboid : furniture) 
-      cuboid.rayIntersectBox(start, dir, range);
+    // 1. get range in box it already intersects
+    bool intersected = cuboids[start_id].rayIntersectNegativeBox(start, dir, range);
+    const double eps = 1e-6;
+    Eigen::Vector3d hit = start + dir*(range+eps);
+    ASSERT(range==max_range || intersected);
+
+    int id = start_id;
+    bool found = range < max_range;
+    for (auto &cuboid: furniture[id])
+    {
+      if (cuboid.rayIntersectBox(start, dir, range))
+      {
+        found = false;
+        break;
+      }
+    }
+    while (found)  // Note, this can't hit an infinite circular loop because rays are straight lines
+    {
+      found = false;
+      for (auto &other_id: neighbours[id])
+      {
+        if (!cuboids[other_id].intersects(hit))
+          continue;
+        // hit intersects, so we go to the next larger range
+        double new_range = max_range;
+        bool ints = cuboids[other_id].rayIntersectNegativeBox(start, dir, new_range);
+        ASSERT(new_range == max_range || ints);
+        range = new_range;
+        hit = start + dir*(range + eps);
+        id = other_id;
+        found = new_range < max_range;
+        for (auto &cuboid: furniture[id])
+        {
+          if (cuboid.rayIntersectBox(start, dir, range))
+          {
+            found = false;
+            break;
+          }
+        }
+        break;
+      }
+    }
 
     const double range_noise = 0.03;
     Eigen::Vector3d ray_end = start + (range + random(-range_noise, range_noise)) * dir;
@@ -344,5 +395,6 @@ void BuildingGen::generate()
     ray_ends_.push_back(ray_end);
     ray_bounded_.push_back(range != max_range);
   }
+  std::cout << "num brute force searches: " << num_brute_force << " out of " << points.size() << std::endl;
 }
 } // ray
