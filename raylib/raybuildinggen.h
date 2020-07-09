@@ -12,11 +12,11 @@
 namespace ray
 {
 /// Building raycloud generation class. Generates the attributes of a ray cloud for a randomly generated
-/// building, containing doors, windows and corridors
+/// building, containing doors, windows, boxes and cupboards
 class RAYLIB_EXPORT BuildingGen
 {
 public:
-  /// randomly generated room. The random seed can be chosen using @c srand()
+  /// randomly generated building. The random seed can be chosen using @c srand()
   void generate();
 
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }

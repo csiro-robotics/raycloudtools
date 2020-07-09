@@ -83,7 +83,7 @@ public:
 static double table_density = 0; // items per square metre
 static double cupboard_density = 0; // items per metre along wall
 
-void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture)
+void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture)
 {
   const double room_scales[3] = {5.0, 5.0, 2.7};
   const double door_height = 2.0;
@@ -127,8 +127,8 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std:
       cuboids.push_back(door);
     }
     furniture.push_back(std::vector<Cuboid>());
-    split(rooms[0], cuboids, furniture);
-    split(rooms[1], cuboids, furniture);
+    splitRoom(rooms[0], cuboids, furniture);
+    splitRoom(rooms[1], cuboids, furniture);
   }
   else
   {
@@ -188,7 +188,7 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std:
       added.push_back(cupboard);
     }
     bool overlaps = false;
-    int f_id = cuboids.size();
+    size_t f_id = cuboids.size();
     furniture.push_back(std::vector<Cuboid>());
     for (auto &item: added)
     {
@@ -205,13 +205,12 @@ void split(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std:
   }
 }
 
-void buildPath(const Eigen::Vector3d &start_pos, int id, int last_id, const std::vector<Cuboid> &cuboids,
+void buildPath(const Eigen::Vector3d &start_pos, size_t id, size_t last_id, const std::vector<Cuboid> &cuboids,
                std::vector<Eigen::Vector3d> &points, double density, std::vector<int> &visited)
 {
   visited[id] = 1;
   Eigen::Vector3d last_pos = start_pos;
- // std::cout << "num cuboids: " << cuboids.size() << std::endl;
-  for (int i = 0; i<(int)cuboids.size(); i++)
+  for (size_t i = 0; i<cuboids.size(); i++)
   {
     if (i == id || i==last_id || visited[i])
       continue;
@@ -239,7 +238,7 @@ void buildPath(const Eigen::Vector3d &start_pos, int id, int last_id, const std:
     points.push_back(last_pos + (start_pos - last_pos)*(double)j/(double)num);
 }
 
-// A room with a door, window, table and cupboard
+// generates a set of rooms within a cuboidal frame
 void BuildingGen::generate()
 {
   std::cout << "generating" << std::endl;
@@ -258,20 +257,21 @@ void BuildingGen::generate()
 
   // we generate the building as a list of negative cuboids, using a KD-tree type splitting
   std::vector<Cuboid> cuboids;
-  std::vector< std::vector<Cuboid> > furniture;
-  split(building, cuboids, furniture);
+  std::vector< std::vector<Cuboid> > furniture; // each room has furnitude added (also cuboids)
+  splitRoom(building, cuboids, furniture);
 
   // now we need to generate a path through the building...  
   std::vector<Eigen::Vector3d> points;
-  std::vector<int> visited(cuboids.size());
-  for (int i = 0; i<(int)visited.size(); i++)//auto &cuboid: cuboids)
+  std::vector<int> visited(cuboids.size()); // keep track of rooms we have visited on the path through
+  for (size_t i = 0; i<visited.size(); i++)
     visited[i] = 0;
   buildPath((cuboids[0].max_bound + cuboids[0].min_bound)/2.0, 0, -1, cuboids, points, point_density, visited);
+  // give each path point a random ray direction
   std::vector<Eigen::Vector3d> dirs;
-  for (int i = 0; i<(int)points.size(); i++)
+  for (size_t i = 0; i<points.size(); i++)
     dirs.push_back(Eigen::Vector3d(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, 1.0)).normalized());
 
-  // lets add a few windows and an outside area
+  // add a few windows and an outside area
   const double big = 1e4;
   const double wall_width = 0.3;
   const double window_width = 1.2;
@@ -302,26 +302,26 @@ void BuildingGen::generate()
   
   // create a graph of overlapping negative spaces, walk the graph, (searching the start node to start with)
   // should be: O(p)  <-- this looks not much harder than alternative1, but definitely faster
-  std::vector< std::vector<int> > neighbours(cuboids.size());
-  for (int i = 0; i<(int)cuboids.size(); i++)
-    for (int j = 0; j<(int)cuboids.size(); j++)
+  std::vector< std::vector<size_t> > neighbours(cuboids.size());
+  for (size_t i = 0; i<cuboids.size(); i++)
+    for (size_t j = 0; j<cuboids.size(); j++)
       if (i!=j && cuboids[i].overlaps(cuboids[j]))
         neighbours[i].push_back(j);
-  // find start location:
-  int start_id = 0;
-  int num_brute_force = 0;
-  for (int i = 0; i<(int)points.size(); i++)
+
+  size_t start_id = 0; // if this is not the right initial cuboid, it will search to find the right one
+  // for each ray (points, dirs) intersect it with the negative spaces (cuboids) and the furniture to get a range
+  for (size_t i = 0; i<points.size(); i++)
   {
     Eigen::Vector3d &start = points[i];
     Eigen::Vector3d &dir = dirs[i];
-
+ 
     const double max_range = 20.0;
     double range = max_range;
     // first, adjust startID:
-    if (!cuboids[start_id].intersects(start))
+    if (!cuboids[start_id].intersects(start)) // if it doesn't intersect then search for an intersecting room
     {
       bool found_start = false;
-      for (auto &id: neighbours[start_id]) // we assume that subsequent rays must be adjacent.
+      for (auto &id: neighbours[start_id]) // initially try the neighbours
       {
         if (cuboids[id].intersects(start))
         {
@@ -330,10 +330,9 @@ void BuildingGen::generate()
           break;
         }
       }
-      if (!found_start)
+      if (!found_start) // otherwise a brute force search
       {
-        num_brute_force++;
-        for (int id = 0; id<(int)cuboids.size(); id++)
+        for (size_t id = 0; id<cuboids.size(); id++)
         {
           if (cuboids[id].intersects(start))
           {
@@ -342,19 +341,18 @@ void BuildingGen::generate()
             break;
           }
         }
-        if (!found_start)
-          continue; // don't add this ray, as it starts outside the building
+        if (!found_start) // failing that, the ray must start outside the building, so don't add it
+          continue; 
       }
     }
-    // 1. get range in box it already intersects
-    bool intersected = cuboids[start_id].rayIntersectNegativeBox(start, dir, range);
+    // get range in box it already intersects
+    cuboids[start_id].rayIntersectNegativeBox(start, dir, range);
     const double eps = 1e-6;
     Eigen::Vector3d hit = start + dir*(range+eps);
-    ASSERT(range==max_range || intersected);
 
-    int id = start_id;
+    size_t id = start_id;
     bool found = range < max_range;
-    for (auto &cuboid: furniture[id])
+    for (auto &cuboid: furniture[id]) // if the room furniture is closer, then use this
     {
       if (cuboid.rayIntersectBox(start, dir, range))
       {
@@ -362,22 +360,22 @@ void BuildingGen::generate()
         break;
       }
     }
-    while (found)  // Note, this can't hit an infinite circular loop because rays are straight lines
+    // now check adjacent rooms (and doorways, windows) to see if the ray can travel further
+    while (found)  // Note, this can't cause an infinite cycle because rays are straight lines
     {
       found = false;
       for (auto &other_id: neighbours[id])
       {
         if (!cuboids[other_id].intersects(hit))
           continue;
-        // hit intersects, so we go to the next larger range
+        // hit intersects, so we extend the ray as far as this cuboid reaches
         double new_range = max_range;
-        bool ints = cuboids[other_id].rayIntersectNegativeBox(start, dir, new_range);
-        ASSERT(new_range == max_range || ints);
+        cuboids[other_id].rayIntersectNegativeBox(start, dir, new_range);
         range = new_range;
         hit = start + dir*(range + eps);
         id = other_id;
         found = new_range < max_range;
-        for (auto &cuboid: furniture[id])
+        for (auto &cuboid: furniture[id]) // also check the furniture in this space
         {
           if (cuboid.rayIntersectBox(start, dir, range))
           {
@@ -389,12 +387,13 @@ void BuildingGen::generate()
       }
     }
 
+    // finally we have a range value for the ray, so add it to the ray cloud
     const double range_noise = 0.03;
     Eigen::Vector3d ray_end = start + (range + random(-range_noise, range_noise)) * dir;
     ray_starts_.push_back(start);
     ray_ends_.push_back(ray_end);
     ray_bounded_.push_back(range != max_range);
   }
-  std::cout << "num brute force searches: " << num_brute_force << " out of " << points.size() << std::endl;
+  std::cout << "finished ray cast" << std::endl;
 }
 } // ray
