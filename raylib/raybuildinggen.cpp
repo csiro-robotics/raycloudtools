@@ -7,123 +7,41 @@
 
 namespace ray
 {
-class Cuboid
+void BuildingGen::splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture)
 {
-public:
-  Cuboid(const Eigen::Vector3d &min_b, const Eigen::Vector3d &max_b)
-  {
-    min_bound = min_b;
-    max_bound = max_b;
-  }
-  Cuboid(){}
-  Eigen::Vector3d min_bound, max_bound;
-
-  bool rayIntersectBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth) const
-  {
-    double max_near_d = 0;
-    double min_far_d = std::numeric_limits<double>::max();
-    Eigen::Vector3d centre = (min_bound + max_bound) / 2.0;
-    Eigen::Vector3d extent = (max_bound - min_bound) / 2.0;
-    Eigen::Vector3d to_centre = centre - start;
-    for (int ax = 0; ax < 3; ax++)
-    {
-      double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
-      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
-
-      max_near_d = std::max(max_near_d, near_d);
-      min_far_d = std::min(min_far_d, far_d);
-    }
-    if (max_near_d > 0.0 && max_near_d < depth && max_near_d < min_far_d)
-    {
-      depth = max_near_d;
-      return true;
-    }
-    return false;
-  }
-
-  bool rayIntersectNegativeBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth) const
-  {
-    double max_near_d = 0;
-    double min_far_d = 1e10;
-    Eigen::Vector3d centre = (min_bound + max_bound) / 2.0;
-    Eigen::Vector3d extent = (max_bound - min_bound) / 2.0;
-    Eigen::Vector3d to_centre = centre - start;
-    for (int ax = 0; ax < 3; ax++)
-    {
-      double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
-      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
-
-      max_near_d = std::max(max_near_d, near_d);
-      min_far_d = std::min(min_far_d, far_d);
-    }
-    if (max_near_d < min_far_d && min_far_d < depth)
-    {
-      depth = min_far_d;
-      return true;
-    }
-    return false;
-  }
-
-  bool intersects(const Eigen::Vector3d &pos) const
-  {
-    return pos[0] > min_bound[0] && pos[1] > min_bound[1] && pos[2] > min_bound[2] && pos[0] < max_bound[0] &&
-           pos[1] < max_bound[1] && pos[2] < max_bound[2];
-  }
-
-  bool overlaps(const Cuboid &other) const
-  {
-    bool outside = other.min_bound[0] > max_bound[0] || other.min_bound[1] > max_bound[1] || other.min_bound[2] > max_bound[2] ||
-                   other.max_bound[0] < min_bound[0] || other.max_bound[1] < min_bound[1] || other.max_bound[2] < min_bound[2];
-    return !outside;
-  }
-};
-
-static double table_density = 0; // items per square metre
-static double cupboard_density = 0; // items per metre along wall
-
-void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture)
-{
-  const double room_scales[3] = {5.0, 5.0, 2.7};
-  const double door_height = 2.0;
-  const double door_width = 0.5;
-  const double wall_width = 0.2;
-  const double floor_width = 0.5;
-  const double distinct_floor_likelihood = 0.55; // high has separated floors, low is a mixture of floor heights
-  Eigen::Vector3d ext = cuboid.max_bound - cuboid.min_bound; 
+  Eigen::Vector3d ext = cuboid.max_bound_ - cuboid.min_bound_; 
   double sum = ext[0] + ext[1] + ext[2];
   double r = random(0.0, sum);
   int ax = r < ext[0] ? 0 : r<ext[0] + ext[1] ? 1 : 2;
-  if (ext[2] > 2.0*room_scales[2] && random(0.0,1.0) < distinct_floor_likelihood)
+  if (ext[2] > 2.0*params_.room_scales[2] && random(0.0,1.0) < params_.distinct_floor_likelihood)
     ax = 2.0;
   double length = ext[ax]; 
-  if (length > 2.0*room_scales[ax])
+  if (length > 2.0*params_.room_scales[ax])
   {
-    double split_point = cuboid.min_bound[ax] + random(room_scales[ax], length - room_scales[ax]);
+    double split_point = cuboid.min_bound_[ax] + random(params_.room_scales[ax], length - params_.room_scales[ax]);
     Cuboid rooms[2] = {cuboid, cuboid};
-    rooms[0].max_bound[ax] = split_point;
-    rooms[1].min_bound[ax] = split_point;
+    rooms[0].max_bound_[ax] = split_point;
+    rooms[1].min_bound_[ax] = split_point;
 
     if (ax == 2) // stair hole
     {
       // just a hole for now
       Cuboid hole;
-      Eigen::Vector3d hole_pos = cuboid.min_bound + ext * random(0.25, 0.75);
+      Eigen::Vector3d hole_pos = cuboid.min_bound_ + ext * random(0.25, 0.75);
       hole_pos[ax] = split_point;
-      hole.min_bound = hole_pos - Eigen::Vector3d(1.5*door_width, 2.5*door_width, door_width);
-      hole.max_bound = hole_pos + Eigen::Vector3d(1.5*door_width, 2.5*door_width, door_width);
+      hole.min_bound_ = hole_pos - Eigen::Vector3d(1.5*params_.door_width, 2.5*params_.door_width, params_.door_width);
+      hole.max_bound_ = hole_pos + Eigen::Vector3d(1.5*params_.door_width, 2.5*params_.door_width, params_.door_width);
       cuboids.push_back(hole);
     }
     else
     { 
       Cuboid door;
-      Eigen::Vector3d door_pos = cuboid.min_bound + ext * random(0.25, 0.75);
+      Eigen::Vector3d door_pos = cuboid.min_bound_ + ext * random(0.25, 0.75);
       door_pos[ax] = split_point;
-      door.min_bound = door_pos - Eigen::Vector3d(door_width, door_width, 0.0);
-      door.max_bound = door_pos + Eigen::Vector3d(door_width, door_width, 0.0);
-      door.min_bound[2] = cuboid.min_bound[2];
-      door.max_bound[2] = cuboid.min_bound[2] + door_height;
+      door.min_bound_ = door_pos - Eigen::Vector3d(params_.door_width, params_.door_width, 0.0);
+      door.max_bound_ = door_pos + Eigen::Vector3d(params_.door_width, params_.door_width, 0.0);
+      door.min_bound_[2] = cuboid.min_bound_[2];
+      door.max_bound_[2] = cuboid.min_bound_[2] + params_.door_height;
       cuboids.push_back(door);
     }
     furniture.push_back(std::vector<Cuboid>());
@@ -133,13 +51,13 @@ void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< 
   else
   {
     Cuboid room = cuboid;
-    room.min_bound += 0.5*Eigen::Vector3d(wall_width, wall_width, 0);
-    room.max_bound -= 0.5*Eigen::Vector3d(wall_width, wall_width, 2.0*floor_width);
+    room.min_bound_ += 0.5*Eigen::Vector3d(params_.wall_width, params_.wall_width, 0);
+    room.max_bound_ -= 0.5*Eigen::Vector3d(params_.wall_width, params_.wall_width, 2.0*params_.floor_width);
 
     // now lets add some furniture...
     // tables:
-    double floor_area = (room.max_bound[0]-room.min_bound[0]) * (room.max_bound[1]-room.min_bound[1]);
-    int num_tables = (int)(floor_area * table_density);
+    double floor_area = (room.max_bound_[0]-room.min_bound_[0]) * (room.max_bound_[1]-room.min_bound_[1]);
+    int num_tables = (int)(floor_area * params_.table_density);
     std::vector<Cuboid> added;
     for (int i = 0; i<num_tables; i++)
     {
@@ -149,17 +67,17 @@ void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< 
       if (std::rand()%2)
         std::swap(table_width, table_length);
       Eigen::Vector3d table_rad = 0.5 * Eigen::Vector3d(table_width, table_length, table_height);
-      Eigen::Vector3d table_pos(random(room.min_bound[0]+table_width/2.0, room.max_bound[0]-table_width/2.0),
-                                random(room.min_bound[1]+table_length/2.0, room.max_bound[1]-table_length/2.0),
-                                room.min_bound[2] + table_height/2.0);
+      Eigen::Vector3d table_pos(random(room.min_bound_[0]+table_width/2.0, room.max_bound_[0]-table_width/2.0),
+                                random(room.min_bound_[1]+table_length/2.0, room.max_bound_[1]-table_length/2.0),
+                                room.min_bound_[2] + table_height/2.0);
       Cuboid table;
-      table.min_bound = table_pos - table_rad;
-      table.max_bound = table_pos + table_rad;
+      table.min_bound_ = table_pos - table_rad;
+      table.max_bound_ = table_pos + table_rad;
       added.push_back(table);
     }
     // cupboards:
-    double wall_length = 2.0*((room.max_bound[0]-room.min_bound[0]) + (room.max_bound[1]-room.min_bound[1]));
-    int num_cupboards = (int)(wall_length * cupboard_density);
+    double wall_length = 2.0*((room.max_bound_[0]-room.min_bound_[0]) + (room.max_bound_[1]-room.min_bound_[1]));
+    int num_cupboards = (int)(wall_length * params_.cupboard_density);
     for (int i = 0; i<num_cupboards; i++)
     {
       double cupboard_width = 0.6;
@@ -171,20 +89,20 @@ void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< 
         std::swap(cupboard_width, cupboard_length);
       Eigen::Vector3d cupboard_rad = 0.5 * Eigen::Vector3d(cupboard_width, cupboard_length, cupboard_height);
       Eigen::Vector3d cupboard_pos;
-      cupboard_pos[2] = room.min_bound[2] + 0.5*cupboard_height;
+      cupboard_pos[2] = room.min_bound_[2] + 0.5*cupboard_height;
       if (wall_id == 0)
       {
-        cupboard_pos[0] = side ? room.min_bound[0] + 0.5*cupboard_width : room.max_bound[0] - 0.5*cupboard_width;
-        cupboard_pos[1] = random(room.min_bound[1]+0.5*cupboard_length, room.max_bound[1]-0.5*cupboard_length);
+        cupboard_pos[0] = side ? room.min_bound_[0] + 0.5*cupboard_width : room.max_bound_[0] - 0.5*cupboard_width;
+        cupboard_pos[1] = random(room.min_bound_[1]+0.5*cupboard_length, room.max_bound_[1]-0.5*cupboard_length);
       }
       else
       {
-        cupboard_pos[0] = random(room.min_bound[0]+0.5*cupboard_width, room.max_bound[0]-0.5*cupboard_width);
-        cupboard_pos[1] = side ? room.min_bound[1] + 0.5*cupboard_length : room.max_bound[1] - 0.5*cupboard_length;
+        cupboard_pos[0] = random(room.min_bound_[0]+0.5*cupboard_width, room.max_bound_[0]-0.5*cupboard_width);
+        cupboard_pos[1] = side ? room.min_bound_[1] + 0.5*cupboard_length : room.max_bound_[1] - 0.5*cupboard_length;
       }
       Cuboid cupboard;
-      cupboard.min_bound = cupboard_pos - cupboard_rad;
-      cupboard.max_bound = cupboard_pos + cupboard_rad;
+      cupboard.min_bound_ = cupboard_pos - cupboard_rad;
+      cupboard.max_bound_ = cupboard_pos + cupboard_rad;
       added.push_back(cupboard);
     }
     bool overlaps = false;
@@ -216,7 +134,7 @@ void buildPath(const Eigen::Vector3d &start_pos, size_t id, size_t last_id, cons
       continue;
     if (cuboids[i].overlaps(cuboids[id]))
     {
-      Eigen::Vector3d pos = (cuboids[i].max_bound + cuboids[i].min_bound)/2.0;
+      Eigen::Vector3d pos = (cuboids[i].max_bound_ + cuboids[i].min_bound_)/2.0;
 
       int num = (int)((pos - last_pos).norm() * density);
       for (int j = 0; j<num; j++)
@@ -227,7 +145,7 @@ void buildPath(const Eigen::Vector3d &start_pos, size_t id, size_t last_id, cons
   }
   if (last_pos == start_pos) // no outlets found
   {
-    Eigen::Vector3d pos = (cuboids[id].max_bound + cuboids[id].min_bound)/2.0;
+    Eigen::Vector3d pos = (cuboids[id].max_bound_ + cuboids[id].min_bound_)/2.0;
     int num = (int)((pos - last_pos).norm() * density);
     for (int j = 0; j<num; j++)
       points.push_back(last_pos + (pos - last_pos)*(double)j/(double)num);
@@ -247,13 +165,13 @@ void BuildingGen::generate()
   const double building_width = random(7.0, 30.0);
   const double building_length = random(20.0, 80.0);
   const double building_height = random(3.0, 14.0);
-  table_density = random(0.03, 0.07); // items per square metre
-  cupboard_density = random(0.05, 0.15); // items per metre along wall
+  params_.table_density = random(0.03, 0.07); // items per square metre
+  params_.cupboard_density = random(0.05, 0.15); // items per metre along wall
 
   Eigen::Vector3d building_pos(random(-20.0, 20.0), random(-20.0, 20.0), random(-20.0, 20.0));
   Cuboid building;
-  building.min_bound = building_pos - 0.5*Eigen::Vector3d(building_width, building_length, building_height);
-  building.max_bound = building_pos + 0.5*Eigen::Vector3d(building_width, building_length, building_height);
+  building.min_bound_ = building_pos - 0.5*Eigen::Vector3d(building_width, building_length, building_height);
+  building.max_bound_ = building_pos + 0.5*Eigen::Vector3d(building_width, building_length, building_height);
 
   // we generate the building as a list of negative cuboids, using a KD-tree type splitting
   std::vector<Cuboid> cuboids;
@@ -265,7 +183,7 @@ void BuildingGen::generate()
   std::vector<int> visited(cuboids.size()); // keep track of rooms we have visited on the path through
   for (size_t i = 0; i<visited.size(); i++)
     visited[i] = 0;
-  buildPath((cuboids[0].max_bound + cuboids[0].min_bound)/2.0, 0, -1, cuboids, points, point_density, visited);
+  buildPath((cuboids[0].max_bound_ + cuboids[0].min_bound_)/2.0, 0, -1, cuboids, points, point_density, visited);
   // give each path point a random ray direction
   std::vector<Eigen::Vector3d> dirs;
   for (size_t i = 0; i<points.size(); i++)
@@ -273,27 +191,25 @@ void BuildingGen::generate()
 
   // add a few windows and an outside area
   const double big = 1e4;
-  const double wall_width = 0.3;
-  const double window_width = 1.2;
-  const double window_height = 1.5;
   Cuboid right = building; 
-  right.min_bound[0] = building.max_bound[0] + wall_width;
-  right.max_bound[0] = big;
+  right.min_bound_[0] = building.max_bound_[0] + params_.outer_wall_width;
+  right.max_bound_[0] = big;
   cuboids.push_back(right);
   Cuboid left = building; 
-  left.max_bound[0] = building.min_bound[0] - wall_width;
-  left.min_bound[0] = -big;
+  left.max_bound_[0] = building.min_bound_[0] - params_.outer_wall_width;
+  left.min_bound_[0] = -big;
   cuboids.push_back(left);
   int num_windows = rand()%11;
   for (int i = 0; i<num_windows; i++)
   {
-    Eigen::Vector3d pos = building.min_bound + Eigen::Vector3d(0, building_length*(double)(i+1)/(double)(num_windows+1), window_height);
+    Eigen::Vector3d pos = building.min_bound_ + 
+      Eigen::Vector3d(0, building_length*(double)(i+1)/(double)(num_windows+1), params_.window_height);
     Cuboid window;
-    window.min_bound = pos - 0.5*Eigen::Vector3d(window_width, window_width, window_width);
-    window.max_bound = pos + 0.5*Eigen::Vector3d(window_width, window_width, window_width);
+    window.min_bound_ = pos - 0.5*Eigen::Vector3d(params_.window_width, params_.window_width, params_.window_width);
+    window.max_bound_ = pos + 0.5*Eigen::Vector3d(params_.window_width, params_.window_width, params_.window_width);
     cuboids.push_back(window);
-    window.min_bound[0] += building_width;
-    window.max_bound[0] += building_width;
+    window.min_bound_[0] += building_width;
+    window.max_bound_[0] += building_width;
     cuboids.push_back(window);
   }
   furniture.resize(cuboids.size());

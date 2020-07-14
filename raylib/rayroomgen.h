@@ -7,7 +7,7 @@
 #define RAYLIB_RAYROOMGEN_H
 
 #include "raylib/raylibconfig.h"
-
+#include "raylib/raycuboid.h"
 #include "rayutils.h"
 
 namespace ray
