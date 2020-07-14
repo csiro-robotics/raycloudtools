@@ -19,11 +19,12 @@ public:
   Cuboid(){}
   Cuboid(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound);
 
-  /// if the ray defined by @c start, @c dir intersects the cuboid, then fills in the @c depth argument and returns true
-  bool rayIntersectBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth) const;
+  /// if the ray defined by @c start, @c dir and @c depth intersects the cuboid, then 
+  /// @c depth is updated with the intersection depth, and the function returns true
+  /// @c positive_box true has outward normals and intersects with the near box faces
+  /// @c positive_box false has inward normals and intersects with the far box faces
+  bool rayIntersects(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth, bool positive_box) const;
   /// ia negative box has inwards normals, so the ray intersects the back wall, filling in the @c depth argument
-  bool rayIntersectNegativeBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth) const;
-  /// intersection of a position @c pos with the cuboid. Boundary points count as intersection. 
   bool intersects(const Eigen::Vector3d &pos) const;
   /// overlap of this cuboid with another, 'kissing' cuboids count as intersection. 
   bool overlaps(const Cuboid &other) const;

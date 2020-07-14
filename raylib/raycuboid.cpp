@@ -13,7 +13,7 @@ Cuboid::Cuboid(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_boun
   max_bound_ = max_bound;
 }
 
-bool Cuboid::rayIntersectBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth) const
+bool Cuboid::rayIntersects(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth, bool positive_box) const
 {
   double max_near_d = 0;
   double min_far_d = std::numeric_limits<double>::max();
@@ -29,33 +29,10 @@ bool Cuboid::rayIntersectBox(const Eigen::Vector3d &start, const Eigen::Vector3d
     max_near_d = std::max(max_near_d, near_d);
     min_far_d = std::min(min_far_d, far_d);
   }
-  if (max_near_d > 0.0 && max_near_d < depth && max_near_d < min_far_d)
+  double compare_depth = positive_box ? max_near_d : min_far_d;
+  if (max_near_d < min_far_d && compare_depth > 0.0 && compare_depth < depth)
   {
-    depth = max_near_d;
-    return true;
-  }
-  return false;
-}
-
-bool Cuboid::rayIntersectNegativeBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth) const
-{
-  double max_near_d = 0;
-  double min_far_d = std::numeric_limits<double>::max();
-  Eigen::Vector3d centre = (min_bound_ + max_bound_) / 2.0;
-  Eigen::Vector3d extent = (max_bound_ - min_bound_) / 2.0;
-  Eigen::Vector3d to_centre = centre - start;
-  for (int ax = 0; ax < 3; ax++)
-  {
-    double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-    double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
-    double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
-
-    max_near_d = std::max(max_near_d, near_d);
-    min_far_d = std::min(min_far_d, far_d);
-  }
-  if (max_near_d < min_far_d && min_far_d < depth)
-  {
-    depth = min_far_d;
+    depth = compare_depth;
     return true;
   }
   return false;
