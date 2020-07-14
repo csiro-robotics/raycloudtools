@@ -143,8 +143,11 @@ void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double 
 void TreeGen::generateRays(double ray_density)
 {
   ASSERT(branches_.size() > 0);
-  double path_radius = branches_[0].radius * 12.0;
-  double ring_heights[2] = {branches_[0].radius * 5.0, branches_[0].radius * 20.0};
+  const double path_trunk_multiplier = 12.0; // observe the tree from this many trunk radii away
+  const double ground_path_multiplier = 5.0; // observe the tree from this many trunk radii in height
+  const double flight_path_multiplier = 20.0; // overhead path is at this many trunk radii above the ground
+  double path_radius = branches_[0].radius * path_trunk_multiplier;
+  double ring_heights[2] = {branches_[0].radius * ground_path_multiplier, branches_[0].radius * flight_path_multiplier};
   Eigen::Vector3d root = branches_[0].tip;
 
   std::vector<double> cumulative_size(branches_.size());
