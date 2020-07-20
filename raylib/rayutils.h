@@ -188,23 +188,19 @@ struct RGBA
 inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient, double min_value,
                                  double max_value, bool replace_alpha)
 {
-  Eigen::Vector3d purple(0.25, -0.5, 0.25);
-  Eigen::Vector3d orange(0.5, 0.0, -0.5);
-  orange.normalize();
-  orange *= purple.norm();
-
   gradient.resize(values.size());
-  for (unsigned int i = 0; i < values.size(); i++)
+  Eigen::Vector3d hue_cycle[6] = {Eigen::Vector3d(1.0, 0.0, 0.5), Eigen::Vector3d(1.0, 0.5, 0.0), 
+                                  Eigen::Vector3d(0.5, 1.0, 0.0), Eigen::Vector3d(0.0, 1.0, 0.5), 
+                                  Eigen::Vector3d(0.0, 0.5, 1.0), Eigen::Vector3d(0.5, 0.0, 1.0)};
+  for (size_t i = 0; i < values.size(); i++)
   {
-    double angle = (2.0 * kPi / 6.0) * (0.5 + 5.0 * (values[i] - min_value) / (max_value - min_value));
-    Eigen::Vector3d col = Eigen::Vector3d(0.5, 0.5, 0.5) + purple * cos(angle) + orange * sin(angle);
-    gradient[i].red = uint8_t(255.0 * (0.5 + 0.5 * col[0]));
-    gradient[i].green = uint8_t(255.0 * (0.5 + 0.5 * col[1]));
-    gradient[i].blue = uint8_t(255.0 * (0.5 + 0.5 * col[2]));
-    if (!(i%1000))
-    {
-      std::cout << "value: " << values[i] << ", colour: " << (int)gradient[i].red << ", " << (int)gradient[i].green << ", " << (int)gradient[i].blue << std::endl;
-    }
+    double v = 0.5 + 4.0*clamped((values[i] - min_value)/(max_value - min_value), 0.0, 1.0);
+    int id = (int)v;
+    double blend = v - (double)id;
+    Eigen::Vector3d col = hue_cycle[id]*(1.0-blend) + hue_cycle[id+1]*blend;
+    gradient[i].red = uint8_t(255.0 * col[0]);
+    gradient[i].green = uint8_t(255.0 * col[1]);
+    gradient[i].blue = uint8_t(255.0 * col[2]);
     if (replace_alpha)
       gradient[i].alpha = 255;
   }

@@ -129,15 +129,11 @@ int main(int argc, char *argv[])
   }
   else if (type == "alpha")
   {
-    std::vector<double> val(cloud.colours.size());
+    std::vector<double> alphas(cloud.colours.size());
     for (int i = 0; i < (int)cloud.colours.size(); i++)
-    {
-      if (!(i%1000))
-        std::cout << "alpha " << (int)cloud.colours[i].alpha << std::endl;
-      val[i] = double(cloud.colours[i].alpha);
-    }
+      alphas[i] = double(cloud.colours[i].alpha);
     const bool replace_alpha = false;
-    redGreenBlueGradient(val, cloud.colours, 0.0, 255.0, replace_alpha);
+    redGreenBlueGradient(alphas, cloud.colours, 0.0, 255.0, replace_alpha);
   }
   else
     usage();
