@@ -201,6 +201,10 @@ inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<
     gradient[i].red = uint8_t(255.0 * (0.5 + 0.5 * col[0]));
     gradient[i].green = uint8_t(255.0 * (0.5 + 0.5 * col[1]));
     gradient[i].blue = uint8_t(255.0 * (0.5 + 0.5 * col[2]));
+    if (!(i%1000))
+    {
+      std::cout << "value: " << values[i] << ", colour: " << (int)gradient[i].red << ", " << (int)gradient[i].green << ", " << (int)gradient[i].blue << std::endl;
+    }
     if (replace_alpha)
       gradient[i].alpha = 255;
   }

@@ -18,6 +18,7 @@ void usage(int exit_code = 0)
   std::cout << "                   height       - colour by height" << std::endl;
   std::cout << "                   shape        - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
   std::cout << "                   normal       - colour by normal" << std::endl;
+  std::cout << "                   alpha        - shade by alpha channel (which typically represents intensity)" << std::endl;
   std::cout << "                   1,1,1 shaded - just (r,g,b) shaded" << std::endl;
   exit(exit_code);
 }
@@ -125,6 +126,18 @@ int main(int argc, char *argv[])
       cloud.colours[i].green = (uint8_t)(255.0 * (0.5 + 0.5 * normals[i][1]));
       cloud.colours[i].blue = (uint8_t)(255.0 * (0.5 + 0.5 * normals[i][2]));
     }
+  }
+  else if (type == "alpha")
+  {
+    std::vector<double> val(cloud.colours.size());
+    for (int i = 0; i < (int)cloud.colours.size(); i++)
+    {
+      if (!(i%1000))
+        std::cout << "alpha " << (int)cloud.colours[i].alpha << std::endl;
+      val[i] = double(cloud.colours[i].alpha);
+    }
+    const bool replace_alpha = false;
+    redGreenBlueGradient(val, cloud.colours, 0.0, 255.0, replace_alpha);
   }
   else
     usage();
