@@ -18,7 +18,7 @@ void usage(int exit_code = 0)
   std::cout << "                   height       - colour by height" << std::endl;
   std::cout << "                   shape        - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
   std::cout << "                   normal       - colour by normal" << std::endl;
-  std::cout << "                   alpha        - shade by alpha channel (which typically represents intensity)" << std::endl;
+  std::cout << "                   alpha        - colour by alpha channel (which typically represents intensity)" << std::endl;
   std::cout << "                   1,1,1 shaded - just (r,g,b) shaded" << std::endl;
   exit(exit_code);
 }
