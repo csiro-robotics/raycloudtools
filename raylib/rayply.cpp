@@ -91,9 +91,11 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
   std::string line;
   int row_size = 0;
   int offset = -1, normal_offset = -1, time_offset = -1, colour_offset = -1;
+  int intensity_offset = -1;
   bool time_is_float = false;
   bool pos_is_float = false;
   bool normal_is_float = false;
+  bool intensity_is_float = false;
   while (line != "end_header\r" && line != "end_header")
   {
     getline(input, line);
@@ -114,6 +116,12 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
       time_offset = row_size;
       if (line.find("float") != std::string::npos)
         time_is_float = true;
+    }
+    if (line.find("intensity") != std::string::npos)
+    {
+      intensity_offset = row_size;
+      if (line.find("float") != std::string::npos)
+        intensity_is_float = true;
     }
     if (line.find("property uchar red") != std::string::npos)
       colour_offset = row_size;
@@ -154,7 +162,9 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
     times.reserve(size);
   if (colour_offset != -1)
     colours.reserve(size);
-
+  std::vector<uint8_t> intensities;
+  if (intensity_offset != -1)
+    intensities.resize(size);
   for (size_t i = 0; i < size; i++)
   {
     input.read((char *)&vertices[0], row_size);
@@ -234,6 +244,18 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
       else
         num_unbounded++;
     }
+    if (!is_ray_cloud)
+    {
+      if (intensity_offset != -1)
+      {
+        double intensity;
+        if (intensity_is_float)
+          intensity = (double)((float &)vertices[intensity_offset]);
+        else
+          intensity = (double &)vertices[intensity_offset];
+        intensities.push_back(uint8_t(255.0 * clamped(intensity, 0.0, 1.0)));
+      }
+    }
   }
   if (times.size() == 0)
   {
@@ -242,6 +264,22 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
     times.resize(ends.size());
     for (size_t i = 0; i < times.size(); i++) 
       times[i] = (double)i;
+  }
+  if (colours.size() == 0)
+  {
+    std::cout << "warning: no colour information found in " << file_name
+         << ", setting colours red->green->blue based on time" << std::endl;
+    colourByTime(times, colours);
+    num_bounded = ends.size();
+  }
+  if (!is_ray_cloud && intensity_offset != -1)
+  {
+    if (colour_offset != -1)
+      std::cout << "warning: intensity and colour information found in file. Replacing alpha with intensity value." << std::endl;
+    else
+      std::cout << "intensity information found in file, storing this in the ray cloud alpha channel. Potential precision loss." << std::endl;
+    for (size_t i = 0; i<size; i++)
+      colours[i].alpha = intensities[i];
   }
   std::cout << "reading from " << file_name << ", " << size << " rays, of which " << num_bounded << " bounded and "
        << num_unbounded << " unbounded" << std::endl;
@@ -288,13 +326,6 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
       colours = new_colours;
     }
     std::cout << "finished sorting" << std::endl;
-  }
-  if (colours.size() == 0)
-  {
-    std::cout << "warning: no colour information found in " << file_name
-         << ", setting colours red->green->blue based on time" << std::endl;
-    colourByTime(times, colours);
-    num_bounded = ends.size();
   }
   return true;
 }

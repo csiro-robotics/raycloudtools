@@ -41,13 +41,6 @@ bool Cloud::load(const std::string &file_name)
   // look first for the raycloud PLY
   if (file_name.substr(file_name.size() - 4) == ".ply")
     return loadPLY(file_name);
-  if (std::ifstream((file_name + ".ply").c_str(), std::ios::in))
-    return loadPLY(file_name + ".ply");
-
-  // otherwise, look for a .laz and _traj.txt file by that name
-  if (std::ifstream((file_name + ".laz").c_str(), std::ios::in) && 
-      std::ifstream((file_name + "_traj.txt").c_str(), std::ios::in))
-    return loadLazTraj(file_name + ".laz", file_name + "_traj.txt");
 
   return false;
 }
