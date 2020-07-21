@@ -7,6 +7,7 @@
 #include "raylib/raytreegen.h"
 #include "raylib/rayforestgen.h"
 #include "raylib/rayroomgen.h"
+#include "raylib/raybuildinggen.h"
 #include "raylib/rayterraingen.h"
 
 #include <stdio.h>
@@ -36,6 +37,7 @@ int main(int argc, char *argv[])
   srand(seed);
 
   ray::Cloud cloud;
+  const double time_delta = 0.001; // between rays
   if (type == "room")
   {
     // create room
@@ -43,23 +45,38 @@ int main(int argc, char *argv[])
     room_gen.generate();
     cloud.starts = room_gen.rayStarts();
     cloud.ends = room_gen.rayEnds();
+    cloud.times.resize(cloud.starts.size());
     double time = 0.0;
-    double time_delta = 0.01;
-    for (int i = 0; i < (int)cloud.starts.size(); i++)
+    for (size_t i = 0; i < cloud.starts.size(); i++)
     {
-      cloud.times.push_back(time);
-      if (i == (int)cloud.starts.size() / 2)
+      cloud.times[i] = time;
+      if (i == cloud.starts.size() / 2)
         time += 0.5;
       time += time_delta;
     }
     colourByTime(cloud.times, cloud.colours);
+    const std::vector<bool> &bounded = room_gen.rayBounded();
     for (int i = 0; i < (int)cloud.colours.size(); i++) 
-      cloud.colours[i].alpha = room_gen.rayBounded()[i] ? 255 : 0;
+      cloud.colours[i].alpha = bounded[i] ? 255 : 0;
   }
   else if (type == "building")
   {
     // create building...
-    std::cout << "Sorry, building generation not implemented yet" << std::endl;
+    ray::BuildingGen building_gen;
+    building_gen.generate();
+    cloud.starts = building_gen.rayStarts();
+    cloud.ends = building_gen.rayEnds();
+    cloud.times.resize(cloud.ends.size());
+    double time = 0.0;
+    for (size_t i = 0; i < cloud.starts.size(); i++)
+    {
+      cloud.times[i] = time;
+      time += time_delta;
+    }
+    colourByTime(cloud.times, cloud.colours);
+    const std::vector<bool> &bounded = building_gen.rayBounded();
+    for (int i = 0; i < (int)cloud.colours.size(); i++) 
+      cloud.colours[i].alpha = bounded[i] ? 255 : 0;
   }
   else if (type == "tree" || type == "forest")
   {
@@ -67,7 +84,6 @@ int main(int argc, char *argv[])
     double density = 500.0;
     Eigen::Vector3d box_min(-2.0, -2.0, -0.025), box_max(2.0, 2.0, 0.025);
     double time = 0.0;
-    double time_delta = 0.01;
     if (type == "tree")
     {
       ray::TreeGen tree_gen;
@@ -75,9 +91,10 @@ int main(int argc, char *argv[])
       tree_gen.generateRays(density);
       cloud.starts = tree_gen.rayStarts();
       cloud.ends = tree_gen.rayEnds();
-      for (int i = 0; i < (int)cloud.starts.size(); i++)
+      cloud.times.resize(cloud.ends.size());
+      for (size_t i = 0; i < cloud.starts.size(); i++)
       {
-        cloud.times.push_back(time);
+        cloud.times[i] = time;
         time += time_delta;
       }
       colourByTime(cloud.times, cloud.colours);
@@ -93,11 +110,12 @@ int main(int argc, char *argv[])
         const std::vector<Eigen::Vector3d> &ray_ends = tree.rayEnds();
         cloud.starts.insert(cloud.starts.end(), ray_starts.begin(), ray_starts.end());
         cloud.ends.insert(cloud.ends.end(), ray_ends.begin(), ray_ends.end());
-        for (int i = 0; i < (int)tree.rayEnds().size(); i++)
-        {
-          cloud.times.push_back(time);
-          time += time_delta;
-        }
+      }
+      cloud.times.resize(cloud.starts.size());
+      for (size_t i = 0; i < cloud.starts.size(); i++)
+      {
+        cloud.times[i] = time;
+        time += time_delta;
       }
       box_min *= 2.5;
       box_max *= 2.5;
@@ -119,11 +137,11 @@ int main(int argc, char *argv[])
     terrain.generate();
     cloud.starts = terrain.rayStarts();
     cloud.ends = terrain.rayEnds();
+    cloud.times.resize(cloud.starts.size());
     double time = 0.0;
-    double time_delta = 0.01;
-    for (int i = 0; i < (int)cloud.starts.size(); i++)
+    for (size_t i = 0; i < cloud.starts.size(); i++)
     {
-      cloud.times.push_back(time);
+      cloud.times[i] = time;
       time += time_delta;
     }
     colourByTime(cloud.times, cloud.colours);

@@ -274,7 +274,7 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
     scatter /= (double)(num + 1);
 
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
-    ASSERT(eigen_solver.info() == Success);
+    ASSERT(eigen_solver.info() == Eigen::ComputationInfo::Success);
     if (normals)
     {
       Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);

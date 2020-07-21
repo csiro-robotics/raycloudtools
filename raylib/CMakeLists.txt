@@ -30,6 +30,8 @@ set(PUBLIC_HEADERS
   rayprogress.h
   rayprogressthread.h
   rayroomgen.h
+  raybuildinggen.h
+  raycuboid.h
   rayterraingen.h
   raythreads.h
   raytrajectory.h
@@ -57,6 +59,8 @@ set(SOURCES
   rayply.cpp
   rayprogressthread.cpp
   rayroomgen.cpp
+  raybuildinggen.cpp
+  raycuboid.cpp
   rayterraingen.cpp
   raythreads.cpp
   raytrajectory.cpp

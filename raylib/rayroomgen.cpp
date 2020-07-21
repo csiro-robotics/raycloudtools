@@ -6,71 +6,6 @@
 #include "rayroomgen.h"
 namespace ray
 {
-class Cuboid
-{
-public:
-  Cuboid(const Eigen::Vector3d &min_b, const Eigen::Vector3d &max_b)
-    : min_bound(min_b)
-    , max_bound(max_b)
-  {}
-  Eigen::Vector3d min_bound, max_bound;
-
-  bool rayIntersectBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth)
-  {
-    double max_near_d = 0;
-    double min_far_d = std::numeric_limits<double>::max();
-    Eigen::Vector3d centre = (min_bound + max_bound) / 2.0;
-    Eigen::Vector3d extent = (max_bound - min_bound) / 2.0;
-    Eigen::Vector3d to_centre = centre - start;
-    for (int ax = 0; ax < 3; ax++)
-    {
-      double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
-      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
-
-      max_near_d = std::max(max_near_d, near_d);
-      min_far_d = std::min(min_far_d, far_d);
-    }
-    if (max_near_d > 0.0 && max_near_d < depth && max_near_d < min_far_d)
-    {
-      depth = max_near_d;
-      return true;
-    }
-    return false;
-  }
-
-  bool rayIntersectNegativeBox(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth)
-  {
-    double max_near_d = 0;
-    double min_far_d = 1e10;
-    Eigen::Vector3d centre = (min_bound + max_bound) / 2.0;
-    Eigen::Vector3d extent = (max_bound - min_bound) / 2.0;
-    Eigen::Vector3d to_centre = centre - start;
-    for (int ax = 0; ax < 3; ax++)
-    {
-      double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
-      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
-
-      max_near_d = std::max(max_near_d, near_d);
-      min_far_d = std::min(min_far_d, far_d);
-    }
-    if (max_near_d < min_far_d && min_far_d < depth)
-    {
-      depth = min_far_d;
-      return true;
-    }
-    return false;
-  }
-
-  bool intersects(const Eigen::Vector3d &pos)
-  {
-    return pos[0] > min_bound[0] && pos[1] > min_bound[1] && pos[2] > min_bound[2] && pos[0] < max_bound[0] &&
-           pos[1] < max_bound[1] && pos[2] < max_bound[2];
-  }
-};
-
-
 // A room with a door, window, table and cupboard
 void RoomGen::generate()
 {
@@ -151,7 +86,7 @@ void RoomGen::generate()
     for (int i = 0; i < (int)negatives.size(); i++)
     {
       double new_range = max_range;
-      if (negatives[i].rayIntersectNegativeBox(start, dir, new_range))
+      if (negatives[i].rayIntersects(start, dir, new_range, false))
         hits.push_back(start + dir * (new_range + 1e-6));
     }
     double range = max_range;
@@ -171,7 +106,7 @@ void RoomGen::generate()
     }
     if (i > num_rays / 2)
     {
-      for (auto &cuboid : positives) cuboid.rayIntersectBox(start, dir, range);
+      for (auto &cuboid : positives) cuboid.rayIntersects(start, dir, range, true);
     }
 
     const double range_noise = 0.03;

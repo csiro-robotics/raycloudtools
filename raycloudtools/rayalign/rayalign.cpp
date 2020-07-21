@@ -46,7 +46,7 @@ void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int
   scatter / (double)ids.size();
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
-  ASSERT(eigen_solver.info() == Success);
+  ASSERT(eigen_solver.info() == Eigen::ComputationInfo::Success);
   width = ray::maxVector(eigen_solver.eigenvalues(), Eigen::Vector3d(1e-5, 1e-5, 1e-5));
   width = Eigen::Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
   mat = eigen_solver.eigenvectors();

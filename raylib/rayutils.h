@@ -209,19 +209,19 @@ inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<
 inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<RGBA> &gradient, double wavelength,
                                  bool replace_alpha)
 {
-  Eigen::Vector3d purple(0.25, -0.5, 0.25);
-  Eigen::Vector3d orange(0.5, 0.0, -0.5);
-  orange.normalize();
-  orange *= purple.norm();
-
   gradient.resize(values.size());
+  Eigen::Vector3d cycle[6] = {Eigen::Vector3d(1.0, 0.5, 0.0), Eigen::Vector3d(0.5, 1.0, 0.0), 
+                              Eigen::Vector3d(0.0, 1.0, 0.5), Eigen::Vector3d(0.0, 0.5, 1.0),
+                              Eigen::Vector3d(0.5, 0.0, 1.0), Eigen::Vector3d(1.0, 0.0, 0.1)};
   for (size_t i = 0; i < values.size(); i++)
   {
-    double angle = (2.0 * kPi) * values[i] / wavelength;
-    Eigen::Vector3d col = Eigen::Vector3d(0.5, 0.5, 0.5) + purple * cos(angle) + orange * sin(angle);
-    gradient[i].red = uint8_t(255.0 * (0.5 + 0.5 * col[0]));
-    gradient[i].green = uint8_t(255.0 * (0.5 + 0.5 * col[1]));
-    gradient[i].blue = uint8_t(255.0 * (0.5 + 0.5 * col[2]));
+    double v = 6.0 * fmod(values[i]/wavelength, 1.0);
+    int id = (int)v;
+    double blend = v - (double)id;
+    Eigen::Vector3d col = cycle[id]*(1.0-blend) + cycle[(id+1)%6]*blend;
+    gradient[i].red = uint8_t(255.0 * col[0]);
+    gradient[i].green = uint8_t(255.0 * col[1]);
+    gradient[i].blue = uint8_t(255.0 * col[2]);
     if (replace_alpha)
       gradient[i].alpha = 255;
   }
