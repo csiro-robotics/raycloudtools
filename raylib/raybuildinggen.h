@@ -23,13 +23,10 @@ public:
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
   inline const std::vector<bool> rayBounded() const { return ray_bounded_; }
-private:
-  void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture);
-  std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
-  std::vector<bool> ray_bounded_;
-  struct BuildingParams
+
+  struct RAYLIB_EXPORT BuildingParams
   {
-    BuildingParams()
+    inline BuildingParams()
     {
       room_scales = Eigen::Vector3d(5.0, 5.0, 2.7);
       door_height = 2.0;
@@ -54,7 +51,16 @@ private:
     double window_height;
     double table_density; // items per square metre
     double cupboard_density; // items per metre along wall
-  } params_;
+  };
+
+  inline BuildingParams &buildingParameters(){ return params_; }
+  inline const BuildingParams &buildingParameters() const { return params_; }
+
+private:
+  void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture);
+  std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
+  std::vector<bool> ray_bounded_;
+  BuildingParams params_;
 };
 }  // namespace ray
 
