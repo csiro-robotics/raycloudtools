@@ -142,6 +142,14 @@ void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double 
 // create a set of rays covering the tree at a roughly uniform distribution
 void TreeGen::generateRays(double ray_density)
 {
+  ASSERT(branches_.size() > 0);
+  const double path_trunk_multiplier = 12.0; // observe the tree from this many trunk radii away
+  const double ground_path_multiplier = 5.0; // observe the tree from this many trunk radii in height
+  const double flight_path_multiplier = 20.0; // overhead path is at this many trunk radii above the ground
+  double path_radius = branches_[0].radius * path_trunk_multiplier;
+  double ring_heights[2] = {branches_[0].radius * ground_path_multiplier, branches_[0].radius * flight_path_multiplier};
+  Eigen::Vector3d root = branches_[0].tip;
+
   std::vector<double> cumulative_size(branches_.size());
   cumulative_size[0] = 0;
   for (int i = 1; i < (int)branches_.size(); i++)
@@ -184,7 +192,37 @@ void TreeGen::generateRays(double ray_density)
     Eigen::Vector3d from = Eigen::Vector3d(random(-1, 1), random(-1, 1), random(-1, 1));
     if (from.dot(offset) < 0.0)
       from = -from;
-    ray_starts_.push_back(pos + from * 0.1 * r1);
+    
+    // closest point to branch position on circle, that is not passing through that branch. 
+    // This circles are similar to if the tree was scanned by a scanner moving on two circular paths
+    // Note that an ideal ray start would never pass through any other branch, but this is too expensive for a simple
+    // example tree. 
+    Eigen::Vector3d best_start(0,0,0);
+    double min_dist2 = 0;
+    for (int k = 0; k<2; k++)
+    {
+      Eigen::Vector3d root2 = root + Eigen::Vector3d(0,0,ring_heights[k]);
+      Eigen::Vector3d to_path = pos - root;
+      to_path[2] = 0.0;
+      to_path.normalize();
+      double radius = path_radius * (k==0 ? 0.4 : 1.0);
+      Eigen::Vector3d start = root2 + to_path * radius;
+      if ((start - pos).dot(offset) < 0.0)
+      {
+        Eigen::Vector3d side(to_path[1], -to_path[2], 0.0);
+        if ((pos - root2).dot(side) > 0.0)
+          start = root2 + side * radius;
+        else 
+          start = root2 - side * radius;
+      }
+      double dist2 = (start - pos).squaredNorm();
+      if (k == 0 || dist2 < min_dist2)
+      {
+        best_start = start;
+        min_dist2 = dist2;
+      }
+    }
+    ray_starts_.push_back(best_start);
   }
 }
 } // ray
