@@ -88,9 +88,11 @@ int main(int argc, char *argv[])
       forest_gen.make(0.25);
       forest_gen.generateRays(density);
       for (auto &tree : forest_gen.trees())
-      {
-        cloud.starts.insert(cloud.starts.end(), tree.rayStarts().begin(), tree.rayStarts().end());
-        cloud.ends.insert(cloud.ends.end(), tree.rayEnds().begin(), tree.rayEnds().end());
+      {  
+        const std::vector<Eigen::Vector3d> &ray_starts = tree.rayStarts();
+        const std::vector<Eigen::Vector3d> &ray_ends = tree.rayEnds();
+        cloud.starts.insert(cloud.starts.end(), ray_starts.begin(), ray_starts.end());
+        cloud.ends.insert(cloud.ends.end(), ray_ends.begin(), ray_ends.end());
         for (int i = 0; i < (int)tree.rayEnds().size(); i++)
         {
           cloud.times.push_back(time);
