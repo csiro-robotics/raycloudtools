@@ -249,11 +249,12 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
       if (intensity_offset != -1)
       {
         double intensity;
+        const double maximum_intensity = 100.0;
         if (intensity_is_float)
           intensity = (double)((float &)vertices[intensity_offset]);
         else
           intensity = (double &)vertices[intensity_offset];
-        intensities.push_back(uint8_t(255.0 * clamped(intensity, 0.0, 1.0)));
+        intensities[i] = uint8_t(255.0 * clamped(intensity / maximum_intensity, 0.0, 1.0));
       }
     }
   }
@@ -283,6 +284,11 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
   }
   std::cout << "reading from " << file_name << ", " << size << " rays, of which " << num_bounded << " bounded and "
        << num_unbounded << " unbounded" << std::endl;
+  if (num_bounded == 0)
+  {
+    std::cout << "ERROR: no ray end locations. This is a degenerate case, most functions will not be able to operate on this ray cloud" << std::endl;
+    return false;
+  }
   if (times_need_sorting)
   {
     std::cout << "warning, ray times are not in order. This is required, so sorting rays now." << std::endl;

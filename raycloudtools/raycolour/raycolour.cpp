@@ -38,7 +38,8 @@ int main(int argc, char *argv[])
   }
   std::string file = argv[1];
   ray::Cloud cloud;
-  cloud.load(file);
+  if (!cloud.load(file))
+    return 0;
   std::string type = std::string(argv[2]);
 
   // what I need is the normal, curvature, eigenvalues, per point.
