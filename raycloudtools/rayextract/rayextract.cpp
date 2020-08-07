@@ -32,11 +32,39 @@ struct Col
   uint8_t r, g, b, a;
 };
 
+static const int res = 256;
+
+void drawSegmentation(int indexfield[][res], const std::vector<int> &attachto)
+{
+  std::vector<Col> pixels(res * res);
+  for (int x = 0; x < res; x++)
+  {
+    for (int y = 0; y < res; y++)
+    {
+      int ind = indexfield[x][y];
+      if (ind == -1)
+        pixels[x + res * y] = Col(0);
+      else
+      {
+        while (attachto[ind] != -1)
+          ind = attachto[ind];
+        srand(1 + ind);
+        Col col;
+        col.a = 255;
+        col.r = rand()%256;
+        col.g = rand()%256;
+        col.b = rand()%256;
+        pixels[x + res * y] = col;
+      }
+    }
+  }
+  stbi_write_png("segmenting.png", res, res, 4, (void *)&pixels[0], 4 * res);
+}
+
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
   const bool verbose = true;
-  const int res = 256;
   double heightfield[res][res];
   int indexfield[res][res];
   for (int i = 0; i<res; i++)
@@ -216,31 +244,7 @@ int main(int argc, char *argv[])
       {
         cnt++;
         if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
-        {
-          std::vector<Col> pixels(res * res);
-          for (int x = 0; x < res; x++)
-          {
-            for (int y = 0; y < res; y++)
-            {
-              int ind = indexfield[x][y];
-              if (ind == -1)
-                pixels[x + res * y] = Col(0);
-              else
-              {
-                while (attachto[ind] != -1)
-                  ind = attachto[ind];
-                srand(1 + ind);
-                Col col;
-                col.a = 255;
-                col.r = rand()%256;
-                col.g = rand()%256;
-                col.b = rand()%256;
-                pixels[x + res * y] = col;
-              }
-            }
-          }
-          stbi_write_png("segmenting.png", res, res, 4, (void *)&pixels[0], 4 * res);
-        }
+          drawSegmentation(indexfield, attachto);
         double a1 = areas[p_head];
         double a2 = areas[q_head];
         if (std::min(a1,a2) > std::max(a1,a2) * 0.1)
