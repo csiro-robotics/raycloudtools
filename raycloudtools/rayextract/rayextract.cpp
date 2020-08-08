@@ -190,11 +190,12 @@ int main(int argc, char *argv[])
   {
     for (int y = 0; y < res; y++)
     {
-      int xs[4] = {x-1, x, x,x+1};
-      int ys[4] = {y,y+1,y-1,y};
+      // Moore neighbourhoos
+      int xs[8] = {x-1, x, x+1, x-1, x+1, x-1, x, x+1};
+      int ys[8] = {y-1, y-1, y-1, y, y, y+1,y+1,y+1};
       double height = heightfield[x][y];
       double max_h = 0.0;
-      for (int i = 0; i<4; i++)
+      for (int i = 0; i<8; i++)
         max_h = std::max(max_h, heightfield[(xs[i]+res)%res][(ys[i]+res)%res]);
       if (height > max_h)
       {
