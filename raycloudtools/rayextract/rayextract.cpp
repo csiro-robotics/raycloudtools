@@ -34,7 +34,17 @@ struct Col
 
 static const int res = 256;
 
-void drawSegmentation(int indexfield[][res], const std::vector<int> &attachto)
+struct TreeNode
+{
+  TreeNode() : centroid(0,0), height(0), area(1.0), min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) {}
+  Eigen::Vector2d centroid;
+  double height;
+  double area;
+  Eigen::Vector2d min_bound, max_bound;
+  int attaches_to;
+};
+
+void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
 {
   std::vector<Col> pixels(res * res);
   for (int x = 0; x < res; x++)
@@ -46,8 +56,8 @@ void drawSegmentation(int indexfield[][res], const std::vector<int> &attachto)
         pixels[x + res * y] = Col(0);
       else
       {
-        while (attachto[ind] != -1)
-          ind = attachto[ind];
+        while (trees[ind].attaches_to != -1)
+          ind = trees[ind].attaches_to;
         srand(1 + ind);
         Col col;
         col.a = 255;
@@ -184,7 +194,7 @@ int main(int argc, char *argv[])
     }
   };  
   std::set<Point, PointCmp> basins;
-  std::vector<Eigen::Vector3d> trees;
+  std::vector<TreeNode> trees;
   // 1. find highest points
   for (int x = 0; x < res; x++)
   {
@@ -203,16 +213,14 @@ int main(int argc, char *argv[])
         p.x = x; p.y = y; p.height = height;
         p.index = basins.size();
         basins.insert(p);
-        trees.push_back(Eigen::Vector3d(x, y, height));
+        TreeNode node;
+        node.centroid = Eigen::Vector2d(x,y);
+        node.height = height;
+        trees.push_back(node);
       }
     }
   }
-  std::vector<double> areas(trees.size());
-  for (int i = 0; i<(int)trees.size(); i++)
-    areas[i] = 1;
-  std::vector<int> attachto(trees.size());
-  for (auto &p: attachto)
-    p = -1;
+  std::cout << "initial number of peaks: " << trees.size() << std::endl;
   // now iterate until basins is empty
   int cnt = 0;
   while (!basins.empty())
@@ -231,37 +239,38 @@ int main(int argc, char *argv[])
       int &ind = indexfield[xx][yy];
 
       int p_head = p.index;
-      while (attachto[p_head] != -1)
-        p_head = attachto[p_head];
+      while (trees[p_head].attaches_to != -1)
+        p_head = trees[p_head].attaches_to;
 
       int q_head = ind;
       if (q_head != -1)
       {
-        while (attachto[q_head] != -1)
-          q_head = attachto[q_head];
+        while (trees[q_head].attaches_to != -1)
+          q_head = trees[q_head].attaches_to;
       }
 
       if (ind != -1 && p_head != q_head)
       {
         cnt++;
         if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
-          drawSegmentation(indexfield, attachto);
-        double a1 = areas[p_head];
-        double a2 = areas[q_head];
+          drawSegmentation(indexfield, trees);
+        double a1 = trees[p_head].area;
+        double a2 = trees[q_head].area;
         if (std::min(a1,a2) > std::max(a1,a2) * 0.1)
         {
-          int new_index = attachto.size();
-          attachto.push_back(-1);
-          attachto[p_head] = new_index;
-          attachto[q_head] = new_index;
-          areas.push_back(a1 + a2);
+          int new_index = trees.size();
+          TreeNode node;
+          node.area = a1 + a2;
+          trees.push_back(node);
+          trees[p_head].attaches_to = new_index;
+          trees[q_head].attaches_to = new_index;
         }
         else
         {
           if (a1 > a2)
-            attachto[q_head] = p_head;
+            trees[q_head].attaches_to = p_head;
           else
-            attachto[p_head] = q_head;
+            trees[p_head].attaches_to = q_head;
         }
       }
       if (ind == -1 && heightfield[xx][yy] > 0.0)
@@ -269,9 +278,9 @@ int main(int argc, char *argv[])
         Point q;
         q.x = xx; q.y = yy; q.index = p.index;
         q.height = heightfield[xx][yy];
-        areas[p_head]++;
         ind = p.index;
         basins.insert(q);
+        trees[p_head].area++;
       }
     }
   }
@@ -293,17 +302,9 @@ int main(int argc, char *argv[])
     }
     stbi_write_png("segmented.png", res, res, 4, (void *)&pixels[0], 4 * res);
   }
-  // Next I need to estimate the curvature for each tree... in the tree!
-  struct Node
-  {
-    Node() : centroid(0,0), height(0), curvature(0), area(0) {}
-    Eigen::Vector2d centroid;
-    double height;
-    double curvature;
-    double area;
-  };
-  std::vector<Node> nodes(attachto.size());
-  std::cout << "num trees: " << trees.size() << ", num in hierarchy: " << attachto.size() << std::endl;
+
+//  std::vector<Node> nodes(attachto.size());
+  std::cout << "number of raw candidates: " << trees.size() << std::endl;
 #if 0
   // calculate features of leaf nodes
   double min_curvature = 1e10;
