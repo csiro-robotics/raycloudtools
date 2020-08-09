@@ -39,32 +39,30 @@ typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 struct TreeNode
 {
-  TreeNode() : centroid(0,0), height(0), area(0), min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) 
+  TreeNode() : min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) 
   {
     curv_mat.setZero();
     curv_vec.setZero();
   }
   TreeNode(int x, int y, double height)
   {
-    area = 0.0;
+    curv_mat.setZero();
+    curv_vec.setZero();
     attaches_to = -1;
-    centroid = Eigen::Vector2d(x,y);
-    height = height;
     min_bound = max_bound = Eigen::Vector2i(x,y);
     addSample(x,y,height);
   }
-  Eigen::Vector2d centroid;
-  double height;
-  double area;
   // for calculating paraboloid of best fit:
   Matrix4d curv_mat;
   Vector4d curv_vec;
+  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
+  inline double area() const { return curv_mat(3,3); }
+  inline double avgHeight() const { return curv_vec[3] / area(); }
   inline void addSample(double x, double y, double z)
   {
     Vector4d vec(x*x + y*y, x, y, 1.0);
     curv_mat += vec * vec.transpose();
     curv_vec += z*vec;
-    area++;
   }
   Eigen::Vector2i min_bound, max_bound;
   int attaches_to;
@@ -116,7 +114,7 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
       }
     }
   }
-  /*for (int i = 0; i<(int)trees.size(); i++)
+ /* for (int i = 0; i<(int)trees.size(); i++)
   {
     int ind = i;
     while (trees[ind].attaches_to != -1)
@@ -145,18 +143,18 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
     while (trees[ind].attaches_to != -1)
       ind = trees[ind].attaches_to;
     const TreeNode &tree = trees[ind];
-
-    int xx = ((int)(tree.centroid[0] + res))%res;
-    int yy = ((int)(tree.centroid[1] + res))%res;
+  /*  int xx = ((int)(tree.centroid()[0] + res))%res;
+    int yy = ((int)(tree.centroid()[1] + res))%res;
     Col col;
     col.r = col.b = col.a = 255;
     col.g = 0;
-    pixels[xx + res*yy] = col;
+    pixels[xx + res*yy] = col;*/
 
     Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
-    double x = -abcd[1]/(2.0*abcd[0]);
-    double y = -abcd[2]/(2.0*abcd[0]);
-    double z = abcd[3] - (abcd[1]*abcd[1] + abcd[2]*abcd[2])/(4.0*abcd[0]);
+    double a = abcd[0], b = abcd[1], c = abcd[2], d = abcd[3];
+    double x = -b/(2*a);
+    double y = -c/(2*a);
+    double z = d - (b*b + c*c)/(4*a);
     int X = (int)x; 
     int Y = (int)y; 
     if (!(X==X))
@@ -239,27 +237,30 @@ int main(int argc, char *argv[])
     }
   }
   // add a noisy function:
-  const int wid = 80;
-  double hs[wid][wid];
-  for (int i = 0; i<wid; i++)
+  if (1)
   {
-    for (int j = 0; j<wid; j++)
-      hs[i][j] = ray::random(-5.0, 5.0);
-  }
-  for (int i = 0; i<res; i++)
-  {
-    double x = (double)wid * (double)i/(double)res;
-    int X = (int)x;
-    double blendX = x-(double)X;
-    for (int j = 0; j<res; j++)
+    const int wid = 80;
+    double hs[wid][wid];
+    for (int i = 0; i<wid; i++)
     {
-      double y = (double)wid * (double)j/(double)res;
-      int Y = (int)y;
-      double blendY = y-(double)Y;
-      heightfield[i][j] += hs[X][Y]*(1.0-blendX)*(1.0-blendY) + hs[X][Y+1]*(1.0-blendX)*blendY + 
-                           hs[X+1][Y]*blendX*(1.0-blendY) + hs[X+1][Y+1]*blendX*blendY; 
-      heightfield[i][j] = std::max(heightfield[i][j], 0.0);
-      max_height = std::max(max_height, heightfield[i][j]);
+      for (int j = 0; j<wid; j++)
+        hs[i][j] = ray::random(-5.0, 5.0);
+    }
+    for (int i = 0; i<res; i++)
+    {
+      double x = (double)wid * (double)i/(double)res;
+      int X = (int)x;
+      double blendX = x-(double)X;
+      for (int j = 0; j<res; j++)
+      {
+        double y = (double)wid * (double)j/(double)res;
+        int Y = (int)y;
+        double blendY = y-(double)Y;
+        heightfield[i][j] += hs[X][Y]*(1.0-blendX)*(1.0-blendY) + hs[X][Y+1]*(1.0-blendX)*blendY + 
+                            hs[X+1][Y]*blendX*(1.0-blendY) + hs[X+1][Y+1]*blendX*blendY; 
+        heightfield[i][j] = std::max(heightfield[i][j], 0.0);
+        max_height = std::max(max_height, heightfield[i][j]);
+      }
     }
   }
   // now render it 
@@ -353,10 +354,10 @@ int main(int argc, char *argv[])
         cnt++;
         if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
           drawSegmentation(indexfield, trees);
-        if (std::min(p_tree.area, q_tree.area) > std::max(p_tree.area, q_tree.area) * 0.1)
+        if (std::min(p_tree.area(), q_tree.area()) > std::max(p_tree.area(), q_tree.area()) * 0.1)
         {
           bool merge = false;
-          if (p_tree.area > q_tree.area)
+          if (p_tree.area() > q_tree.area())
             merge = p_tree.length() <= max_tree_length;
           else
             merge = q_tree.length() <= max_tree_length;
@@ -364,8 +365,6 @@ int main(int argc, char *argv[])
           {
             int new_index = trees.size();
             TreeNode node;
-            node.area = p_tree.area + q_tree.area;
-            node.centroid = (p_tree.centroid*p_tree.area + q_tree.centroid*q_tree.area) / node.area;
             node.curv_mat = p_tree.curv_mat + q_tree.curv_mat;
             node.curv_vec = p_tree.curv_vec + q_tree.curv_vec;
             node.min_bound = p_tree.min_bound;
@@ -378,11 +377,9 @@ int main(int argc, char *argv[])
         }
         else
         {
-          if (p_tree.area > q_tree.area)
+          if (p_tree.area() > q_tree.area())
           {
             q_tree.attaches_to = p_head;
-            p_tree.centroid = (p_tree.centroid*p_tree.area + q_tree.centroid*q_tree.area) / (p_tree.area + q_tree.area);
-            p_tree.area += q_tree.area;
             p_tree.curv_mat += q_tree.curv_mat;
             p_tree.curv_vec += q_tree.curv_vec;
             p_tree.updateBound(q_tree.min_bound, q_tree.max_bound);
@@ -390,8 +387,6 @@ int main(int argc, char *argv[])
           else
           {
             p_tree.attaches_to = q_head;
-            q_tree.centroid = (p_tree.centroid*p_tree.area + q_tree.centroid*q_tree.area) / (p_tree.area + q_tree.area);
-            q_tree.area += p_tree.area;
             q_tree.curv_mat += p_tree.curv_mat;
             q_tree.curv_vec += p_tree.curv_vec;
             q_tree.updateBound(p_tree.min_bound, p_tree.max_bound);
@@ -405,7 +400,6 @@ int main(int argc, char *argv[])
         q.height = heightfield[xx][yy];
         ind = p.index;
         basins.insert(q);
-        trees[p_head].centroid = (trees[p_head].centroid*trees[p_head].area + Eigen::Vector2d(xx,yy)) / (trees[p_head].area + 1.0);
         trees[p_head].addSample(xx, yy, q.height);
         trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
       }
