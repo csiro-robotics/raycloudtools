@@ -36,12 +36,35 @@ static const int res = 256;
 
 struct TreeNode
 {
-  TreeNode() : centroid(0,0), height(0), area(1.0), min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) {}
+  TreeNode() : centroid(0,0), height(0), area(1), curvature(0), min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) {}
   Eigen::Vector2d centroid;
   double height;
   double area;
-  Eigen::Vector2d min_bound, max_bound;
+  double curvature;
+  Eigen::Vector2i min_bound, max_bound;
   int attaches_to;
+  int length() const
+  {
+    Eigen::Vector2i dif = max_bound - min_bound;
+    if (dif[0] < 0)
+      dif[0] += res;
+    if (dif[1] < 0)
+      dif[1] += res;
+    return std::max(dif[0], dif[1]);
+  }
+  void updateBound(const Eigen::Vector2i &bmin, const Eigen::Vector2i &bmax)
+  {
+    for (int i = 0; i<2; i++)
+    {
+      int diff = (res + (bmax[i] - max_bound[i]))%res;
+      if (diff < res/2)
+        max_bound[i] = bmax[i];
+
+      int diff2 = (res + (min_bound[i] - bmin[i]))%res;
+      if (diff2 < res/2)
+        min_bound[i] = bmin[i];
+    }
+  }
 };
 
 void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
@@ -58,6 +81,31 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
       {
         while (trees[ind].attaches_to != -1)
           ind = trees[ind].attaches_to;
+        if (0)
+        {
+          Eigen::Vector2i d = trees[ind].max_bound - trees[ind].min_bound;
+          if (d[0] >= 0)
+          {
+            if (x <trees[ind].min_bound[0] || x > trees[ind].max_bound[0])
+              std::cout <<"bad bounds" << std::endl;
+          }
+          else
+          {
+            if (x < trees[ind].min_bound[0] && x > trees[ind].max_bound[0])
+              std::cout <<"bad bounds" << std::endl;
+          }
+          if (d[1] >= 0)
+          {
+            if (y <trees[ind].min_bound[1] || y > trees[ind].max_bound[1])
+              std::cout <<"bad bounds" << std::endl;
+          }
+          else
+          {
+            if (y < trees[ind].min_bound[1] && y > trees[ind].max_bound[1])
+              std::cout <<"bad bounds" << std::endl;
+          }
+        }
+
         srand(1 + ind);
         Col col;
         col.a = 255;
@@ -68,6 +116,29 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
       }
     }
   }
+  /*for (int i = 0; i<(int)trees.size(); i++)
+  {
+    int ind = i;
+    while (trees[ind].attaches_to != -1)
+      ind = trees[ind].attaches_to;
+    const TreeNode &tree = trees[ind];
+    Eigen::Vector2i max_bound = tree.max_bound;
+    Eigen::Vector2i d = tree.max_bound - tree.min_bound;
+    if (d[0] < 0)
+      max_bound[0] += res;
+    if (d[1] < 0)
+      max_bound[1] += res;
+    for (int x = tree.min_bound[0]; x <= max_bound[0]; x++)
+    {
+      pixels[(x%res) + res * tree.min_bound[1]] = Col(255);
+      pixels[(x%res) + res * (max_bound[1]%res)] = Col(255);
+    }
+    for (int y = tree.min_bound[1]; y <= max_bound[1]; y++)
+    {
+      pixels[tree.min_bound[0] + res * (y%res)] = Col(255);
+      pixels[(max_bound[0]%res) + res * (y%res)] = Col(255);
+    }
+  }*/
   stbi_write_png("segmenting.png", res, res, 4, (void *)&pixels[0], 4 * res);
 }
 
@@ -200,7 +271,7 @@ int main(int argc, char *argv[])
   {
     for (int y = 0; y < res; y++)
     {
-      // Moore neighbourhoos
+      // Moore neighbourhood
       int xs[8] = {x-1, x, x+1, x-1, x+1, x-1, x, x+1};
       int ys[8] = {y-1, y-1, y-1, y, y, y+1,y+1,y+1};
       double height = heightfield[x][y];
@@ -216,6 +287,7 @@ int main(int argc, char *argv[])
         TreeNode node;
         node.centroid = Eigen::Vector2d(x,y);
         node.height = height;
+        node.min_bound = node.max_bound = Eigen::Vector2i(x,y);
         trees.push_back(node);
       }
     }
@@ -223,6 +295,7 @@ int main(int argc, char *argv[])
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   // now iterate until basins is empty
   int cnt = 0;
+  int max_tree_length = 20;
   while (!basins.empty())
   {
     Point p = *basins.begin();
@@ -230,17 +303,19 @@ int main(int argc, char *argv[])
     int y = p.y;
     basins.erase(p); // how do I erase the first member, it shouldnt need to search for this
     indexfield[x][y] = p.index;
+
     int xs[4] = {x-1, x, x, x+1};
     int ys[4] = {y, y+1, y-1, y};
     for (int i = 0; i<4; i++)
     {
-      int xx = (xs[i] + res)%res;
-      int yy = (ys[i] + res)%res;
-      int &ind = indexfield[xx][yy];
-
       int p_head = p.index;
       while (trees[p_head].attaches_to != -1)
         p_head = trees[p_head].attaches_to;
+      TreeNode &p_tree = trees[p_head];
+        
+      int xx = (xs[i] + res)%res;
+      int yy = (ys[i] + res)%res;
+      int &ind = indexfield[xx][yy];
 
       int q_head = ind;
       if (q_head != -1)
@@ -251,26 +326,42 @@ int main(int argc, char *argv[])
 
       if (ind != -1 && p_head != q_head)
       {
+        TreeNode &q_tree = trees[q_head];
         cnt++;
-        if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
+        if (verbose && !(cnt%50)) // I need a way to visualise the hierarchy here!
           drawSegmentation(indexfield, trees);
-        double a1 = trees[p_head].area;
-        double a2 = trees[q_head].area;
-        if (std::min(a1,a2) > std::max(a1,a2) * 0.1)
+        if (std::min(p_tree.area, q_tree.area) > std::max(p_tree.area, q_tree.area) * 0.1)
         {
-          int new_index = trees.size();
-          TreeNode node;
-          node.area = a1 + a2;
-          trees.push_back(node);
-          trees[p_head].attaches_to = new_index;
-          trees[q_head].attaches_to = new_index;
+          bool merge = false;
+          if (p_tree.area > q_tree.area)
+            merge = p_tree.length() <= max_tree_length;
+          else
+            merge = q_tree.length() <= max_tree_length;
+          if (merge)
+          {
+            int new_index = trees.size();
+            TreeNode node;
+            node.area = p_tree.area + q_tree.area;
+            node.min_bound = p_tree.min_bound;
+            node.max_bound = p_tree.max_bound;
+            node.updateBound(q_tree.min_bound, q_tree.max_bound);
+            trees.push_back(node);
+            p_tree.attaches_to = new_index;
+            q_tree.attaches_to = new_index;
+          }
         }
         else
         {
-          if (a1 > a2)
-            trees[q_head].attaches_to = p_head;
+          if (p_tree.area > q_tree.area)
+          {
+            q_tree.attaches_to = p_head;
+            p_tree.updateBound(q_tree.min_bound, q_tree.max_bound);
+          }
           else
-            trees[p_head].attaches_to = q_head;
+          {
+            p_tree.attaches_to = q_head;
+            q_tree.updateBound(p_tree.min_bound, p_tree.max_bound);
+          }
         }
       }
       if (ind == -1 && heightfield[xx][yy] > 0.0)
@@ -280,7 +371,8 @@ int main(int argc, char *argv[])
         q.height = heightfield[xx][yy];
         ind = p.index;
         basins.insert(q);
-        trees[p_head].area++;
+        p_tree.area++;
+        p_tree.updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
       }
     }
   }
