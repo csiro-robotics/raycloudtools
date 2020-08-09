@@ -301,7 +301,7 @@ int main(int argc, char *argv[])
     {
       // Moore neighbourhood
       int xs[8] = {x-1, x, x+1, x-1, x+1, x-1, x, x+1};
-      int ys[8] = {y-1, y-1, y-1, y, y, y+1,y+1,y+1};
+      int ys[8] = {y-1, y-1, y-1, y, y, y+1, y+1, y+1};
       double height = heightfield[x][y];
       double max_h = 0.0;
       for (int i = 0; i<8; i++)
@@ -352,8 +352,8 @@ int main(int argc, char *argv[])
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
         cnt++;
-        if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
-          drawSegmentation(indexfield, trees);
+//        if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
+//          drawSegmentation(indexfield, trees);
         if (std::min(p_tree.area(), q_tree.area()) > std::max(p_tree.area(), q_tree.area()) * 0.1)
         {
           bool merge = false;
@@ -426,72 +426,57 @@ int main(int argc, char *argv[])
 
 //  std::vector<Node> nodes(attachto.size());
   std::cout << "number of raw candidates: " << trees.size() << std::endl;
-#if 0
+
   // calculate features of leaf nodes
-  double min_curvature = 1e10;
+  double min_radius = 1e10, max_radius = -1e10;
   double max_area = 0.0;
-  for (int i = 0; i<(int)trees.size(); i++)
+  for (auto &tree: trees)
   {
-    double curv = 0.0;
-    double area = 0.0;
-    double sum_dist2 = 0.0;
-    for (int x = 0; x < res; x++) // can speed this bit up
-    {
-      for (int y = 0; y < res; y++)
-      {
-        if (indexfield[x][y] == i)
-        {
-          double difX = abs(x - trees[i][0]);
-          double difY = abs(y - trees[i][1]);
-          if (difX > (double)(res/2))
-            difX -= res;
-          if (difY > (double)(res/2))
-            difY -= res;
-          int dist2 = difX*difX + difY*difY;
-          curv += (trees[i][2] - heightfield[x][y]);
-          sum_dist2 += dist2;
-          area++;
-        }
-      }
-    }
-    nodes[i].curvature = curv/sum_dist2;
-    if (nodes[i].curvature != 0.0)
-      min_curvature = std::min(min_curvature, nodes[i].curvature);
-    nodes[i].area = area;
-    nodes[i].centroid = Eigen::Vector2d(trees[i][0], trees[i][1]);
-    nodes[i].height = trees[i][2];
-    max_area = std::max(max_area, area);
+    max_area = std::max(max_area, tree.area());
+    Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
+    double rad = 1.0 / -abcd[0];
+    min_radius = std::min(min_radius, rad);
+    max_radius = std::max(max_radius, rad);
   }
-  // now fill in features from root to tip:
-  for (size_t i = trees.size(); i<parents.size(); i++)
-  {
-    Node n0 = nodes[parents[i][0]];
-    Node n1 = nodes[parents[i][1]];
-    Node &n = nodes[i];
-    n.area = n0.area + n1.area;
-    n.centroid = (n0.centroid*n0.area + n1.centroid*n1.area)/(n0.area + n1.area); // Could do better
-    n.height = std::max(n0.height, n1.height);
-    n.curvature = n0.curvature*n0.area + n1.curvature*n1.area; // this is wrong!
-  }
+  max_radius = max_tree_height;
   // now plot curvatures against heights, to find a correlation..
   if (verbose)
   {
     std::vector<Col> pixels(res * res);
+    std::vector<Col> pixels2(res * res);
     for (auto &c: pixels)
+      c = Col(20);
+    for (auto &c: pixels2)
       c = Col(0);
-    for (auto &node: nodes)
+    // so radius = height * radius_to_height
+    // parabola raises height/2 in radius, so height/2 = curvature*(radius^2)
+    // so predicted height = rad/(2*radius_to_height^2)
+    for (auto &tree: trees)
     {
-      double x = (double)(res - 1) * node.height / max_tree_height;
-      double y = (double)(res - 1) * min_curvature / node.curvature;
-      if (node.curvature != 0.0)
-        pixels[(int)x + res*(int)y] = Col(255);
-      double y2 = (double)(res - 1) * sqrt(node.area / max_area);
-      Col col2(128);
-      col2.r = 255;
-      pixels[(int)x + res*(int)y2] = col2;
+      Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
+      double a = abcd[0], b = abcd[1], c = abcd[2], d = abcd[3];
+      double rad = 1.0 / -a;
+      double height = d - (b*b + c*c)/(4*a);
+
+      double x = (double)(res - 1) * height / max_tree_height;
+//      double predicted_height = height - rad / (2.0 * ray::sqr(radius_to_height));
+//      double y = (double)(res - 1) * (predicted_height + max_tree_height) / (2.0*max_tree_height);
+      double y = (double)(res - 1) * (rad / (2.0 * ray::sqr(radius_to_height))) / max_tree_height;
+      double strength = 255.0 * tree.area() / 100.0;
+      if (x==x && x>=0.0 && x<(double)res)
+      {
+        if (y==y && y>=0.0 && y<(double)res)
+          pixels[(int)x + res*(int)y] = Col(std::min(strength, 255.0));
+
+        double y2 = (double)(res - 1) * sqrt(tree.area() / max_area);
+        Col col2(128);
+        col2.r = 255;
+        if (y2 >= 0.0 && y2 < (double)res)
+          pixels2[(int)x + res*(int)y2] = col2;
+      }
     }
-    stbi_write_png("graph.png", res, res, 4, (void *)&pixels[0], 4 * res);
+    stbi_write_png("graph_curv.png", res, res, 4, (void *)&pixels[0], 4 * res);
+    stbi_write_png("graph_area.png", res, res, 4, (void *)&pixels2[0], 4 * res);
   } 
-  #endif
   return 0;
 }
