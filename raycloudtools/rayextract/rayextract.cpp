@@ -29,6 +29,13 @@ struct Col
 {
   Col(){}
   Col(uint8_t shade) : r(shade), g(shade), b(shade), a(255) {}
+  void operator +=(const Col &col)
+  {
+    r = (uint8_t)std::min((int)r + (int)col.r, 255);
+    g = (uint8_t)std::min((int)g + (int)col.g, 255);
+    b = (uint8_t)std::min((int)b + (int)col.b, 255);
+    a = (uint8_t)std::min((int)a + (int)col.a, 255);
+  }
   uint8_t r, g, b, a;
 };
 
@@ -107,9 +114,9 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
         srand(1 + ind);
         Col col;
         col.a = 255;
-        col.r = rand()%256;
-        col.g = rand()%256;
-        col.b = rand()%256;
+        col.r = (uint8_t)(rand()%256);
+        col.g = (uint8_t)(rand()%256);
+        col.b = (uint8_t)(rand()%256);
         pixels[x + res * y] = col;
       }
     }
@@ -157,19 +164,15 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
     double z = d - (b*b + c*c)/(4*a);
     int X = (int)x; 
     int Y = (int)y; 
-    if (!(X==X))
-      continue;
-    if (!(Y==Y))
-      continue;
     if (X>=0 && X<res && Y >= 0.0 && Y<res)
-      pixels[X + res*Y] = Col((int)(255.0 * ray::clamped(z/max_tree_height, 0.0, 1.0)));
+      pixels[X + res*Y] = Col((uint8_t)(255.0 * ray::clamped(z/max_tree_height, 0.0, 1.0)));
   }
 
   stbi_write_png("segmenting.png", res, res, 4, (void *)&pixels[0], 4 * res);
 }
 
 // Decimates the ray cloud, spatially or in time
-int main(int argc, char *argv[])
+int main(int /*argc*/, char */*argv*/[])
 {
   const bool verbose = true;
   double heightfield[res][res];
@@ -214,7 +217,6 @@ int main(int argc, char *argv[])
     }
   }
   // now make height field
-  double max_height = 0.0;
   for (auto &p: ps)
   {
     double radius = radius_to_height * p[2];
@@ -259,17 +261,20 @@ int main(int argc, char *argv[])
         heightfield[i][j] += hs[X][Y]*(1.0-blendX)*(1.0-blendY) + hs[X][Y+1]*(1.0-blendX)*blendY + 
                             hs[X+1][Y]*blendX*(1.0-blendY) + hs[X+1][Y+1]*blendX*blendY; 
         heightfield[i][j] = std::max(heightfield[i][j], 0.0);
-        max_height = std::max(max_height, heightfield[i][j]);
       }
     }
   }
+  double max_height = 0.0;
+  for (int i = 0; i<res; i++)
+    for (int j = 0; j<res; j++)
+      max_height = std::max(max_height, heightfield[i][j]);
   // now render it 
   if (verbose)
   {
     std::vector<Col> pixels(res * res);
     for (int x = 0; x < res; x++)
       for (int y = 0; y < res; y++)
-        pixels[x + res * y] = Col(255.0 * heightfield[x][y]/max_height);
+        pixels[x + res * y] = Col((uint8_t)(255.0 * heightfield[x][y]/max_height));
     stbi_write_png("testheight.png", res, res, 4, (void *)&pixels[0], 4 * res);
   }
   #endif
@@ -310,7 +315,7 @@ int main(int argc, char *argv[])
       {
         Point p;
         p.x = x; p.y = y; p.height = height;
-        p.index = basins.size();
+        p.index = (int)basins.size();
         basins.insert(p);
         trees.push_back(TreeNode(x,y,height));
       }
@@ -319,7 +324,7 @@ int main(int argc, char *argv[])
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   // now iterate until basins is empty
   int cnt = 0;
-  int max_tree_length = 20;
+  int max_tree_length = 15;
   while (!basins.empty())
   {
     Point p = *basins.begin();
@@ -363,7 +368,7 @@ int main(int argc, char *argv[])
             merge = q_tree.length() <= max_tree_length;
           if (merge)
           {
-            int new_index = trees.size();
+            int new_index = (int)trees.size();
             TreeNode node;
             node.curv_mat = p_tree.curv_mat + q_tree.curv_mat;
             node.curv_vec = p_tree.curv_vec + q_tree.curv_vec;
@@ -407,6 +412,7 @@ int main(int argc, char *argv[])
   }
   if (verbose) // I need a way to visualise the hierarchy here!
   {
+    drawSegmentation(indexfield, trees);
     std::vector<Col> pixels(res * res);
     for (int x = 0; x < res; x++)
     {
@@ -415,9 +421,9 @@ int main(int argc, char *argv[])
         srand(1 + indexfield[x][y]);
         Col col;
         col.a = 255;
-        col.r = rand()%256;
-        col.g = rand()%256;
-        col.b = rand()%256;
+        col.r = uint8_t(rand()%256);
+        col.g = uint8_t(rand()%256);
+        col.b = uint8_t(rand()%256);
         pixels[x + res * y] = indexfield[x][y] == -1 ? Col(0) : col;
       }
     }
@@ -461,12 +467,12 @@ int main(int argc, char *argv[])
       double x = (double)(res - 1) * height / max_tree_height;
 //      double predicted_height = height - rad / (2.0 * ray::sqr(radius_to_height));
 //      double y = (double)(res - 1) * (predicted_height + max_tree_height) / (2.0*max_tree_height);
-      double y = (double)(res - 1) * (rad / (2.0 * ray::sqr(radius_to_height))) / max_tree_height;
+      double y = (double)(res - 1) * (rad / (2.0 * ray::sqr(radius_to_height))) / (2.0 * max_tree_height);
       double strength = 255.0 * tree.area() / 100.0;
       if (x==x && x>=0.0 && x<(double)res)
       {
         if (y==y && y>=0.0 && y<(double)res)
-          pixels[(int)x + res*(int)y] = Col(std::min(strength, 255.0));
+          pixels[(int)x + res*(int)y] += Col((uint8_t)std::min(strength, 255.0));
 
         double y2 = (double)(res - 1) * sqrt(tree.area() / max_area);
         Col col2(128);
