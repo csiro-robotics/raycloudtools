@@ -468,17 +468,15 @@ int main(int /*argc*/, char */*argv*/[])
 //      double predicted_height = height - rad / (2.0 * ray::sqr(radius_to_height));
 //      double y = (double)(res - 1) * (predicted_height + max_tree_height) / (2.0*max_tree_height);
       double y = (double)(res - 1) * (rad / (2.0 * ray::sqr(radius_to_height))) / (2.0 * max_tree_height);
-      double strength = 255.0 * tree.area() / 100.0;
+      double strength = 255.0 * tree.area() / 300.0;
       if (x==x && x>=0.0 && x<(double)res)
       {
         if (y==y && y>=0.0 && y<(double)res)
           pixels[(int)x + res*(int)y] += Col((uint8_t)std::min(strength, 255.0));
 
-        double y2 = (double)(res - 1) * sqrt(tree.area() / max_area);
-        Col col2(128);
-        col2.r = 255;
+        double y2 = (double)(res - 1) * sqrt(tree.area() / max_area) * 0.5;
         if (y2 >= 0.0 && y2 < (double)res)
-          pixels2[(int)x + res*(int)y2] = col2;
+          pixels2[(int)x + res*(int)y2] += Col((uint8_t)std::min(strength, 255.0));
       }
     }
     stbi_write_png("graph_curv.png", res, res, 4, (void *)&pixels[0], 4 * res);
