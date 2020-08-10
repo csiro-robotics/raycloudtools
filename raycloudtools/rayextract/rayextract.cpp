@@ -50,6 +50,8 @@ struct TreeNode
   {
     curv_mat.setZero();
     curv_vec.setZero();
+    sum_square_residual = 0.0;
+    sum_square_total = 0.0;
   }
   TreeNode(int x, int y, double height)
   {
@@ -58,10 +60,15 @@ struct TreeNode
     attaches_to = -1;
     min_bound = max_bound = Eigen::Vector2i(x,y);
     addSample(x,y,height);
+    sum_square_residual = 0.0;
+    sum_square_total = 0.0;
   }
   // for calculating paraboloid of best fit:
   Matrix4d curv_mat;
   Vector4d curv_vec;
+  Vector4d abcd; // the solved paraboloid
+  double sum_square_residual;
+  double sum_square_total;
   Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
   inline double area() const { return curv_mat(3,3); }
   inline double avgHeight() const { return curv_vec[3] / area(); }
@@ -70,6 +77,10 @@ struct TreeNode
     Vector4d vec(x*x + y*y, x, y, 1.0);
     curv_mat += vec * vec.transpose();
     curv_vec += z*vec;
+  }
+  inline double heightAt(double x, double y)
+  {
+    return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3];
   }
   Eigen::Vector2i min_bound, max_bound;
   int attaches_to;
@@ -184,6 +195,7 @@ int main(int /*argc*/, char */*argv*/[])
   #if 1 // create the height field
   int num = 500;
   const double radius_to_height = 0.4;
+ // srand(100);
   std::vector<Eigen::Vector3d> ps(num);
   for (int i = 0; i<num; i++)
   {
@@ -359,7 +371,7 @@ int main(int /*argc*/, char */*argv*/[])
         cnt++;
 //        if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
 //          drawSegmentation(indexfield, trees);
-        if (std::min(p_tree.area(), q_tree.area()) > std::max(p_tree.area(), q_tree.area()) * 0.1)
+        if (std::min(p_tree.area(), q_tree.area()) > std::max(p_tree.area(), q_tree.area()) * 0.01)
         {
           bool merge = false;
           if (p_tree.area() > q_tree.area())
@@ -448,6 +460,34 @@ int main(int /*argc*/, char */*argv*/[])
   // now plot curvatures against heights, to find a correlation..
   if (verbose)
   {
+    // OK good, but there is one problem... I have to do it for *all* trees, not just the largest (root) trees...
+
+    // first I'll have to solve each tree parabola and store it in a vector:
+    for (auto &tree: trees)
+      tree.abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
+
+    // for each pixel, we have to update accuracy data on each tree.
+    for (int x = 0; x < res; x++)
+    {
+      for (int y = 0; y < res; y++)
+      {
+        int ind = indexfield[x][y];
+        if (ind != -1)
+        {
+          TreeNode &tree = trees[ind];
+          tree.sum_square_residual += ray::sqr(heightfield[x][y] - tree.heightAt(x,y));
+          tree.sum_square_total += ray::sqr(heightfield[x][y] - tree.avgHeight());
+          while (trees[ind].attaches_to != -1)
+          {
+            ind = trees[ind].attaches_to;
+            TreeNode &tree = trees[ind];
+            tree.sum_square_residual += ray::sqr(heightfield[x][y] - tree.heightAt(x,y));
+            tree.sum_square_total += ray::sqr(heightfield[x][y] - tree.avgHeight());
+          }
+        }
+      }
+    }
+
     std::vector<Col> pixels(res * res);
     std::vector<Col> pixels2(res * res);
     for (auto &c: pixels)
@@ -457,6 +497,8 @@ int main(int /*argc*/, char */*argv*/[])
     // so radius = height * radius_to_height
     // parabola raises height/2 in radius, so height/2 = curvature*(radius^2)
     // so predicted height = rad/(2*radius_to_height^2)
+    std::vector<Eigen::Vector3d> data;
+    // draw scatter plot
     for (auto &tree: trees)
     {
       Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
@@ -468,17 +510,65 @@ int main(int /*argc*/, char */*argv*/[])
 //      double predicted_height = height - rad / (2.0 * ray::sqr(radius_to_height));
 //      double y = (double)(res - 1) * (predicted_height + max_tree_height) / (2.0*max_tree_height);
       double y = (double)(res - 1) * (rad / (2.0 * ray::sqr(radius_to_height))) / (2.0 * max_tree_height);
-      double strength = 255.0 * tree.area() / 300.0;
+      double strength = 255.0 * std::sqrt(tree.area() / 300.0);
+      double ratio = tree.sum_square_residual/(1e-10 + tree.sum_square_total);
+  //    std::cout << "ratio: " << ratio << std::endl;
+      double R2 = 1.0 - std::sqrt(ray::clamped(ratio, 0.0, 1.0)); 
+      strength *= R2; // TODO: whether this helps is dubious, and it is weird that it gives values outside 0-1... more testing needed.
       if (x==x && x>=0.0 && x<(double)res)
       {
         if (y==y && y>=0.0 && y<(double)res)
+        { 
+          data.push_back(Eigen::Vector3d(x, y, strength));
           pixels[(int)x + res*(int)y] += Col((uint8_t)std::min(strength, 255.0));
+        }
 
         double y2 = (double)(res - 1) * sqrt(tree.area() / max_area) * 0.5;
         if (y2 >= 0.0 && y2 < (double)res)
           pixels2[(int)x + res*(int)y2] += Col((uint8_t)std::min(strength, 255.0));
       }
     }
+    // now analyse the data to get line of best fit:
+    // line = y = ax + b
+    double a = 0.0;
+    double b = 0.0;
+    double min_height_resolving = 0.5; // unlikely to get better resolution than this
+    for (int it = 0; it<13; it++) // from mean to median to mode (ish)
+    {
+      double power = (double)it / 9.0; // just 1 is median... its very similar, but not obviously better
+      Eigen::Vector3d mean(0,0,0);
+      double total_weight = 0.0;
+      for (auto &point: data)
+      {
+        double error = abs(point[1] - (a * point[0] + b));
+        double weight = point[2] / (min_height_resolving + pow(error, power));
+        mean += point * weight;
+        total_weight += weight;
+      }
+      mean /= total_weight;
+      double total_xy = 0.0;
+      double total_xx = 0.0;
+      for (auto &point: data)
+      {
+        double error = abs(point[1] - (a * point[0] + b));
+        double weight = point[2] / (min_height_resolving + pow(error, power));
+        Eigen::Vector3d p = point - mean;
+        total_xy += p[0]*p[1] * weight;
+        total_xx += p[0]*p[0] * weight;
+      }
+      a = total_xy / std::max(1e-10, total_xx);
+      b = mean[1] - a*mean[0];
+      std::cout << "a: " << a << ", b: " << b << std::endl;
+    }
+    // draw it:
+    for (int x = 0; x<res; x++)
+    {
+      double y = a * (double)x + b;
+      int Y = (int)y;
+      if (Y >=0 && Y < res)
+        pixels[x + res*Y] += Col(64);
+    }
+
     stbi_write_png("graph_curv.png", res, res, 4, (void *)&pixels[0], 4 * res);
     stbi_write_png("graph_area.png", res, res, 4, (void *)&pixels2[0], 4 * res);
   } 
