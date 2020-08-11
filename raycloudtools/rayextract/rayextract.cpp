@@ -97,13 +97,8 @@ struct TreeNode
   {
     for (int i = 0; i<2; i++)
     {
-      int diff = (res + (bmax[i] - max_bound[i]))%res;
-      if (diff < res/2)
-        max_bound[i] = bmax[i];
-
-      int diff2 = (res + (min_bound[i] - bmin[i]))%res;
-      if (diff2 < res/2)
-        min_bound[i] = bmin[i];
+      min_bound[i] = std::min(min_bound[i], bmin[i]);
+      max_bound[i] = std::max(max_bound[i], bmax[i]);
     }
   }
 };
@@ -161,12 +156,6 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
     while (trees[ind].attaches_to != -1)
       ind = trees[ind].attaches_to;
     const TreeNode &tree = trees[ind];
-  /*  int xx = ((int)(tree.centroid()[0] + res))%res;
-    int yy = ((int)(tree.centroid()[1] + res))%res;
-    Col col;
-    col.r = col.b = col.a = 255;
-    col.g = 0;
-    pixels[xx + res*yy] = col;*/
 
     Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
     double a = abcd[0], b = abcd[1], c = abcd[2], d = abcd[3];
@@ -185,6 +174,8 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
 // Decimates the ray cloud, spatially or in time
 int main(int /*argc*/, char */*argv*/[])
 {
+  // TODO: Next: trees can wrap on creation, but analysis should not use wrapping
+  // so just end trees at boundary. This *might* fix some outliers, of course it might also generate some too
   const bool verbose = true;
   double heightfield[res][res];
   int indexfield[res][res];
@@ -195,7 +186,7 @@ int main(int /*argc*/, char */*argv*/[])
   #if 1 // create the height field
   int num = 500;
   const double radius_to_height = 0.4;
- // srand(100);
+  srand(300);
   std::vector<Eigen::Vector3d> ps(num);
   for (int i = 0; i<num; i++)
   {
@@ -317,12 +308,12 @@ int main(int /*argc*/, char */*argv*/[])
     for (int y = 0; y < res; y++)
     {
       // Moore neighbourhood
-      int xs[8] = {x-1, x, x+1, x-1, x+1, x-1, x, x+1};
-      int ys[8] = {y-1, y-1, y-1, y, y, y+1, y+1, y+1};
       double height = heightfield[x][y];
       double max_h = 0.0;
-      for (int i = 0; i<8; i++)
-        max_h = std::max(max_h, heightfield[(xs[i]+res)%res][(ys[i]+res)%res]);
+      for (int i = std::max(0, x-1); i<= std::min(x+1, res-1); i++)
+        for (int j = std::max(0, y-1); j<= std::min(y+1, res-1); j++)
+          if (!(i==x && j==y))
+            max_h = std::max(max_h, heightfield[i][j]);
       if (height > max_h)
       {
         Point p;
@@ -349,12 +340,16 @@ int main(int /*argc*/, char */*argv*/[])
     int ys[4] = {y, y+1, y-1, y};
     for (int i = 0; i<4; i++)
     {
+      if (xs[i] < 0 || xs[i] >= res)
+        continue;
+      if (ys[i] < 0 || ys[i] >= res)
+        continue;
       int p_head = p.index;
       while (trees[p_head].attaches_to != -1)
         p_head = trees[p_head].attaches_to;
         
-      int xx = (xs[i] + res)%res;
-      int yy = (ys[i] + res)%res;
+      int xx = xs[i];
+      int yy = ys[i];
       int &ind = indexfield[xx][yy];
 
       int q_head = ind;
@@ -511,6 +506,7 @@ int main(int /*argc*/, char */*argv*/[])
 //      double y = (double)(res - 1) * (predicted_height + max_tree_height) / (2.0*max_tree_height);
       double y = (double)(res - 1) * (rad / (2.0 * ray::sqr(radius_to_height))) / (2.0 * max_tree_height);
       double strength = 255.0 * std::sqrt(tree.area() / 300.0);
+      double strength_sqr = 255.0 * (tree.area() / 300.0);
       double ratio = tree.sum_square_residual/(1e-10 + tree.sum_square_total);
   //    std::cout << "ratio: " << ratio << std::endl;
       double R2 = 1.0 - std::sqrt(ray::clamped(ratio, 0.0, 1.0)); 
@@ -525,7 +521,7 @@ int main(int /*argc*/, char */*argv*/[])
 
         double y2 = (double)(res - 1) * sqrt(tree.area() / max_area) * 0.5;
         if (y2 >= 0.0 && y2 < (double)res)
-          pixels2[(int)x + res*(int)y2] += Col((uint8_t)std::min(strength, 255.0));
+          pixels2[(int)x + res*(int)y2] += Col((uint8_t)std::min(strength_sqr, 255.0));
       }
     }
     // now analyse the data to get line of best fit:
