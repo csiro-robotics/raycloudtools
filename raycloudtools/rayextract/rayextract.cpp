@@ -174,9 +174,9 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
 // Decimates the ray cloud, spatially or in time
 int main(int /*argc*/, char */*argv*/[])
 {
-  // TODO: Next: trees can wrap on creation, but analysis should not use wrapping
-  // so just end trees at boundary. This *might* fix some outliers, of course it might also generate some too
   const bool verbose = true;
+  for (int seed = 0; seed<=300; seed+=100)
+  {
   double heightfield[res][res];
   int indexfield[res][res];
   for (int i = 0; i<res; i++)
@@ -186,7 +186,9 @@ int main(int /*argc*/, char */*argv*/[])
   #if 1 // create the height field
   int num = 500;
   const double radius_to_height = 0.4;
-  srand(300);
+  if (seed)
+    srand(seed);
+//  srand(200);
   std::vector<Eigen::Vector3d> ps(num);
   for (int i = 0; i<num; i++)
   {
@@ -327,7 +329,7 @@ int main(int /*argc*/, char */*argv*/[])
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   // now iterate until basins is empty
   int cnt = 0;
-  int max_tree_length = 15;
+  int max_tree_length = 22;
   while (!basins.empty())
   {
     Point p = *basins.begin();
@@ -364,15 +366,15 @@ int main(int /*argc*/, char */*argv*/[])
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
         cnt++;
-//        if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
-//          drawSegmentation(indexfield, trees);
+   //     if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
+   //       drawSegmentation(indexfield, trees);
         if (std::min(p_tree.area(), q_tree.area()) > std::max(p_tree.area(), q_tree.area()) * 0.01)
         {
           bool merge = false;
-          if (p_tree.area() > q_tree.area())
-            merge = p_tree.length() <= max_tree_length;
-          else
-            merge = q_tree.length() <= max_tree_length;
+          Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
+          Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
+          mx -= mn;
+          merge = std::max(mx[0], mx[1]) <= max_tree_length;
           if (merge)
           {
             int new_index = (int)trees.size();
@@ -554,8 +556,9 @@ int main(int /*argc*/, char */*argv*/[])
       }
       a = total_xy / std::max(1e-10, total_xx);
       b = mean[1] - a*mean[0];
-      std::cout << "a: " << a << ", b: " << b << std::endl;
     }
+    std::cout << "a: " << a << ", b: " << b << std::endl;
+  
     // draw it:
     for (int x = 0; x<res; x++)
     {
@@ -567,6 +570,7 @@ int main(int /*argc*/, char */*argv*/[])
 
     stbi_write_png("graph_curv.png", res, res, 4, (void *)&pixels[0], 4 * res);
     stbi_write_png("graph_area.png", res, res, 4, (void *)&pixels2[0], 4 * res);
+  }
   } 
   return 0;
 }
