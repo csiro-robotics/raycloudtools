@@ -53,13 +53,13 @@ struct TreeNode
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
   }
-  TreeNode(int x, int y, double height)
+  TreeNode(int x, int y, double height_)
   {
     curv_mat.setZero();
     curv_vec.setZero();
     attaches_to = -1;
     min_bound = max_bound = Eigen::Vector2i(x,y);
-    addSample(x,y,height);
+    addSample(x,y,height_);
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
   }
@@ -69,29 +69,22 @@ struct TreeNode
   Vector4d abcd; // the solved paraboloid
   double sum_square_residual;
   double sum_square_total;
+  Eigen::Vector2i min_bound, max_bound;
+  int attaches_to;
+
   Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
   inline double area() const { return curv_mat(3,3); }
   inline double avgHeight() const { return curv_vec[3] / area(); }
+  inline double height() const { return abcd[3] - (abcd[1]*abcd[1] + abcd[2]*abcd[2])/(4*abcd[0]); }
+  inline Eigen::Vector3d tip() const { return Eigen::Vector3d(-abcd[1]/(2*abcd[0]), -abcd[2]/(2*abcd[0]), height()); }
+  inline double heightAt(double x, double y) const { return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3]; }
+ // a*(x*x + y*y) + b*x + c*y + (b*b + c*c)/4a = 0
+  inline double crownRadius() const { return 1.0 / -abcd[0]; }
   inline void addSample(double x, double y, double z)
   {
     Vector4d vec(x*x + y*y, x, y, 1.0);
     curv_mat += vec * vec.transpose();
     curv_vec += z*vec;
-  }
-  inline double heightAt(double x, double y)
-  {
-    return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3];
-  }
-  Eigen::Vector2i min_bound, max_bound;
-  int attaches_to;
-  int length() const
-  {
-    Eigen::Vector2i dif = max_bound - min_bound;
-    if (dif[0] < 0)
-      dif[0] += res;
-    if (dif[1] < 0)
-      dif[1] += res;
-    return std::max(dif[0], dif[1]);
   }
   void updateBound(const Eigen::Vector2i &bmin, const Eigen::Vector2i &bmax)
   {
@@ -455,121 +448,191 @@ int main(int /*argc*/, char */*argv*/[])
   }
   max_radius = max_tree_height;
   // now plot curvatures against heights, to find a correlation..
-  if (verbose)
+
+  // first I'll have to solve each tree parabola and store it in a vector:
+  for (auto &tree: trees)
+    tree.abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
+
+  // for each pixel, we have to update accuracy data on each tree.
+  for (int x = 0; x < res; x++)
   {
-    // OK good, but there is one problem... I have to do it for *all* trees, not just the largest (root) trees...
-
-    // first I'll have to solve each tree parabola and store it in a vector:
-    for (auto &tree: trees)
-      tree.abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
-
-    // for each pixel, we have to update accuracy data on each tree.
-    for (int x = 0; x < res; x++)
+    for (int y = 0; y < res; y++)
     {
-      for (int y = 0; y < res; y++)
+      int ind = indexfield[x][y];
+      if (ind != -1)
       {
-        int ind = indexfield[x][y];
-        if (ind != -1)
+        TreeNode &tree = trees[ind];
+        tree.sum_square_residual += ray::sqr(heightfield[x][y] - tree.heightAt(x,y));
+        tree.sum_square_total += ray::sqr(heightfield[x][y] - tree.avgHeight());
+        while (trees[ind].attaches_to != -1)
         {
+          ind = trees[ind].attaches_to;
           TreeNode &tree = trees[ind];
           tree.sum_square_residual += ray::sqr(heightfield[x][y] - tree.heightAt(x,y));
           tree.sum_square_total += ray::sqr(heightfield[x][y] - tree.avgHeight());
-          while (trees[ind].attaches_to != -1)
+        }
+      }
+    }
+  }
+
+  std::vector<Col> pixels(res * res);
+  std::vector<Col> pixels2(res * res);
+  for (auto &c: pixels)
+    c = Col(20);
+  for (auto &c: pixels2)
+    c = Col(0);
+  // so radius = height * radius_to_height
+  // parabola raises height/2 in radius, so height/2 = curvature*(radius^2)
+  // so predicted height = rad/(2*radius_to_height^2)
+  std::vector<Eigen::Vector3d> data;
+  // draw scatter plot
+  for (auto &tree: trees)
+  {
+    double x = (double)(res - 1) * tree.height() / max_tree_height;
+    double predicted_length = (tree.crownRadius() / (2.0 * ray::sqr(radius_to_height)));
+    double y = (double)(res - 1) * predicted_length / (2.0 * max_tree_height);
+    double strength = 255.0 * std::sqrt(tree.area() / 300.0);
+    double strength_sqr = 255.0 * (tree.area() / 300.0);
+    double ratio = tree.sum_square_residual/(1e-10 + tree.sum_square_total);
+    double R2 = 1.0 - std::sqrt(ray::clamped(ratio, 0.0, 1.0)); 
+    strength *= R2; // TODO: whether this helps is dubious, and it is weird that it gives values outside 0-1... more testing needed.
+    if (x==x && x>=0.0 && x<(double)res)
+    {
+      if (y==y && y>=0.0 && y<(double)res)
+      { 
+        data.push_back(Eigen::Vector3d(tree.height(), tree.crownRadius(), strength));
+        pixels[(int)x + res*(int)y] += Col((uint8_t)std::min(strength, 255.0));
+      }
+
+      double y2 = (double)(res - 1) * sqrt(tree.area() / max_area) * 0.5;
+      if (y2 >= 0.0 && y2 < (double)res)
+        pixels2[(int)x + res*(int)y2] += Col((uint8_t)std::min(strength_sqr, 255.0));
+    }
+  }
+  // now analyse the data to get line of best fit:
+  // line = radius = a * treetop_pos + b
+  double a = 0.0;
+  double b = 0.0; // Nope! this is the wrong way around, so this is not ground_height!
+  double min_height_resolving = 0.5; // unlikely to get better resolution than this
+  for (int it = 0; it<13; it++) // from mean to median to mode (ish)
+  {
+    double power = (double)it / 9.0; // just 1 is median... its very similar, but not obviously better
+    Eigen::Vector3d mean(0,0,0);
+    double total_weight = 0.0;
+    for (auto &point: data)
+    {
+      double error = abs(point[1] - (a * point[0] + b));
+      double weight = point[2] / (min_height_resolving + pow(error, power));
+      mean += point * weight;
+      total_weight += weight;
+    }
+    mean /= total_weight;
+    double total_xy = 0.0;
+    double total_xx = 0.0;
+    for (auto &point: data)
+    {
+      double error = abs(point[1] - (a * point[0] + b));
+      double weight = point[2] / (min_height_resolving + pow(error, power));
+      Eigen::Vector3d p = point - mean;
+      total_xy += p[0]*p[1] * weight;
+      total_xx += p[0]*p[0] * weight;
+    }
+    a = total_xy / std::max(1e-10, total_xx);
+    b = mean[1] - a*mean[0];
+  }
+  std::cout << "a: " << a << ", b: " << b << std::endl;
+
+  // draw it:
+ /* for (int x = 0; x<res; x++)
+  {
+    double y = gradient * (double)x + ground_height;
+    int Y = (int)y;
+    if (Y >=0 && Y < res)
+      pixels[x + res*Y] += Col(64);
+  }*/
+
+  stbi_write_png("graph_curv.png", res, res, 4, (void *)&pixels[0], 4 * res);
+  stbi_write_png("graph_area.png", res, res, 4, (void *)&pixels2[0], 4 * res);
+  // radius = a*treetop_pos + b, so treetop_pos = (radius - b)/a
+  double ground_height = -b/a;
+  double length_per_radius = 1.0/a;
+
+  /***************************************************************************************/
+  // The last step is to take the ground surface (currently flat: 'b') and scale estimation 'a'
+  // and use this to estimate the set of tree heights
+  // Note: we may still choose an extrapolation technique later... this is worth pursuing at some point
+  struct Result
+  {
+    std::vector<Eigen::Vector3d> tree_tips;
+    double ground_height;
+    double treelength_per_crownradius;
+  };
+  Result result;
+  max_height = ground_height;
+  std::vector<int> indices;
+  for (int i = 0; i < (int)trees.size(); i++)
+  {
+    int ind = i;
+    double base = trees[ind].height() - length_per_radius * trees[ind].crownRadius();
+    double error = abs(base - ground_height);
+    while (trees[ind].attaches_to != -1)
+    {
+      int ind2 = trees[ind].attaches_to;
+      double base2 = trees[ind2].height() - length_per_radius * trees[ind2].crownRadius();
+      double error2 = abs(base2 - ground_height);
+      
+      if (error < error2) // we've found the closest, so end loop
+        break;
+      ind = ind2;
+      error = error2;
+      base = base2;
+    }
+    bool already = false;
+    for (auto &index: indices)
+      if (index == ind)
+        already = true;
+    if (already)
+      continue;
+    indices.push_back(ind);
+    // we now have a base, error and ind(ex)
+    result.tree_tips.push_back(trees[ind].tip());
+    max_height = std::max(max_height, trees[ind].height());
+  }
+  max_height = max_tree_height * 1.2; // TODO: fix!, problem is one of the tree heights is really big, 2 lines up
+  result.ground_height = ground_height;
+  result.treelength_per_crownradius = length_per_radius;
+  // I should probably draw the result
+  if (verbose)
+  {
+    std::vector<Col> pixels(res * res);
+    for (auto &c: pixels)
+      c = Col(0); 
+    for (auto &tip: result.tree_tips)
+    {
+      double length = tip[2] - result.ground_height;
+      double crown_radius = length/result.treelength_per_crownradius;
+      double curvature = 1.0 / crown_radius;
+      for (int x = (int)(tip[0] - crown_radius); x<= (int)(tip[0]+crown_radius); x++)
+      {
+        for (int y = (int)(tip[1] - crown_radius); y<= (int)(tip[1]+crown_radius); y++)
+        {
+          if (x < 0 || x >= res || y<0 || y>=res)
+            continue;
+          double X = (double)x - tip[0];
+          double Y = (double)y - tip[1];
+          double mag2 = (double)(X*X + Y*Y);
+          if (mag2 <= crown_radius*crown_radius)
           {
-            ind = trees[ind].attaches_to;
-            TreeNode &tree = trees[ind];
-            tree.sum_square_residual += ray::sqr(heightfield[x][y] - tree.heightAt(x,y));
-            tree.sum_square_total += ray::sqr(heightfield[x][y] - tree.avgHeight());
+            double height = tip[2] - mag2 * curvature;
+            double shade = (height - result.ground_height)/(max_height - result.ground_height);
+            Col col(uint8_t(255.0*shade));
+            if (pixels[x + res*y].r < col.r)
+              pixels[x + res*y] = col;
           }
         }
       }
-    }
-
-    std::vector<Col> pixels(res * res);
-    std::vector<Col> pixels2(res * res);
-    for (auto &c: pixels)
-      c = Col(20);
-    for (auto &c: pixels2)
-      c = Col(0);
-    // so radius = height * radius_to_height
-    // parabola raises height/2 in radius, so height/2 = curvature*(radius^2)
-    // so predicted height = rad/(2*radius_to_height^2)
-    std::vector<Eigen::Vector3d> data;
-    // draw scatter plot
-    for (auto &tree: trees)
-    {
-      Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
-      double a = abcd[0], b = abcd[1], c = abcd[2], d = abcd[3];
-      double rad = 1.0 / -a;
-      double height = d - (b*b + c*c)/(4*a);
-
-      double x = (double)(res - 1) * height / max_tree_height;
-//      double predicted_height = height - rad / (2.0 * ray::sqr(radius_to_height));
-//      double y = (double)(res - 1) * (predicted_height + max_tree_height) / (2.0*max_tree_height);
-      double y = (double)(res - 1) * (rad / (2.0 * ray::sqr(radius_to_height))) / (2.0 * max_tree_height);
-      double strength = 255.0 * std::sqrt(tree.area() / 300.0);
-      double strength_sqr = 255.0 * (tree.area() / 300.0);
-      double ratio = tree.sum_square_residual/(1e-10 + tree.sum_square_total);
-  //    std::cout << "ratio: " << ratio << std::endl;
-      double R2 = 1.0 - std::sqrt(ray::clamped(ratio, 0.0, 1.0)); 
-      strength *= R2; // TODO: whether this helps is dubious, and it is weird that it gives values outside 0-1... more testing needed.
-      if (x==x && x>=0.0 && x<(double)res)
-      {
-        if (y==y && y>=0.0 && y<(double)res)
-        { 
-          data.push_back(Eigen::Vector3d(x, y, strength));
-          pixels[(int)x + res*(int)y] += Col((uint8_t)std::min(strength, 255.0));
-        }
-
-        double y2 = (double)(res - 1) * sqrt(tree.area() / max_area) * 0.5;
-        if (y2 >= 0.0 && y2 < (double)res)
-          pixels2[(int)x + res*(int)y2] += Col((uint8_t)std::min(strength_sqr, 255.0));
-      }
-    }
-    // now analyse the data to get line of best fit:
-    // line = y = ax + b
-    double a = 0.0;
-    double b = 0.0;
-    double min_height_resolving = 0.5; // unlikely to get better resolution than this
-    for (int it = 0; it<13; it++) // from mean to median to mode (ish)
-    {
-      double power = (double)it / 9.0; // just 1 is median... its very similar, but not obviously better
-      Eigen::Vector3d mean(0,0,0);
-      double total_weight = 0.0;
-      for (auto &point: data)
-      {
-        double error = abs(point[1] - (a * point[0] + b));
-        double weight = point[2] / (min_height_resolving + pow(error, power));
-        mean += point * weight;
-        total_weight += weight;
-      }
-      mean /= total_weight;
-      double total_xy = 0.0;
-      double total_xx = 0.0;
-      for (auto &point: data)
-      {
-        double error = abs(point[1] - (a * point[0] + b));
-        double weight = point[2] / (min_height_resolving + pow(error, power));
-        Eigen::Vector3d p = point - mean;
-        total_xy += p[0]*p[1] * weight;
-        total_xx += p[0]*p[0] * weight;
-      }
-      a = total_xy / std::max(1e-10, total_xx);
-      b = mean[1] - a*mean[0];
-    }
-    std::cout << "a: " << a << ", b: " << b << std::endl;
-  
-    // draw it:
-    for (int x = 0; x<res; x++)
-    {
-      double y = a * (double)x + b;
-      int Y = (int)y;
-      if (Y >=0 && Y < res)
-        pixels[x + res*Y] += Col(64);
-    }
-
-    stbi_write_png("graph_curv.png", res, res, 4, (void *)&pixels[0], 4 * res);
-    stbi_write_png("graph_area.png", res, res, 4, (void *)&pixels2[0], 4 * res);
+    }    
+    stbi_write_png("result_trees.png", res, res, 4, (void *)&pixels[0], 4 * res);
   }
   } 
   return 0;

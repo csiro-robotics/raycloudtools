@@ -67,7 +67,21 @@
     "forward_list": "cpp",
     "mutex": "cpp",
     "valarray": "cpp",
-    "*.ipp": "cpp"
+    "*.ipp": "cpp",
+    "vec3b": "cpp",
+    "vec3i": "cpp",
+    "vec3s": "cpp",
+    "vec3ub": "cpp",
+    "vec3ui": "cpp",
+    "vec3us": "cpp",
+    "vec4b": "cpp",
+    "vec4d": "cpp",
+    "vec4f": "cpp",
+    "vec4i": "cpp",
+    "vec4s": "cpp",
+    "vec4ub": "cpp",
+    "vec4ui": "cpp",
+    "vec4us": "cpp"
   },
   "python.autoComplete.extraPaths": [
     "/home/parallels/code/demining/demine_ros/devel/lib/python2.7/dist-packages",
