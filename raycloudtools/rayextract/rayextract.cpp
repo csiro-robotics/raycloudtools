@@ -77,13 +77,6 @@ struct TreeNode
   Eigen::Vector3d peak;
   int attaches_to;
   int children[2];
-  struct Neighbour
-  {
-    int index;
-    double flood_base; // base altitude
-    double low_flood_height; // height above base of lowest flood point
-  };
-  std::vector<Neighbour> neighbours;
 
   Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
   inline double area() const { return curv_mat(3,3); }
@@ -91,8 +84,20 @@ struct TreeNode
   inline double height() const { return abcd[3] - (abcd[1]*abcd[1] + abcd[2]*abcd[2])/(4*abcd[0]); }
   inline Eigen::Vector3d tip() const { return Eigen::Vector3d(-abcd[1]/(2*abcd[0]), -abcd[2]/(2*abcd[0]), height()); }
   inline double heightAt(double x, double y) const { return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3]; }
- // a*(x*x + y*y) + b*x + c*y + (b*b + c*c)/4a = 0
   inline double crownRadius() const { return 1.0 / -abcd[0]; }
+  inline bool validParaboloid() const 
+  {
+    const double minimum_crown_radius = 0.5;
+    const double maximum_crown_radius = 20.0; // in metres
+    double r = crownRadius();
+    if (r<minimum_crown_radius || r > maximum_crown_radius)
+      return false;
+    Eigen::Vector3d top = tip();
+    for (int i = 0; i<2; i++)
+      if (top[i] < (double)min_bound[i] || top[i] > (double)max_bound[i])
+        return false;
+    return true;
+  }
   inline void addSample(double x, double y, double z)
   {
     Vector4d vec(x*x + y*y, x, y, 1.0);
@@ -181,7 +186,8 @@ void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, doub
 {
   if (trees[ind].children[0] == -1)
   {
-    indices.push_back(ind);
+    if (trees[ind].validParaboloid())
+      indices.push_back(ind);
     return;
   }
   int ind0 = trees[ind].children[0];
@@ -191,7 +197,7 @@ void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, doub
   double base1 = trees[ind1].height() - length_per_radius * trees[ind1].crownRadius();
   double error1 = abs(base1 - ground_height);
       
-  if (error < std::min(error0, error1)) // we've found the closest, so end loop
+  if (error < std::min(error0, error1) && trees[ind].validParaboloid()) // we've found the closest, so end loop
   {
     indices.push_back(ind);
     return;
@@ -352,7 +358,7 @@ int main(int /*argc*/, char */*argv*/[])
         p.x = x; p.y = y; p.height = height;
         p.index = (int)basins.size();
         basins.insert(p);
-        heads.insert(trees.size());
+        heads.insert((int)trees.size());
         trees.push_back(TreeNode(x,y,height));
       }
     }
@@ -360,7 +366,7 @@ int main(int /*argc*/, char */*argv*/[])
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   // now iterate until basins is empty
   int cnt = 0;
-  int max_tree_length = 22;
+  const int max_tree_length = 22;
   while (!basins.empty())
   {
     Point p = *basins.begin();
@@ -392,14 +398,19 @@ int main(int /*argc*/, char */*argv*/[])
           node.min_bound = p_tree.min_bound;
           node.max_bound = p_tree.max_bound;
           node.updateBound(q_tree.min_bound, q_tree.max_bound);
-          node.children[0] = p_head;
+          node.children[0] = p_head;  
           node.children[1] = q_head;
-          heads.erase(p_head);
-          heads.erase(q_head);
-          heads.insert(new_index);
-          p_tree.attaches_to = new_index;
-          q_tree.attaches_to = new_index;
-          trees.push_back(node); // danger, this can invalidate the p_tree reference
+          node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
+
+          if (node.validParaboloid())
+          {
+            heads.erase(p_head);
+            heads.erase(q_head);
+            heads.insert(new_index);
+            p_tree.attaches_to = new_index;
+            q_tree.attaches_to = new_index;
+            trees.push_back(node); // danger, this can invalidate the p_tree reference
+          }
         }
       }
       continue;
@@ -434,8 +445,8 @@ int main(int /*argc*/, char */*argv*/[])
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
         cnt++;
-  //      if (verbose && !(cnt%50)) // I need a way to visualise the hierarchy here!
-  //        drawSegmentation(indexfield, trees);
+//        if (verbose && !(cnt%50)) // I need a way to visualise the hierarchy here!
+//          drawSegmentation(indexfield, trees);
         Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
@@ -460,13 +471,19 @@ int main(int /*argc*/, char */*argv*/[])
       }
       if (ind == -1 && heightfield[xx][yy] > 0.0)
       {
+  //      Eigen::Vector2i dif = (trees[p_head].max_bound - trees[p_head].min_bound);
+  //      double len = 1.0 + (dif[0] + dif[1])/2.0;
+  //      double height_delta = len * 0.5;
         Point q;
         q.x = xx; q.y = yy; q.index = p.index;
         q.height = heightfield[xx][yy];
+   //     if ((p.height - q.height) < 3.0 + len * 0.5)
+   //     {
         ind = p.index;
         basins.insert(q);
         trees[p_head].addSample(xx, yy, q.height);
         trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
+  //      }
       }
     }
   }
@@ -494,17 +511,9 @@ int main(int /*argc*/, char */*argv*/[])
   std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
 
   // calculate features of leaf nodes
-  double min_radius = 1e10, max_radius = -1e10;
   double max_area = 0.0;
   for (auto &tree: trees)
-  {
     max_area = std::max(max_area, tree.area());
-    Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
-    double rad = 1.0 / -abcd[0];
-    min_radius = std::min(min_radius, rad);
-    max_radius = std::max(max_radius, rad);
-  }
-  max_radius = max_tree_height;
   // now plot curvatures against heights, to find a correlation..
 
   // first I'll have to solve each tree parabola and store it in a vector:
@@ -546,6 +555,8 @@ int main(int /*argc*/, char */*argv*/[])
   // draw scatter plot
   for (auto &tree: trees)
   {
+    if (!tree.validParaboloid())
+      continue;
     double x = (double)(res - 1) * tree.height() / max_tree_height;
     double predicted_length = (tree.crownRadius() / (2.0 * ray::sqr(radius_to_height)));
     double y = (double)(res - 1) * predicted_length / (2.0 * max_tree_height);
