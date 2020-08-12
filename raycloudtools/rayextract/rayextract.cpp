@@ -52,6 +52,7 @@ struct TreeNode
     curv_vec.setZero();
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
+    children[0] = children[1] = -1;
   }
   TreeNode(int x, int y, double height_)
   {
@@ -62,6 +63,7 @@ struct TreeNode
     addSample(x,y,height_);
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
+    children[0] = children[1] = -1;
   }
   // for calculating paraboloid of best fit:
   Matrix4d curv_mat;
@@ -71,6 +73,7 @@ struct TreeNode
   double sum_square_total;
   Eigen::Vector2i min_bound, max_bound;
   int attaches_to;
+  int children[2];
 
   Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
   inline double area() const { return curv_mat(3,3); }
@@ -162,6 +165,29 @@ void drawSegmentation(int indexfield[][res], const std::vector<TreeNode> &trees)
   }
 
   stbi_write_png("segmenting.png", res, res, 4, (void *)&pixels[0], 4 * res);
+}
+
+void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices)
+{
+  if (trees[ind].children[0] == -1)
+  {
+    indices.push_back(ind);
+    return;
+  }
+  int ind0 = trees[ind].children[0];
+  double base0 = trees[ind0].height() - length_per_radius * trees[ind0].crownRadius();
+  double error0 = abs(base0 - ground_height);
+  int ind1 = trees[ind].children[1];
+  double base1 = trees[ind1].height() - length_per_radius * trees[ind1].crownRadius();
+  double error1 = abs(base1 - ground_height);
+      
+  if (error < std::min(error0, error1)) // we've found the closest, so end loop
+  {
+    indices.push_back(ind);
+    return;
+  }
+  searchTrees(trees, ind0, error0, length_per_radius, ground_height, indices);
+  searchTrees(trees, ind1, error1, length_per_radius, ground_height, indices);
 }
 
 // Decimates the ray cloud, spatially or in time
@@ -297,6 +323,7 @@ int main(int /*argc*/, char */*argv*/[])
   };  
   std::set<Point, PointCmp> basins;
   std::vector<TreeNode> trees;
+  std::set<int> heads;
   // 1. find highest points
   for (int x = 0; x < res; x++)
   {
@@ -315,6 +342,7 @@ int main(int /*argc*/, char */*argv*/[])
         p.x = x; p.y = y; p.height = height;
         p.index = (int)basins.size();
         basins.insert(p);
+        heads.insert(trees.size());
         trees.push_back(TreeNode(x,y,height));
       }
     }
@@ -361,43 +389,28 @@ int main(int /*argc*/, char */*argv*/[])
         cnt++;
    //     if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
    //       drawSegmentation(indexfield, trees);
-        if (std::min(p_tree.area(), q_tree.area()) > std::max(p_tree.area(), q_tree.area()) * 0.01)
+        bool merge = false;
+        Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
+        Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
+        mx -= mn;
+        merge = std::max(mx[0], mx[1]) <= max_tree_length;
+        if (merge)
         {
-          bool merge = false;
-          Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
-          Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
-          mx -= mn;
-          merge = std::max(mx[0], mx[1]) <= max_tree_length;
-          if (merge)
-          {
-            int new_index = (int)trees.size();
-            TreeNode node;
-            node.curv_mat = p_tree.curv_mat + q_tree.curv_mat;
-            node.curv_vec = p_tree.curv_vec + q_tree.curv_vec;
-            node.min_bound = p_tree.min_bound;
-            node.max_bound = p_tree.max_bound;
-            node.updateBound(q_tree.min_bound, q_tree.max_bound);
-            p_tree.attaches_to = new_index;
-            q_tree.attaches_to = new_index;
-            trees.push_back(node); // danger, this can invalidate the p_tree reference
-          }
-        }
-        else
-        {
-          if (p_tree.area() > q_tree.area())
-          {
-            q_tree.attaches_to = p_head;
-            p_tree.curv_mat += q_tree.curv_mat;
-            p_tree.curv_vec += q_tree.curv_vec;
-            p_tree.updateBound(q_tree.min_bound, q_tree.max_bound);
-          }
-          else
-          {
-            p_tree.attaches_to = q_head;
-            q_tree.curv_mat += p_tree.curv_mat;
-            q_tree.curv_vec += p_tree.curv_vec;
-            q_tree.updateBound(p_tree.min_bound, p_tree.max_bound);
-          }
+          int new_index = (int)trees.size();
+          TreeNode node;
+          node.curv_mat = p_tree.curv_mat + q_tree.curv_mat;
+          node.curv_vec = p_tree.curv_vec + q_tree.curv_vec;
+          node.min_bound = p_tree.min_bound;
+          node.max_bound = p_tree.max_bound;
+          node.updateBound(q_tree.min_bound, q_tree.max_bound);
+          node.children[0] = p_head;
+          node.children[1] = q_head;
+          heads.erase(p_head);
+          heads.erase(q_head);
+          heads.insert(new_index);
+          p_tree.attaches_to = new_index;
+          q_tree.attaches_to = new_index;
+          trees.push_back(node); // danger, this can invalidate the p_tree reference
         }
       }
       if (ind == -1 && heightfield[xx][yy] > 0.0)
@@ -433,7 +446,7 @@ int main(int /*argc*/, char */*argv*/[])
   }
 
 //  std::vector<Node> nodes(attachto.size());
-  std::cout << "number of raw candidates: " << trees.size() << std::endl;
+  std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
 
   // calculate features of leaf nodes
   double min_radius = 1e10, max_radius = -1e10;
@@ -570,31 +583,15 @@ int main(int /*argc*/, char */*argv*/[])
   Result result;
   max_height = ground_height;
   std::vector<int> indices;
-  for (int i = 0; i < (int)trees.size(); i++)
+  for (auto &head: heads)
   {
-    int ind = i;
+    int ind = head;
     double base = trees[ind].height() - length_per_radius * trees[ind].crownRadius();
     double error = abs(base - ground_height);
-    while (trees[ind].attaches_to != -1)
-    {
-      int ind2 = trees[ind].attaches_to;
-      double base2 = trees[ind2].height() - length_per_radius * trees[ind2].crownRadius();
-      double error2 = abs(base2 - ground_height);
-      
-      if (error < error2) // we've found the closest, so end loop
-        break;
-      ind = ind2;
-      error = error2;
-      base = base2;
-    }
-    bool already = false;
-    for (auto &index: indices)
-      if (index == ind)
-        already = true;
-    if (already)
-      continue;
-    indices.push_back(ind);
-    // we now have a base, error and ind(ex)
+    searchTrees(trees, head, error, length_per_radius, ground_height, indices);
+  }
+  for (auto &ind: indices)
+  {
     result.tree_tips.push_back(trees[ind].tip());
     max_height = std::max(max_height, trees[ind].height());
   }
@@ -612,16 +609,17 @@ int main(int /*argc*/, char */*argv*/[])
       double length = tip[2] - result.ground_height;
       double crown_radius = length/result.treelength_per_crownradius;
       double curvature = 1.0 / crown_radius;
-      for (int x = (int)(tip[0] - crown_radius); x<= (int)(tip[0]+crown_radius); x++)
+      double draw_radius = 1.2 * crown_radius; 
+      for (int x = (int)(tip[0] - draw_radius); x<= (int)(tip[0]+draw_radius); x++)
       {
-        for (int y = (int)(tip[1] - crown_radius); y<= (int)(tip[1]+crown_radius); y++)
+        for (int y = (int)(tip[1] - draw_radius); y<= (int)(tip[1]+draw_radius); y++)
         {
           if (x < 0 || x >= res || y<0 || y>=res)
             continue;
           double X = (double)x - tip[0];
           double Y = (double)y - tip[1];
           double mag2 = (double)(X*X + Y*Y);
-          if (mag2 <= crown_radius*crown_radius)
+          if (mag2 <= draw_radius*draw_radius)
           {
             double height = tip[2] - mag2 * curvature;
             double shade = (height - result.ground_height)/(max_height - result.ground_height);

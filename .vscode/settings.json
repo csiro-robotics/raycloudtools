@@ -81,7 +81,9 @@
     "vec4s": "cpp",
     "vec4ub": "cpp",
     "vec4ui": "cpp",
-    "vec4us": "cpp"
+    "vec4us": "cpp",
+    "boundingbox": "cpp",
+    "boundingsphere": "cpp"
   },
   "python.autoComplete.extraPaths": [
     "/home/parallels/code/demining/demine_ros/devel/lib/python2.7/dist-packages",
