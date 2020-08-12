@@ -53,6 +53,7 @@ struct TreeNode
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
     children[0] = children[1] = -1;
+    peak.setZero();
   }
   TreeNode(int x, int y, double height_)
   {
@@ -64,6 +65,7 @@ struct TreeNode
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
     children[0] = children[1] = -1;
+    peak = Eigen::Vector3d((double)x, (double)y, height_);
   }
   // for calculating paraboloid of best fit:
   Matrix4d curv_mat;
@@ -72,8 +74,16 @@ struct TreeNode
   double sum_square_residual;
   double sum_square_total;
   Eigen::Vector2i min_bound, max_bound;
+  Eigen::Vector3d peak;
   int attaches_to;
   int children[2];
+  struct Neighbour
+  {
+    int index;
+    double flood_base; // base altitude
+    double low_flood_height; // height above base of lowest flood point
+  };
+  std::vector<Neighbour> neighbours;
 
   Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
   inline double area() const { return curv_mat(3,3); }
@@ -311,7 +321,7 @@ int main(int /*argc*/, char */*argv*/[])
 
   struct Point 
   { 
-    int x, y, index; 
+    int x, y, index; // if index == -2 then we are merging
     double height;
   };
   struct PointCmp 
@@ -356,7 +366,44 @@ int main(int /*argc*/, char */*argv*/[])
     Point p = *basins.begin();
     int x = p.x;
     int y = p.y;
-    basins.erase(p); // how do I erase the first member, it shouldnt need to search for this
+    basins.erase(p); // removes it from basins. p still exists
+
+    if (p.index == -2) // a merge request
+    {
+      int p_head = x;
+      while (trees[p_head].attaches_to != -1)
+        p_head = trees[p_head].attaches_to;
+      int q_head = y;
+      while (trees[q_head].attaches_to != -1)
+        q_head = trees[q_head].attaches_to;
+      if (p_head != q_head)
+      {
+        TreeNode &p_tree = trees[p_head];
+        TreeNode &q_tree = trees[q_head];
+        Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
+        Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
+        mx -= mn;
+        if (std::max(mx[0], mx[1]) <= max_tree_length)
+        {
+          int new_index = (int)trees.size();
+          TreeNode node;
+          node.curv_mat = p_tree.curv_mat + q_tree.curv_mat;
+          node.curv_vec = p_tree.curv_vec + q_tree.curv_vec;
+          node.min_bound = p_tree.min_bound;
+          node.max_bound = p_tree.max_bound;
+          node.updateBound(q_tree.min_bound, q_tree.max_bound);
+          node.children[0] = p_head;
+          node.children[1] = q_head;
+          heads.erase(p_head);
+          heads.erase(q_head);
+          heads.insert(new_index);
+          p_tree.attaches_to = new_index;
+          q_tree.attaches_to = new_index;
+          trees.push_back(node); // danger, this can invalidate the p_tree reference
+        }
+      }
+      continue;
+    }    
     indexfield[x][y] = p.index;
 
     int xs[4] = {x-1, x, x, x+1};
@@ -387,30 +434,28 @@ int main(int /*argc*/, char */*argv*/[])
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
         cnt++;
-   //     if (verbose && !(cnt%100)) // I need a way to visualise the hierarchy here!
-   //       drawSegmentation(indexfield, trees);
-        bool merge = false;
+  //      if (verbose && !(cnt%50)) // I need a way to visualise the hierarchy here!
+  //        drawSegmentation(indexfield, trees);
         Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
-        merge = std::max(mx[0], mx[1]) <= max_tree_length;
+        bool merge = std::max(mx[0], mx[1]) <= max_tree_length;
         if (merge)
         {
-          int new_index = (int)trees.size();
-          TreeNode node;
-          node.curv_mat = p_tree.curv_mat + q_tree.curv_mat;
-          node.curv_vec = p_tree.curv_vec + q_tree.curv_vec;
-          node.min_bound = p_tree.min_bound;
-          node.max_bound = p_tree.max_bound;
-          node.updateBound(q_tree.min_bound, q_tree.max_bound);
-          node.children[0] = p_head;
-          node.children[1] = q_head;
-          heads.erase(p_head);
-          heads.erase(q_head);
-          heads.insert(new_index);
-          p_tree.attaches_to = new_index;
-          q_tree.attaches_to = new_index;
-          trees.push_back(node); // danger, this can invalidate the p_tree reference
+          const double flood_merge_scale = 1.5; // 1 merges immediately, infinity never merges
+          // add a merge task:
+          Eigen::Vector2d mid(xx, yy);
+          double p_sqr = (Eigen::Vector2d(p_tree.peak[0], p_tree.peak[1]) - mid).squaredNorm();
+          double q_sqr = (Eigen::Vector2d(q_tree.peak[0], q_tree.peak[1]) - mid).squaredNorm();
+          double blend = p_sqr / (p_sqr + q_sqr);
+          double flood_base = p_tree.peak[2]*(1.0-blend) + q_tree.peak[2]*blend;
+          double low_flood_height = flood_base - p.height;
+
+          Point q;
+          q.x = p_head; q.y = q_head; 
+          q.index = -2;
+          q.height = flood_base - low_flood_height * flood_merge_scale;
+          basins.insert(q);
         }
       }
       if (ind == -1 && heightfield[xx][yy] > 0.0)
@@ -609,7 +654,7 @@ int main(int /*argc*/, char */*argv*/[])
       double length = tip[2] - result.ground_height;
       double crown_radius = length/result.treelength_per_crownradius;
       double curvature = 1.0 / crown_radius;
-      double draw_radius = 1.2 * crown_radius; 
+      double draw_radius = std::min(1.2 * crown_radius, 50.0); 
       for (int x = (int)(tip[0] - draw_radius); x<= (int)(tip[0]+draw_radius); x++)
       {
         for (int y = (int)(tip[1] - draw_radius); y<= (int)(tip[1]+draw_radius); y++)
