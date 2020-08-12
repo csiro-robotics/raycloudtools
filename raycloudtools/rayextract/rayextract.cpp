@@ -453,7 +453,7 @@ int main(int /*argc*/, char */*argv*/[])
         bool merge = std::max(mx[0], mx[1]) <= max_tree_length;
         if (merge)
         {
-          const double flood_merge_scale = 1.5; // 1 merges immediately, infinity never merges
+          const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
           // add a merge task:
           Eigen::Vector2d mid(xx, yy);
           double p_sqr = (Eigen::Vector2d(p_tree.peak[0], p_tree.peak[1]) - mid).squaredNorm();
@@ -528,15 +528,13 @@ int main(int /*argc*/, char */*argv*/[])
       int ind = indexfield[x][y];
       if (ind != -1)
       {
-        TreeNode &tree = trees[ind];
-        tree.sum_square_residual += ray::sqr(heightfield[x][y] - tree.heightAt(x,y));
-        tree.sum_square_total += ray::sqr(heightfield[x][y] - tree.avgHeight());
+        trees[ind].sum_square_residual += ray::sqr(heightfield[x][y] - trees[ind].heightAt(x,y));
+        trees[ind].sum_square_total += ray::sqr(heightfield[x][y] - trees[ind].avgHeight());
         while (trees[ind].attaches_to != -1)
         {
           ind = trees[ind].attaches_to;
-          TreeNode &tree = trees[ind];
-          tree.sum_square_residual += ray::sqr(heightfield[x][y] - tree.heightAt(x,y));
-          tree.sum_square_total += ray::sqr(heightfield[x][y] - tree.avgHeight());
+          trees[ind].sum_square_residual += ray::sqr(heightfield[x][y] - trees[ind].heightAt(x,y));
+          trees[ind].sum_square_total += ray::sqr(heightfield[x][y] - trees[ind].avgHeight());
         }
       }
     }
