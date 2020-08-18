@@ -24,6 +24,52 @@ namespace ray
 /// The method uses a scale-free Fourier-Mellin transform to efficiently cross-correlate the cloud's end point densities.
 /// NOTE @c clouds is a pair of clouds, it should point to an array with at least 2 elements
 void RAYLIB_EXPORT alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose = false);
+
+struct Array3D
+{
+  void init(const Eigen::Vector3d &box_min, double voxel_width, const Eigen::Vector3i &dimensions);
+  void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width);
+
+  void fft();
+  void inverseFft();
+
+  void operator*=(const Array3D &other);
+
+  inline Complex &operator()(int x, int y, int z) { return cells_[x + dims_[0] * y + dims_[0] * dims_[1] * z]; }
+  inline const Complex &operator()(int x, int y, int z) const { return cells_[x + dims_[0] * y + dims_[0] * dims_[1] * z]; }
+  inline Complex &operator()(const Eigen::Vector3i &index) { return (*this)(index[0], index[1], index[2]); }
+  inline const Complex &operator()(const Eigen::Vector3i &index) const { return (*this)(index[0], index[1], index[2]); }
+  Complex &operator()(const Eigen::Vector3d &pos)
+  {
+    Eigen::Vector3d index = (pos - box_min_) / voxel_width_;
+    if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && index[0] < (double)dims_[0] &&
+        index[1] < (double)dims_[1] && index[2] < (double)dims_[2])
+      return (*this)(Eigen::Vector3i(index.cast<int>()));
+    return null_cell_;
+  }
+  const Complex &operator()(const Eigen::Vector3d &pos) const
+  {
+    Eigen::Vector3d index = (pos - box_min_) / voxel_width_;
+    if (index[0] >= 0.0 && index[1] >= 0.0 && index[2] >= 0.0 && index[0] < (double)dims_[0] &&
+        index[1] < (double)dims_[1] && index[2] < (double)dims_[2])
+      return (*this)(Eigen::Vector3i(index.cast<int>()));
+    return null_cell_;
+  }
+  void conjugate();
+  Eigen::Vector3i maxRealIndex() const;
+  void fillWithRays(const Cloud &cloud);
+  inline Eigen::Vector3i &dimensions(){ return dims_; }
+  inline const Eigen::Vector3i &dimensions() const { return dims_; }
+  inline double voxelWidth(){ return voxel_width_; }
+  void clearCells(){ cells_.clear(); }
+  Eigen::Vector3d box_min_, box_max_;
+  double voxel_width_;
+private:
+  Eigen::Vector3i dims_;
+  std::vector<Complex> cells_;
+  Complex null_cell_;
+};
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYALIGNMENT_H
