@@ -63,9 +63,7 @@ void Forest::extract(const Cloud &cloud)
   double width = (max_bounds[0] - min_bounds[0])/voxel_width;
   double length = (max_bounds[1] - min_bounds[1])/voxel_width;
   Eigen::Vector2i grid_dims(ceil(width), ceil(length));
-  Eigen::ArrayXXd heights(grid_dims);
-  for (auto &h: heights.data)
-    h = -1e10;
+  Eigen::ArrayXXd heights = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], -1e10);
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
@@ -76,20 +74,18 @@ void Forest::extract(const Cloud &cloud)
     h = std::max(h, p[2]);
   }
 
-  extract(heights, min_bounds, voxel_width);
+  extract(heights, voxel_width);
 }
 
 // Extraction uses a hierarchical watershed algorithm:
 // 1. find all the highest points, give them unique labels, sort them from highest to lowest
 // 2. for each highest point, make it black, then give all the non-black neighbours the same label and 
 //    add them to the sorted list
-void Forest::extract(const Eigen::ArrayXXd &heights, const Eigen::Vector3d &min_bound, double voxel_width)
+void Forest::extract(const Eigen::ArrayXXd &heights, double voxel_width)
 {
   voxel_width_ = voxel_width;
   heightfield_ = heights; 
-  indexfield_.init(heightfield_.dims);
-  for (auto &f: indexfield_.data)
-    f = -1;
+  indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
   const bool verbose = true;
 
   std::vector<TreeNode> trees;
@@ -101,7 +97,7 @@ void Forest::extract(const Eigen::ArrayXXd &heights, const Eigen::Vector3d &min_
 
   calculateTreeParaboloids(trees);
 
-  Eigen::ArrayXXd ground_height(heights.dims[0], heights.dims[1]);
+  Eigen::ArrayXXd ground_height(heights.rows(), heights.cols());
   Mesh ground_mesh; // TODO: come from somewhere!
   if (ground_mesh.vertices().size() > 0) 
   {

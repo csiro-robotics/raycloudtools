@@ -27,14 +27,14 @@ struct Field2D
     dims = dimensions;
     data.resize(dims[0] * dims[1]);
   }
-  inline T &operator(const Eigen::Vector2i &ind){ return data[ind[0] + dims[0]*ind[1]]; } 
-  inline const T &operator(const Eigen::Vector2i &ind) const { return data[ind[0] + dims[0]*ind[1]]; }
-  inline T &operator(int x, int y){ return data[x + dims[0]*y]; } 
-  inline const T &operator(int x, int y) const { return data[x + dims[0]*y]; }
+  inline T &operator()(const Eigen::Vector2i &ind){ return data[ind[0] + dims[0]*ind[1]]; } 
+  inline const T &operator()(const Eigen::Vector2i &ind) const { return data[ind[0] + dims[0]*ind[1]]; }
+  inline T &operator()(int x, int y){ return data[x + dims[0]*y]; } 
+  inline const T &operator()(int x, int y) const { return data[x + dims[0]*y]; }
   std::vector<T> data;
   Eigen::Vector2i dims;
 };
-  
+
 struct RAYLIB_EXPORT TreeNode
 {
   TreeNode() : min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) 
@@ -111,7 +111,7 @@ class RAYLIB_EXPORT Forest
 public:
   Forest() : tree_roundness(0), average_height(0) {}
   void extract(const Cloud &cloud);
-  void extract(const Eigen::ArrayXXd &heights, const Eigen::Vector3d &min_bound, double voxel_width);
+  void extract(const Eigen::ArrayXXd &heights, double voxel_width);
   struct Result
   {
     std::vector<Eigen::Vector3d> tree_tips;

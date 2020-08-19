@@ -27,7 +27,8 @@ void usage(bool error=false)
   std::cout << "                            --average_height 10       - use when heights are uniform, shapes can vary." << std::endl;
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
-  std::cout << "rayextract terrain cloud.ply              - extract rough terrain surface, to mesh." << std::endl;
+  std::cout << "rayextract terrain cloud.ply          - extract rough terrain undersurface, to mesh." << std::endl;
+  std::cout << "                             --median - median surface. Can be slow so cloud should be cropped to mainly ground points." << std::endl;
   std::cout << std::endl;
   std::cout << "                            --verbose  - extra debug output." << std::endl;
   exit(error);
@@ -50,7 +51,7 @@ int main(int argc, char *argv[])
   {
     double roundness = 0.0;
     double height = 0.0;
-    for (int i = 3; i<5; i+=2)
+    for (int i = 3; i<argc; i+=2)
     {
       std::string str(argv[i]);
       if (str == "--tree_roundness" || str == "-t")
@@ -66,6 +67,7 @@ int main(int argc, char *argv[])
 #if defined TEST
     const int res = 256;
     const bool verbose = true;
+    const double max_tree_height = (double)res / 8.0;
     
     Eigen::ArrayXXd heightfield(res, res);
     memset(&heightfield(0,0), 0, res*res*sizeof(double));
@@ -154,7 +156,7 @@ int main(int argc, char *argv[])
     }
     // now render it 
     forest.drawHeightField("testheight.png", heightfield);
-    forest.extract(heightfield);
+    forest.extract(heightfield, 1.0);
 #else
     forest.extract(cloud);
 #endif
@@ -162,10 +164,16 @@ int main(int argc, char *argv[])
   else if (type == "terrain")
   {
     bool verbose = false;
-    if (argc == 4 && (std::string(argv[3]) == "--verbose" || std::string(argv[3]) == "-v"))
-      verbose = true;
+    bool median = false;
+    for (int i = 3; i<argc; i++)
+    {
+      if (std::string(argv[i]) == "--verbose" || std::string(argv[i]) == "-v")
+        verbose = true;
+      if (std::string(argv[i]) == "--median" || std::string(argv[i]) == "-m")
+        median = true;
+    }
     ray::Terrain terrain;
-    terrain.extract(cloud, file, verbose);
+    terrain.extract(cloud, file, median, verbose);
   }
   else
     usage(true);

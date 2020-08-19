@@ -19,7 +19,7 @@ class RAYLIB_EXPORT Terrain
 {
 public:
   /// Extracts a robust smooth surface from the ray cloud, into the state
-  void extract(const Cloud &cloud, const std::string &file_prefix, bool verbose);
+  void extract(const Cloud &cloud, const std::string &file_prefix, bool median, bool verbose);
 private:
   inline bool greaterThan(const Eigen::Vector4d &a, const Eigen::Vector4d &b, bool positive)
   {

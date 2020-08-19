@@ -159,7 +159,7 @@ void Terrain::getParetoFront(std::vector<Vector4d> points, std::vector<Vector4d>
   }
 }
 
-void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, bool verbose)
+void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, bool median, bool verbose)
 {
   // based on: Algorithms and Analyses forMaximal Vector Computation. Godfrey
   // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
@@ -210,40 +210,36 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, bool v
       points_pos.push_back(Vector4d(p[0], p[1], p[2], (double)points_pos.size() + 0.5));
     pos.clear();
     neg.clear();
-    getParetoFrontFast(points_pos, pos, true); 
-//    std::vector<Vector4d> pos2;
-//    getParetoFront(points_pos, pos2, true); 
     getParetoFrontFast(points_neg, neg, false);
 //    std::vector<Vector4d> neg2;
 //    getParetoFront(points_neg, neg2, false);
-    if (iteration == 0)
+    if (iteration == 0 && !median)
     {
-      std::string suffixes[2] = {"_upper", "_lower"};
-      for (int side = 0; side<2; side++)
+      std::vector<Eigen::Vector3d> vecs(neg.size());
+      std::vector<Eigen::Vector3d> vecs_flat(neg.size());
+      for (size_t i = 0; i<neg.size(); i++)
       {
-        auto &positions = side ? neg : pos;
-        std::vector<Eigen::Vector3d> vecs(positions.size());
-        std::vector<Eigen::Vector3d> vecs_flat(positions.size());
-        for (size_t i = 0; i<positions.size(); i++)
-        {
-          vecs[i] = imat * Eigen::Vector3d(positions[i][0], positions[i][1], positions[i][2]);
-          vecs_flat[i] = vecs[i];
-          vecs_flat[i][2] = 0.0;
-        }
-        ConvexHull hull(vecs_flat);
-        hull.growUpwards(0.01); // same as a Delauney triangulation
-        hull.mesh().vertices() = vecs;
-        writePlyMesh(file_prefix + suffixes[side] + "_mesh.ply", hull.mesh(), true);
-        if (verbose)
-        {
-          Cloud local_cloud;
-          double t = 0.0;
-          for (auto &p: vecs)
-            local_cloud.addRay(p, p, t++, white);
-          local_cloud.save(file_prefix + suffixes[side] + ".ply");
-        }
+        vecs[i] = imat * Eigen::Vector3d(neg[i][0], neg[i][1], neg[i][2]);
+        vecs_flat[i] = vecs[i];
+        vecs_flat[i][2] = 0.0;
       }
+      ConvexHull hull(vecs_flat);
+      hull.growUpwards(0.01); // same as a Delauney triangulation
+      hull.mesh().vertices() = vecs;
+      writePlyMesh(file_prefix + "_terrain_mesh.ply", hull.mesh(), true);
+      if (verbose)
+      {
+        Cloud local_cloud;
+        double t = 0.0;
+        for (auto &p: vecs)
+          local_cloud.addRay(p, p, t++, white);
+        local_cloud.save(file_prefix + "_terrain.ply");
+      }
+      return;
     }
+    getParetoFrontFast(points_pos, pos, true); 
+//    std::vector<Vector4d> pos2;
+//    getParetoFront(points_pos, pos2, true); 
     std::vector<int> filled(points.size());
     memset(&filled[0], 0, sizeof(int)*filled.size());
     for (int i = (int)pos.size()-1; i>=0; i--) // auto &p: pos)
