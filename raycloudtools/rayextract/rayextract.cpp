@@ -27,8 +27,7 @@ void usage(bool error=false)
   std::cout << "                            --average_height 10       - use when heights are uniform, shapes can vary." << std::endl;
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
-  std::cout << "rayextract terrain cloud.ply              - extract terrain surface, to mesh. (default is median surface) " << std::endl;
-  std::cout << "                             --sigma 5.0 - Gaussian width in m, should be roughly the radius of the noise. " << std::endl;
+  std::cout << "rayextract terrain cloud.ply              - extract rough terrain surface, to mesh." << std::endl;
   exit(error);
 }
 
@@ -60,16 +59,8 @@ int main(int argc, char *argv[])
   }
   else if (type == "terrain")
   {
-    double sigma = -1.0;
-    if (argc == 5)
-    {
-      if (std::string(argv[3]) == "--sigma" || std::string(argv[3]) == "-s")
-        sigma = std::stod(std::string(argv[4]));
-      else
-        usage(true);
-    }
     ray::Terrain terrain;
-    terrain.extract(cloud, sigma);
+    terrain.extract(cloud);
   }
   else
     usage(true);
