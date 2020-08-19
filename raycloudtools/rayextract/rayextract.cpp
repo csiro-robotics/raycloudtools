@@ -61,7 +61,103 @@ int main(int argc, char *argv[])
     ray::Forest forest;
     forest.tree_roundness = roundness;
     forest.average_height = height;
+
+#define TEST
+#if defined TEST
+    const int res = 256;
+    const bool verbose = true;
+    
+    Eigen::ArrayXXd heightfield(res, res);
+    memset(&heightfield(0,0), 0, res*res*sizeof(double));
+
+    int num = 500;
+    const double radius_to_height = 0.4;
+    std::vector<Eigen::Vector3d> ps(num);
+    for (int i = 0; i<num; i++)
+    {
+      double height = max_tree_height * std::pow(2.0, ray::random(-2.0, 0.0)); // i.e. 0.25 to 1 of max_height
+      ps[i] = Eigen::Vector3d(ray::random(0.0, (double)res-1.0), ray::random(0.0, (double)res - 1.0), height);
+    }
+    for (int it = 0; it < 10; it++)
+    {
+      for (auto &p: ps)
+      {
+        Eigen::Vector3d shift(0,0,0);
+        for (auto &other: ps)
+        {
+          double radius = radius_to_height * (p[2] + other[2]);
+          Eigen::Vector3d dif = p - other;
+          dif[2] = 0.0;
+          if (dif[0] > res/2.0)
+            dif[0] -= res;
+          if (dif[1] > res/2.0)
+            dif[1] -= res;
+          double len_sqr = dif.squaredNorm();
+          if (len_sqr > 0.0 && len_sqr < radius*radius)
+          {
+            double len = std::sqrt(len_sqr);
+            shift += (dif/len) * (radius-len);
+          }
+        }
+        p += 0.5*shift;
+        p[0] = fmod(p[0] + (double)res, (double)res);
+        p[1] = fmod(p[1] + (double)res, (double)res);
+      }
+    }
+    // now make height field
+    for (auto &p: ps)
+    {
+      double radius = radius_to_height * p[2];
+      for (int x = (int)(p[0] - radius); x<= (int)(p[0]+radius); x++)
+      {
+        for (int y = (int)(p[1] - radius); y<= (int)(p[1]+radius); y++)
+        {
+          double X = (double)x - p[0];
+          double Y = (double)y - p[1];
+          double mag2 = (double)(X*X + Y*Y);
+          if (mag2 <= radius*radius)
+          {
+            double height = p[2] - (p[2]/2.0)*mag2/(radius*radius);
+            int xx = (x + res)%res;
+            int yy = (y + res)%res;
+            height += ray::random(-1.0, 1.0);
+            heightfield(xx, yy) = std::max(heightfield(xx, yy), height);
+          }
+        }
+      }
+    }
+    // add a noisy function:
+    if (1)
+    {
+      const int wid = 80;
+      double hs[wid][wid];
+      for (int i = 0; i<wid; i++)
+      {
+        for (int j = 0; j<wid; j++)
+          hs[i][j] = ray::random(-5.0, 5.0);
+      }
+      for (int i = 0; i<res; i++)
+      {
+        double x = (double)wid * (double)i/(double)res;
+        int X = (int)x;
+        double blendX = x-(double)X;
+        for (int j = 0; j<res; j++)
+        {
+          double y = (double)wid * (double)j/(double)res;
+          int Y = (int)y;
+          double blendY = y-(double)Y;
+          heightfield(i, j) += hs[X][Y]*(1.0-blendX)*(1.0-blendY) + hs[X][Y+1]*(1.0-blendX)*blendY + 
+                              hs[X+1][Y]*blendX*(1.0-blendY) + hs[X+1][Y+1]*blendX*blendY; 
+          heightfield(i, j) = std::max(heightfield(i, j), 0.0);
+        }
+      }
+    }
+    // now render it 
+    forest.drawHeightField("testheight.png", heightfield);
+    forest.extract(heightfield);
+#else
     forest.extract(cloud);
+#endif
   }
   else if (type == "terrain")
   {
@@ -73,102 +169,4 @@ int main(int argc, char *argv[])
   }
   else
     usage(true);
-
-
-/*
-  const bool verbose = true;
-  for (int seed = 0; seed<=300; seed+=100)
-  {
-  double heightfield[res][res];
-  memset(heightfield, 0, res*res*sizeof(double));
-
-  int num = 500;
-  const double radius_to_height = 0.4;
-  if (seed)
-    srand(seed);
-//  srand(200);
-  std::vector<Eigen::Vector3d> ps(num);
-  for (int i = 0; i<num; i++)
-  {
-    double height = max_tree_height * std::pow(2.0, ray::random(-2.0, 0.0)); // i.e. 0.25 to 1 of max_height
-    ps[i] = Eigen::Vector3d(ray::random(0.0, (double)res-1.0), ray::random(0.0, (double)res - 1.0), height);
-  }
-  for (int it = 0; it < 10; it++)
-  {
-    for (auto &p: ps)
-    {
-      Eigen::Vector3d shift(0,0,0);
-      for (auto &other: ps)
-      {
-        double radius = radius_to_height * (p[2] + other[2]);
-        Eigen::Vector3d dif = p - other;
-        dif[2] = 0.0;
-        if (dif[0] > res/2.0)
-          dif[0] -= res;
-        if (dif[1] > res/2.0)
-          dif[1] -= res;
-        double len_sqr = dif.squaredNorm();
-        if (len_sqr > 0.0 && len_sqr < radius*radius)
-        {
-          double len = std::sqrt(len_sqr);
-          shift += (dif/len) * (radius-len);
-        }
-      }
-      p += 0.5*shift;
-      p[0] = fmod(p[0] + (double)res, (double)res);
-      p[1] = fmod(p[1] + (double)res, (double)res);
-    }
-  }
-  // now make height field
-  for (auto &p: ps)
-  {
-    double radius = radius_to_height * p[2];
-    for (int x = (int)(p[0] - radius); x<= (int)(p[0]+radius); x++)
-    {
-      for (int y = (int)(p[1] - radius); y<= (int)(p[1]+radius); y++)
-      {
-        double X = (double)x - p[0];
-        double Y = (double)y - p[1];
-        double mag2 = (double)(X*X + Y*Y);
-        if (mag2 <= radius*radius)
-        {
-          double height = p[2] - (p[2]/2.0)*mag2/(radius*radius);
-          int xx = (x + res)%res;
-          int yy = (y + res)%res;
-          height += ray::random(-1.0, 1.0);
-          heightfield[xx][yy] = std::max(heightfield[xx][yy], height);
-        }
-      }
-    }
-  }
-  // add a noisy function:
-  if (1)
-  {
-    const int wid = 80;
-    double hs[wid][wid];
-    for (int i = 0; i<wid; i++)
-    {
-      for (int j = 0; j<wid; j++)
-        hs[i][j] = ray::random(-5.0, 5.0);
-    }
-    for (int i = 0; i<res; i++)
-    {
-      double x = (double)wid * (double)i/(double)res;
-      int X = (int)x;
-      double blendX = x-(double)X;
-      for (int j = 0; j<res; j++)
-      {
-        double y = (double)wid * (double)j/(double)res;
-        int Y = (int)y;
-        double blendY = y-(double)Y;
-        heightfield[i][j] += hs[X][Y]*(1.0-blendX)*(1.0-blendY) + hs[X][Y+1]*(1.0-blendX)*blendY + 
-                            hs[X+1][Y]*blendX*(1.0-blendY) + hs[X+1][Y+1]*blendX*blendY; 
-        heightfield[i][j] = std::max(heightfield[i][j], 0.0);
-      }
-    }
-  }
-  // now render it 
-  forest.drawHeightField("testheight.png", heightfield);
-  return 0;
-  */
 }
