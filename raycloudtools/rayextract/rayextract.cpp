@@ -28,6 +28,8 @@ void usage(bool error=false)
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
   std::cout << "rayextract terrain cloud.ply              - extract rough terrain surface, to mesh." << std::endl;
+  std::cout << std::endl;
+  std::cout << "                            --verbose  - extra debug output." << std::endl;
   exit(error);
 }
 
@@ -38,8 +40,12 @@ int main(int argc, char *argv[])
     usage(true);
   std::string type(argv[1]);
   ray::Cloud cloud;
-  if (!cloud.load(argv[2]))
+  std::string file(argv[2]);
+  if (!cloud.load(file))
     usage(true);
+  if (file.substr(file.length() - 4) == ".ply")
+    file = file.substr(0, file.length() - 4);
+
   if (type == "forest")
   {
     double roundness = 0.0;
@@ -59,8 +65,11 @@ int main(int argc, char *argv[])
   }
   else if (type == "terrain")
   {
+    bool verbose = false;
+    if (argc == 4 && (std::string(argv[3]) == "--verbose" || std::string(argv[3]) == "-v"))
+      verbose = true;
     ray::Terrain terrain;
-    terrain.extract(cloud);
+    terrain.extract(cloud, file, verbose);
   }
   else
     usage(true);
