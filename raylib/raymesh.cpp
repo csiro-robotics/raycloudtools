@@ -100,6 +100,7 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     Triangle &tri = triangles[i];
     for (int j = 0; j<3; j++)
       tri.corners[j] = vertices_[index_list_[i][j]];
+    Eigen::Vector3d mid = (tri.corners[0] + tri.corners[1] + tri.corners[2])/3.0;
     tri.tested = false;
     tri.normal = (tri.corners[1]-tri.corners[0]).cross(tri.corners[2]-tri.corners[0]).normalized();
     for (int j = 0; j<3; j++)
@@ -120,16 +121,9 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
       Eigen::Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
       Eigen::Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
       for (int x = (int)tri_min[0]; x<=(int)tri_max[0]; x++)
-      {
         for (int y = (int)tri_min[1]; y<=(int)tri_max[1]; y++)
-        {
           for (int z = (int)tri_min[2]; z<=(int)tri_max[2]; z++)
-          {
- //           if (tri.intersectsCube(box_min + voxel_width*Eigen::Vector3d(x,y,z), voxel_width))
-              grid.insert(x,y,z, &tri);
-          }
-        }
-      }
+            grid.insert(x,y,z, &tri);
     }
 
     // Fourthly, drop each end point downwards to decide whether it is inside or outside..

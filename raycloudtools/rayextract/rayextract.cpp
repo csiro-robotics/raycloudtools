@@ -27,8 +27,8 @@ void usage(bool error=false)
   std::cout << "                            --average_height 10       - use when heights are uniform, shapes can vary." << std::endl;
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
-  std::cout << "rayextract terrain cloud.ply          - extract rough terrain undersurface, to mesh." << std::endl;
-  std::cout << "                             --median - median surface. Can be slow so cloud should be cropped to mainly ground points." << std::endl;
+  std::cout << "rayextract terrain cloud.ply             - extract rough terrain undersurface, to mesh." << std::endl;
+  std::cout << "                             --width 0.5 - ground width to get average of. Default 0." << std::endl;
   std::cout << std::endl;
   std::cout << "                            --verbose  - extra debug output." << std::endl;
   exit(error);
@@ -164,16 +164,20 @@ int main(int argc, char *argv[])
   else if (type == "terrain")
   {
     bool verbose = false;
-    bool median = false;
+    double width = 0.0;
     for (int i = 3; i<argc; i++)
     {
       if (std::string(argv[i]) == "--verbose" || std::string(argv[i]) == "-v")
         verbose = true;
-      if (std::string(argv[i]) == "--median" || std::string(argv[i]) == "-m")
-        median = true;
+      if (std::string(argv[i]) == "--width" || std::string(argv[i]) == "-m")
+      {
+        if (argc == i+1)
+          usage(true);
+        width = std::stod(argv[i+1]);
+      }
     }
     ray::Terrain terrain;
-    terrain.extract(cloud, file, median, verbose);
+    terrain.extract(cloud, file, width, verbose);
   }
   else
     usage(true);
