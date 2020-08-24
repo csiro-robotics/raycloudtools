@@ -76,10 +76,10 @@ struct RAYLIB_EXPORT TreeNode
   inline Eigen::Vector3d tip() const { return Eigen::Vector3d(-abcd[1]/(2*abcd[0]), -abcd[2]/(2*abcd[0]), height()); }
   inline double heightAt(double x, double y) const { return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3]; }
   inline double crownRadius() const { return 1.0 / -abcd[0]; }
-  inline bool validParaboloid() const 
+  inline bool validParaboloid(double max_tree_width) const 
   {
     const double minimum_crown_radius = 0.5;
-    const double maximum_crown_radius = 20.0; // in metres
+    const double maximum_crown_radius = max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is an outer bound
     double r = crownRadius();
     if (r<minimum_crown_radius || r > maximum_crown_radius)
       return false;
@@ -109,7 +109,7 @@ struct RAYLIB_EXPORT TreeNode
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : tree_roundness(0), average_height(0) {}
+  Forest() : tree_roundness(0), average_height(0), max_tree_canopy_width(22.0) {}
   void extract(const Cloud &cloud);
   void extract(const Eigen::ArrayXXd &heights, double voxel_width);
   struct Result
@@ -128,11 +128,13 @@ public:
   double tree_roundness;
   double average_height;
   bool verbose;
+  double max_tree_canopy_width; 
 private:
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   void calculateTreeParaboloids(std::vector<TreeNode> &trees);
   double estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees);
   void estimateRoundness(const Mesh &mesh);
+  void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices);
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
   Eigen::ArrayXXi indexfield_;

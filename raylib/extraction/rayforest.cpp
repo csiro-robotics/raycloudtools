@@ -10,17 +10,14 @@
 #include <string.h>
 #include <iostream>
 
-static const int res = 256;
-static const double max_tree_height = (double)res / 8.0;
-
 namespace ray
 {
 
-void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices)
+void Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices)
 {
   if (trees[ind].children[0] == -1)
   {
-    if (trees[ind].validParaboloid())
+    if (trees[ind].validParaboloid(max_tree_canopy_width))
       indices.push_back(ind);
     return;
   }
@@ -31,7 +28,7 @@ void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, doub
   double base1 = trees[ind1].height() - length_per_radius * trees[ind1].crownRadius();
   double error1 = abs(base1 - ground_height);
       
-  if (error < std::min(error0, error1) && trees[ind].validParaboloid()) // we've found the closest, so end loop
+  if (error < std::min(error0, error1) && trees[ind].validParaboloid(max_tree_canopy_width)) // we've found the closest, so end loop
   {
     indices.push_back(ind);
     return;
@@ -86,7 +83,6 @@ void Forest::extract(const Eigen::ArrayXXd &heights, double voxel_width)
   voxel_width_ = voxel_width;
   heightfield_ = heights; 
   indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
-  const bool verbose = true;
 
   std::vector<TreeNode> trees;
   std::set<int> heads;
@@ -112,7 +108,6 @@ void Forest::extract(const Eigen::ArrayXXd &heights, double voxel_width)
     // The last step is to take the ground surface (currently flat: 'b') and scale estimation 'a'
     // and use this to estimate the set of tree heights
     // Note: we may still choose an extrapolation technique later... this is worth pursuing at some point
-    double max_height = ground_height;
     std::vector<int> indices;
     for (auto &head: heads)
     {
@@ -124,9 +119,7 @@ void Forest::extract(const Eigen::ArrayXXd &heights, double voxel_width)
     for (auto &ind: indices)
     {
       result_.tree_tips.push_back(trees[ind].tip());
-      max_height = std::max(max_height, trees[ind].height());
     }
-    max_height = max_tree_height * 1.2; // TODO: fix!, problem is one of the tree heights is really big, 2 lines up
     result_.ground_height = ground_height;
     result_.treelength_per_crownradius = 1.0/tree_roundness;
   }
@@ -145,17 +138,18 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
   std::vector<Eigen::Vector3d> data;
   std::vector<Eigen::Vector3d> area_data;
   // draw scatter plot
+  double max_tree_height = -1e10;
   for (auto &tree: trees)
   {
-    if (!tree.validParaboloid())
+    if (!tree.validParaboloid(max_tree_canopy_width))
       continue;
-  //  double predicted_length = (tree.crownRadius() / (2.0 * ray::sqr(radius_to_height)));
     double strength = 255.0 * std::sqrt(tree.area() / 300.0);
     double strength_sqr = 255.0 * (tree.area() / 300.0);
     double ratio = tree.sum_square_residual/(1e-10 + tree.sum_square_total);
     double R2 = 1.0 - std::sqrt(ray::clamped(ratio, 0.0, 1.0)); 
     strength *= R2; // TODO: whether this helps is dubious, and it is weird that it gives values outside 0-1... more testing needed.
 
+    max_tree_height = std::max(max_tree_height, tree.height());
     data.push_back(Eigen::Vector3d(tree.height(), tree.crownRadius(), strength));
     area_data.push_back(Eigen::Vector3d(tree.height(), sqrt(tree.area()), strength_sqr));
   }
@@ -218,15 +212,15 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 {
   std::set<Point, PointCmp> basins;
   // 1. find highest points
-  for (int x = 0; x < res; x++)
+  for (int x = 0; x < heightfield_.rows(); x++)
   {
-    for (int y = 0; y < res; y++)
+    for (int y = 0; y < heightfield_.cols(); y++)
     {
       // Moore neighbourhood
       double height = heightfield_(x, y);
       double max_h = 0.0;
-      for (int i = std::max(0, x-1); i<= std::min(x+1, res-1); i++)
-        for (int j = std::max(0, y-1); j<= std::min(y+1, res-1); j++)
+      for (int i = std::max(0, x-1); i<= std::min(x+1, (int)heightfield_.rows()-1); i++)
+        for (int j = std::max(0, y-1); j<= std::min(y+1, (int)heightfield_.cols()-1); j++)
           if (!(i==x && j==y))
             max_h = std::max(max_h, heightfield_(i, j));
       if (height > max_h)
@@ -243,7 +237,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   // now iterate until basins is empty
   int cnt = 0;
-  const int max_tree_length = 22;
+  int max_tree_pixel_width = (int)(max_tree_canopy_width / (double)voxel_width_);
   while (!basins.empty())
   {
     Point p = *basins.begin();
@@ -266,7 +260,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
-        if (std::max(mx[0], mx[1]) <= max_tree_length)
+        if (std::max(mx[0], mx[1]) <= max_tree_pixel_width)
         {
           int new_index = (int)trees.size();
           TreeNode node;
@@ -279,7 +273,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           node.children[1] = q_head;
           node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
 
-          if (node.validParaboloid())
+          if (node.validParaboloid(max_tree_canopy_width)) 
           {
             heads.erase(p_head);
             heads.erase(q_head);
@@ -298,9 +292,9 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
     int ys[4] = {y, y+1, y-1, y};
     for (int i = 0; i<4; i++)
     {
-      if (xs[i] < 0 || xs[i] >= res)
+      if (xs[i] < 0 || xs[i] >= indexfield_.rows())
         continue;
-      if (ys[i] < 0 || ys[i] >= res)
+      if (ys[i] < 0 || ys[i] >= indexfield_.cols())
         continue;
       int p_head = p.index;
       while (trees[p_head].attaches_to != -1)
@@ -327,7 +321,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
-        bool merge = std::max(mx[0], mx[1]) <= max_tree_length;
+        bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
         if (merge)
         {
           const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
@@ -373,9 +367,9 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
     tree.abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
 
   // for each pixel, we have to update accuracy data on each tree.
-  for (int x = 0; x < res; x++)
+  for (int x = 0; x < indexfield_.rows(); x++)
   {
-    for (int y = 0; y < res; y++)
+    for (int y = 0; y < indexfield_.cols(); y++)
     {
       int ind = indexfield_(x, y);
       if (ind != -1)
