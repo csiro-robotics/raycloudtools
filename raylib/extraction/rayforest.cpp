@@ -159,11 +159,11 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
     data.push_back(Eigen::Vector3d(tree.height(), tree.crownRadius(), strength));
     area_data.push_back(Eigen::Vector3d(tree.height(), sqrt(tree.area()), strength_sqr));
   }
-  drawGraph("graph_curv.png", data, max_tree_height, 2.0 * ray::sqr(radius_to_height), 1.0);
+  drawGraph("graph_curv.png", data, max_tree_height, 20.0 * ray::sqr(radius_to_height), 255.0);
   double max_area = 0.0;
   for (auto &tree: trees)
     max_area = std::max(max_area, tree.area());
-  drawGraph("graph_area.png", area_data, max_tree_height, std::sqrt(max_area), 1.0);
+  drawGraph("graph_area.png", area_data, max_tree_height, std::sqrt(max_area), 255.0);
 
   // now analyse the data to get line of best fit:
   // line = radius = a * treetop_pos + b

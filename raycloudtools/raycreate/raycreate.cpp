@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
   else if (type == "terrain")
   {
     ray::TerrainGen terrain;
+    terrain.generateRoughGround(10.0, 0.2); 
     terrain.generate();
     cloud.starts = terrain.rayStarts();
     cloud.ends = terrain.rayEnds();

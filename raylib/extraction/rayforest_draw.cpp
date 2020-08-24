@@ -104,7 +104,11 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
 {
   if (!verbose)
     return;
-  double max_height = heightfield.maxCoeff();
+  double max_height = -1e10; // heightfield.maxCoeff();
+  for (int i = 0; i<heightfield.rows(); i++)
+    for (int j = 0; j<heightfield.cols(); j++)
+      if (heightfield(i,j) < 1000.0)
+        max_height = std::max(max_height, heightfield(i,j));
 
   Field2D<Col> pixels(heightfield.rows(), heightfield.cols());
   for (int x = 0; x < pixels.dims[0]; x++)
@@ -126,7 +130,7 @@ void Forest::drawGraph(const std::string &filename, const std::vector<Eigen::Vec
     double x = (double)(res - 1) * item[0] / x_max;
     double y = (double)(res - 1) * item[1] / y_max;
     if (x >= 0.0 && x<(double)res-1.0 && y >= 0.0 && y<(double)res-1.0)
-      pixels((int)x, (int)y) = Col((uint8_t)(255.0 * item[3]/strength_max));
+      pixels((int)x, (int)y) = Col((uint8_t)(255.0 * item[2]/strength_max));
   }
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }

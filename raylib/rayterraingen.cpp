@@ -4,6 +4,9 @@
 //
 // Author: Thomas Lowe
 #include "rayterraingen.h"
+#include "raymesh.h"
+#include "rayply.h"
+
 namespace ray
 {
 class PlanarWave
@@ -71,5 +74,59 @@ void TerrainGen::generate()
     // what I really need to do is to expose a distance function... then the ray tracer can just pick the minimum (when
     // it is a union)
   }
+}
+static const int res = 128 + 1;
+
+void updateHeights(double (&heights)[res][res], int x0, int y0, int x2, int y2, double width, double roughness)
+{
+  if ((x2 <= x0 + 1) || (y2 <= y0 + 1))
+    return;
+  int x1 = (x0 + x2)/2;
+  int y1 = (y0 + y2)/2;
+  if (heights[x0][y1]==0.0)
+    heights[x0][y1] = width * roughness * random(-0.5, 0.5) + (heights[x0][y0] + heights[x0][y2])/2.0;
+  if (heights[x1][y0]==0.0)
+    heights[x1][y0] = width * roughness * random(-0.5, 0.5) + (heights[x0][y0] + heights[x2][y0])/2.0;
+  if (heights[x2][y1]==0.0)
+    heights[x2][y1] = width * roughness * random(-0.5, 0.5) + (heights[x2][y0] + heights[x2][y2])/2.0;
+  if (heights[x1][y2]==0.0)
+    heights[x1][y2] = width * roughness * random(-0.5, 0.5) + (heights[x0][y2] + heights[x2][y2])/2.0;
+  if (heights[x1][y1]==0.0)
+    heights[x1][y1] = width * roughness * random(-0.5, 0.5) + (heights[x0][y0] + heights[x0][y2] + heights[x2][y0] + heights[x2][y2])/4.0;
+
+  width /= 2.0;
+  updateHeights(heights, x0, y0, x1, y1, width, roughness);
+  updateHeights(heights, x1, y0, x2, y1, width, roughness);
+  updateHeights(heights, x0, y1, x1, y2, width, roughness);
+  updateHeights(heights, x1, y1, x2, y2, width, roughness);
+}
+ 
+// Diamond-square algorithm
+void TerrainGen::generateRoughGround(double width, double roughness)
+{
+  double heights[res][res];
+  memset(heights, 0, res*res*sizeof(double));
+  for (int i = 0; i<2; i++)
+    for (int j = 0; j<2; j++)
+      heights[(res-1)*i][(res-1)*j] = width * roughness * random(-0.5, 0.5);
+  updateHeights(heights, 0, 0, res-1, res-1, width, roughness);
+
+  Mesh mesh;
+  mesh.vertices().resize(res*res);
+  mesh.index_list().resize((res-1)*(res-1)*2);
+  double scale = width / (double)(res-1);
+  for (int i = 0; i<res; i++)
+    for (int j = 0; j<res; j++)
+      mesh.vertices()[i + res*j] = Eigen::Vector3d((double)i*scale, (double)j*scale, heights[i][j]);
+  int c = 0;
+  for (int i = 0; i<res-1; i++)
+  {
+    for (int j = 0; j<res-1; j++)
+    {
+      mesh.index_list()[c++] = Eigen::Vector3i(i+res*j, (i+1)+res*j, i+res*(j+1));
+      mesh.index_list()[c++] = Eigen::Vector3i(i+res*(j+1), (i+1)+res*j, (i+1)+res*(j+1));
+    }
+  }
+  writePlyMesh("rough_terrain_128.ply", mesh, false);
 }
 } // ray

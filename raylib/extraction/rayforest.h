@@ -127,6 +127,7 @@ public:
 
   double tree_roundness;
   double average_height;
+  bool verbose;
 private:
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   void calculateTreeParaboloids(std::vector<TreeNode> &trees);
@@ -136,7 +137,6 @@ private:
   Eigen::ArrayXXd heightfield_;
   Eigen::ArrayXXi indexfield_;
   Result result_;
-  bool verbose;
 };
 
 

@@ -19,6 +19,7 @@ class RAYLIB_EXPORT TerrainGen
 public:
   /// terrain generation function. The random seed can be specified with @c srand()
   void generate();
+  void generateRoughGround(double width, double roughness);
 
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }

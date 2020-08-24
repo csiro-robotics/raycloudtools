@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
   {
     double roundness = 0.0;
     double height = 0.0;
+    bool verbose = false;
     for (int i = 3; i<argc; i+=2)
     {
       std::string str(argv[i]);
@@ -58,15 +59,17 @@ int main(int argc, char *argv[])
         roundness = std::stod(argv[i+1]);
       else if (str == "--average_height" || str == "-a")
         height = std::stod(argv[i+1]);
+      else if (str == "--verbose" || str == "-v")
+        verbose = true;
     }
     ray::Forest forest;
     forest.tree_roundness = roundness;
     forest.average_height = height;
+    forest.verbose = verbose;
 
 #define TEST
 #if defined TEST
     const int res = 256;
-    const bool verbose = true;
     const double max_tree_height = (double)res / 8.0;
     
     Eigen::ArrayXXd heightfield(res, res);
