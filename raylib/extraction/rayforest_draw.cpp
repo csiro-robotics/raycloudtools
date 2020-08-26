@@ -34,7 +34,7 @@ void Forest::drawSegmentation(const std::string &filename, const std::vector<Tre
   const double max_tree_height = 30.0; // TODO: fix!
   if (!verbose)
     return;
-  Field2D<Col> pixels(indexfield_.rows(), indexfield_.cols());
+  Field2D<Col> pixels((int)indexfield_.rows(), (int)indexfield_.cols());
   for (int x = 0; x < pixels.dims[0]; x++)
   {
     for (int y = 0; y < pixels.dims[1]; y++)
@@ -110,7 +110,7 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
       if (heightfield(i,j) < 1000.0)
         max_height = std::max(max_height, heightfield(i,j));
 
-  Field2D<Col> pixels(heightfield.rows(), heightfield.cols());
+  Field2D<Col> pixels((int)heightfield.rows(), (int)heightfield.cols());
   for (int x = 0; x < pixels.dims[0]; x++)
     for (int y = 0; y < pixels.dims[1]; y++)
       pixels(x, y) = Col((uint8_t)(255.0 * heightfield(x, y)/max_height));

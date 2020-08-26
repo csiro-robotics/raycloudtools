@@ -74,8 +74,17 @@ int main(int argc, char *argv[])
     
     Eigen::ArrayXXd heightfield(res, res);
     memset(&heightfield(0,0), 0, res*res*sizeof(double));
+    // now lets give it a base hilly floor
+    for (int i = 0; i<res; i++)
+    {
+      for (int j = 0; j<res; j++)
+      {
+        double h = std::sin(0.1 * ((double)i + 2.0*double(j)));
+        heightfield(i,j) = h + ray::random(-0.25, 0.25);
+      }
+    }
 
-    int num = 500;
+    int num = 250;
     const double radius_to_height = 0.4;
     std::vector<Eigen::Vector3d> ps(num);
     for (int i = 0; i<num; i++)

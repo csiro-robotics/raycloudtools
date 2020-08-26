@@ -117,9 +117,7 @@ void Forest::extract(const Eigen::ArrayXXd &heights, double voxel_width)
       searchTrees(trees, head, error, 1.0/tree_roundness, ground_height, indices);
     }
     for (auto &ind: indices)
-    {
       result_.tree_tips.push_back(trees[ind].tip());
-    }
     result_.ground_height = ground_height;
     result_.treelength_per_crownradius = 1.0/tree_roundness;
   }
@@ -133,6 +131,13 @@ void Forest::estimateRoundness(const Mesh &mesh)
 
 double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
 {
+  // TODO: how to deal with ground points. Ideas:
+  // 1. if curvature is too low (or negative) then mark region as a ground region. 
+  //    Don't try and merge onto a ground region
+  //    colour it a different colour
+  // 2. get min/max peak heights, if height < half way *and* curvature it too low (maybe not as low)
+  // 3. multiply height from min, by curvature, for a soft threshold
+  // 4. 
   const double radius_to_height = 1.0;
   // Now collate weighted height vs crown radius data
   std::vector<Eigen::Vector3d> data;
@@ -230,7 +235,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         p.index = (int)basins.size();
         basins.insert(p);
         heads.insert((int)trees.size());
-        trees.push_back(TreeNode(x,y,height));
+        trees.push_back(TreeNode(x, y, x*voxel_width_, y*voxel_width_, height));
       }
     }
   }
@@ -326,7 +331,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         {
           const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
           // add a merge task:
-          Eigen::Vector2d mid(xx, yy);
+          Eigen::Vector2d mid = Eigen::Vector2d(xx, yy) * voxel_width_;
           double p_sqr = (Eigen::Vector2d(p_tree.peak[0], p_tree.peak[1]) - mid).squaredNorm();
           double q_sqr = (Eigen::Vector2d(q_tree.peak[0], q_tree.peak[1]) - mid).squaredNorm();
           double blend = p_sqr / (p_sqr + q_sqr);
@@ -352,7 +357,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
    //     {
         ind = p.index;
         basins.insert(q);
-        trees[p_head].addSample(xx, yy, q.height);
+        trees[p_head].addSample(xx*voxel_width_, yy*voxel_width_, q.height);
         trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
   //      }
       }
@@ -367,20 +372,22 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
     tree.abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
 
   // for each pixel, we have to update accuracy data on each tree.
-  for (int x = 0; x < indexfield_.rows(); x++)
+  for (int i = 0; i < indexfield_.rows(); i++)
   {
-    for (int y = 0; y < indexfield_.cols(); y++)
+    for (int j = 0; j < indexfield_.cols(); j++)
     {
-      int ind = indexfield_(x, y);
+      int ind = indexfield_(i, j);
+      double x = i*voxel_width_;
+      double y = j*voxel_width_;
       if (ind != -1)
       {
-        trees[ind].sum_square_residual += ray::sqr(heightfield_(x,y) - trees[ind].heightAt(x,y));
-        trees[ind].sum_square_total += ray::sqr(heightfield_(x,y) - trees[ind].avgHeight());
+        trees[ind].sum_square_residual += ray::sqr(heightfield_(i,j) - trees[ind].heightAt(x,y));
+        trees[ind].sum_square_total += ray::sqr(heightfield_(i,j) - trees[ind].avgHeight());
         while (trees[ind].attaches_to != -1)
         {
           ind = trees[ind].attaches_to;
-          trees[ind].sum_square_residual += ray::sqr(heightfield_(x,y) - trees[ind].heightAt(x,y));
-          trees[ind].sum_square_total += ray::sqr(heightfield_(x,y) - trees[ind].avgHeight());
+          trees[ind].sum_square_residual += ray::sqr(heightfield_(i,j) - trees[ind].heightAt(x,y));
+          trees[ind].sum_square_total += ray::sqr(heightfield_(i,j) - trees[ind].avgHeight());
         }
       }
     }

@@ -46,17 +46,17 @@ struct RAYLIB_EXPORT TreeNode
     children[0] = children[1] = -1;
     peak.setZero();
   }
-  TreeNode(int x, int y, double height_)
+  TreeNode(int i, int j, double x, double y, double height_) // TODO: should this be x,y or a distance in metres? probably x,y
   {
     curv_mat.setZero();
     curv_vec.setZero();
     attaches_to = -1;
-    min_bound = max_bound = Eigen::Vector2i(x,y);
+    min_bound = max_bound = Eigen::Vector2i(i,j);
     addSample(x,y,height_);
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
     children[0] = children[1] = -1;
-    peak = Eigen::Vector3d((double)x, (double)y, height_);
+    peak = Eigen::Vector3d(x, y, height_); // in which case peak should probably be in metres horizontally
   }
   // for calculating paraboloid of best fit:
   Eigen::Matrix4d curv_mat;
@@ -69,7 +69,7 @@ struct RAYLIB_EXPORT TreeNode
   int attaches_to;
   int children[2];
 
-  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
+//  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
   inline double area() const { return curv_mat(3,3); }
   inline double avgHeight() const { return curv_vec[3] / area(); }
   inline double height() const { return abcd[3] - (abcd[1]*abcd[1] + abcd[2]*abcd[2])/(4*abcd[0]); }
@@ -89,7 +89,7 @@ struct RAYLIB_EXPORT TreeNode
         return false;
     return true;
   }
-  inline void addSample(double x, double y, double z)
+  inline void addSample(double x, double y, double z) // TODO: this should probably be in SI units
   {
     Eigen::Vector4d vec(x*x + y*y, x, y, 1.0);
     curv_mat += vec * vec.transpose();
