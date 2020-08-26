@@ -1,8 +1,25 @@
 ## Ray Cloud Tools
-A set of command line tools for processing ray clouds, together with an associated C++ library. cmake .. from buid directory.
+A set of command line tools for processing ray clouds, together with an associated C++ library. 
+
+## Run Directly On Server:
+```console
+ssh <user>@video-ph.nexus.csiro.au
+raycreate building 1   
+```
+
+outputs: building.ply
+
+##Build:
+```console
+mkdir build
+cd build
+cmake ..
+```
 
 To access the tools from anywhere, place in your ~/bashrc:
+```console
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
+```
 
 *Dependencies:*
 
@@ -76,15 +93,15 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 *Optional build dependencies:*
 
 For rayconvert to work from .laz files:
-
-* git clone https://github.com/libLAS/libLAS.git, then follow build and install instructions in its README.md. Possible alternative: sudo apt-get install liblas-dev ?  You will also need lasZip.
-* cmake .. -DWITH_LAS=ON  (or ccmake .. to turn on/off WITH_LAS)
+* git clone https://github.com/LASzip/LASzip.git, then git checkout tags/2.0.1, then mkdir build, cd build, cmake .., make, sudo make install. 
+* git clone https://github.com/libLAS/libLAS.git, then mkdir build, cd build, cmake .. -DWITH_LAS_ZIP=ON, make, sudo make install
+* in raycloudtools/build: cmake .. -DWITH_LAS=ON  (or ccmake .. to turn on/off WITH_LAS)
 
 For raywrap:
 
-* http://www.qhull.org/download/ click on Download: Qhull 2019.1 for Unix, and extract it. 
-* In qhull: cd build cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make and sudo make install. 
-* in raycloudtools/bin: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
+* git clone http://github.com/qhull/qhull.git, git checkout tags/v7.3.2
+* In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install. 
+* in raycloudtools/bbuild: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
 
 ## Notes
 
