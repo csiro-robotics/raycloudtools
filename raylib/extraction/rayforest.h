@@ -9,7 +9,6 @@
 #include "raylib/raylibconfig.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
-#include "../raymesh.h"
 typedef Eigen::Matrix<double, 4, 4> Matrix4d;
 typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
@@ -91,7 +90,7 @@ struct RAYLIB_EXPORT TreeNode
   }
   inline void addSample(double x, double y, double z) // TODO: this should probably be in SI units
   {
-    Eigen::Vector4d vec(x*x + y*y, x, y, 1.0);
+    Eigen::Vector4d vec(x*x + y*y, x, y, 1.0); // TODO: 1.0 --> voxel_width_?
     curv_mat += vec * vec.transpose();
     curv_vec += z*vec;
   }
@@ -111,7 +110,7 @@ class RAYLIB_EXPORT Forest
 public:
   Forest() : tree_roundness(0), average_height(0), max_tree_canopy_width(22.0) {}
   void extract(const Cloud &cloud);
-  void extract(const Eigen::ArrayXXd &heights, double voxel_width);
+  void extract(const Eigen::ArrayXXd &heights, const Eigen::ArrayXXd &lows, double voxel_width);
   struct Result
   {
     std::vector<Eigen::Vector3d> tree_tips;
@@ -122,7 +121,7 @@ public:
   // in rayforest_draw.cpp
   void drawSegmentation(const std::string &filename, const std::vector<TreeNode> &trees);
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
-  void drawGraph(const std::string &filename, const std::vector<Eigen::Vector3d> &data, double x_max, double y_max, double strength_max);
+  void drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_max, double y_max, double strength_max);
   void drawTrees(const std::string &filename, const Forest::Result &result);
 
   double tree_roundness;
@@ -133,12 +132,14 @@ private:
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   void calculateTreeParaboloids(std::vector<TreeNode> &trees);
   double estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees);
-  void estimateRoundness(const Mesh &mesh);
   void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices);
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
+  Eigen::ArrayXXd lowfield_;
   Eigen::ArrayXXi indexfield_;
   Result result_;
+  Eigen::Vector3d min_bounds_, max_bounds_;
+  double lowest_point_;
 };
 
 

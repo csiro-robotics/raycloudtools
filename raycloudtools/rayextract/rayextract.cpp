@@ -22,9 +22,9 @@ void usage(bool error=false)
 {
   std::cout << "Extract feature into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayextract forest cloud.ply --ground_mesh mesh.ply - extracts tree locations to file, using a known ground mesh" << std::endl;
+  std::cout << "rayextract forest cloud.ply                      - extracts tree locations to file" << std::endl;
   std::cout << "                            --tree_roundness 2   - 1: willow, 0.5: birch, 0.2: pine (length per crown radius)." << std::endl;
-  std::cout << "                            --average_height 10       - use when heights are uniform, shapes can vary." << std::endl;
+  std::cout << "                            --average_height 10  - tree length, if known. -1 to use lowest point as ground instead." << std::endl;
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
   std::cout << "rayextract terrain cloud.ply             - extract rough terrain undersurface, to mesh." << std::endl;
@@ -72,8 +72,8 @@ int main(int argc, char *argv[])
     const int res = 256;
     const double max_tree_height = (double)res / 8.0;
     
-    Eigen::ArrayXXd heightfield(res, res);
-    memset(&heightfield(0,0), 0, res*res*sizeof(double));
+    Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant(res, res, -1e10);
+    Eigen::ArrayXXd lowfield = Eigen::ArrayXXd::Constant(res, res, 1e10);
     // now lets give it a base hilly floor
     for (int i = 0; i<res; i++)
     {
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
       }
     }
 
-    int num = 250;
+    int num = 250; // 500
     const double radius_to_height = 0.4;
     std::vector<Eigen::Vector3d> ps(num);
     for (int i = 0; i<num; i++)
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
     }
     // now render it 
     forest.drawHeightField("testheight.png", heightfield);
-    forest.extract(heightfield, 1.0);
+    forest.extract(heightfield, lowfield, 1.0);
 #else
     forest.extract(cloud);
 #endif

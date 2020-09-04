@@ -19,6 +19,7 @@ struct Col
 {
   Col(){}
   Col(uint8_t shade) : r(shade), g(shade), b(shade), a(255) {}
+  Col(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha) : r(red), g(green), b(blue), a(alpha) {}
   void operator +=(const Col &col)
   {
     r = (uint8_t)std::min((int)r + (int)col.r, 255);
@@ -117,7 +118,7 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawGraph(const std::string &filename, const std::vector<Eigen::Vector3d> &data, double x_max, double y_max, double strength_max)
+void Forest::drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_max, double y_max, double strength_max)
 {
   if (!verbose)
     return;
@@ -125,12 +126,15 @@ void Forest::drawGraph(const std::string &filename, const std::vector<Eigen::Vec
   Field2D<Col> pixels(res, res);
   for (auto &c: pixels.data)
     c = Col(20);
+  Eigen::Vector3d cols[] = {Eigen::Vector3d(0,0,0), Eigen::Vector3d(1,1,1), Eigen::Vector3d(1,1,0), Eigen::Vector3d(1,0,1)};
   for (auto &item: data)
   {
     double x = (double)(res - 1) * item[0] / x_max;
     double y = (double)(res - 1) * item[1] / y_max;
+    double val = 255.0 * item[2]/strength_max;
+    Eigen::Vector3d c = cols[(int)item[3]];
     if (x >= 0.0 && x<(double)res-1.0 && y >= 0.0 && y<(double)res-1.0)
-      pixels((int)x, (int)y) = Col((uint8_t)(255.0 * item[2]/strength_max));
+      pixels((int)x, (int)y) = Col(uint8_t(val*c[0]), uint8_t(val*c[1]), uint8_t(val*c[2]), 255);
   }
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }

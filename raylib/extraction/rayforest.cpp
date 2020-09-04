@@ -53,35 +53,50 @@ struct PointCmp
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
 void Forest::extract(const Cloud &cloud)
 {
-  Eigen::Vector3d min_bounds, max_bounds;
-  cloud.calcBounds(&min_bounds, &max_bounds);
+  cloud.calcBounds(&min_bounds_, &max_bounds_);
   double voxel_width = 4.0 * cloud.estimatePointSpacing();
 
-  double width = (max_bounds[0] - min_bounds[0])/voxel_width;
-  double length = (max_bounds[1] - min_bounds[1])/voxel_width;
+  double width = (max_bounds_[0] - min_bounds_[0])/voxel_width;
+  double length = (max_bounds_[1] - min_bounds_[1])/voxel_width;
   Eigen::Vector2i grid_dims(ceil(width), ceil(length));
-  Eigen::ArrayXXd heights = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], -1e10);
+  Eigen::ArrayXXd highs = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], -1e10);
+  Eigen::ArrayXXd lows = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], 1e10);
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
       continue;
     const Eigen::Vector3d &p = cloud.ends[i];
-    Eigen::Vector3d pos = (p- min_bounds)/voxel_width;
-    double &h = heights((int)pos[0], (int)pos[1]);
+    Eigen::Vector3d pos = (p- min_bounds_)/voxel_width;
+    double &h = highs((int)pos[0], (int)pos[1]);
     h = std::max(h, p[2]);
+    double &l = lows((int)pos[0], (int)pos[1]);
+    l = std::min(l, p[2]);
   }
 
-  extract(heights, voxel_width);
+  extract(highs, lows, voxel_width);
 }
 
 // Extraction uses a hierarchical watershed algorithm:
 // 1. find all the highest points, give them unique labels, sort them from highest to lowest
 // 2. for each highest point, make it black, then give all the non-black neighbours the same label and 
 //    add them to the sorted list
-void Forest::extract(const Eigen::ArrayXXd &heights, double voxel_width)
+void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, double voxel_width)
 {
   voxel_width_ = voxel_width;
-  heightfield_ = heights; 
+  heightfield_ = highs; 
+  lowfield_ = highs; 
+  lowest_point_ = lows.minCoeff();
+  // pre-process the low points, basically, if they are with a window of the high point then they are unlikely to
+  // actually be ground, so exclude them.
+  double min_ground_to_canopy_distance = 1.5; 
+  for (int i = 0; i<heightfield_.rows(); i++)
+    for (int j = 0; j<heightfield_.cols(); j++)
+      if (lowfield_(i,j) > heightfield_(i,j)-min_ground_to_canopy_distance)
+        lowfield_(i,j) = 1e10;
+  // so we have some ground in lowfield_ that is beneath trees, we also have some of heightfield_ that is treeless ground.
+  // The first we use directly in the ground estimation, the second we have to estimate based on its curvature and location...
+  // If it is too planar, or the tree base is way too low compared to the others, then it is probably ground.
+
   indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
 
   std::vector<TreeNode> trees;
@@ -93,40 +108,25 @@ void Forest::extract(const Eigen::ArrayXXd &heights, double voxel_width)
 
   calculateTreeParaboloids(trees);
 
-  Eigen::ArrayXXd ground_height(heights.rows(), heights.cols());
-  Mesh ground_mesh; // TODO: come from somewhere!
-  if (ground_mesh.vertices().size() > 0) 
+  double ground_height = estimateRoundnessAndGroundHeight(trees);
+  /***************************************************************************************/
+  // The last step is to take the ground surface (currently flat: 'b') and scale estimation 'a'
+  // and use this to estimate the set of tree heights
+  // Note: we may still choose an extrapolation technique later... this is worth pursuing at some point
+  std::vector<int> indices;
+  for (auto &head: heads)
   {
-    if (tree_roundness == 0.0)
-      estimateRoundness(ground_mesh);
-    // now do a similar search trees thing, but using the ground height array instead
+    int ind = head;
+    double base = trees[ind].height() - (1.0/tree_roundness) * trees[ind].crownRadius();
+    double error = abs(base - ground_height);
+    searchTrees(trees, head, error, 1.0/tree_roundness, ground_height, indices);
   }
-  else
-  {
-    double ground_height = estimateRoundnessAndGroundHeight(trees);
-    /***************************************************************************************/
-    // The last step is to take the ground surface (currently flat: 'b') and scale estimation 'a'
-    // and use this to estimate the set of tree heights
-    // Note: we may still choose an extrapolation technique later... this is worth pursuing at some point
-    std::vector<int> indices;
-    for (auto &head: heads)
-    {
-      int ind = head;
-      double base = trees[ind].height() - (1.0/tree_roundness) * trees[ind].crownRadius();
-      double error = abs(base - ground_height);
-      searchTrees(trees, head, error, 1.0/tree_roundness, ground_height, indices);
-    }
-    for (auto &ind: indices)
-      result_.tree_tips.push_back(trees[ind].tip());
-    result_.ground_height = ground_height;
-    result_.treelength_per_crownradius = 1.0/tree_roundness;
-  }
+  for (auto &ind: indices)
+    result_.tree_tips.push_back(trees[ind].tip());
+  result_.ground_height = ground_height;
+  result_.treelength_per_crownradius = 1.0/tree_roundness;
+
   drawTrees("result_trees.png", result_);
-}
-
-void Forest::estimateRoundness(const Mesh &mesh)
-{
-
 }
 
 double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
@@ -140,29 +140,39 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
   // 4. 
   const double radius_to_height = 1.0;
   // Now collate weighted height vs crown radius data
-  std::vector<Eigen::Vector3d> data;
-  std::vector<Eigen::Vector3d> area_data;
+  std::vector<Vector4d> data;
+  std::vector<Vector4d> area_data;
   // draw scatter plot
   double max_tree_height = -1e10;
   for (auto &tree: trees)
   {
-    if (!tree.validParaboloid(max_tree_canopy_width))
-      continue;
-    double strength = 255.0 * std::sqrt(tree.area() / 300.0);
-    double strength_sqr = 255.0 * (tree.area() / 300.0);
+    double strength = std::sqrt(tree.area());
     double ratio = tree.sum_square_residual/(1e-10 + tree.sum_square_total);
     double R2 = 1.0 - std::sqrt(ray::clamped(ratio, 0.0, 1.0)); 
     strength *= R2; // TODO: whether this helps is dubious, and it is weird that it gives values outside 0-1... more testing needed.
-
     max_tree_height = std::max(max_tree_height, tree.height());
-    data.push_back(Eigen::Vector3d(tree.height(), tree.crownRadius(), strength));
-    area_data.push_back(Eigen::Vector3d(tree.height(), sqrt(tree.area()), strength_sqr));
+
+    if (tree.validParaboloid(max_tree_canopy_width))
+    {
+      data.push_back(Vector4d(tree.height(), tree.crownRadius(), strength, 1));
+      area_data.push_back(Vector4d(tree.height(), sqrt(tree.area()), tree.area(), 1));
+    }
+    else // it could be bare ground if it doesn't appear like a tree
+      data.push_back(Vector4d(tree.height(), 0.0, strength, 2));
   }
-  drawGraph("graph_curv.png", data, max_tree_height, 20.0 * ray::sqr(radius_to_height), 255.0);
+  // now add the under-canopy possible ground points:
+  for (int i = 0; i<lowfield_.rows(); i++)
+    for (int j = 0; j<lowfield_.cols(); j++)
+      if (lowfield_(i,j) < 1e10)
+        data.push_back(Vector4d(lowfield_(i,j), 0.0, voxel_width_, 3));
+
+  // Now where do we hypothesise canopy points as ground points?
+
+  drawGraph("graph_curv.png", data, max_tree_height, 20.0 * ray::sqr(radius_to_height), 1.0/17.0);
   double max_area = 0.0;
   for (auto &tree: trees)
     max_area = std::max(max_area, tree.area());
-  drawGraph("graph_area.png", area_data, max_tree_height, std::sqrt(max_area), 255.0);
+  drawGraph("graph_area.png", area_data, max_tree_height, std::sqrt(max_area), 1.0/300.0);
 
   // now analyse the data to get line of best fit:
   // line = radius = a * treetop_pos + b
@@ -172,7 +182,7 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
   for (int it = 0; it<13; it++) // from mean to median to mode (ish)
   {
     double power = (double)it / 9.0; // just 1 is median... its very similar, but not obviously better
-    Eigen::Vector3d mean(0,0,0);
+    Vector4d mean(0,0,0,0);
     double total_weight = 0.0;
     for (auto &point: data)
     {
@@ -190,18 +200,30 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
       {
         double error = abs(point[1] - (a * point[0] + b));
         double weight = point[2] / (min_height_resolving + pow(error, power));
-        Eigen::Vector3d p = point - mean;
+        Vector4d p = point - mean;
         total_xy += p[0]*p[1] * weight;
         total_xx += p[0]*p[0] * weight;
       }
       a = total_xy / std::max(1e-10, total_xx);
       b = mean[1] - a*mean[0];
+
+      // if the estimated ground is a lot higher than the lowest recorded point then limit its height
+      double height = -b/a;
+      const double ground_window = 3.0;
+      if (height > lowest_point_ + ground_window)
+        b = -a*(lowest_point_ + ground_window);
     }
-    else
+    else if (average_height < 0.0) // in this case we force the ground height to be the lowest point
+    {
+      if (tree_roundness == 0.0)
+        a = mean[1] / (mean[0] - lowest_point_);
+      b = -lowest_point_ * a;
+    }
+    else 
     { 
-      if (!tree_roundness)
-        a = mean[1] / (mean[0]);
-      if (average_height == 0.0)
+      if (tree_roundness == 0.0)
+        a = mean[1] / average_height;
+      else if (average_height == 0.0)
         average_height = mean[1]/a;
       b = (average_height - mean[0]) * a;
     }

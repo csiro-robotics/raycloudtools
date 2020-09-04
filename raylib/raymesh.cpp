@@ -100,7 +100,6 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     Triangle &tri = triangles[i];
     for (int j = 0; j<3; j++)
       tri.corners[j] = vertices_[index_list_[i][j]];
-    Eigen::Vector3d mid = (tri.corners[0] + tri.corners[1] + tri.corners[2])/3.0;
     tri.tested = false;
     tri.normal = (tri.corners[1]-tri.corners[0]).cross(tri.corners[2]-tri.corners[0]).normalized();
     for (int j = 0; j<3; j++)
