@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,30 +22,27 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3)
+  ray::FileArgument cloud_file;
+  ray::Vector3dArgument translation;
+  ray::Vector4dArgument translation4;
+
+  bool vec3 = ray::parseCommandLine(argc, argv, {&cloud_file, &translation});
+  if (!vec3 && !ray::parseCommandLine(argc, argv, {&cloud_file, &translation4}))
     usage();
 
-  std::string file = argv[1];
   ray::Pose pose;
-  std::stringstream ss(argv[2]);
-  Eigen::Vector3d vec;
-  ss >> vec[0];
-  ss.ignore(1);
-  ss >> vec[1];
-  ss.ignore(1);
-  ss >> vec[2];
-  pose.position = vec;
-
   double time_delta = 0.0;
-  if (ss.peek() == ',')
+  if (vec3)
+    pose.position = translation.value;
+  else
   {
-    ss.ignore(1);
-    ss >> time_delta;
+    pose.position = translation4.value.head<3>();
+    time_delta = translation4.value[3];
   }
   pose.rotation = Eigen::Quaterniond(1.0, 0.0, 0.0, 0.0);
 
   ray::Cloud cloud;
-  cloud.load(file);
+  cloud.load(cloud_file.name);
 #if 0  // test bending
   Eigen::Vector3d bend(pose.position[0], pose.position[1], 0.0);
   Eigen::Vector3d side = Eigen::Vector3d(bend[1], -bend[0], 0).normalized();
@@ -53,6 +51,6 @@ int main(int argc, char *argv[])
 #else
   cloud.transform(pose, time_delta);
 #endif
-  cloud.save(file);
+  cloud.save(cloud_file.name);
   return true;
 }

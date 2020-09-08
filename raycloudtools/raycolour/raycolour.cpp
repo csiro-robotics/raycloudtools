@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,33 +15,32 @@ void usage(int exit_code = 0)
 {
   std::cout << "Colour the ray cloud, and/or shade it" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "raycolour raycloud time shaded  - colour by time, and shaded (optional on all types)" << std::endl;
-  std::cout << "                   height       - colour by height" << std::endl;
-  std::cout << "                   shape        - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
-  std::cout << "                   normal       - colour by normal" << std::endl;
-  std::cout << "                   alpha        - colour by alpha channel (which typically represents intensity)" << std::endl;
-  std::cout << "                   1,1,1 shaded - just (r,g,b) shaded" << std::endl;
+  std::cout << "raycolour raycloud time          - colour by time (optional on all types)" << std::endl;
+  std::cout << "                   height        - colour by height" << std::endl;
+  std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
+  std::cout << "                   normal        - colour by normal" << std::endl;
+  std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
+  std::cout << "                   1,1,1         - just (r,g,b)" << std::endl;
+  std::cout << "                         --unlit - flat shaded" << std::endl;
   exit(exit_code);
 }
 
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc != 3 && argc != 4)
+  ray::FileArgument cloud_file;
+  ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha"});
+  ray::OptionalFlagArgument unlit("unlit", 'u');
+  ray::Vector3dArgument col;
+  bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col, &unlit});
+  if (!flat_colour && !ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type, &unlit}))
     usage();
-
-  bool shaded = false;
-  if (argc == 4)
-  {
-    shaded = true;
-    if (std::string(argv[3]) != "shaded")
-      usage();
-  }
-  std::string file = argv[1];
+  
+  bool shading = !unlit.is_set;
   ray::Cloud cloud;
-  if (!cloud.load(file))
+  if (!cloud.load(cloud_file.name))
     return 0;
-  std::string type = std::string(argv[2]);
+  std::string type = colour_type.selected_key;
 
   // what I need is the normal, curvature, eigenvalues, per point.
   struct Data
@@ -66,8 +66,8 @@ int main(int argc, char *argv[])
   else if (type == "shape")
     dims = &dimensions;
   else
-    calc_surfels = shaded;
-  if (shaded)
+    calc_surfels = shading;
+  if (shading)
   {
     norms = &normals;
     inds = &indices;
@@ -77,20 +77,13 @@ int main(int argc, char *argv[])
   if (calc_surfels)
     cloud.getSurfels(search_size, cents, norms, dims, mats, inds);
 
-  if (type.find(",") != std::string::npos)
+  if (flat_colour)
   {
-    std::stringstream ss(type);
-    Eigen::Vector3d vec;
-    ss >> vec[0];
-    ss.ignore(1);
-    ss >> vec[1];
-    ss.ignore(1);
-    ss >> vec[2];
-    for (auto &col : cloud.colours)
+    for (auto &colour : cloud.colours)
     {
-      col.red = (uint8_t)(255.0 * vec[0]);
-      col.green = (uint8_t)(255.0 * vec[1]);
-      col.blue = (uint8_t)(255.0 * vec[2]);
+      colour.red = (uint8_t)(255.0 * col.value[0]);
+      colour.green = (uint8_t)(255.0 * col.value[1]);
+      colour.blue = (uint8_t)(255.0 * col.value[2]);
     }
   }
   else if (type == "time")
@@ -139,7 +132,7 @@ int main(int argc, char *argv[])
   else
     usage();
 
-  if (shaded)
+  if (shading)
   {
     std::vector<double> curvatures(cloud.ends.size());
     for (int i = 0; i < (int)cloud.ends.size(); i++)
@@ -182,9 +175,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  std::string file_stub = file;
-  if (file.substr(file.length() - 4) == ".ply")
-    file_stub = file.substr(0, file.length() - 4);
-  cloud.save(file_stub + "_coloured.ply");
+  cloud.save(cloud_file.nameStub() + "_coloured.ply");
   return true;
 }

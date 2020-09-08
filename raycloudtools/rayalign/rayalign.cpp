@@ -7,6 +7,7 @@
 #include "raylib/raycloud.h"
 #include "raylib/rayalignment.h"
 #include "raylib/raydebugdraw.h"
+#include "raylib/rayparse.h"
 
 #include <nabo/nabo.h>
 
@@ -15,19 +16,6 @@
 #include <string.h>
 #include <iostream>
 #include <complex>
-
-void usage(int exit_code = 0)
-{
-  std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
-  std::cout << "usage:" << std::endl;
-  std::cout << "rayalign raycloudA raycloudB" << std::endl;
-  std::cout << "                             --nonrigid    - nonrigid (quadratic) alignment" << std::endl;
-  std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
-  std::cout
-    << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
-    << std::endl;
-  exit(exit_code);
-}
 
 void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int> &ids, Eigen::Vector3d &centroid, Eigen::Vector3d &width,
                Eigen::Matrix3d &mat)
@@ -52,46 +40,44 @@ void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int
   mat = eigen_solver.eigenvectors();
 }
 
+void usage(int exit_code = 0)
+{
+  std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
+  std::cout << "usage:" << std::endl;
+  std::cout << "rayalign raycloudA raycloudB" << std::endl;
+  std::cout << "                             --nonrigid    - nonrigid (quadratic) alignment" << std::endl;
+  std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
+  std::cout
+    << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
+    << std::endl;
+  exit(exit_code);
+}
+
 int main(int argc, char *argv[])
 {
+  ray::FileArgument cloud_a, cloud_b;
+  ray::OptionalFlagArgument nonrigid("nonrigid", 'n'), is_verbose("verbose", 'v'), local("local", 'l');
+  if (!ray::parseCommandLine(argc, argv, {&cloud_a, &cloud_b, &nonrigid, &is_verbose, &local}))
+    usage();
+
   // TODO: This method works when there is more than 30% overlap.
   // For less, we can additionally repeat this procedure for small scale cubic sections (perhaps 20% of map width)
   // then use the fft power spectrum (low res) as a descriptor into the knn to find matching locations,
   // then pick the best match.
   ray::DebugDraw &draw = *ray::DebugDraw::init(argc, argv, "rayalign");
 
-  if (argc < 3 || argc > 6)
-    usage();
-  bool verbose = false;
-  bool non_rigid = false;
-  bool local_only = false;
-  for (int a = 3; a < argc; a++)
-  {
-    if (std::string(argv[a]) == "--verbose" || std::string(argv[a]) == "-v")
-      verbose = true;
-    else if (std::string(argv[a]) == "--nonrigid" || std::string(argv[a]) == "-n")
-      non_rigid = true;
-    else if (std::string(argv[a]) == "--local" || std::string(argv[a]) == "-l")
-      local_only = true;
-    else
-      usage();
-  }
-
-  std::string file_a = argv[1];
-  std::string file_b = argv[2];
-  std::string file_stub = file_a;
-  if (file_stub.substr(file_stub.length() - 4) == ".ply")
-    file_stub = file_stub.substr(0, file_stub.length() - 4);
-
   ray::Cloud clouds[2];
-  clouds[0].load(file_a);
-  clouds[1].load(file_b);
+  clouds[0].load(cloud_a.name);
+  clouds[1].load(cloud_b.name);
 
+  bool local_only = local.is_set;
+  bool verbose = is_verbose.is_set;
+  bool non_rigid = nonrigid.is_set;
   if (!local_only)
   {
     alignCloud0ToCloud1(clouds, 0.5, verbose);
     if (verbose)
-      clouds[0].save(file_stub + "_coarse_aligned.ply");
+      clouds[0].save(cloud_a.nameStub() + "_coarse_aligned.ply");
   }
 
   // Next the fine grained alignment.
@@ -410,6 +396,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  clouds[0].save(file_stub + "_aligned.ply");
+  clouds[0].save(cloud_a.nameStub() + "_aligned.ply");
   return true;
 }

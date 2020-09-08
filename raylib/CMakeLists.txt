@@ -38,6 +38,7 @@ set(PUBLIC_HEADERS
   raytreegen.h
   rayunused.h
   rayutils.h
+  rayparse.h
 )
 
 set(PRIVATE_HEADERS

@@ -67,7 +67,10 @@
     "forward_list": "cpp",
     "mutex": "cpp",
     "valarray": "cpp",
-    "*.ipp": "cpp"
+    "*.ipp": "cpp",
+    "polytope": "cpp",
+    "mixinvector": "cpp",
+    "fast_back_stack": "cpp"
   },
   "python.autoComplete.extraPaths": [
     "/home/parallels/code/demining/demine_ros/devel/lib/python2.7/dist-packages",

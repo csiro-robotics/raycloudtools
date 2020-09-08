@@ -6,6 +6,7 @@
 #include "raylib/raycloud.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,76 +33,54 @@ void usage(int exit_code = 0)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc != 4 && argc != 5)
+  // TODO: how to read in meshfile distance 0.2 ??? 
+  ray::FileArgument mesh_file;
+  ray::TextArgument text("distance");
+  ray::DoubleArgument mesh_offset;
+  ray::FileArgument cloud_file;
+  bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &text, &mesh_offset});
+
+  ray::Vector3dArgument pos, colour, startpos, raydir;
+  ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), speed(0.0,1000.0);
+  ray::KeyValueChoice choice({"pos", "time", "colour", "alpha", "startpos", "raydir", "range", "speed"}, 
+                           {&pos,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed});
+  if (!mesh_split && !ray::parseCommandLine(argc, argv, {&cloud_file, &choice}))
     usage();
 
-  std::string file = argv[1];
   ray::Cloud cloud;
-  cloud.load(file);
-
+  cloud.load(cloud_file.name);
   ray::Cloud inside, outside;
-  if (argc == 5)
+  if (mesh_split)
   {
-    std::string mesh_file = argv[2];
     ray::Mesh mesh;
-    ray::readPlyMesh(mesh_file, mesh);
-
-    double offset = std::stod(argv[4]);
-    mesh.splitCloud(cloud, offset, inside, outside);
+    ray::readPlyMesh(mesh_file.name, mesh);
+    mesh.splitCloud(cloud, mesh_offset.value, inside, outside);
   }
   else
   {
-    std::string parameter = std::string(argv[2]);
+    std::string &parameter = choice.selected_key;
     if (parameter == "time")
     {
-      double val = std::stod(argv[3]);
-      cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > val; });
+      cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > time.value; });
     }
     else if (parameter == "alpha")
     {
-      double val = std::stod(argv[3]);
-      if (!(val >= 0.0 && val <= 1.0))
-        usage();
-      uint8_t c = uint8_t(255.0 * val);
+      uint8_t c = uint8_t(255.0 * alpha.value);
       cloud.split(inside, outside, [&](int i) { return cloud.colours[i].alpha > c; });
     }
     else if (parameter == "pos")
     {
-      std::stringstream ss(argv[3]);
-      Eigen::Vector3d vec;
-      ss >> vec[0];
-      ss.ignore(1);
-      ss >> vec[1];
-      ss.ignore(1);
-      ss >> vec[2];
-      vec /= vec.squaredNorm();
-
+      Eigen::Vector3d vec = pos.value / pos.value.squaredNorm();
       cloud.split(inside, outside, [&](int i) { return cloud.ends[i].dot(vec) > 1.0; });
     }
     else if (parameter == "startpos")
     {
-      std::stringstream ss(argv[3]);
-      Eigen::Vector3d vec;
-      ss >> vec[0];
-      ss.ignore(1);
-      ss >> vec[1];
-      ss.ignore(1);
-      ss >> vec[2];
-      vec /= vec.squaredNorm();
-
+      Eigen::Vector3d vec = startpos.value / startpos.value.squaredNorm();
       cloud.split(inside, outside, [&](int i) { return cloud.starts[i].dot(vec) > 0.0; });
     }
     else if (parameter == "raydir")
     {
-      std::stringstream ss(argv[3]);
-      Eigen::Vector3d vec;
-      ss >> vec[0];
-      ss.ignore(1);
-      ss >> vec[1];
-      ss.ignore(1);
-      ss >> vec[2];
-      vec /= vec.squaredNorm();
-
+      Eigen::Vector3d vec = raydir.value / raydir.value.squaredNorm();
       cloud.split(inside, outside, [&](int i) {
         Eigen::Vector3d ray_dir = (cloud.ends[i] - cloud.starts[i]).normalized();
         return ray_dir.dot(vec) > 0.0;
@@ -109,15 +88,7 @@ int main(int argc, char *argv[])
     }
     else if (parameter == "colour")
     {
-      std::stringstream ss(argv[3]);
-      Eigen::Vector3d vec;
-      ss >> vec[0];
-      ss.ignore(1);
-      ss >> vec[1];
-      ss.ignore(1);
-      ss >> vec[2];
-      vec /= vec.squaredNorm();
-
+      Eigen::Vector3d vec = colour.value / colour.value.squaredNorm();
       cloud.split(inside, outside, [&](int i) {
         Eigen::Vector3d col((double)cloud.colours[i].red / 255.0, (double)cloud.colours[i].green / 255.0,
                      (double)cloud.colours[i].blue / 255.0);
@@ -126,24 +97,19 @@ int main(int argc, char *argv[])
     }
     else if (parameter == "range")
     {
-      double val = std::stod(argv[3]);
-      cloud.split(inside, outside, [&](int i) { return (cloud.starts[i] - cloud.ends[i]).norm() > val; });
+      cloud.split(inside, outside, [&](int i) { return (cloud.starts[i] - cloud.ends[i]).norm() > range.value; });
     }
     else if (parameter == "speed")
     {
-      double val = std::stod(argv[3]);
       cloud.split(inside, outside, [&](int i) {
         if (i == 0)
           return false;
-        return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > val;
+        return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > speed.value;
       });
     }
   }
 
-  std::string file_stub = file;
-  if (file.substr(file.length() - 4) == ".ply")
-    file_stub = file.substr(0, file.length() - 4);
-
+  std::string file_stub = cloud_file.nameStub();
   inside.save(file_stub + "_inside.ply");
   outside.save(file_stub + "_outside.ply");
   return true;

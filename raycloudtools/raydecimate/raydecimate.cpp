@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +23,11 @@ void usage(int exit_code = 0)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc != 4)
+  ray::FileArgument cloud_file;
+  ray::IntArgument num_rays(1,100);
+  ray::DoubleArgument vox_width(0.01, 100.0);
+  ray::ValueKeyChoice quantity({&vox_width, &num_rays}, {"cm", "rays"});
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity}))
     usage();
 
   std::string file = argv[1];

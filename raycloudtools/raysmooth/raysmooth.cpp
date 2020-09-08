@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
 
 #include <nabo/nabo.h>
 
@@ -22,12 +23,12 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 2)
+  ray::FileArgument cloud_file;
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file}))
     usage();
 
-  std::string file = argv[1];
   ray::Cloud cloud;
-  cloud.load(file);
+  cloud.load(cloud_file.name);
 
   // Method:
   // 1. generate normals and neighbour indices
@@ -61,7 +62,7 @@ int main(int argc, char *argv[])
     cloud.ends[i] += normals[i] * (centroids[i]-cloud.ends[i]).dot(normals[i]);
   }
 
-  cloud.save(file.substr(0, file.length() - 4) + "_smooth.ply");
+  cloud.save(cloud_file.nameStub() + "_smooth.ply");
 
   return true;
 }

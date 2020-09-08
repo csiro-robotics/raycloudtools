@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,28 +22,21 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3)
+  ray::FileArgument cloud_file;
+  ray::Vector3dArgument rotation;
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &rotation}))
     usage();
-
-  std::string file = argv[1];
+    
   ray::Pose pose;
   pose.position = Eigen::Vector3d(0, 0, 0);
 
-  std::stringstream ss(argv[2]);
-  Eigen::Vector3d axis;
-  ss >> axis[0];
-  ss.ignore(1);
-  ss >> axis[1];
-  ss.ignore(1);
-  ss >> axis[2];
-
-  double angle = axis.norm();
-  axis /= angle;
-  pose.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(angle * ray::kPi / 180.0, axis));
+  double angle = rotation.value.norm();
+  rotation.value /= angle;
+  pose.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(angle * ray::kPi / 180.0, rotation.value));
 
   ray::Cloud cloud;
-  cloud.load(file);
+  cloud.load(cloud_file.name);
   cloud.transform(pose, 0.0);
-  cloud.save(file);
+  cloud.save(cloud_file.name);
   return true;
 }
