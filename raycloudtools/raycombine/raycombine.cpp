@@ -63,15 +63,16 @@ int main(int argc, char *argv[])
   bool standard_format = ray::parseCommandLine(argc, argv, {&merge_type, &cloud_files, &num_rays, &rays_text});
   bool concatenate = ray::parseCommandLine(argc, argv, {&all_text, &cloud_files}); 
   bool threeway = ray::parseCommandLine(argc, argv, {&base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text});
-  if (!standard_format && !concatenate && !threeway)
+  bool threeway_concatenate = ray::parseCommandLine(argc, argv, {&base_cloud, &all_text, &cloud_1, &cloud_2});
+  if (!standard_format && !concatenate && !threeway && !threeway_concatenate)
     usage();
 
   ray::DebugDraw::init(argc, argv, "raycombine");
   // we know there is at least one file, as we specified a minimum number in FileArgumentList
-  std::string file_stub = threeway ? base_cloud.nameStub() : cloud_files.files[0].nameStub(); 
+  std::string file_stub = (threeway || threeway_concatenate) ? base_cloud.nameStub() : cloud_files.files[0].nameStub(); 
 
   std::vector<ray::Cloud> clouds;;
-  if (threeway)
+  if (threeway || threeway_concatenate)
   {
     clouds.resize(2);
     if (!clouds[0].load(cloud_1.name))
@@ -109,7 +110,7 @@ int main(int argc, char *argv[])
   {
     config.merge_type = ray::MergeType::Maximum;
   }
-  if (concatenate)
+  if (concatenate || threeway_concatenate)
   {
     config.merge_type = ray::MergeType::All;
   }
@@ -120,7 +121,7 @@ int main(int argc, char *argv[])
   ray::Cloud concatenated_cloud;
   const ray::Cloud *fixed_cloud = &merger.fixedCloud();
 
-  if (threeway)
+  if (threeway || threeway_concatenate)
   {
     ray::Cloud base_cloud;
     if (!base_cloud.load(argv[1]))
