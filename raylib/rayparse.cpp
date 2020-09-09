@@ -10,10 +10,12 @@
 
 namespace ray
 {
-// set values true only sets values if the command line parses correctly according to list
+// Process the command line according to the specified format.
+// fixed_arguments are always in order and don't have a "-" prefix. optional_arguments appear in any order after the fixed arguments, and have a "-" or "--" prefix.
 bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments, std::vector<OptionalArgument *> optional_arguments, bool set_values)
 {
-  if (set_values && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false)) // check first and exit without side effects
+  // if we are setting the argument values then first run the parsing without setting them, and then only continue (to set them) if the format matches.
+  if (set_values && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false)) 
     return false;
   int c = 1;
   for (auto &l: fixed_arguments)
@@ -21,7 +23,7 @@ bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *>
     if (!l->parse(argc, argv, c, set_values))
       return false;
   }
-  while (c < argc)
+  while (c < argc) // now process the optional_arguments. For each command line index we need to loop through all remaining optional arguments
   {
     bool found = false;
     for (size_t i = 0; i<optional_arguments.size(); i++)
@@ -56,6 +58,7 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   // we don't check file existence, that is up to whatever uses the file.
   // but we do check that it has a 3-letter file extension. This lets us disambiguate files from other arguments
+  // and isn't too restrictive, we would rather users use extensions on their file names.
   std::string ext = file.substr(file.length() - 4);
   bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1)) && std::isalnum(ext.at(2)) && std::isalnum(ext.at(3));
   if (!valid_ext) 
@@ -77,7 +80,7 @@ bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   char *endptr;
   double val = std::strtod(argv[index], &endptr);
-  if (endptr != argv[index]+std::strlen(argv[index]))
+  if (endptr != argv[index]+std::strlen(argv[index])) // if the double is badly formed
     return false;
   index++;
   if (!set_value)
@@ -101,7 +104,7 @@ bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   char *endptr;
   long int val = std::strtol(argv[index], &endptr, 10);
-  if (endptr != argv[index]+std::strlen(argv[index]))
+  if (endptr != argv[index]+std::strlen(argv[index])) // if the int is badly formed
     return false;
   index++;
   if (!set_value)
@@ -133,7 +136,7 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
     char *endptr;
     const char *str = field.c_str();
     double val = std::strtod(str, &endptr);
-    if (endptr != str+std::strlen(str))
+    if (endptr != str+std::strlen(str)) // if the double is badly formed
       return false;
     if (set_value)
     {
@@ -171,7 +174,7 @@ bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
     char *endptr;
     const char *str = field.c_str();
     double val = std::strtod(str, &endptr);
-    if (endptr != str+std::strlen(str))
+    if (endptr != str+std::strlen(str)) // if the double is badly formed
       return false;
     if (set_value)
     {
@@ -214,7 +217,7 @@ bool KeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
     {
       if (set_value)
       {
-        selected_id = (int)i;
+        selected_id = (int)i; 
         selected_key = str;
       }
       return true;

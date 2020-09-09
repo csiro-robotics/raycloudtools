@@ -12,30 +12,35 @@
 
 namespace ray
 {
-// set values true only sets values if the command line parses correctly according to list
-bool parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments, 
+/// Parses a command line according to a given format which can include fixed arguments and then a set of optional arguments
+/// Values in the passed-in lists are only set when it returns true. This allows the function to be called multiple times for different formats
+/// Only make @param set_values false if you only need to know if the format matches the arguments @param argv.
+bool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments, 
                       std::vector<struct OptionalArgument *> optional_arguments = std::vector<struct OptionalArgument *>(), 
                       bool set_values = true);
 
-
-// Argument structures. These are conceptually structs, they have independent data that can be accessed and modified directly, and mainly contain a single function for parsing
-struct Argument
+/// Argument structures. These are conceptually structs, they have independent data that can be accessed and modified directly, 
+/// and mainly contain a just single function for parsing
+struct RAYLIB_EXPORT Argument
 {
   virtual bool parse(int argc, char *argv[], int &index, bool set_value) = 0; 
 };
 
-struct FixedArgument : Argument // these are for fixed formats, so without - or -- prefix.
+/// These are for fixed formats, so without - or -- prefix.
+struct RAYLIB_EXPORT FixedArgument : Argument 
 {
 };
 
-struct TextArgument : FixedArgument // e.g. "distance"
+/// Example: "distance"
+struct RAYLIB_EXPORT TextArgument : FixedArgument 
 {
   TextArgument(const std::string &name): name(name) {}
   std::string name;
   virtual bool parse(int argc, char *argv[], int &index, bool);
 };
 
-struct FileArgument : FixedArgument // e.g. "mycloud.ply"
+/// Example: "mycloud.ply"
+struct RAYLIB_EXPORT FileArgument : FixedArgument 
 {
   std::string name;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
@@ -43,11 +48,13 @@ struct FileArgument : FixedArgument // e.g. "mycloud.ply"
   std::string nameExt() { return name.substr(name.length() - 3); }
 };
 
-struct ValueArgument : FixedArgument // numerical values
+/// Numerical values
+struct RAYLIB_EXPORT ValueArgument : FixedArgument 
 {
 };
 
-struct DoubleArgument : ValueArgument // e.g. "4.35"
+/// Example: "4.35"
+struct RAYLIB_EXPORT DoubleArgument : ValueArgument 
 {
   DoubleArgument();
   DoubleArgument(double min_value, double max_value) : min_value(min_value), max_value(max_value) {}
@@ -56,7 +63,8 @@ struct DoubleArgument : ValueArgument // e.g. "4.35"
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct IntArgument : ValueArgument // e.g. "10"
+/// Example: "10"
+struct RAYLIB_EXPORT IntArgument : ValueArgument 
 {
   IntArgument();
   IntArgument(int min_value, int max_value) : min_value(min_value), max_value(max_value) {}
@@ -65,7 +73,8 @@ struct IntArgument : ValueArgument // e.g. "10"
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct Vector3dArgument : ValueArgument // e.g. "1.0,2,3.26"
+/// Example: "1.0,2,3.26"
+struct RAYLIB_EXPORT Vector3dArgument : ValueArgument 
 {
   Vector3dArgument();
   Vector3dArgument(double min_element_value, double max_element_value) : min_value(min_element_value), max_value(max_element_value) {}
@@ -74,7 +83,8 @@ struct Vector3dArgument : ValueArgument // e.g. "1.0,2,3.26"
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct Vector4dArgument : ValueArgument // e.g. "1.0,2.3,4,6"
+/// Example: "1.0,2.4,4,-6"
+struct RAYLIB_EXPORT Vector4dArgument : ValueArgument 
 {
   Vector4dArgument();
   Vector4dArgument(double min_element_value, double max_element_value) : min_value(min_element_value), max_value(max_element_value) {}
@@ -83,7 +93,8 @@ struct Vector4dArgument : ValueArgument // e.g. "1.0,2.3,4,6"
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct FileArgumentList : FixedArgument // e.g. "cloud1.ply cloudB.ply cloud_x.ply"
+/// Parses a list of file names, e.g. "cloud1.ply cloudB.ply cloud_x.ply"
+struct RAYLIB_EXPORT FileArgumentList : FixedArgument 
 {
   FileArgumentList(int min_number) : min_number(min_number) {}
 
@@ -92,7 +103,8 @@ struct FileArgumentList : FixedArgument // e.g. "cloud1.ply cloudB.ply cloud_x.p
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct KeyChoice : FixedArgument // e.g. "min"/"max"/"newest"/"oldest"
+/// A choice of different keys (strings), e.g. "min"/"max"/"newest"/"oldest"
+struct RAYLIB_EXPORT KeyChoice : FixedArgument 
 {
   KeyChoice(const std::initializer_list<std::string> &keys) : keys(keys), selected_id(-1) {}
 
@@ -102,7 +114,8 @@ struct KeyChoice : FixedArgument // e.g. "min"/"max"/"newest"/"oldest"
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct KeyValueChoice : FixedArgument // e.g. "pos 1,2,3" / "distance 14.2" / "num_rays 120"
+/// A choice of different key-value pairs, e.g. "pos 1,2,3" / "distance 14.2" / "num_rays 120"
+struct RAYLIB_EXPORT KeyValueChoice : FixedArgument 
 {
   KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<ValueArgument *> &values) : keys(keys), values(values), selected_id(-1) {}
 
@@ -113,8 +126,8 @@ struct KeyValueChoice : FixedArgument // e.g. "pos 1,2,3" / "distance 14.2" / "n
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-// defined by its units (so a value-key pair)
-struct ValueKeyChoice : FixedArgument // e.g. "13.4 cm" / "12 rays" / "3.5 sigmas"
+/// A choice of different value-key pairs. Usually commands defined by their units, e.g. "13.4 cm" / "12 rays" / "3.5 sigmas"
+struct RAYLIB_EXPORT ValueKeyChoice : FixedArgument 
 {
   ValueKeyChoice(const std::initializer_list<ValueArgument *> &values, const std::initializer_list<std::string> &keys) : values(values), keys(keys), selected_id(-1) {}
 
@@ -125,11 +138,13 @@ struct ValueKeyChoice : FixedArgument // e.g. "13.4 cm" / "12 rays" / "3.5 sigma
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct OptionalArgument : Argument // for optional arguments, with the - or -- prefix
+/// For optional arguments, with the - or -- prefix
+struct RAYLIB_EXPORT OptionalArgument : Argument 
 {
 };
 
-struct OptionalFlagArgument : OptionalArgument // e.g. "--enable_x or -e"
+/// Optional flag, e.g. "--enable_x" or "-e"
+struct RAYLIB_EXPORT OptionalFlagArgument : OptionalArgument 
 {
   OptionalFlagArgument(const std::string &name, char character): name(name), character(character), is_set(false) {}
   std::string name;
@@ -138,7 +153,8 @@ struct OptionalFlagArgument : OptionalArgument // e.g. "--enable_x or -e"
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
-struct OptionalKeyValueArgument : OptionalArgument // e.g. "--power 4.1"
+/// Optional keyvalue pair, e.g. "--power 4.1"
+struct RAYLIB_EXPORT OptionalKeyValueArgument : OptionalArgument 
 {
   OptionalKeyValueArgument(const std::string &name, ValueArgument *value): name(name), value(value), is_set(false) {}
   std::string name;
