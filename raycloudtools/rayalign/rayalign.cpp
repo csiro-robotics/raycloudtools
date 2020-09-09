@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_a, cloud_b;
   ray::OptionalFlagArgument nonrigid("nonrigid", 'n'), is_verbose("verbose", 'v'), local("local", 'l');
-  if (!ray::parseCommandLine(argc, argv, {&cloud_a, &cloud_b, &nonrigid, &is_verbose, &local}))
+  if (!ray::parseCommandLine(argc, argv, {&cloud_a, &cloud_b}, {&nonrigid, &is_verbose, &local}))
     usage();
 
   // TODO: This method works when there is more than 30% overlap.

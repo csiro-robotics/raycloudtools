@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
   ray::KeyChoice direction({"upwards", "downwards", "inwards", "outwards"});
   ray::DoubleArgument curvature;
   ray::OptionalFlagArgument full("full", 'f');
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &direction, &curvature, &full}))
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &direction, &curvature}, {&full}))
     usage();
 
   ray::DebugDraw::init(argc, argv, "ConcaveHull");

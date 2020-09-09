@@ -32,8 +32,9 @@ int main(int argc, char *argv[])
   ray::TextArgument cm_text("cm");
   ray::ValueKeyChoice quantity({&vox_width, &sigmas, &range}, {"cm", "sigmas"});
   
+  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &quantity});
   bool range_noise = ray::parseCommandLine(argc, argv, {&cloud_file, &range_text, &range, &cm_text});
-  if (!range_noise && !ray::parseCommandLine(argc, argv, {&cloud_file, &quantity}))
+  if (!standard_format && !range_noise)
     usage();
 
   ray::Cloud cloud;

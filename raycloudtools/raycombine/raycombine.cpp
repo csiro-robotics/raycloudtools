@@ -60,16 +60,11 @@ int main(int argc, char *argv[])
   ray::FileArgument base_cloud, cloud_1, cloud_2;
 
   // three-way merge option
+  bool standard_format = ray::parseCommandLine(argc, argv, {&merge_type, &cloud_files, &num_rays, &rays_text});
+  bool concatenate = ray::parseCommandLine(argc, argv, {&all_text, &cloud_files}); 
   bool threeway = ray::parseCommandLine(argc, argv, {&base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text});
-  bool concatenate = false; 
-  if (!threeway)
-  {
-    // concatenate option has no "xx rays" field
-    concatenate = ray::parseCommandLine(argc, argv, {&all_text, &cloud_files});
-    // otherwise standard combine
-    if (!concatenate && !ray::parseCommandLine(argc, argv, {&merge_type, &cloud_files, &num_rays, &rays_text}))
-      usage();
-  }
+  if (!standard_format && !concatenate && !threeway)
+    usage();
 
   ray::DebugDraw::init(argc, argv, "raycombine");
   std::vector<std::string> files;

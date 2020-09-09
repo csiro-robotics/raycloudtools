@@ -33,18 +33,17 @@ void usage(int exit_code = 0)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  // TODO: how to read in meshfile distance 0.2 ??? 
-  ray::FileArgument mesh_file;
-  ray::TextArgument text("distance");
-  ray::DoubleArgument mesh_offset;
   ray::FileArgument cloud_file;
-  bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &text, &mesh_offset});
-
   ray::Vector3dArgument pos, colour, startpos, raydir;
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), speed(0.0,1000.0);
   ray::KeyValueChoice choice({"pos", "time", "colour", "alpha", "startpos", "raydir", "range", "speed"}, 
                            {&pos,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed});
-  if (!mesh_split && !ray::parseCommandLine(argc, argv, {&cloud_file, &choice}))
+  ray::FileArgument mesh_file;
+  ray::TextArgument text("distance");
+  ray::DoubleArgument mesh_offset;
+  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
+  bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &text, &mesh_offset});
+  if (!standard_format && !mesh_split)
     usage();
 
   ray::Cloud cloud;

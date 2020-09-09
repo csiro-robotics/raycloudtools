@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
   ray::DoubleArgument num_rays(0.1, 100.0);
   ray::TextArgument text("rays");
   ray::OptionalFlagArgument colour("colour", 'c');
-  if (!ray::parseCommandLine(argc, argv, {&merge_type, &cloud_file, &num_rays, &text, &colour}))
+  if (!ray::parseCommandLine(argc, argv, {&merge_type, &cloud_file, &num_rays, &text}, {&colour}))
     usage();
 
   ray::Cloud cloud;

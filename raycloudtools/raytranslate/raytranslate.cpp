@@ -23,17 +23,18 @@ void usage(int exit_code = 0)
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  ray::Vector3dArgument translation;
+  ray::Vector3dArgument translation3;
   ray::Vector4dArgument translation4;
 
-  bool vec3 = ray::parseCommandLine(argc, argv, {&cloud_file, &translation});
-  if (!vec3 && !ray::parseCommandLine(argc, argv, {&cloud_file, &translation4}))
+  bool vec3 = ray::parseCommandLine(argc, argv, {&cloud_file, &translation3});
+  bool vec4 = ray::parseCommandLine(argc, argv, {&cloud_file, &translation4});
+  if (!vec3 && !vec4)
     usage();
 
   ray::Pose pose;
   double time_delta = 0.0;
   if (vec3)
-    pose.position = translation.value;
+    pose.position = translation3.value;
   else
   {
     pose.position = translation4.value.head<3>();
