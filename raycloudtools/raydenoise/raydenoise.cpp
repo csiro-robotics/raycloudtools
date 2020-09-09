@@ -38,7 +38,8 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud cloud;
-  cloud.load(cloud_file.name);
+  if (!cloud.load(cloud_file.name))
+    usage();
 
   ray::Cloud new_cloud;
   if (range_noise) // range-based distance measure. For mixed-points where lidar has contacted two surfaces.

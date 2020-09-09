@@ -32,7 +32,8 @@ int main(int argc, char *argv[])
 
   std::string file = argv[1];
   ray::Cloud cloud;
-  cloud.load(file);
+  if (!cloud.load(file))
+    usage();
 
   ray::Cloud new_cloud;
   std::string type = argv[3];

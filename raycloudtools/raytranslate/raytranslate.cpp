@@ -43,7 +43,8 @@ int main(int argc, char *argv[])
   pose.rotation = Eigen::Quaterniond(1.0, 0.0, 0.0, 0.0);
 
   ray::Cloud cloud;
-  cloud.load(cloud_file.name);
+  if (!cloud.load(cloud_file.name))
+    usage();
 #if 0  // test bending
   Eigen::Vector3d bend(pose.position[0], pose.position[1], 0.0);
   Eigen::Vector3d side = Eigen::Vector3d(bend[1], -bend[0], 0).normalized();

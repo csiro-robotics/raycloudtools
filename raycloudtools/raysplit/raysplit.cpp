@@ -47,7 +47,8 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud cloud;
-  cloud.load(cloud_file.name);
+  if (!cloud.load(cloud_file.name))
+    usage();
   ray::Cloud inside, outside;
   if (mesh_split)
   {

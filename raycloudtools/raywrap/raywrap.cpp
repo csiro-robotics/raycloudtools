@@ -40,7 +40,8 @@ int main(int argc, char *argv[])
 
   ray::DebugDraw::init(argc, argv, "ConcaveHull");
   ray::Cloud cloud;
-  cloud.load(cloud_file.name);
+  if (!cloud.load(cloud_file.name))
+    usage();
   cloud.removeUnboundedRays();
 
   if (full.is_set)

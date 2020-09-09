@@ -35,7 +35,8 @@ int main(int argc, char *argv[])
   pose.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(angle * ray::kPi / 180.0, rotation.value));
 
   ray::Cloud cloud;
-  cloud.load(cloud_file.name);
+  if (!cloud.load(cloud_file.name))
+    usage();
   cloud.transform(pose, 0.0);
   cloud.save(cloud_file.name);
   return true;
