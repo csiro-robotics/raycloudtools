@@ -67,12 +67,25 @@ int main(int argc, char *argv[])
     usage();
 
   ray::DebugDraw::init(argc, argv, "raycombine");
-  std::vector<std::string> files;
   // we know there is at least one file, as we specified a minimum number in FileArgumentList
   std::string file_stub = threeway ? base_cloud.nameStub() : cloud_files.files[0].nameStub(); 
 
-  std::vector<ray::Cloud> clouds(files.size());
-  for (int i = 0; i < (int)files.size(); i++) clouds[i].load(files[i]);
+  std::vector<ray::Cloud> clouds;;
+  if (threeway)
+  {
+    clouds.resize(2);
+    if (!clouds[0].load(cloud_1.name))
+      usage();
+    if (!clouds[1].load(cloud_2.name))
+      usage();
+  }
+  else
+  {
+    clouds.resize(cloud_files.files.size());
+    for (int i = 0; i < (int)cloud_files.files.size(); i++) 
+      if (!clouds[i].load(cloud_files.files[i].name))
+        usage();
+  }
 
   ray::Threads::init();
   ray::MergerConfig config;
@@ -110,7 +123,8 @@ int main(int argc, char *argv[])
   if (threeway)
   {
     ray::Cloud base_cloud;
-    base_cloud.load(argv[1]);
+    if (!base_cloud.load(argv[1]))
+      usage();
     merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], &progress);
   }
   else if (concatenate)

@@ -34,10 +34,10 @@ void usage(int exit_code = 0)
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  ray::Vector3dArgument pos, colour, startpos, raydir;
+  ray::Vector3dArgument pos, colour(0.0, 1.0), startpos, raydir(-1.0, 1.0);
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), speed(0.0,1000.0);
   ray::KeyValueChoice choice({"pos", "time", "colour", "alpha", "startpos", "raydir", "range", "speed"}, 
-                           {&pos,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed});
+                             {&pos,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed});
   ray::FileArgument mesh_file;
   ray::TextArgument text("distance");
   ray::DoubleArgument mesh_offset;

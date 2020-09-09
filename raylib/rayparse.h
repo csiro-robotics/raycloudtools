@@ -67,13 +67,19 @@ struct IntArgument : ValueArgument // e.g. "10"
 
 struct Vector3dArgument : ValueArgument // e.g. "1.0,2,3.26"
 {
+  Vector3dArgument();
+  Vector3dArgument(double min_element_value, double max_element_value) : min_value(min_element_value), max_value(max_element_value) {}
   Eigen::Vector3d value;
+  double min_value, max_value;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 
 struct Vector4dArgument : ValueArgument // e.g. "1.0,2.3,4,6"
 {
+  Vector4dArgument();
+  Vector4dArgument(double min_element_value, double max_element_value) : min_value(min_element_value), max_value(max_element_value) {}
   Eigen::Vector4d value;
+  double min_value, max_value;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
 };
 

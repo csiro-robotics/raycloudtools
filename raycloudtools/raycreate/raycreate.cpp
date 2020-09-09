@@ -30,10 +30,9 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  ray::FileArgument cloud_file;
   ray::KeyChoice choice({"room", "building", "tree", "forest", "terrain"});
   ray::IntArgument seed(1,1000000);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &choice, &seed}))
+  if (!ray::parseCommandLine(argc, argv, {&choice, &seed}))
     usage();
 
   srand(seed.value);

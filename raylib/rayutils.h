@@ -215,7 +215,8 @@ inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<
                               Eigen::Vector3d(0.5, 0.0, 1.0), Eigen::Vector3d(1.0, 0.0, 0.1)};
   for (size_t i = 0; i < values.size(); i++)
   {
-    double v = 6.0 * fmod(values[i]/wavelength, 1.0);
+    double temp = values[i]/wavelength;
+    double v = 6.0 * (temp - std::floor(temp));
     int id = (int)v;
     double blend = v - (double)id;
     Eigen::Vector3d col = cycle[id]*(1.0-blend) + cycle[(id+1)%6]*blend;

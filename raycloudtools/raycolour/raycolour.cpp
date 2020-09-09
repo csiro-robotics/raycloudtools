@@ -31,8 +31,8 @@ int main(int argc, char *argv[])
   ray::FileArgument cloud_file;
   ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha"});
   ray::OptionalFlagArgument unlit("unlit", 'u');
-  ray::Vector3dArgument col;
-  bool standard_format = !ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&unlit});
+  ray::Vector3dArgument col(0.0, 1.0);
+  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&unlit});
   bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col}, {&unlit});
   if (!standard_format && !flat_colour)
     usage();

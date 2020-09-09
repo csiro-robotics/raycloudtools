@@ -51,16 +51,18 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
 {
   if (index >= argc)
     return false;
-  std::string file = std::string(argv[index++]);
-  if (file.length() == 0)
+  std::string file = std::string(argv[index]);
+  if (file.length() <= 4)
     return false;
   // we don't check file existence, that is up to whatever uses the file.
   // but we do check that it has a 3-letter file extension. This lets us disambiguate files from other arguments
   std::string ext = file.substr(file.length() - 4);
-  if (ext.at(0) != '.' || std::isalpha(ext.at(1))==false) // extension must be '.' followed by a letter. Can be numbers after that
+  bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1)) && std::isalnum(ext.at(2)) && std::isalnum(ext.at(3));
+  if (!valid_ext) 
     return false;
   if (set_value)
     name = file;
+  index++;
   return true;
 }
 
@@ -73,13 +75,17 @@ bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
 {
   if (index >= argc)
     return false;
-  double val = std::stod(argv[index++]);
-  value = val; 
+  char *endptr;
+  double val = std::strtod(argv[index], &endptr);
+  if (endptr != argv[index]+std::strlen(argv[index]))
+    return false;
+  index++;
   if (!set_value)
     return true;
   bool in_range = val >= min_value && val <= max_value;
   if (!in_range)
-    std::cout << "Please set the command line value " << value << " within the range: " << min_value << " to " << max_value << std::endl;
+    std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
+  value = val; 
   return in_range;
 }
 
@@ -88,18 +94,29 @@ IntArgument::IntArgument()
   max_value = std::numeric_limits<int>::max();
   min_value = std::numeric_limits<int>::min(); 
 }
+
 bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
 {
   if (index >= argc)
     return false;
-  int val = std::stoi(argv[index++]);
-  value = val;
+  char *endptr;
+  long int val = std::strtol(argv[index], &endptr, 10);
+  if (endptr != argv[index]+std::strlen(argv[index]))
+    return false;
+  index++;
   if (!set_value)
     return true;
-  bool in_range = val >= min_value && val <= max_value;
+  bool in_range = val >= (long int)min_value && val <= (long int)max_value;
   if (!in_range)
-    std::cout << "Please set the command line value " << value << " within the range: " << min_value << " to " << max_value << std::endl;
+    std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
+  value = (int)val;
   return in_range;
+}
+
+Vector3dArgument::Vector3dArgument() 
+{ 
+  max_value = std::numeric_limits<double>::max();
+  min_value = std::numeric_limits<double>::lowest();
 }
 
 bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -107,15 +124,37 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
   if (index >= argc)
     return false;
   std::stringstream ss(argv[index++]);
-  if (set_value)
+  std::string field;
+  int i = 0;
+  while (std::getline(ss, field, ','))
   {
-    ss >> value[0];
-    ss.ignore(1);
-    ss >> value[1];
-    ss.ignore(1);
-    ss >> value[2];
+    if (i==3)
+      return false;
+    char *endptr;
+    const char *str = field.c_str();
+    double val = std::strtod(str, &endptr);
+    if (endptr != str+std::strlen(str))
+      return false;
+    if (set_value)
+    {
+      if (val < min_value || val > max_value)
+      {
+        std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
+        return false;
+      }
+      value[i] = val;
+    }
+    i++;
   }
+  if (i != 3)
+    return false;
   return true;
+}
+
+Vector4dArgument::Vector4dArgument() 
+{ 
+  max_value = std::numeric_limits<double>::max();
+  min_value = std::numeric_limits<double>::lowest();
 }
 
 bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -123,16 +162,30 @@ bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
   if (index >= argc)
     return false;
   std::stringstream ss(argv[index++]);
-  if (set_value)
+  std::string field;
+  int i = 0;
+  while (std::getline(ss, field, ','))
   {
-    ss >> value[0];
-    ss.ignore(1);
-    ss >> value[1];
-    ss.ignore(1);
-    ss >> value[2];
-    ss.ignore(1);
-    ss >> value[3];
+    if (i==4)
+      return false;
+    char *endptr;
+    const char *str = field.c_str();
+    double val = std::strtod(str, &endptr);
+    if (endptr != str+std::strlen(str))
+      return false;
+    if (set_value)
+    {
+      if (val < min_value || val > max_value)
+      {
+        std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
+        return false;
+      }
+      value[i] = val;
+    }
+    i++;
   }
+  if (i != 4)
+    return false;
   return true;
 }
 
@@ -144,7 +197,6 @@ bool FileArgumentList::parse(int argc, char *argv[], int &index, bool set_value)
   {
     if (set_value)
       files.push_back(arg);
-    index++;
     count++;
   }
   return count >= min_number;
@@ -219,7 +271,7 @@ bool OptionalFlagArgument::parse(int argc, char *argv[], int &index, bool set_va
   if (index >= argc)
     return false;
   std::string str(argv[index]);
-  if (str == ("--" + name) || str == ("-" + character))
+  if (str == ("--" + name) || str == ("-" + std::string(1, character)))
   {
     if (set_value)
       is_set = true;

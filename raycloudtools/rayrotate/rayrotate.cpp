@@ -23,7 +23,7 @@ void usage(int exit_code = 0)
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  ray::Vector3dArgument rotation;
+  ray::Vector3dArgument rotation(-360, 360);
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &rotation}))
     usage();
     

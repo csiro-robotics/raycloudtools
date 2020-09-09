@@ -45,7 +45,7 @@ void usage(int exit_code = 0)
   std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayalign raycloudA raycloudB" << std::endl;
-  std::cout << "                             --nonrigid    - nonrigid (quadratic) alignment" << std::endl;
+  std::cout << "                             --nonrigid - nonrigid (quadratic) alignment" << std::endl;
   std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
   std::cout
     << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
@@ -67,8 +67,10 @@ int main(int argc, char *argv[])
   ray::DebugDraw &draw = *ray::DebugDraw::init(argc, argv, "rayalign");
 
   ray::Cloud clouds[2];
-  clouds[0].load(cloud_a.name);
-  clouds[1].load(cloud_b.name);
+  if (!clouds[0].load(cloud_a.name))
+    usage();
+  if (!clouds[1].load(cloud_b.name))
+    usage();
 
   bool local_only = local.is_set;
   bool verbose = is_verbose.is_set;
