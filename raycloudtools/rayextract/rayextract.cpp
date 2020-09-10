@@ -7,6 +7,7 @@
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/rayforest.h"
 #include "raylib/rayutils.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,35 +38,30 @@ void usage(bool error=false)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  if (argc < 3 || argc > 12)
-    usage(true);
-  std::string type(argv[1]);
-  ray::Cloud cloud;
-  std::string file(argv[2]);
-  if (!cloud.load(file))
-    usage(true);
-  if (file.substr(file.length() - 4) == ".ply")
-    file = file.substr(0, file.length() - 4);
+  ray::FileArgument file;
+  ray::TextArgument forest("forest"), terrain("terrain");
+  ray::DoubleArgument tree_roundness(0.01, 3.0);
+  ray::DoubleArgument average_height(0.5, 500.0);
+  ray::DoubleArgument width(0.0, 10.0);
+  ray::OptionalKeyValueArgument roundness_option("tree_roundness", &tree_roundness);
+  ray::OptionalKeyValueArgument height_option("average_height", &average_height);
+  ray::OptionalKeyValueArgument width_option("width", &width);
+  ray::OptionalFlagArgument verbose("verbose", 'v');
 
-  if (type == "forest")
+  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &file}, {&roundness_option, &height_option, &verbose});
+  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &file}, {&width_option, &verbose});
+  if (!extract_forest && !extract_terrain)
+    usage();
+  ray::Cloud cloud;
+  if (!cloud.load(file.name()))
+    usage(true);
+
+  if (extract_forest)
   {
-    double roundness = 0.0;
-    double height = 0.0;
-    bool verbose = false;
-    for (int i = 3; i<argc; i+=2)
-    {
-      std::string str(argv[i]);
-      if (str == "--tree_roundness" || str == "-t")
-        roundness = std::stod(argv[i+1]);
-      else if (str == "--average_height" || str == "-a")
-        height = std::stod(argv[i+1]);
-      else if (str == "--verbose" || str == "-v")
-        verbose = true;
-    }
     ray::Forest forest;
-    forest.tree_roundness = roundness;
-    forest.average_height = height;
-    forest.verbose = verbose;
+    forest.tree_roundness = tree_roundness.value();
+    forest.average_height = average_height.value();
+    forest.verbose = verbose.isSet();
 
 #define TEST
 #if defined TEST
@@ -173,23 +169,10 @@ int main(int argc, char *argv[])
     forest.extract(cloud);
 #endif
   }
-  else if (type == "terrain")
+  else if (extract_terrain)
   {
-    bool verbose = false;
-    double width = 0.0;
-    for (int i = 3; i<argc; i++)
-    {
-      if (std::string(argv[i]) == "--verbose" || std::string(argv[i]) == "-v")
-        verbose = true;
-      if (std::string(argv[i]) == "--width" || std::string(argv[i]) == "-m")
-      {
-        if (argc == i+1)
-          usage(true);
-        width = std::stod(argv[i+1]);
-      }
-    }
     ray::Terrain terrain;
-    terrain.extract(cloud, file, width, verbose);
+    terrain.extract(cloud, file.name(), width.value(), verbose.isSet());
   }
   else
     usage(true);
