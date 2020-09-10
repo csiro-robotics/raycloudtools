@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     usage();
 
   // Method:

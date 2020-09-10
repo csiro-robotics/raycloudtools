@@ -38,13 +38,13 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     usage();
 
   ray::Cloud new_cloud;
   if (range_noise) // range-based distance measure. For mixed-points where lidar has contacted two surfaces.
   {
-    double range_distance = 0.01 * range.value;
+    double range_distance = 0.01 * range.value();
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
@@ -63,9 +63,9 @@ int main(int argc, char *argv[])
     std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
          << range_distance * 100.0 << " cm." << std::endl;
   }
-  else if (quantity.selected_key == "cm") // absolute distance measure
+  else if (quantity.selectedKey() == "cm") // absolute distance measure
   {
-    double distance = 0.01 * vox_width.value;
+    double distance = 0.01 * vox_width.value();
     Eigen::MatrixXi indices;
     Eigen::MatrixXd dists2;
 
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
          << " cm from any other." << std::endl;
   }
-  else if (quantity.selected_key == "sigmas") // scale-invariant distance measure. Same as Mahalanobis distance
+  else if (quantity.selectedKey() == "sigmas") // scale-invariant distance measure. Same as Mahalanobis distance
   {
     std::vector<Eigen::Vector3d> centroids;
     std::vector<Eigen::Vector3d> dimensions;
@@ -132,14 +132,14 @@ int main(int argc, char *argv[])
         dims += dimensions[other_i];
         cnt++;
         double scale2 = newVec.squaredNorm();
-        is_noise = scale2 > sigmas.value*sigmas.value;
+        is_noise = scale2 > sigmas.value()*sigmas.value();
       }
       if (!is_noise)
         new_cloud.addRay(cloud, i);
     }
     dims /= cnt;
     std::cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums/cnt << std::endl;
-    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas.value
+    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas.value()
           << std::endl;
   }
 

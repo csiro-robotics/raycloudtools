@@ -40,21 +40,21 @@ int main(int argc, char *argv[])
 
   ray::DebugDraw::init(argc, argv, "ConcaveHull");
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     usage();
   cloud.removeUnboundedRays();
 
-  if (full.is_set)
+  if (full.isSet())
   {
     ray::ConcaveHull concave_hull(cloud.ends);
-    if (direction.selected_key == "inwards")
-      concave_hull.growInwards(curvature.value);
-    else if (direction.selected_key == "outwards")
-      concave_hull.growOutwards(curvature.value);
-    else if (direction.selected_key == "upwards")
-      concave_hull.growUpwards(curvature.value);
-    else if (direction.selected_key == "downwards")
-      concave_hull.growTopDown(curvature.value);
+    if (direction.selectedKey() == "inwards")
+      concave_hull.growInwards(curvature.value());
+    else if (direction.selectedKey() == "outwards")
+      concave_hull.growOutwards(curvature.value());
+    else if (direction.selectedKey() == "upwards")
+      concave_hull.growUpwards(curvature.value());
+    else if (direction.selectedKey() == "downwards")
+      concave_hull.growTopDown(curvature.value());
     else
       usage();
 
@@ -63,14 +63,14 @@ int main(int argc, char *argv[])
   else
   {
     ray::ConvexHull convex_hull(cloud.ends);
-    if (direction.selected_key == "inwards")
-      convex_hull.growInwards(curvature.value);
-    else if (direction.selected_key == "outwards")
-      convex_hull.growOutwards(curvature.value);
-    else if (direction.selected_key == "upwards")
-      convex_hull.growUpwards(curvature.value);
-    else if (direction.selected_key == "downwards")
-      convex_hull.growTopDown(curvature.value);
+    if (direction.selectedKey() == "inwards")
+      convex_hull.growInwards(curvature.value());
+    else if (direction.selectedKey() == "outwards")
+      convex_hull.growOutwards(curvature.value());
+    else if (direction.selectedKey() == "upwards")
+      convex_hull.growUpwards(curvature.value());
+    else if (direction.selectedKey() == "downwards")
+      convex_hull.growTopDown(curvature.value());
     else
       usage();
 

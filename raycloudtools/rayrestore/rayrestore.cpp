@@ -31,14 +31,14 @@ int main(int argc, char *argv[])
 
 
   ray::Cloud decimated_cloud;
-  if (!decimated_cloud.load(cloud_file.name))
+  if (!decimated_cloud.load(cloud_file.name()))
     usage();
 
   ray::Cloud full_cloud;
-  if (!full_cloud.load(full_cloud_file.name))
+  if (!full_cloud.load(full_cloud_file.name()))
     usage();
 
-  bool spatial_decimation = quantity.selected_key == "cm";
+  bool spatial_decimation = quantity.selectedKey() == "cm";
   std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
   double voxel_width = 0;
   int ray_step = 0;
@@ -46,13 +46,13 @@ int main(int argc, char *argv[])
   std::cout << "decimating..." << std::endl;
   if (spatial_decimation)
   {
-    voxel_width = 0.01 * vox_width.value;
+    voxel_width = 0.01 * vox_width.value();
     full_decimated = full_cloud;
     full_decimated.decimate(voxel_width, &voxel_set); 
   }
   else
   {
-    ray_step = num_rays.value;
+    ray_step = num_rays.value();
     for (size_t i = 0; i < full_cloud.ends.size(); i += ray_step)
       full_decimated.addRay(full_cloud, i);
   }

@@ -67,14 +67,14 @@ int main(int argc, char *argv[])
   ray::DebugDraw &draw = *ray::DebugDraw::init(argc, argv, "rayalign");
 
   ray::Cloud clouds[2];
-  if (!clouds[0].load(cloud_a.name))
+  if (!clouds[0].load(cloud_a.name()))
     usage();
-  if (!clouds[1].load(cloud_b.name))
+  if (!clouds[1].load(cloud_b.name()))
     usage();
 
-  bool local_only = local.is_set;
-  bool verbose = is_verbose.is_set;
-  bool non_rigid = nonrigid.is_set;
+  bool local_only = local.isSet();
+  bool verbose = is_verbose.isSet();
+  bool non_rigid = nonrigid.isSet();
   if (!local_only)
   {
     alignCloud0ToCloud1(clouds, 0.5, verbose);

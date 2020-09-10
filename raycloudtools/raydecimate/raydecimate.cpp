@@ -30,29 +30,25 @@ int main(int argc, char *argv[])
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity}))
     usage();
 
-  std::string file = argv[1];
   ray::Cloud cloud;
-  if (!cloud.load(file))
+  if (!cloud.load(cloud_file.name()))
     usage();
 
   ray::Cloud new_cloud;
-  std::string type = argv[3];
+  std::string type = quantity.selectedKey();
   if (type == "cm")
   {
-    cloud.decimate(0.01 * std::stod(argv[2]));
+    cloud.decimate(0.01 * vox_width.value());
   }
   else if (type == "rays")
   {
-    int decimation = std::stoi(argv[2]);
+    int decimation = num_rays.value();
     for (int i = 0; i < (int)cloud.ends.size(); i += decimation)
       new_cloud.addRay(cloud, i);
     cloud = new_cloud;
   }
   else
     usage(false);
-  std::string file_stub = file;
-  if (file.substr(file.length() - 4) == ".ply")
-    file_stub = file.substr(0, file.length() - 4);
-  cloud.save(file_stub + "_decimated.ply");
+  cloud.save(cloud_file.nameStub() + "_decimated.ply");
   return true;
 }

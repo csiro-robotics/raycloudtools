@@ -69,44 +69,44 @@ int main(int argc, char *argv[])
 
   ray::DebugDraw::init(argc, argv, "raycombine");
   // we know there is at least one file, as we specified a minimum number in FileArgumentList
-  std::string file_stub = (threeway || threeway_concatenate) ? base_cloud.nameStub() : cloud_files.files[0].nameStub(); 
+  std::string file_stub = (threeway || threeway_concatenate) ? base_cloud.nameStub() : cloud_files.files()[0].nameStub(); 
 
-  std::vector<ray::Cloud> clouds;;
+  std::vector<ray::Cloud> clouds;
   if (threeway || threeway_concatenate)
   {
     clouds.resize(2);
-    if (!clouds[0].load(cloud_1.name))
+    if (!clouds[0].load(cloud_1.name()))
       usage();
-    if (!clouds[1].load(cloud_2.name))
+    if (!clouds[1].load(cloud_2.name()))
       usage();
   }
   else
   {
-    clouds.resize(cloud_files.files.size());
-    for (int i = 0; i < (int)cloud_files.files.size(); i++) 
-      if (!clouds[i].load(cloud_files.files[i].name))
+    clouds.resize(cloud_files.files().size());
+    for (int i = 0; i < (int)cloud_files.files().size(); i++) 
+      if (!clouds[i].load(cloud_files.files()[i].name()))
         usage();
   }
 
   ray::Threads::init();
   ray::MergerConfig config;
   config.voxel_size = 0.0;  // Infer voxel size
-  config.num_rays_filter_threshold = num_rays.value;
+  config.num_rays_filter_threshold = num_rays.value();
   config.merge_type = ray::MergeType::Mininum;
 
-  if (merge_type.selected_key == "oldest")
+  if (merge_type.selectedKey() == "oldest")
   {
     config.merge_type = ray::MergeType::Oldest;
   }
-  if (merge_type.selected_key == "newest")
+  if (merge_type.selectedKey() == "newest")
   {
     config.merge_type = ray::MergeType::Newest;
   }
-  if (merge_type.selected_key == "min")
+  if (merge_type.selectedKey() == "min")
   {
     config.merge_type = ray::MergeType::Mininum;
   }
-  if (merge_type.selected_key == "max")
+  if (merge_type.selectedKey() == "max")
   {
     config.merge_type = ray::MergeType::Maximum;
   }

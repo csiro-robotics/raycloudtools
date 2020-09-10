@@ -30,14 +30,15 @@ int main(int argc, char *argv[])
   ray::Pose pose;
   pose.position = Eigen::Vector3d(0, 0, 0);
 
-  double angle = rotation.value.norm();
-  rotation.value /= angle;
-  pose.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(angle * ray::kPi / 180.0, rotation.value));
+  Eigen::Vector3d rot = rotation.value();
+  double angle = rot.norm();
+  rot /= angle;
+  pose.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(angle * ray::kPi / 180.0, rot));
 
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     usage();
   cloud.transform(pose, 0.0);
-  cloud.save(cloud_file.name);
+  cloud.save(cloud_file.name());
   return true;
 }

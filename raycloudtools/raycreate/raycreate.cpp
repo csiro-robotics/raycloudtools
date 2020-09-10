@@ -30,16 +30,16 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  ray::KeyChoice choice({"room", "building", "tree", "forest", "terrain"});
+  ray::KeyChoice cloud_type({"room", "building", "tree", "forest", "terrain"});
   ray::IntArgument seed(1,1000000);
-  if (!ray::parseCommandLine(argc, argv, {&choice, &seed}))
+  if (!ray::parseCommandLine(argc, argv, {&cloud_type, &seed}))
     usage();
 
-  srand(seed.value);
+  srand(seed.value());
 
   ray::Cloud cloud;
   const double time_delta = 0.001; // between rays
-  std::string type = choice.selected_key;
+  std::string type = cloud_type.selectedKey();
   if (type == "room")
   {
     // create room

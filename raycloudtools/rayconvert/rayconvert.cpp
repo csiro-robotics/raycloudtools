@@ -29,11 +29,11 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name, trajectory_file.name))
+  if (!cloud.load(cloud_file.name(), trajectory_file.name()))
     usage();
 
   std::string save_file = cloud_file.nameStub();
-  if (cloud_file.name.substr(cloud_file.name.size() - 4) == ".ply")
+  if (cloud_file.nameExt() == "ply")
     save_file += "_raycloud";
   cloud.save(save_file + ".ply");
 

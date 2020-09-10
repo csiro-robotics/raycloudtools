@@ -12,15 +12,15 @@ namespace ray
 {
 // Process the command line according to the specified format.
 // fixed_arguments are always in order and don't have a "-" prefix. optional_arguments appear in any order after the fixed arguments, and have a "-" or "--" prefix.
-bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments, std::vector<OptionalArgument *> optional_arguments, bool set_values)
+bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments, std::vector<OptionalArgument *> optional_arguments, bool set_values_)
 {
-  // if we are setting the argument values then first run the parsing without setting them, and then only continue (to set them) if the format matches.
-  if (set_values && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false)) 
+  // if we are setting the argument values_ then first run the parsing without setting them, and then only continue (to set them) if the format matches.
+  if (set_values_ && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false)) 
     return false;
   int c = 1;
   for (auto &l: fixed_arguments)
   {
-    if (!l->parse(argc, argv, c, set_values))
+    if (!l->parse(argc, argv, c, set_values_))
       return false;
   }
   while (c < argc) // now process the optional_arguments. For each command line index we need to loop through all remaining optional arguments
@@ -28,7 +28,7 @@ bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *>
     bool found = false;
     for (size_t i = 0; i<optional_arguments.size(); i++)
     {
-      if (optional_arguments[i]->parse(argc, argv, c, set_values))
+      if (optional_arguments[i]->parse(argc, argv, c, set_values_))
       {
         found = true;
         optional_arguments[i] = optional_arguments.back();
@@ -46,7 +46,7 @@ bool TextArgument::parse(int argc, char *argv[], int &index, bool)
 {
   if (index >= argc)
     return false;
-  return std::string(argv[index++]) == name;
+  return std::string(argv[index++]) == name_;
 }
 
 bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -57,22 +57,22 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
   if (file.length() <= 4)
     return false;
   // we don't check file existence, that is up to whatever uses the file.
-  // but we do check that it has a 3-letter file extension. This lets us disambiguate files from other arguments
+  // but we do check that it has a 3-letter file extension. This lets us disambiguate files_ from other arguments
   // and isn't too restrictive, we would rather users use extensions on their file names.
   std::string ext = file.substr(file.length() - 4);
   bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1)) && std::isalnum(ext.at(2)) && std::isalnum(ext.at(3));
   if (!valid_ext) 
     return false;
   if (set_value)
-    name = file;
+    name_ = file;
   index++;
   return true;
 }
 
 DoubleArgument::DoubleArgument()
 { 
-  max_value = std::numeric_limits<double>::max();
-  min_value = std::numeric_limits<double>::lowest();
+  max_value_ = std::numeric_limits<double>::max();
+  min_value_ = std::numeric_limits<double>::lowest();
 }
 bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
 {
@@ -85,17 +85,17 @@ bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
   index++;
   if (!set_value)
     return true;
-  bool in_range = val >= min_value && val <= max_value;
+  bool in_range = val >= min_value_ && val <= max_value_;
   if (!in_range)
-    std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
-  value = val; 
+    std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
+  value_ = val; 
   return in_range;
 }
 
 IntArgument::IntArgument() 
 { 
-  max_value = std::numeric_limits<int>::max();
-  min_value = std::numeric_limits<int>::min(); 
+  max_value_ = std::numeric_limits<int>::max();
+  min_value_ = std::numeric_limits<int>::min(); 
 }
 
 bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -109,17 +109,17 @@ bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
   index++;
   if (!set_value)
     return true;
-  bool in_range = val >= (long int)min_value && val <= (long int)max_value;
+  bool in_range = val >= (long int)min_value_ && val <= (long int)max_value_;
   if (!in_range)
-    std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
-  value = (int)val;
+    std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
+  value_ = (int)val;
   return in_range;
 }
 
 Vector3dArgument::Vector3dArgument() 
 { 
-  max_value = std::numeric_limits<double>::max();
-  min_value = std::numeric_limits<double>::lowest();
+  max_value_ = std::numeric_limits<double>::max();
+  min_value_ = std::numeric_limits<double>::lowest();
 }
 
 bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -140,12 +140,12 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
       return false;
     if (set_value)
     {
-      if (val < min_value || val > max_value)
+      if (val < min_value_ || val > max_value_)
       {
-        std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
+        std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
         return false;
       }
-      value[i] = val;
+      value_[i] = val;
     }
     i++;
   }
@@ -156,8 +156,8 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
 
 Vector4dArgument::Vector4dArgument() 
 { 
-  max_value = std::numeric_limits<double>::max();
-  min_value = std::numeric_limits<double>::lowest();
+  max_value_ = std::numeric_limits<double>::max();
+  min_value_ = std::numeric_limits<double>::lowest();
 }
 
 bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -178,12 +178,12 @@ bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
       return false;
     if (set_value)
     {
-      if (val < min_value || val > max_value)
+      if (val < min_value_ || val > max_value_)
       {
-        std::cout << "Please set argument " << index << " within the range: " << min_value << " to " << max_value << std::endl;
+        std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
         return false;
       }
-      value[i] = val;
+      value_[i] = val;
     }
     i++;
   }
@@ -199,10 +199,10 @@ bool FileArgumentList::parse(int argc, char *argv[], int &index, bool set_value)
   while (arg.parse(argc, argv, index, set_value))
   {
     if (set_value)
-      files.push_back(arg);
+      files_.push_back(arg);
     count++;
   }
-  return count >= min_number;
+  return count >= min_number_;
 } 
 
 bool KeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
@@ -211,14 +211,14 @@ bool KeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   std::string str(argv[index]);
   index++;
-  for (size_t i = 0; i<keys.size(); i++)
+  for (size_t i = 0; i<keys_.size(); i++)
   {
-    if (keys[i] == str)
+    if (keys_[i] == str)
     {
       if (set_value)
       {
-        selected_id = (int)i; 
-        selected_key = str;
+        selected_id_ = (int)i; 
+        selected_key_ = str;
       }
       return true;
     }
@@ -232,16 +232,16 @@ bool KeyValueChoice::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   std::string str(argv[index]);
   index++;
-  for (size_t i = 0; i<keys.size(); i++)
+  for (size_t i = 0; i<keys_.size(); i++)
   {
-    if (keys[i] == str)
+    if (keys_[i] == str)
     {
       if (set_value)
       {
-        selected_id = (int)i;
-        selected_key = str;
+        selected_id_ = (int)i;
+        selected_key_ = str;
       }
-      return values[i]->parse(argc, argv, index, set_value);
+      return values_[i]->parse(argc, argv, index, set_value);
     }
   }
   return false;
@@ -252,16 +252,16 @@ bool ValueKeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
   if (index+1 >= argc)
     return false;
   std::string str(argv[index+1]);
-  for (size_t i = 0; i<keys.size(); i++)
+  for (size_t i = 0; i<keys_.size(); i++)
   {
-    if (keys[i] == str)
+    if (keys_[i] == str)
     {
       if (set_value)
       {
-        selected_id = (int)i;
-        selected_key = str;
+        selected_id_ = (int)i;
+        selected_key_ = str;
       }
-      bool parsed = values[i]->parse(argc, argv, index, set_value);
+      bool parsed = values_[i]->parse(argc, argv, index, set_value);
       index++;
       return parsed;
     }
@@ -274,10 +274,10 @@ bool OptionalFlagArgument::parse(int argc, char *argv[], int &index, bool set_va
   if (index >= argc)
     return false;
   std::string str(argv[index]);
-  if (str == ("--" + name) || str == ("-" + std::string(1, character)))
+  if (str == ("--" + name_) || str == ("-" + std::string(1, character_)))
   {
     if (set_value)
-      is_set = true;
+      is_set_ = true;
     index++; // for optional parameters, we only increment the argument index when it has been found
     return true;
   }
@@ -289,12 +289,12 @@ bool OptionalKeyValueArgument::parse(int argc, char *argv[], int &index, bool se
   if (index >= argc)
     return false;
   std::string str(argv[index]);
-  if (str == ("--" + name))
+  if (str == ("--" + name_))
   {
     if (set_value) 
-      is_set = true;
+      is_set_ = true;
     index++; // for optional parameters, we only increment the argument index when it has been found
-    value->parse(argc, argv, index, set_value);
+    value_->parse(argc, argv, index, set_value);
     return true;
   }
   return false;

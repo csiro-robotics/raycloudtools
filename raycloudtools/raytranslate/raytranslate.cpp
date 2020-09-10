@@ -34,16 +34,16 @@ int main(int argc, char *argv[])
   ray::Pose pose;
   double time_delta = 0.0;
   if (vec3)
-    pose.position = translation3.value;
+    pose.position = translation3.value();
   else
   {
-    pose.position = translation4.value.head<3>();
-    time_delta = translation4.value[3];
+    pose.position = translation4.value().head<3>();
+    time_delta = translation4.value()[3];
   }
   pose.rotation = Eigen::Quaterniond(1.0, 0.0, 0.0, 0.0);
 
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     usage();
 #if 0  // test bending
   Eigen::Vector3d bend(pose.position[0], pose.position[1], 0.0);
@@ -53,6 +53,6 @@ int main(int argc, char *argv[])
 #else
   cloud.transform(pose, time_delta);
 #endif
-  cloud.save(cloud_file.name);
+  cloud.save(cloud_file.name());
   return true;
 }

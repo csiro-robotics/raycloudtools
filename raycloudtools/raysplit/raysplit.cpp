@@ -47,40 +47,40 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     usage();
   ray::Cloud inside, outside;
   if (mesh_split)
   {
     ray::Mesh mesh;
-    ray::readPlyMesh(mesh_file.name, mesh);
-    mesh.splitCloud(cloud, mesh_offset.value, inside, outside);
+    ray::readPlyMesh(mesh_file.name(), mesh);
+    mesh.splitCloud(cloud, mesh_offset.value(), inside, outside);
   }
   else
   {
-    std::string &parameter = choice.selected_key;
+    const std::string &parameter = choice.selectedKey();
     if (parameter == "time")
     {
-      cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > time.value; });
+      cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > time.value(); });
     }
     else if (parameter == "alpha")
     {
-      uint8_t c = uint8_t(255.0 * alpha.value);
+      uint8_t c = uint8_t(255.0 * alpha.value());
       cloud.split(inside, outside, [&](int i) { return cloud.colours[i].alpha > c; });
     }
     else if (parameter == "pos")
     {
-      Eigen::Vector3d vec = pos.value / pos.value.squaredNorm();
+      Eigen::Vector3d vec = pos.value() / pos.value().squaredNorm();
       cloud.split(inside, outside, [&](int i) { return cloud.ends[i].dot(vec) > 1.0; });
     }
     else if (parameter == "startpos")
     {
-      Eigen::Vector3d vec = startpos.value / startpos.value.squaredNorm();
+      Eigen::Vector3d vec = startpos.value() / startpos.value().squaredNorm();
       cloud.split(inside, outside, [&](int i) { return cloud.starts[i].dot(vec) > 0.0; });
     }
     else if (parameter == "raydir")
     {
-      Eigen::Vector3d vec = raydir.value / raydir.value.squaredNorm();
+      Eigen::Vector3d vec = raydir.value() / raydir.value().squaredNorm();
       cloud.split(inside, outside, [&](int i) {
         Eigen::Vector3d ray_dir = (cloud.ends[i] - cloud.starts[i]).normalized();
         return ray_dir.dot(vec) > 0.0;
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
     }
     else if (parameter == "colour")
     {
-      Eigen::Vector3d vec = colour.value / colour.value.squaredNorm();
+      Eigen::Vector3d vec = colour.value() / colour.value().squaredNorm();
       cloud.split(inside, outside, [&](int i) {
         Eigen::Vector3d col((double)cloud.colours[i].red / 255.0, (double)cloud.colours[i].green / 255.0,
                      (double)cloud.colours[i].blue / 255.0);
@@ -97,14 +97,14 @@ int main(int argc, char *argv[])
     }
     else if (parameter == "range")
     {
-      cloud.split(inside, outside, [&](int i) { return (cloud.starts[i] - cloud.ends[i]).norm() > range.value; });
+      cloud.split(inside, outside, [&](int i) { return (cloud.starts[i] - cloud.ends[i]).norm() > range.value(); });
     }
     else if (parameter == "speed")
     {
       cloud.split(inside, outside, [&](int i) {
         if (i == 0)
           return false;
-        return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > speed.value;
+        return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > speed.value();
       });
     }
   }

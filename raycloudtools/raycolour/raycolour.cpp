@@ -37,11 +37,11 @@ int main(int argc, char *argv[])
   if (!standard_format && !flat_colour)
     usage();
   
-  bool shading = !unlit.is_set;
+  bool shading = !unlit.isSet();
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     return 0;
-  std::string type = colour_type.selected_key;
+  std::string type = colour_type.selectedKey();
 
   // what I need is the normal, curvature, eigenvalues, per point.
   struct Data
@@ -82,9 +82,9 @@ int main(int argc, char *argv[])
   {
     for (auto &colour : cloud.colours)
     {
-      colour.red = (uint8_t)(255.0 * col.value[0]);
-      colour.green = (uint8_t)(255.0 * col.value[1]);
-      colour.blue = (uint8_t)(255.0 * col.value[2]);
+      colour.red = (uint8_t)(255.0 * col.value()[0]);
+      colour.green = (uint8_t)(255.0 * col.value()[1]);
+      colour.blue = (uint8_t)(255.0 * col.value()[2]);
     }
   }
   else if (type == "time")

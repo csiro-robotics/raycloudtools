@@ -52,30 +52,30 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name))
+  if (!cloud.load(cloud_file.name()))
     usage();
 
   ray::Threads::init();
   ray::MergerConfig config;
   // Note: we actually get better multi-threaded performace with smaller voxels
   config.voxel_size = 0.0;
-  config.num_rays_filter_threshold = num_rays.value;
+  config.num_rays_filter_threshold = num_rays.value();
   config.merge_type = ray::MergeType::Mininum;
-  config.colour_cloud = colour.is_set;
+  config.colour_cloud = colour.isSet();
 
-  if (merge_type.selected_key == "oldest")
+  if (merge_type.selectedKey() == "oldest")
   {
     config.merge_type = ray::MergeType::Oldest;
   }
-  if (merge_type.selected_key == "newest")
+  if (merge_type.selectedKey() == "newest")
   {
     config.merge_type = ray::MergeType::Newest;
   }
-  if (merge_type.selected_key == "min")
+  if (merge_type.selectedKey() == "min")
   {
     config.merge_type = ray::MergeType::Mininum;
   }
-  if (merge_type.selected_key == "max")
+  if (merge_type.selectedKey() == "max")
   {
     config.merge_type = ray::MergeType::Maximum;
   }
