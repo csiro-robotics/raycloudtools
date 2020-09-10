@@ -38,6 +38,7 @@ set(PUBLIC_HEADERS
   raytreegen.h
   rayunused.h
   rayutils.h
+  rayparse.h
 )
 
 set(PRIVATE_HEADERS
@@ -65,6 +66,7 @@ set(SOURCES
   raythreads.cpp
   raytrajectory.cpp
   raytreegen.cpp
+  rayparse.cpp
 )
 
 # Select the source file to use with raydebudraw.

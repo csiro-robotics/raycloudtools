@@ -13,6 +13,8 @@ void writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &
                    const std::vector<double> &times, const std::vector<RGBA> &colours)
 {
   std::cout << "saving to " << file_name << ", " << ends.size() << " rays." << std::endl;
+  if (ends.size() == 0)
+    std::cerr << "Error: save out ray file with zero rays" << std::endl;
 
   std::vector<RGBA> rgb(times.size());
   if (colours.size() > 0)
@@ -154,6 +156,11 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
   size_t num_bounded = 0;
   size_t num_unbounded = 0;
   bool warning_set = false;
+  if (size == 0)
+  {
+    std::cerr << "no entries found in ply file" << std::endl;
+    return false;
+  }
 
   // pre-reserving avoids memory fragmentation
   ends.reserve(size);

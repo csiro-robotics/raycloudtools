@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,22 +22,23 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 5)
+  ray::FileArgument cloud_file, full_cloud_file;
+  ray::DoubleArgument vox_width(0.1, 100.0);
+  ray::IntArgument num_rays(1, 100);
+  ray::ValueKeyChoice quantity({&vox_width, &num_rays}, {"cm", "rays"});
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity, &full_cloud_file}))
     usage();
 
-  if (std::string(argv[3]) != "cm" && std::string(argv[3]) != "rays")
-    usage();
-  std::string decimated_file = argv[1];
+
   ray::Cloud decimated_cloud;
-  if (!decimated_cloud.load(decimated_file))
+  if (!decimated_cloud.load(cloud_file.name()))
     usage();
 
-  std::string full_file = argv[4];
   ray::Cloud full_cloud;
-  if (!full_cloud.load(full_file))
+  if (!full_cloud.load(full_cloud_file.name()))
     usage();
 
-  bool spatial_decimation = std::string(argv[3]) == "cm";
+  bool spatial_decimation = quantity.selectedKey() == "cm";
   std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
   double voxel_width = 0;
   int ray_step = 0;
@@ -44,13 +46,13 @@ int main(int argc, char *argv[])
   std::cout << "decimating..." << std::endl;
   if (spatial_decimation)
   {
-    voxel_width = 0.01 * std::stod(argv[2]);
+    voxel_width = 0.01 * vox_width.value();
     full_decimated = full_cloud;
     full_decimated.decimate(voxel_width, &voxel_set); 
   }
   else
   {
-    ray_step = std::stoi(argv[2]);
+    ray_step = num_rays.value();
     for (size_t i = 0; i < full_cloud.ends.size(); i += ray_step)
       full_decimated.addRay(full_cloud, i);
   }
@@ -197,9 +199,6 @@ int main(int argc, char *argv[])
   for (auto &ray_index: added_ray_indices)
     full_cloud.addRay(decimated_cloud, ray_index);
 
-  std::string file_stub = full_file;
-  if (full_file.substr(full_file.length() - 4) == ".ply")
-    file_stub = full_file.substr(0, full_file.length() - 4);
-  full_cloud.save(file_stub + "_restored.ply");
+  full_cloud.save(full_cloud_file.nameStub() + "_restored.ply");
   return true;
 }
