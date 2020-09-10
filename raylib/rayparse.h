@@ -15,7 +15,23 @@ namespace ray
 /// Parses a command line according to a given format which can include fixed arguments and then a set of optional arguments
 /// Values in the passed-in lists are only set when it returns true. This allows the function to be called multiple times for different formats
 /// Only make @param set_values false if you only need to know if the format matches the arguments @param argv.
-bool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments, 
+///
+/// Example for command line: rayxxx raycloud.ply 0,0,30 --debug  <-- or -d, or no argument here
+/// FileArgument file;
+/// Vector3d argument rot(-360, 360); <-- constrain the rotation angle on each axis between -360 and 360 degrees
+/// OptionalFlag debug("debug", 'd');
+/// if (!ray::parseCommandLine(argc, argv, {&file, &rot}, {&debug})) <-- result in file.name() and rot.value()
+///   print_usage_and_exit();
+///
+/// Multi-format example: 1) rayxx raycloud.ply scale 4.0   2) rayxxx smooth raycloud.ply 
+/// FileArgument file;
+/// TextArgument scale("scale"), smooth("smooth"); <-- look for specific text
+/// DoubleArgument scale_val(0.0, 100.0);  <-- viable range of values
+/// bool format1 = ray::parseCommandLine(argc, argv, {&file, &scale, &scale_val}));
+/// bool format2 = ray::parseCommandLine(argc, argv, {&smooth, &file}));
+/// if (!format1 && !format2)
+///   print_usage_and_exit();
+ool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments, 
                       std::vector<struct OptionalArgument *> optional_arguments = std::vector<struct OptionalArgument *>(), 
                       bool set_values = true);
 
@@ -35,7 +51,7 @@ public:
   virtual ~FixedArgument() = default;
 };
 
-/// Example: "distance"
+/// Specify a fixed piece of text, for example "range" in "raydenoise raycloud.ply range 4 cm"
 class RAYLIB_EXPORT TextArgument : public FixedArgument 
 {
 public:
@@ -47,14 +63,17 @@ private:
   std::string name_;
 };
 
-/// Example: "mycloud.ply"
+/// This is a file name (which may contain the path), it is checked that the text has an extension,
+/// but the existence of the file is not checked and must be done so on any later load function
 class RAYLIB_EXPORT FileArgument : public FixedArgument 
 {
 public:
   virtual ~FileArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
-  std::string nameStub() const { return name_.substr(0, name_.length() - 4); } // we assume a 3 letter file type
-  std::string nameExt() const { return name_.substr(name_.length() - 3); }
+  // after successful parsing, name_ is guaranteed to have more than 4 characters,
+  // so we don't need error codes for these edge cases, but we do clamp for safety
+  std::string nameStub() const { return name_.substr(0, std::max(0, (int)name_.length() - 4)); } 
+  std::string nameExt() const { return name_.substr(std::max(0, (int)name_.length() - 3)); }
   inline const std::string &name() const { return name_; }
 private:
   std::string name_;
@@ -67,7 +86,7 @@ public:
   virtual ~ValueArgument() = default;
 };
 
-/// Example: "4.35"
+/// For real values, example: "4.35"
 class RAYLIB_EXPORT DoubleArgument : public ValueArgument 
 {
 public:
@@ -81,7 +100,7 @@ private:
   double min_value_, max_value_;
 };
 
-/// Example: "10"
+/// For integer values, example: "10"
 class RAYLIB_EXPORT IntArgument : public ValueArgument 
 {
 public:
@@ -95,7 +114,7 @@ private:
   int min_value_, max_value_;
 };
 
-/// Example: "1.0,2,3.26"
+/// For 3-component vector values, example: "1.0,2,3.26"
 class RAYLIB_EXPORT Vector3dArgument : public ValueArgument 
 {
 public:
@@ -109,7 +128,7 @@ private:
   double min_value_, max_value_;
 };
 
-/// Example: "1.0,2.4,4,-6"
+/// For 4-component vector values, example: "1.0,2.4,4,-6"
 class RAYLIB_EXPORT Vector4dArgument : public ValueArgument 
 {
 public:
