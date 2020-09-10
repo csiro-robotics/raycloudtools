@@ -51,8 +51,6 @@ public:
 /// These are for fixed formats, so without - or -- prefix.
 class RAYLIB_EXPORT FixedArgument : public Argument 
 {
-public:
-  virtual ~FixedArgument() = default;
 };
 
 /// Specify a fixed piece of text, for example "range" in "raydenoise raycloud.ply range 4 cm"
@@ -60,7 +58,6 @@ class RAYLIB_EXPORT TextArgument : public FixedArgument
 {
 public:
   TextArgument(const std::string &name): name_(name) {}
-  virtual ~TextArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool);
   inline const std::string &name() const { return name_; }
 private:
@@ -72,12 +69,23 @@ private:
 class RAYLIB_EXPORT FileArgument : public FixedArgument 
 {
 public:
-  virtual ~FileArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
-  // after successful parsing, name_ is guaranteed to have more than 4 characters,
-  // so we don't need error codes for these edge cases, but we do clamp for safety
-  std::string nameStub() const { return name_.substr(0, std::max(0, (int)name_.length() - 4)); } 
-  std::string nameExt() const { return name_.substr(std::max(0, (int)name_.length() - 3)); }
+  /// Stub is the part of the file before the '.'
+  std::string nameStub() const 
+  { 
+    const size_t last_dot = name_.find_last_of('.');
+    if (last_dot != std::string::npos)
+      return name_.substr(0, last_dot);
+    return name_;
+  }
+  /// The extension (excluding the dot)
+  std::string nameExt() const 
+  { 
+    const size_t last_dot = name_.find_last_of('.');
+    if (last_dot != std::string::npos)
+      return name_.substr(last_dot + 1);
+    return "";
+  }
   inline const std::string &name() const { return name_; }
 private:
   std::string name_;
@@ -86,8 +94,6 @@ private:
 /// Numerical values
 class RAYLIB_EXPORT ValueArgument : public FixedArgument 
 {
-public:
-  virtual ~ValueArgument() = default;
 };
 
 /// For real values, example: "4.35"
@@ -96,7 +102,6 @@ class RAYLIB_EXPORT DoubleArgument : public ValueArgument
 public:
   DoubleArgument();
   DoubleArgument(double min_value, double max_value) : min_value_(min_value), max_value_(max_value) {}
-  virtual ~DoubleArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline double value() const { return value_; }
 private:
@@ -110,7 +115,6 @@ class RAYLIB_EXPORT IntArgument : public ValueArgument
 public:
   IntArgument();
   IntArgument(int min_value, int max_value) : min_value_(min_value), max_value_(max_value) {}
-  virtual ~IntArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline int value() const { return value_; }
 private:
@@ -124,7 +128,6 @@ class RAYLIB_EXPORT Vector3dArgument : public ValueArgument
 public:
   Vector3dArgument();
   Vector3dArgument(double min_element_value, double max_element_value) : min_value_(min_element_value), max_value_(max_element_value) {}
-  virtual ~Vector3dArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const Eigen::Vector3d &value() const { return value_; }
 private:
@@ -138,7 +141,6 @@ class RAYLIB_EXPORT Vector4dArgument : public ValueArgument
 public:
   Vector4dArgument();
   Vector4dArgument(double min_element_value, double max_element_value) : min_value_(min_element_value), max_value_(max_element_value) {}
-  virtual ~Vector4dArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const Eigen::Vector4d &value() const { return value_; }
 private:
@@ -151,7 +153,6 @@ class RAYLIB_EXPORT FileArgumentList : public FixedArgument
 {
 public:
   FileArgumentList(int min_number) : min_number_(min_number) {}
-  virtual ~FileArgumentList() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<FileArgument> &files() const { return files_; }
 private:
@@ -164,7 +165,6 @@ class RAYLIB_EXPORT KeyChoice : public FixedArgument
 {
 public:
   KeyChoice(const std::initializer_list<std::string> &keys) : keys_(keys), selected_id_(-1) {}
-  virtual ~KeyChoice() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
   inline int selectedID() const { return selected_id_; }
@@ -181,7 +181,6 @@ class RAYLIB_EXPORT KeyValueChoice : public FixedArgument
 public:
   KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<ValueArgument *> &values) : 
     keys_(keys), values_(values), selected_id_(-1) {}
-  virtual ~KeyValueChoice() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
   inline const std::vector<ValueArgument *> &values() const { return values_; }
@@ -201,7 +200,6 @@ public:
   ValueKeyChoice(const std::initializer_list<ValueArgument *> &values, 
                  const std::initializer_list<std::string> &keys) : 
                    values_(values), keys_(keys), selected_id_(-1) {}
-  virtual ~ValueKeyChoice() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
   inline const std::vector<ValueArgument *> &values() const { return values_; }
@@ -217,8 +215,6 @@ private:
 /// For optional arguments, with the - or -- prefix
 class RAYLIB_EXPORT OptionalArgument : public Argument 
 {
-public:
-  virtual ~OptionalArgument() = default;
 };
 
 /// Optional flag, e.g. "--enable_x" or "-e"
@@ -227,7 +223,6 @@ class RAYLIB_EXPORT OptionalFlagArgument : public OptionalArgument
 public:
   OptionalFlagArgument(const std::string &name, char character) : 
     name_(name), character_(character), is_set_(false) {}
-  virtual ~OptionalFlagArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
   inline bool isSet() const { return is_set_; }
@@ -243,7 +238,6 @@ struct RAYLIB_EXPORT OptionalKeyValueArgument : OptionalArgument
 public:
   OptionalKeyValueArgument(const std::string &name, ValueArgument *value) : 
     name_(name), value_(value), is_set_(false) {}
-  virtual ~OptionalKeyValueArgument() = default;
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
 private:
