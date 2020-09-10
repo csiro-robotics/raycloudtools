@@ -41,6 +41,9 @@ bool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<st
 class RAYLIB_EXPORT Argument
 {
 public:
+  /// Base-class parse function, called by parseCommandLine. 
+  /// This takes the supplied list of strings and returns true if the argument at index matches what is expected 
+  /// in the derived argument object. The derived object's value is only set if @param set_value is enabled.
   virtual bool parse(int argc, char *argv[], int &index, bool set_value) = 0; 
   virtual ~Argument() = default;
 };
