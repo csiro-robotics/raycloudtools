@@ -31,7 +31,7 @@ namespace ray
 /// bool format2 = ray::parseCommandLine(argc, argv, {&smooth, &file}));
 /// if (!format1 && !format2)
 ///   print_usage_and_exit();
-ool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments, 
+bool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments, 
                       std::vector<struct OptionalArgument *> optional_arguments = std::vector<struct OptionalArgument *>(), 
                       bool set_values = true);
 
