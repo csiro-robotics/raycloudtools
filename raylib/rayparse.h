@@ -31,6 +31,7 @@ namespace ray
 /// bool format2 = ray::parseCommandLine(argc, argv, {&smooth, &file}));
 /// if (!format1 && !format2)
 ///   print_usage_and_exit();
+/// Values are set only for the parseCommandLine that returned true. e.g. scale_val.value() is used if format1 
 bool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments, 
                       std::vector<struct OptionalArgument *> optional_arguments = std::vector<struct OptionalArgument *>(), 
                       bool set_values = true);
