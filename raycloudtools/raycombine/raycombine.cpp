@@ -10,6 +10,7 @@
 #include "raylib/rayply.h"
 #include "raylib/rayprogressthread.h"
 #include "raylib/raythreads.h"
+#include "raylib/rayparse.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -49,77 +50,67 @@ void usage(int exit_code = 0)
   exit(exit_code);
 }
 
-// Decimates the ray cloud, spatially or in time
+// Decimates the ray cloud, spatially or in timevpn-new.csiro.au
 int main(int argc, char *argv[])
 {
-  ray::DebugDraw::init(argc, argv, "raycombine");
-  if (argc < 4)
+  ray::KeyChoice merge_type({"min", "max", "oldest", "newest"});
+  ray::FileArgumentList cloud_files(2);
+  ray::DoubleArgument num_rays(0.0, 100.0);
+  ray::TextArgument rays_text("rays"), all_text("all");
+  ray::FileArgument base_cloud, cloud_1, cloud_2;
+
+  // three-way merge option
+  bool standard_format = ray::parseCommandLine(argc, argv, {&merge_type, &cloud_files, &num_rays, &rays_text});
+  bool concatenate = ray::parseCommandLine(argc, argv, {&all_text, &cloud_files}); 
+  bool threeway = ray::parseCommandLine(argc, argv, {&base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text});
+  bool threeway_concatenate = ray::parseCommandLine(argc, argv, {&base_cloud, &all_text, &cloud_1, &cloud_2});
+  if (!standard_format && !concatenate && !threeway && !threeway_concatenate)
     usage();
-  bool threeway = std::string(argv[1]) != "min" && std::string(argv[1]) != "max" && std::string(argv[1]) != "oldest" &&
-                  std::string(argv[1]) != "newest" && std::string(argv[1]) != "all";
-  std::cout << "three way: " << threeway << std::endl;
-  std::string merge_type = argv[threeway ? 2 : 1];
-  bool concatenate = merge_type == "all";
-  double num_rays = 0;
-  if (concatenate)
+
+  ray::DebugDraw::init(argc, argv, "raycombine");
+  // we know there is at least one file, as we specified a minimum number in FileArgumentList
+  std::string file_stub = (threeway || threeway_concatenate) ? base_cloud.nameStub() : cloud_files.files()[0].nameStub(); 
+
+  std::vector<ray::Cloud> clouds;
+  if (threeway || threeway_concatenate)
   {
-    if (std::string(argv[argc - 1]) == "rays")
+    clouds.resize(2);
+    if (!clouds[0].load(cloud_1.name()))
+      usage();
+    if (!clouds[1].load(cloud_2.name()))
       usage();
   }
   else
   {
-    if (argc < 6 || std::string(argv[argc - 1]) != "rays")
-      usage();
-    num_rays = std::stod(argv[argc - 2]);
-    argc -= 2;
+    clouds.resize(cloud_files.files().size());
+    for (int i = 0; i < (int)cloud_files.files().size(); i++) 
+      if (!clouds[i].load(cloud_files.files()[i].name()))
+        usage();
   }
-
-  int minI = threeway ? 3 : 2;
-  if (threeway && argc != 5)
-    usage();
-
-  std::vector<std::string> files;
-  for (int i = minI; i < argc; i++)
-  {
-    files.push_back(std::string(argv[i]));
-    std::ifstream f(files.back().c_str());
-    if (!f.good())
-    {
-      std::cout << "could not open file: " << files.back() << std::endl;
-      usage();
-    }
-  }
-
-  std::string file_stub = files[0];
-  if (file_stub.substr(file_stub.length() - 4) == ".ply")
-    file_stub = file_stub.substr(0, file_stub.length() - 4);
-
-  std::vector<ray::Cloud> clouds(files.size());
-  for (int i = 0; i < (int)files.size(); i++) clouds[i].load(files[i]);
 
   ray::Threads::init();
   ray::MergerConfig config;
   config.voxel_size = 0.0;  // Infer voxel size
-  config.num_rays_filter_threshold = num_rays;
+  config.num_rays_filter_threshold = num_rays.value();
   config.merge_type = ray::MergeType::Mininum;
 
-  if (merge_type == "oldest")
+  if (merge_type.selectedKey() == "oldest")
   {
     config.merge_type = ray::MergeType::Oldest;
   }
-  if (merge_type == "newest")
+  if (merge_type.selectedKey() == "newest")
   {
     config.merge_type = ray::MergeType::Newest;
   }
-  if (merge_type == "min")
+  if (merge_type.selectedKey() == "min")
   {
     config.merge_type = ray::MergeType::Mininum;
   }
-  if (merge_type == "max")
+  if (merge_type.selectedKey() == "max")
   {
     config.merge_type = ray::MergeType::Maximum;
   }
-  if (merge_type == "all")
+  if (concatenate || threeway_concatenate)
   {
     config.merge_type = ray::MergeType::All;
   }
@@ -130,10 +121,11 @@ int main(int argc, char *argv[])
   ray::Cloud concatenated_cloud;
   const ray::Cloud *fixed_cloud = &merger.fixedCloud();
 
-  if (threeway)
+  if (threeway || threeway_concatenate)
   {
     ray::Cloud base_cloud;
-    base_cloud.load(argv[1]);
+    if (!base_cloud.load(argv[1]))
+      usage();
     merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], &progress);
   }
   else if (concatenate)

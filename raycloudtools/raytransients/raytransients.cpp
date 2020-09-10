@@ -11,6 +11,7 @@
 #include "raylib/rayprogress.h"
 #include "raylib/rayprogressthread.h"
 #include "raylib/raythreads.h"
+#include "raylib/rayparse.h"
 
 #include <chrono>
 #include <cstdio>
@@ -41,45 +42,40 @@ void usage(int exit_code = 0)
 int main(int argc, char *argv[])
 {
   ray::DebugDraw::init(argc, argv, "raytransients");
-  if (argc != 5 && argc != 6)
+
+  ray::KeyChoice merge_type({"min", "max", "oldest", "newest"});
+  ray::FileArgument cloud_file;
+  ray::DoubleArgument num_rays(0.1, 100.0);
+  ray::TextArgument text("rays");
+  ray::OptionalFlagArgument colour("colour", 'c');
+  if (!ray::parseCommandLine(argc, argv, {&merge_type, &cloud_file, &num_rays, &text}, {&colour}))
     usage();
 
-  bool colour = false;
-  if (argc == 6)
-  {
-    if (std::string(argv[5]) != "--colour" && std::string(argv[5]) != "-c")
-      usage();
-    colour = true;
-  }
-  double num_rays = std::stod(argv[3]);
-  std::string merge_type = argv[1];
-  if (merge_type != "min" && merge_type != "max" && merge_type != "oldest" && merge_type != "newest")
-    usage();
-  std::string file = argv[2];
   ray::Cloud cloud;
-  cloud.load(file);
+  if (!cloud.load(cloud_file.name()))
+    usage();
 
   ray::Threads::init();
   ray::MergerConfig config;
   // Note: we actually get better multi-threaded performace with smaller voxels
   config.voxel_size = 0.0;
-  config.num_rays_filter_threshold = num_rays;
+  config.num_rays_filter_threshold = num_rays.value();
   config.merge_type = ray::MergeType::Mininum;
-  config.colour_cloud = colour;
+  config.colour_cloud = colour.isSet();
 
-  if (merge_type == "oldest")
+  if (merge_type.selectedKey() == "oldest")
   {
     config.merge_type = ray::MergeType::Oldest;
   }
-  if (merge_type == "newest")
+  if (merge_type.selectedKey() == "newest")
   {
     config.merge_type = ray::MergeType::Newest;
   }
-  if (merge_type == "min")
+  if (merge_type.selectedKey() == "min")
   {
     config.merge_type = ray::MergeType::Mininum;
   }
-  if (merge_type == "max")
+  if (merge_type.selectedKey() == "max")
   {
     config.merge_type = ray::MergeType::Maximum;
   }
@@ -96,11 +92,7 @@ int main(int argc, char *argv[])
   const ray::Cloud &transient = filter.differenceCloud();
   const ray::Cloud &fixed = filter.fixedCloud();
 
-  std::string file_stub = file;
-  if (file.substr(file.length() - 4) == ".ply")
-    file_stub = file.substr(0, file.length() - 4);
-
-  transient.save(file_stub + "_transient.ply");
-  fixed.save(file_stub + "_fixed.ply");
+  transient.save(cloud_file.nameStub() + "_transient.ply");
+  fixed.save(cloud_file.nameStub() + "_fixed.ply");
   return 0;
 }

@@ -3,12 +3,13 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raylib/raycloud.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
+#include "raylib/raydebugdraw.h"
 
 void usage(int exit_code = 0)
 {
@@ -21,20 +22,18 @@ void usage(int exit_code = 0)
   exit(exit_code);
 }
 
-#include "raylib/raydebugdraw.h"
-
 int main(int argc, char *argv[])
 {
-  if (argc != 3)
+  ray::FileArgument cloud_file, trajectory_file;
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &trajectory_file}))
     usage();
 
-  std::string point_cloud_file = argv[1];
-  std::string trajectory_file = argv[2];
   ray::Cloud cloud;
-  cloud.load(point_cloud_file, trajectory_file);
+  if (!cloud.load(cloud_file.name(), trajectory_file.name()))
+    usage();
 
-  std::string save_file = point_cloud_file.substr(0, point_cloud_file.size() - 4);
-  if (point_cloud_file.substr(point_cloud_file.size() - 4) == ".ply")
+  std::string save_file = cloud_file.nameStub();
+  if (cloud_file.nameExt() == "ply")
     save_file += "_raycloud";
   cloud.save(save_file + ".ply");
 

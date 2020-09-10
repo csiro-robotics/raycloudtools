@@ -9,6 +9,7 @@
 #include "raylib/rayroomgen.h"
 #include "raylib/raybuildinggen.h"
 #include "raylib/rayterraingen.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,15 +30,16 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3)
+  ray::KeyChoice cloud_type({"room", "building", "tree", "forest", "terrain"});
+  ray::IntArgument seed(1,1000000);
+  if (!ray::parseCommandLine(argc, argv, {&cloud_type, &seed}))
     usage();
 
-  std::string type = argv[1];
-  int seed = std::stoi(argv[2]);
-  srand(seed);
+  srand(seed.value());
 
   ray::Cloud cloud;
   const double time_delta = 0.001; // between rays
+  std::string type = cloud_type.selectedKey();
   if (type == "room")
   {
     // create room

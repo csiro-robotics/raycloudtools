@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayparse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,24 +24,27 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  if (argc != 4 && argc != 5)
-    usage();
-  if (std::string(argv[argc-1]) != "cm" && std::string(argv[argc-1]) != "sigmas")
+  ray::FileArgument cloud_file;
+  ray::DoubleArgument sigmas(0.0, 100.0);
+  ray::DoubleArgument vox_width(1.0, 100.0);
+  ray::TextArgument range_text("range");
+  ray::DoubleArgument range(1.0, 1000.0);
+  ray::TextArgument cm_text("cm");
+  ray::ValueKeyChoice quantity({&vox_width, &sigmas, &range}, {"cm", "sigmas"});
+  
+  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &quantity});
+  bool range_noise = ray::parseCommandLine(argc, argv, {&cloud_file, &range_text, &range, &cm_text});
+  if (!standard_format && !range_noise)
     usage();
 
-  std::string file = argv[1];
   ray::Cloud cloud;
-  cloud.load(file);
+  if (!cloud.load(cloud_file.name()))
+    usage();
 
   ray::Cloud new_cloud;
-  if (argc == 5) // range-based distance measure. For mixed-points where lidar has contacted two surfaces.
+  if (range_noise) // range-based distance measure. For mixed-points where lidar has contacted two surfaces.
   {
-    if (std::string(argv[2]) != "range" || std::string(argv[argc-1]) != "cm")
-      usage();
-    double range_distance = 0.01 * std::stod(argv[3]);
-    if (range_distance < 0.01)
-      usage();
-
+    double range_distance = 0.01 * range.value();
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
@@ -59,12 +63,9 @@ int main(int argc, char *argv[])
     std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
          << range_distance * 100.0 << " cm." << std::endl;
   }
-  else if (std::string(argv[argc-1]) == "cm") // absolute distance measure
+  else if (quantity.selectedKey() == "cm") // absolute distance measure
   {
-    double distance = 0.01 * std::stod(argv[2]);
-    if (distance < 0.01)
-      usage();
-
+    double distance = 0.01 * vox_width.value();
     Eigen::MatrixXi indices;
     Eigen::MatrixXd dists2;
 
@@ -94,12 +95,8 @@ int main(int argc, char *argv[])
     std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
          << " cm from any other." << std::endl;
   }
-  else if (std::string(argv[argc-1]) == "sigmas") // scale-invariant distance measure. Same as Mahalanobis distance
+  else if (quantity.selectedKey() == "sigmas") // scale-invariant distance measure. Same as Mahalanobis distance
   {
-    double sigmas = std::stod(argv[2]);
-    if (sigmas <= 0.0)
-      usage();
-
     std::vector<Eigen::Vector3d> centroids;
     std::vector<Eigen::Vector3d> dimensions;
     std::vector<Eigen::Matrix3d> matrices;
@@ -135,20 +132,17 @@ int main(int argc, char *argv[])
         dims += dimensions[other_i];
         cnt++;
         double scale2 = newVec.squaredNorm();
-        is_noise = scale2 > sigmas*sigmas;
+        is_noise = scale2 > sigmas.value()*sigmas.value();
       }
       if (!is_noise)
         new_cloud.addRay(cloud, i);
     }
     dims /= cnt;
     std::cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums/cnt << std::endl;
-    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas
+    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas.value()
           << std::endl;
   }
 
-  std::string file_stub = file;
-  if (file_stub.substr(file_stub.length() - 4) == ".ply")
-    file_stub = file_stub.substr(0, file_stub.length() - 4);
-  new_cloud.save(file_stub + "_denoised.ply");
+  new_cloud.save(cloud_file.nameStub() + "_denoised.ply");
   return true;
 }

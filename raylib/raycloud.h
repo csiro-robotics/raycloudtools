@@ -100,7 +100,6 @@ public:
 private:
   void calculateStarts(const Trajectory &trajectory);
   bool loadPLY(const std::string &file);
-  bool loadLazTraj(const std::string &laz_filee, const std::string &traj_filee);
 };
 
 }  // namespace ray

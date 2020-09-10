@@ -9,6 +9,7 @@
 #include "raylib/raydebugdraw.h"
 #include "raylib/rayply.h"
 #include "raylib/rayutils.h"
+#include "raylib/rayparse.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -30,62 +31,52 @@ void usage(int exitCode = 0)
 
 int main(int argc, char *argv[])
 {
-  if (argc < 4 || argc > 5)
+  ray::FileArgument cloud_file;
+  ray::KeyChoice direction({"upwards", "downwards", "inwards", "outwards"});
+  ray::DoubleArgument curvature;
+  ray::OptionalFlagArgument full("full", 'f');
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &direction, &curvature}, {&full}))
     usage();
 
   ray::DebugDraw::init(argc, argv, "ConcaveHull");
-  std::string file = argv[1];
-  std::string type = argv[2];
-  double maximum_curvature = std::stod(argv[3]);
-  bool overhangs = false;
-  if (argc == 5)
-  {
-    if (std::string(argv[4]) == "--full" or std::string(argv[4]) == "-f")
-      overhangs = true;
-    else
-      usage();
-  }
-
   ray::Cloud cloud;
-  cloud.load(file);
+  if (!cloud.load(cloud_file.name()))
+    usage();
   cloud.removeUnboundedRays();
-  if (file.substr(file.length() - 4) == ".ply")
-    file = file.substr(0, file.length() - 4);
 
-  if (overhangs)
+  if (full.isSet())
   {
     ray::ConcaveHull concave_hull(cloud.ends);
-    if (type == "inwards")
-      concave_hull.growInwards(maximum_curvature);
-    else if (type == "outwards")
-      concave_hull.growOutwards(maximum_curvature);
-    else if (type == "upwards")
-      concave_hull.growUpwards(maximum_curvature);
-    else if (type == "downwards")
-      concave_hull.growTopDown(maximum_curvature);
+    if (direction.selectedKey() == "inwards")
+      concave_hull.growInwards(curvature.value());
+    else if (direction.selectedKey() == "outwards")
+      concave_hull.growOutwards(curvature.value());
+    else if (direction.selectedKey() == "upwards")
+      concave_hull.growUpwards(curvature.value());
+    else if (direction.selectedKey() == "downwards")
+      concave_hull.growTopDown(curvature.value());
     else
       usage();
 
-    writePlyMesh(file + "_mesh.ply", concave_hull.mesh(), true);
+    writePlyMesh(cloud_file.nameStub() + "_mesh.ply", concave_hull.mesh(), true);
   }
   else
   {
-    ray::ConvexHull convexHull(cloud.ends);
-    if (type == "inwards")
-      convexHull.growInwards(maximum_curvature);
-    else if (type == "outwards")
-      convexHull.growOutwards(maximum_curvature);
-    else if (type == "upwards")
-      convexHull.growUpwards(maximum_curvature);
-    else if (type == "downwards")
-      convexHull.growTopDown(maximum_curvature);
+    ray::ConvexHull convex_hull(cloud.ends);
+    if (direction.selectedKey() == "inwards")
+      convex_hull.growInwards(curvature.value());
+    else if (direction.selectedKey() == "outwards")
+      convex_hull.growOutwards(curvature.value());
+    else if (direction.selectedKey() == "upwards")
+      convex_hull.growUpwards(curvature.value());
+    else if (direction.selectedKey() == "downwards")
+      convex_hull.growTopDown(curvature.value());
     else
       usage();
 
-    writePlyMesh(file + "_mesh.ply", convexHull.mesh(), true);
+    writePlyMesh(cloud_file.nameStub() + "_mesh.ply", convex_hull.mesh(), true);
   }
 
-
-  std::cout << "Completed, output: " << file << "_mesh.ply" << std::endl;
+  std::cout << "Completed, output: " << cloud_file.nameStub() << "_mesh.ply" << std::endl;
   return 1;
 }

@@ -38,6 +38,7 @@ set(PUBLIC_HEADERS
   raytreegen.h
   rayunused.h
   rayutils.h
+  rayparse.h
   extraction/rayterrain.h 
   extraction/rayforest.h
 )
@@ -67,6 +68,7 @@ set(SOURCES
   raythreads.cpp
   raytrajectory.cpp
   raytreegen.cpp
+  rayparse.cpp
   extraction/rayterrain.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp
