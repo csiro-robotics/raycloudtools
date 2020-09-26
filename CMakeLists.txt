@@ -136,6 +136,7 @@ if(RAYCLOUD_BUILD_TESTS)
   #   --output-on-failure
   # The full test output is always available in:
   #   <build>/Testing/Temporary/LastTest.log
+  enable_testing()
   add_subdirectory(tests)
 endif(RAYCLOUD_BUILD_TESTS)
 

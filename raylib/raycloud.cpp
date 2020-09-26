@@ -34,6 +34,7 @@ void Cloud::save(const std::string &file_name) const
   if (name.substr(name.length() - 4) != ".ply")
     name += ".ply";
   writePly(name, starts, ends, times, colours);
+  getMoments();
 }
 
 bool Cloud::load(const std::string &file_name)
@@ -361,5 +362,52 @@ void Cloud::addRay(const Cloud &other_cloud, size_t index)
   times.push_back(other_cloud.times[index]);
   colours.push_back(other_cloud.colours[index]);
 }
+
+Eigen::Array<double, 22, 1> Cloud::getMoments() const
+{
+  Eigen::Vector3d startMean(0,0,0);
+  Eigen::Array3d startSigma(0,0,0);
+  Eigen::Vector3d endMean(0,0,0);
+  Eigen::Array3d endSigma(0,0,0);
+  double timeMean = 0.0;
+  double timeSigma = 0.0;
+  Eigen::Vector4d colourMean(0,0,0,0);
+  Eigen::Array4d colourSigma(0,0,0,0);
+  for (size_t i = 0; i<ends.size(); i++)
+  {
+    startMean += starts[i];
+    endMean += ends[i];
+    timeMean += times[i];
+    colourMean += Eigen::Vector4d(colours[i].red, colours[i].green, colours[i].blue, colours[i].alpha) / 255.0;
+  }  
+  startMean /= (double)ends.size();
+  endMean /= (double)ends.size();
+  timeMean /= (double)ends.size();
+  colourMean /= (double)ends.size();
+  for (size_t i = 0; i<ends.size(); i++)
+  {
+    Eigen::Array3d start = (starts[i] - startMean).array();
+    startSigma += start * start;
+    Eigen::Array3d end = (ends[i] - endMean).array();
+    endSigma += end * end;
+    timeSigma += ray::sqr(times[i] - timeMean);
+    Eigen::Vector4d colour(colours[i].red, colours[i].green, colours[i].blue, colours[i].alpha);
+    Eigen::Array4d col = (colour / 255.0 - colourMean).array();
+    colourSigma += col * col;
+  }   
+  startSigma = (startSigma / (double)ends.size()).sqrt();
+  endSigma = (endSigma / (double)ends.size()).sqrt();
+  timeSigma = std::sqrt(timeSigma / (double)ends.size());
+  colourSigma = (colourSigma / (double)ends.size()).sqrt();  
+
+  Eigen::Array<double, 22, 1> result;
+  result << startMean, startSigma, endMean, endSigma, timeMean, timeSigma, colourMean, colourSigma;
+  std::cout << "stats: ";
+  for (int i = 0; i<22; i++)
+    std::cout << ", " << result[i];
+  std::cout << std::endl;
+  return result; // Note: this is used once per cloud, returning by value is not a performance issue
+}
+
 
 } // namespace ray

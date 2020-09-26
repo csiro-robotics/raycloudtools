@@ -39,6 +39,7 @@ set(PUBLIC_HEADERS
   rayunused.h
   rayutils.h
   rayparse.h
+  rayrandom.h
 )
 
 set(PRIVATE_HEADERS
