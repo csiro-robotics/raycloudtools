@@ -10,21 +10,21 @@
 #include <cstdlib>
 #include <limits>
 
+#include "raylib/raylibconfig.h"
+
 namespace ray
 {
 /// Simplistic implementation of the PCG RNG  method http://www.pcg-random.org/.
 /// This is about ~5x faster then using the standard std::rand() method with no additional drawbacks.
-class RAY_EXPORT PCGRandomGenerator
+class RAYLIB_EXPORT PCGRandomGenerator
 {
 public:
-  using result_type = unsigned;
-
-  void PCGRandomGenerator() { seed(std::rand(), std::rand(), std::rand(), std::rand()); }
+  PCGRandomGenerator() { seed(12748, 3147, 792751, 14992); } // we can't initialise using std::rand, as it isn't platform independent
 
   /// The minimum possible result value (inclusive). For compatibility with @c std::shuffle()
-  static constexpr unsigned min() { return std::numeric_limits<result_type>::min(); }
+  static constexpr unsigned min() { return std::numeric_limits<unsigned int>::min(); }
   /// The maximum possible result value (inclusive). For compatibility with @c std::shuffle()
-  static constexpr unsigned max() { return std::numeric_limits<result_type>::max(); }
+  static constexpr unsigned max() { return std::numeric_limits<unsigned int>::max(); }
 
   /// Seed with the given 4 values.
   inline void seed(const unsigned int &a, const unsigned int &b, const unsigned int &c, const unsigned int &d)
@@ -60,23 +60,14 @@ private:
 
 /// Return a random number using some magic engine behind the hood.
 /// Use this over std::rand() as there's a good chance this will be faster/better.
-unsigned RAY_EXPORT rand();
-/// Return a random number using some magic engine behind the hood which is < then the supplied value.
-/// Use this over std::rand() as there's a good chance this will be faster/better.
-inline unsigned randWithMax(const unsigned &max)
-{
-  return rand() % max;
-}
+unsigned int RAYLIB_EXPORT rand();
+void RAYLIB_EXPORT srand(unsigned int seed);
+
 /// Return a uniformed number between [0,1).
 inline double randUniformDouble()
 {
-  return static_cast<double>(ras::rand() % std::numeric_limits<int>::max()) /
+  return static_cast<double>(ray::rand() % std::numeric_limits<int>::max()) /
          static_cast<double>(std::numeric_limits<int>::max());
-}
-/// Return a uniformed number between the ranges [min,max).
-inline double randUniformDouble(const double &min, const double &max)
-{
-  return min + ((max - min) * randUniformDouble());
 }
 }  // namespace ray
 

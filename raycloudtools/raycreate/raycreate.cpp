@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
   if (!ray::parseCommandLine(argc, argv, {&cloud_type, &seed}))
     usage();
 
-  srand(seed.value());
+  ray::srand(seed.value());
 
   ray::Cloud cloud;
   const double time_delta = 0.001; // between rays

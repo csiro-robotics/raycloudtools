@@ -68,6 +68,7 @@ set(SOURCES
   raytrajectory.cpp
   raytreegen.cpp
   rayparse.cpp
+  rayrandom.cpp
 )
 
 # Select the source file to use with raydebudraw.
