@@ -94,5 +94,5 @@ int main(int argc, char *argv[])
 
   transient.save(cloud_file.nameStub() + "_transient.ply");
   fixed.save(cloud_file.nameStub() + "_fixed.ply");
-  return 0;
+  return true;
 }

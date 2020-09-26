@@ -9,7 +9,6 @@ set(SOURCES
   raytests.cpp
   testmain.cpp
 )
-configure_file(raylibconfig.in.h "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h")
 
 add_executable(raytest ${SOURCES})
 set_target_properties(raytest PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})

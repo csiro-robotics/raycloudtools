@@ -27,6 +27,8 @@ public:
   /// access the mesh's index list
   inline std::vector<Eigen::Vector3i> &index_list(){ return index_list_; }
   inline const std::vector<Eigen::Vector3i> &index_list() const { return index_list_; }
+
+  Eigen::Array<double, 6, 1> getMoments() const;
 private:
   std::vector<Eigen::Vector3d> vertices_;
   std::vector<Eigen::Vector3i> index_list_; // one per triangle, gives the index into the vertices_ array for each corner

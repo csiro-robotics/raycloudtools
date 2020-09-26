@@ -380,6 +380,13 @@ void writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
       triangles[i] = Eigen::Vector4i(3, list[i][0], list[i][1], list[i][2]);
   fwrite(&triangles[0], sizeof(Eigen::Vector4i), triangles.size(), fid);
   fclose(fid);
+
+  Eigen::Array<double, 6, 1> mom = mesh.getMoments();
+
+  std::cout << "stats: " << std::endl;
+  for (int i = 0; i<mom.rows(); i++)
+    std::cout << ", " << mom[i];
+  std::cout << std::endl;
 }
 
 
