@@ -4,14 +4,14 @@
 //
 // Author: Thomas Lowe
 
-#include "../../raylib/raycloud.h"
+#include "raycloud.h"
 #include <vector>
 #include <gtest/gtest.h>
 #include <stdlib.h>
 
 namespace raytest
 {
-  void compareMoments(const Eigen::Array<double,22,1> &m1, const Eigen::Array<double,22,1> &m2)
+  void compareMoments(const Eigen::Array<double,22,1> &m1, const std::vector<double> &m2)
   {
     double eps = 0.1; 
     for (int i = 0; i<22; i++)
@@ -23,7 +23,7 @@ namespace raytest
 
   TEST(Basic, RayAlign)
   {
-    system("scripts/align.sh");
+    EXPECT_TRUE(system("scripts/align.sh"));
     ray::Cloud cloud;
     bool loaded = cloud.load("room_aligned.ply");
     EXPECT_TRUE(loaded);
@@ -33,7 +33,7 @@ namespace raytest
 
   TEST(Basic, RayColour)
   {
-    system("scripts/colour.sh");
+    EXPECT_TRUE(system("scripts/colour.sh"));
     ray::Cloud cloud;
     bool loaded = cloud.load("room_coloured.ply");
     EXPECT_TRUE(loaded);
@@ -44,7 +44,7 @@ namespace raytest
 
   TEST(Basic, RayCombine)
   {
-    system("scripts/combine.sh");
+    EXPECT_TRUE(system("scripts/combine.sh"));
     ray::Cloud cloud;
     bool loaded = cloud.load("room_combined.ply");
     EXPECT_TRUE(loaded);
@@ -54,7 +54,7 @@ namespace raytest
   
   TEST(Basic, RayCreate)
   {
-    system("scripts/create.sh");
+    EXPECT_TRUE(system("scripts/create.sh"));
     ray::Cloud cloud;
     bool loaded = cloud.load("building.ply");
     EXPECT_TRUE(loaded);
@@ -64,7 +64,7 @@ namespace raytest
   
   TEST(Basic, RayDecimate)
   {
-    system("scripts/decimate.sh");
+    EXPECT_TRUE(system("scripts/decimate.sh"));
     ray::Cloud cloud;
     bool loaded = cloud.load("forest_decimated.ply");
     EXPECT_TRUE(loaded);

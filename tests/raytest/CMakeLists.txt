@@ -19,6 +19,8 @@ target_include_directories(raytest
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/build> # TODO: how do I do this properly?
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/raylib>    
 )
 
 target_include_directories(raytest SYSTEM
@@ -26,7 +28,7 @@ target_include_directories(raytest SYSTEM
     "${GTEST_INCLUDE_DIRS}"
 )
 
-target_link_libraries(raytest PUBLIC raytestcommon raytools ray rayutils GTest::Main)
+target_link_libraries(raytest PUBLIC raylib GTest::Main)
 
 if(Eigen3_FOUND)
   target_link_libraries(raytest PRIVATE Eigen3::Eigen)
