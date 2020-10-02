@@ -103,6 +103,14 @@ For raywrap:
 * In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install. 
 * in raycloudtools/bbuild: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
 
+## Unit Tests
+from build dir:
+
+```cmake .. -DRAYCLOUD_BUILD_TESTS=ON
+cd ../tests
+raytests
+```
+
 ## Notes
 
 ### Dependencies
