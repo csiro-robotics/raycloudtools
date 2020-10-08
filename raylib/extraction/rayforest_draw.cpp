@@ -35,8 +35,8 @@ void Forest::drawLowfield(const std::string &filename, const std::vector<TreeNod
   if (!verbose)
     return;
   Field2D<Col> pixels((int)lowfield_.rows(), (int)lowfield_.cols());
-  double max_h = 3.0;
-  double min_h = -3.0;
+//  double max_h = 3.0;
+//  double min_h = -3.0;
 
   for (int x = 0; x < pixels.dims[0]; x++)
   {
@@ -49,7 +49,7 @@ void Forest::drawLowfield(const std::string &filename, const std::vector<TreeNod
       col.a = 255;
       if (lowfield_(x,y) < (heightfield_(x,y)-min_ground_to_canopy_distance)) // underneath vegetation
       {
-        double z = (lowfield_(x,y) - min_h) / (max_h - min_h);
+  //      double z = (lowfield_(x,y) - min_h) / (max_h - min_h);
         col.r = 127;
         col.b = 255;
    //     col.g = (uint8_t)(255.0 * z);
@@ -64,20 +64,21 @@ void Forest::drawLowfield(const std::string &filename, const std::vector<TreeNod
       {
         col.r = 255;
         col.b = 127;
-        double z = (lowfield_(x,y) - min_h) / (max_h - min_h);
+ //       double z = (lowfield_(x,y) - min_h) / (max_h - min_h);
  //       col.g = (uint8_t)(255.0 * z);        
         pixels(x, y) = col;
       }
       else
       {
- /*       while (trees[ind].attaches_to != -1)
+        while (trees[ind].attaches_to != -1)
           ind = trees[ind].attaches_to;
-        if (!trees[ind].validParaboloid(max_tree_canopy_width)) // invalid tree shape, so assume it is ground
+        if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_)) // invalid tree shape, so assume it is ground
         {
           col.r = 255;
+          col.g = 255;
           col.b = 255;
         }
-        else // boundary points, so no reliable height available*/
+        else // boundary points, so no reliable height available
         {
           col.r = col.g = col.b = 127; 
         }
@@ -113,11 +114,11 @@ void Forest::drawSegmentation(const std::string &filename, const std::vector<Tre
         col.r = (uint8_t)(rand()%256);
         col.g = (uint8_t)(rand()%256);
         col.b = (uint8_t)(rand()%256);
-        if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
-        {
-          col.r = col.b = 255;
-          col.g = 0.0;
-        }
+  //      if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
+  //      {
+  //        col.r = col.b = 255;
+  //        col.g = 0.0;
+  //      }
         pixels(x, y) = col;
       }
     }
@@ -195,13 +196,15 @@ void Forest::drawGraph(const std::string &filename, const std::vector<Vector4d> 
   int res = 256;
   Field2D<Col> pixels(res, res);
   for (auto &c: pixels.data)
-    c = Col(20);
+    c = Col(0);
   Eigen::Vector3d cols[] = {Eigen::Vector3d(0,0,0), Eigen::Vector3d(1,1,1), Eigen::Vector3d(1,1,0), Eigen::Vector3d(1,0,1), Eigen::Vector3d(0,1,1)};
   for (auto &item: data)
   {
     double x = (double)(res - 1) * (item[0] - x_min) / (x_max - x_min);
     double y = (double)(res - 1) * item[1] / y_max;
     double val = 255.0 * item[2]/strength_max;
+    if ((int)item[3] > 1)
+      val = 255;
     Eigen::Vector3d c = cols[(int)item[3]];
     if (x >= 0.0 && x<(double)res-1.0 && y >= 0.0 && y<(double)res-1.0)
       pixels((int)x, (int)y) = Col(uint8_t(val*c[0]), uint8_t(val*c[1]), uint8_t(val*c[2]), 255);
@@ -213,7 +216,7 @@ void Forest::drawGraph(const std::string &filename, const std::vector<Vector4d> 
     double y = a * (double)x + b;
     int j = (int)((double)(res-1) * y / y_max);
     if (j >= 0 && j < res-1)
-      pixels(i, j) = Col(0,255,0,255);
+      pixels(i, j) += Col(0,127,0,255);
   }
 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);

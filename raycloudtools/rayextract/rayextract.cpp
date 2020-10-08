@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     }
 
     int num = 250; // 500
-    const double radius_to_height = 0.4; // actual radius to height is 2 * radius_to_height^2
+    const double radius_to_height = 0.3;//4; // actual radius to height is 2 * radius_to_height^2
     std::vector<Eigen::Vector3d> ps(num);
     for (int i = 0; i<num; i++)
     {
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
           double mag2 = (double)(X*X + Y*Y);
           if (mag2 <= radius*radius)
           {
-            double height = p[2] - 1.0/(0.3*p[2]) * mag2; // (p[2]/2.0)*mag2/(radius*radius);
+            double height = p[2] - 1.0/(0.15*p[2]) * mag2; // (p[2]/2.0)*mag2/(radius*radius);
             int xx = (x + res)%res;
             int yy = (y + res)%res;
             height += ray::random(-1.0, 1.0);

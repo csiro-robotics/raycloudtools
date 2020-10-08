@@ -79,9 +79,9 @@ struct RAYLIB_EXPORT TreeNode
   inline double crownRadius() const { return 1.0 / -abcd[0]; }
   inline bool validParaboloid(double max_tree_width, double voxel_width) const 
   {
-    // TODO: get rid of voxel_width*voxel_width* below 2 lines.
-    const double minimum_crown_radius = voxel_width * voxel_width * 0.5;
-    const double maximum_crown_radius = voxel_width * voxel_width * max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is an outer bound
+    // Add voxel_width*voxel_width* to below two lines, to verify voxel_width independence
+    const double minimum_crown_radius = 0.5;
+    const double maximum_crown_radius = max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is an outer bound
     double r = crownRadius();
     if (r<minimum_crown_radius || r > maximum_crown_radius)
       return false;
