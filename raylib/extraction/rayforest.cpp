@@ -375,7 +375,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Point q;
         q.x = xx; q.y = yy; q.index = p.index;
         q.height = heightfield_(xx, yy);
-        if ((p.height - q.height) < 4.0)
+        if ((p.height - q.height) < maximum_drop_within_tree)
         {
           ind = p.index;
           basins.insert(q);

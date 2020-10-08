@@ -14,7 +14,59 @@ typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 namespace ray
 {
+struct RAYLIB_EXPORT TreeNode; 
+
+/// For storing and extracting basic forest information 
+class RAYLIB_EXPORT Forest
+{
+public:
+  Forest() : tree_roundness(0), average_height(0)
+  {
+    // define the physical constants:
+    max_tree_canopy_width = 22.0; // we end segmentation for 'basins' wider than this
+    maximum_drop_within_tree = 3.0; // we don't extend segmentation to pixels with a larger drop than this  
+    min_ground_to_canopy_distance = 1.5; // we treat low points as ground if more than this distance below high point
+  }
+  void extract(const Cloud &cloud);
+  void extract(const Eigen::ArrayXXd &heights, const Eigen::ArrayXXd &lows, double voxel_width);
+  struct Result
+  {
+    std::vector<Eigen::Vector3d> tree_tips;
+    double ground_height;
+    double treelength_per_crownradius;
+  };
+
+  // in rayforest_draw.cpp
+  void drawLowfield(const std::string &filename, const std::vector<TreeNode> &trees);
+  void drawSegmentation(const std::string &filename, const std::vector<TreeNode> &trees);
+  void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
+  void drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_min, double x_max, double y_max, double strength_max, double a, double b);
+  void drawTrees(const std::string &filename, const Forest::Result &result);
+
+  // parameters
+  double tree_roundness;
+  double average_height;
+  bool verbose;
+  // constants
+  double max_tree_canopy_width; 
+  double min_ground_to_canopy_distance;
+  double maximum_drop_within_tree;
+private:
+  void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
+  void calculateTreeParaboloids(std::vector<TreeNode> &trees);
+  double estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees);
+  void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices);
+  double voxel_width_;
+  Eigen::ArrayXXd heightfield_;
+  Eigen::ArrayXXd lowfield_;
+  Eigen::ArrayXXi indexfield_;
+  Result result_;
+  Eigen::Vector3d min_bounds_, max_bounds_;
+  double lowest_point_;
+};
+
 // A 2D field structure, like a scalar field or vector field
+// Normally I would use an Eigen::ArrayXX, but it only works on scalar types, I'm using below on a Col type.
 template <class T>
 struct Field2D
 {
@@ -105,46 +157,6 @@ struct RAYLIB_EXPORT TreeNode
       max_bound[i] = std::max(max_bound[i], bmax[i]);
     }
   }
-};
-
-/// For storing and extracting basic forest information 
-class RAYLIB_EXPORT Forest
-{
-public:
-  Forest() : tree_roundness(0), average_height(0), max_tree_canopy_width(22.0), min_ground_to_canopy_distance(1.5) {}
-  void extract(const Cloud &cloud);
-  void extract(const Eigen::ArrayXXd &heights, const Eigen::ArrayXXd &lows, double voxel_width);
-  struct Result
-  {
-    std::vector<Eigen::Vector3d> tree_tips;
-    double ground_height;
-    double treelength_per_crownradius;
-  };
-
-  // in rayforest_draw.cpp
-  void drawLowfield(const std::string &filename, const std::vector<TreeNode> &trees);
-  void drawSegmentation(const std::string &filename, const std::vector<TreeNode> &trees);
-  void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
-  void drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_min, double x_max, double y_max, double strength_max, double a, double b);
-  void drawTrees(const std::string &filename, const Forest::Result &result);
-
-  double tree_roundness;
-  double average_height;
-  bool verbose;
-  double max_tree_canopy_width; 
-  double min_ground_to_canopy_distance;
-private:
-  void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
-  void calculateTreeParaboloids(std::vector<TreeNode> &trees);
-  double estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees);
-  void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices);
-  double voxel_width_;
-  Eigen::ArrayXXd heightfield_;
-  Eigen::ArrayXXd lowfield_;
-  Eigen::ArrayXXi indexfield_;
-  Result result_;
-  Eigen::Vector3d min_bounds_, max_bounds_;
-  double lowest_point_;
 };
 
 
