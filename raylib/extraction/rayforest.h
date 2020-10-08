@@ -45,12 +45,14 @@ struct RAYLIB_EXPORT TreeNode
     children[0] = children[1] = -1;
     peak.setZero();
   }
-  TreeNode(int i, int j, double x, double y, double height_) // TODO: should this be x,y or a distance in metres? probably x,y
+  TreeNode(int i, int j, double height_, double voxel_width) // TODO: should this be x,y or a distance in metres? probably x,y
   {
     curv_mat.setZero();
     curv_vec.setZero();
     attaches_to = -1;
     min_bound = max_bound = Eigen::Vector2i(i,j);
+    double x = (double)i * voxel_width;
+    double y = (double)j * voxel_width;
     addSample(x,y,height_);
     sum_square_residual = 0.0;
     sum_square_total = 0.0;
@@ -69,28 +71,29 @@ struct RAYLIB_EXPORT TreeNode
   int children[2];
 
 //  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
-  inline double area() const { return curv_mat(3,3); }
-  inline double avgHeight() const { return curv_vec[3] / area(); }
+  inline double numPoints() const { return curv_mat(3,3); }
+  inline double avgHeight() const { return curv_vec[3] / numPoints(); }
   inline double height() const { return abcd[3] - (abcd[1]*abcd[1] + abcd[2]*abcd[2])/(4*abcd[0]); }
   inline Eigen::Vector3d tip() const { return Eigen::Vector3d(-abcd[1]/(2*abcd[0]), -abcd[2]/(2*abcd[0]), height()); }
   inline double heightAt(double x, double y) const { return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3]; }
   inline double crownRadius() const { return 1.0 / -abcd[0]; }
-  inline bool validParaboloid(double max_tree_width) const 
+  inline bool validParaboloid(double max_tree_width, double voxel_width) const 
   {
-    const double minimum_crown_radius = 0.5;
-    const double maximum_crown_radius = max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is an outer bound
+    // TODO: get rid of voxel_width*voxel_width* below 2 lines.
+    const double minimum_crown_radius = voxel_width * voxel_width * 0.5;
+    const double maximum_crown_radius = voxel_width * voxel_width * max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is an outer bound
     double r = crownRadius();
     if (r<minimum_crown_radius || r > maximum_crown_radius)
       return false;
     Eigen::Vector3d top = tip();
     for (int i = 0; i<2; i++)
-      if (top[i] < (double)min_bound[i] || top[i] > (double)max_bound[i])
+      if (top[i] < (double)min_bound[i]*voxel_width || top[i] > (double)max_bound[i]*voxel_width)
         return false;
     return true;
   }
   inline void addSample(double x, double y, double z) // TODO: this should probably be in SI units
   {
-    Eigen::Vector4d vec(x*x + y*y, x, y, 1.0); // TODO: 1.0 --> voxel_width_?
+    Eigen::Vector4d vec(x*x + y*y, x, y, 1.0); 
     curv_mat += vec * vec.transpose();
     curv_vec += z*vec;
   }
@@ -108,7 +111,7 @@ struct RAYLIB_EXPORT TreeNode
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : tree_roundness(0), average_height(0), max_tree_canopy_width(22.0) {}
+  Forest() : tree_roundness(0), average_height(0), max_tree_canopy_width(22.0), min_ground_to_canopy_distance(1.5) {}
   void extract(const Cloud &cloud);
   void extract(const Eigen::ArrayXXd &heights, const Eigen::ArrayXXd &lows, double voxel_width);
   struct Result
@@ -119,15 +122,17 @@ public:
   };
 
   // in rayforest_draw.cpp
+  void drawLowfield(const std::string &filename, const std::vector<TreeNode> &trees);
   void drawSegmentation(const std::string &filename, const std::vector<TreeNode> &trees);
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
-  void drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_max, double y_max, double strength_max);
+  void drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_min, double x_max, double y_max, double strength_max, double a, double b);
   void drawTrees(const std::string &filename, const Forest::Result &result);
 
   double tree_roundness;
   double average_height;
   bool verbose;
   double max_tree_canopy_width; 
+  double min_ground_to_canopy_distance;
 private:
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   void calculateTreeParaboloids(std::vector<TreeNode> &trees);

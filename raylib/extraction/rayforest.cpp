@@ -17,7 +17,7 @@ void Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double err
 {
   if (trees[ind].children[0] == -1)
   {
-    if (trees[ind].validParaboloid(max_tree_canopy_width))
+    if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
       indices.push_back(ind);
     return;
   }
@@ -28,7 +28,7 @@ void Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double err
   double base1 = trees[ind1].height() - length_per_radius * trees[ind1].crownRadius();
   double error1 = abs(base1 - ground_height);
       
-  if (error < std::min(error0, error1) && trees[ind].validParaboloid(max_tree_canopy_width)) // we've found the closest, so end loop
+  if (error < std::min(error0, error1) && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_)) // we've found the closest, so end loop
   {
     indices.push_back(ind);
     return;
@@ -84,15 +84,32 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
 {
   voxel_width_ = voxel_width;
   heightfield_ = highs; 
-  lowfield_ = highs; 
+  lowfield_ = lows; 
   lowest_point_ = lows.minCoeff();
-  // pre-process the low points, basically, if they are with a window of the high point then they are unlikely to
-  // actually be ground, so exclude them.
-  double min_ground_to_canopy_distance = 1.5; 
-  for (int i = 0; i<heightfield_.rows(); i++)
-    for (int j = 0; j<heightfield_.cols(); j++)
-      if (lowfield_(i,j) > heightfield_(i,j)-min_ground_to_canopy_distance)
-        lowfield_(i,j) = 1e10;
+
+/* // testing paraboloid extraction
+  TreeNode node(1/voxel_width_,0,10.0, voxel_width_);
+  double curvature = 0.5;
+  for (int i = -1; i<=1; i++)
+  {
+    double x = (double)i * voxel_width_;
+    for (int j = -1; j<=1; j++)
+    {
+      if (i==0 && j==0)
+        continue;
+      double y = (double)j * voxel_width_;
+      double h = 10.0 - curvature * (x*x + y*y);
+      node.addSample(x + 1.0, y, h);
+    }
+  }
+  node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
+  std::cout << "crown radius: " << node.crownRadius() << ", height: " << node.height() << std::endl;
+  std::cout << "tip: " << node.tip().transpose() << ", height at 1,1: " << node.heightAt(1.0, 1.0) << std::endl;
+  std::cout << "peak: " << node.peak.transpose() << std::endl;
+  std::cout << "abcd: " << node.abcd.transpose() << std::endl;
+  std::cout << "vec: " << node.curv_vec.transpose() << std::endl;
+  std::cout << "mat: " << node.curv_mat << std::endl;
+*/
   // so we have some ground in lowfield_ that is beneath trees, we also have some of heightfield_ that is treeless ground.
   // The first we use directly in the ground estimation, the second we have to estimate based on its curvature and location...
   // If it is too planar, or the tree base is way too low compared to the others, then it is probably ground.
@@ -102,11 +119,12 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   std::vector<TreeNode> trees;
   std::set<int> heads;
   hierarchicalWatershed(trees, heads);
-  drawSegmentation("segmented.png", trees);
 
   std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
 
   calculateTreeParaboloids(trees);
+  drawLowfield("lowfield.png", trees);
+  drawSegmentation("segmented.png", trees);
 
   double ground_height = estimateRoundnessAndGroundHeight(trees);
   /***************************************************************************************/
@@ -144,35 +162,46 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
   std::vector<Vector4d> area_data;
   // draw scatter plot
   double max_tree_height = -1e10;
+  double min_tree_height = 1e10;
+  double max_strength = 0.0;
+  const bool sqrtWeight = false; // weights by the sqrt of the area... this gives more weigth to the small crowns
   for (auto &tree: trees)
   {
-    double strength = std::sqrt(tree.area());
+    double area = tree.numPoints() * ray::sqr(voxel_width_);
+    double strength = sqrtWeight ? std::sqrt(area) : area;
     double ratio = tree.sum_square_residual/(1e-10 + tree.sum_square_total);
     double R2 = 1.0 - std::sqrt(ray::clamped(ratio, 0.0, 1.0)); 
     strength *= R2; // TODO: whether this helps is dubious, and it is weird that it gives values outside 0-1... more testing needed.
-    max_tree_height = std::max(max_tree_height, tree.height());
+    max_strength = std::max(max_strength, strength);
 
-    if (tree.validParaboloid(max_tree_canopy_width))
+    if (tree.validParaboloid(max_tree_canopy_width, voxel_width_))
     {
+      max_tree_height = std::max(max_tree_height, tree.height());
+      min_tree_height = std::min(min_tree_height, tree.height());
       data.push_back(Vector4d(tree.height(), tree.crownRadius(), strength, 1));
-      area_data.push_back(Vector4d(tree.height(), sqrt(tree.area()), tree.area(), 1));
+      area_data.push_back(Vector4d(tree.height(), sqrt(area), area, 1));
     }
-    else // it could be bare ground if it doesn't appear like a tree
-      data.push_back(Vector4d(tree.height(), 0.0, strength, 2));
   }
   // now add the under-canopy possible ground points:
   for (int i = 0; i<lowfield_.rows(); i++)
+  {
     for (int j = 0; j<lowfield_.cols(); j++)
-      if (lowfield_(i,j) < 1e10)
-        data.push_back(Vector4d(lowfield_(i,j), 0.0, voxel_width_, 3));
+    {
+      double weight = sqrtWeight ? voxel_width_ : voxel_width_ * voxel_width_;
+      bool unclassified = indexfield_(i,j) == -1;
+      if (lowfield_(i,j) < heightfield_(i,j)-min_ground_to_canopy_distance)
+        data.push_back(Vector4d(lowfield_(i,j), 0.0, weight, 3));
+      else if (unclassified)
+        data.push_back(Vector4d(lowfield_(i,j), 0.0, weight, 4));
+    }
+  }
 
   // Now where do we hypothesise canopy points as ground points?
 
-  drawGraph("graph_curv.png", data, max_tree_height, 20.0 * ray::sqr(radius_to_height), 1.0/17.0);
   double max_area = 0.0;
   for (auto &tree: trees)
-    max_area = std::max(max_area, tree.area());
-  drawGraph("graph_area.png", area_data, max_tree_height, std::sqrt(max_area), 1.0/300.0);
+    max_area = std::max(max_area, tree.numPoints() * ray::sqr(voxel_width_));
+  drawGraph("graph_area.png", area_data, min_tree_height, max_tree_height, std::sqrt(max_area), 1.0/300.0, 0, 0);
 
   // now analyse the data to get line of best fit:
   // line = radius = a * treetop_pos + b
@@ -227,9 +256,10 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
         average_height = mean[1]/a;
       b = (average_height - mean[0]) * a;
     }
+    drawGraph("graph_curv.png", data, min_tree_height, max_tree_height, 20.0 * ray::sqr(radius_to_height), max_strength, a, b);
   }
   std::cout << "a: " << a << ", b: " << b << std::endl;
-
+  a = 0.32; // actual value
   tree_roundness = a;
   double ground_height = -b/a;
   return ground_height;
@@ -257,14 +287,14 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         p.index = (int)basins.size();
         basins.insert(p);
         heads.insert((int)trees.size());
-        trees.push_back(TreeNode(x, y, x*voxel_width_, y*voxel_width_, height));
+        trees.push_back(TreeNode(x, y, height, voxel_width_));
       }
     }
   }
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   // now iterate until basins is empty
   int cnt = 0;
-  int max_tree_pixel_width = (int)(max_tree_canopy_width / (double)voxel_width_);
+  int max_tree_pixel_width = (int)(max_tree_canopy_width); //  / (double)voxel_width_); // TODO: remove!!
   while (!basins.empty())
   {
     Point p = *basins.begin();
@@ -300,7 +330,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           node.children[1] = q_head;
           node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
 
-          if (node.validParaboloid(max_tree_canopy_width)) 
+          if (node.validParaboloid(max_tree_canopy_width, voxel_width_)) 
           {
             heads.erase(p_head);
             heads.erase(q_head);
@@ -367,21 +397,20 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           basins.insert(q);
         }
       }
-      if (ind == -1 && heightfield_(xx, yy) > 0.0)
+      if (ind == -1 && heightfield_(xx, yy) > -1e10) //0.0)
       {
-  //      Eigen::Vector2i dif = (trees[p_head].max_bound - trees[p_head].min_bound);
-  //      double len = 1.0 + (dif[0] + dif[1])/2.0;
-  //      double height_delta = len * 0.5;
+ //       Eigen::Vector2i dif = (trees[p_head].max_bound - trees[p_head].min_bound);
+ //       double len = 1.0 + (dif[0] + dif[1])/2.0;
         Point q;
         q.x = xx; q.y = yy; q.index = p.index;
         q.height = heightfield_(xx, yy);
-   //     if ((p.height - q.height) < 3.0 + len * 0.5)
-   //     {
-        ind = p.index;
-        basins.insert(q);
-        trees[p_head].addSample(xx*voxel_width_, yy*voxel_width_, q.height);
-        trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
-  //      }
+//        if ((p.height - q.height) < len * 0.5)
+//        {
+          ind = p.index;
+          basins.insert(q);
+          trees[p_head].addSample(xx*voxel_width_, yy*voxel_width_, q.height);
+          trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
+//        }
       }
     }
   }
