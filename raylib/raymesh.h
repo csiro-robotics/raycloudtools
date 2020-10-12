@@ -28,6 +28,9 @@ public:
   inline std::vector<Eigen::Vector3i> &index_list(){ return index_list_; }
   inline const std::vector<Eigen::Vector3i> &index_list() const { return index_list_; }
 
+  /// Get first and second order moments of mesh. This can be used as a simple way to compare meshes
+  /// numerically. Note that different stats guarantee different meshes, but same stats do not guarantee same meshes
+  /// These stats are arranged as the mean vertex location, then the standard deviation in each axis
   Eigen::Array<double, 6, 1> getMoments() const;
 private:
   std::vector<Eigen::Vector3d> vertices_;

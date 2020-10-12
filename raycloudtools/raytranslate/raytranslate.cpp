@@ -11,7 +11,7 @@
 #include <string.h>
 #include <iostream>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Translate a raycloud" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -54,5 +54,5 @@ int main(int argc, char *argv[])
   cloud.transform(pose, time_delta);
 #endif
   cloud.save(cloud_file.name());
-  return true;
+  return 0;
 }

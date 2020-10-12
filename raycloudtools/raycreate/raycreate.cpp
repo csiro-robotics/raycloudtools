@@ -16,7 +16,7 @@
 #include <string.h>
 #include <iostream>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Generates simple example ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -152,5 +152,5 @@ int main(int argc, char *argv[])
     usage();
   cloud.save(type + ".ply");
 
-  return true;
+  return 0;
 }

@@ -20,7 +20,7 @@
 #include <iostream>
 #include <thread>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Splits a raycloud into the transient rays and the fixed part" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -94,5 +94,5 @@ int main(int argc, char *argv[])
 
   transient.save(cloud_file.nameStub() + "_transient.ply");
   fixed.save(cloud_file.nameStub() + "_fixed.ply");
-  return true;
+  return 0;
 }

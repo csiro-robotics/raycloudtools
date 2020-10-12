@@ -7,6 +7,7 @@
 #define RAYLIB_RAYUTILS_H
 
 #include "raylib/raylibconfig.h"
+#include "rayrandom.h"
 
 #include <algorithm>
 #include <cassert>
@@ -20,9 +21,7 @@
 #include <set>
 #include <string>
 #include <vector>
-
 #include <Eigen/Dense>
-#include "rayrandom.h"
 
 namespace ray
 {

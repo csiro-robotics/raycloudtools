@@ -17,7 +17,7 @@
 #include <cstring>
 #include <iostream>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout
     << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to "
@@ -150,5 +150,5 @@ int main(int argc, char *argv[])
   progress_thread.join();
 
   fixed_cloud->save(file_stub + "_combined.ply");
-  return true;
+  return 0;
 }

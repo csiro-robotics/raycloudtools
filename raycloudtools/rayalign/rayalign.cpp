@@ -40,7 +40,7 @@ void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int
   mat = eigen_solver.eigenvectors();
 }
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
   std::cout << "usage:" << std::endl;
@@ -399,5 +399,5 @@ int main(int argc, char *argv[])
   }
 
   clouds[0].save(cloud_a.nameStub() + "_aligned.ply");
-  return true;
+  return 0;
 }

@@ -18,7 +18,7 @@
 // FIXME: Windows compatibility
 #include <getopt.h>
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Extracts the ground surface as a mesh." << std::endl;
   std::cout << "usage:" << std::endl;
@@ -26,7 +26,7 @@ void usage(int exitCode = 0)
        << std::endl;
   std::cout << "                               the 1.0 is the maximum curvature to bend to" << std::endl;
   std::cout << "--full                       - the full (slower) method accounts for overhangs." << std::endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
 int main(int argc, char *argv[])
@@ -78,5 +78,5 @@ int main(int argc, char *argv[])
   }
 
   std::cout << "Completed, output: " << cloud_file.nameStub() << "_mesh.ply" << std::endl;
-  return 1;
+  return 0;
 }

@@ -11,7 +11,7 @@
 #include "raylib/rayparse.h"
 #include "raylib/raydebugdraw.h"
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Convert a point cloud and trajectory file into a ray cloud" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -37,5 +37,5 @@ int main(int argc, char *argv[])
     save_file += "_raycloud";
   cloud.save(save_file + ".ply");
 
-  return true;
+  return 0;
 }

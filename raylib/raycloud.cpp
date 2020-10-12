@@ -16,6 +16,7 @@
 #include <iostream>
 #include <limits>
 #include <set>
+// #define OUTPUT_CLOUD_MOMENTS // useful for setting up unit tests comparisons
 
 namespace ray
 {
@@ -34,7 +35,9 @@ void Cloud::save(const std::string &file_name) const
   if (name.substr(name.length() - 4) != ".ply")
     name += ".ply";
   writePly(name, starts, ends, times, colours);
+  #if defined OUTPUT_CLOUD_MOMENTS
   getMoments();
+  #endif // defined OUTPUT_CLOUD_MOMENTS
 }
 
 bool Cloud::load(const std::string &file_name)

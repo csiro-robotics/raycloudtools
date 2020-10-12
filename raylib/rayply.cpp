@@ -5,6 +5,7 @@
 // Author: Thomas Lowe
 #include "rayply.h"
 #include <iostream>
+// #define OUTPUT_MOMENTS // useful when setting up unit test expected ray clouds
 
 namespace ray
 {
@@ -381,12 +382,13 @@ void writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   fwrite(&triangles[0], sizeof(Eigen::Vector4i), triangles.size(), fid);
   fclose(fid);
 
+#if defined OUTPUT_MOMENTS
   Eigen::Array<double, 6, 1> mom = mesh.getMoments();
-
   std::cout << "stats: " << std::endl;
   for (int i = 0; i<mom.rows(); i++)
     std::cout << ", " << mom[i];
   std::cout << std::endl;
+#endif // defined OUTPUT_MOMENTS
 }
 
 
