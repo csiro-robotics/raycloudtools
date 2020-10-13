@@ -33,6 +33,8 @@ if(Eigen3_FOUND)
   target_link_libraries(raytest PRIVATE Eigen3::Eigen)
 endif(Eigen3_FOUND)
 
-add_test(NAME raytest COMMAND raytest --gtest_output=xml:test-reports/)
+add_test(NAME raytest COMMAND raytest --gtest_output=xml:test-reports/
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
 
 source_group("source" REGULAR_EXPRESSION ".*$")

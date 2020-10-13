@@ -152,8 +152,9 @@ namespace raytest
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("forest.ply"));
     compareMoments(cloud.getMoments(), {10.1565, 19.9673, 31.7537, 3.30478, 3.04304, 1.43343, 10.191, 19.9688, 31.8099, 3.1749, 3.00455, 1.39085, 31.2445, 18.0393, 0.51611, 0.501146, 0.414814, 1, 0.375121, 0.365447, 0.391637, 0});
-  }  
-  
+  }
+
+#if RAYLIB_WITH_QHULL
   /// Creates a terrain ray cloud, then wraps it from below, comparing the mesh to the expected results
   TEST(Basic, RayWrap)
   {
@@ -163,4 +164,5 @@ namespace raytest
     EXPECT_TRUE(ray::readPlyMesh("terrain_mesh.ply", mesh));
     compareMoments(mesh.getMoments(), {0.0124983, 0.0318782, -0.00500189, 7.44097, 7.34237, 1.21885});
   }  
+#endif  // RAYLIB_WITH_QHULL
 } // raytest
