@@ -15,6 +15,7 @@
 /// of the cloud when it was confirmed to be operating correctly. 
 namespace raytest
 {
+  /// Issues the specified system command, including the required prefix on non-windows systems.
   int command(const std::string &system_command)
   {
     #ifdef _WIN32
@@ -24,6 +25,7 @@ namespace raytest
     #endif // _WIN32
   }
 
+  /// Issues the command to copy a file, which is a platform dependent system command.
   int copy(const std::string &copy_command)
   {
     #ifdef _WIN32
