@@ -9,12 +9,12 @@
 #include <cstdlib>
 #include <iostream>
 
-void usage(int exitCode = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Load a ray cloud using raycloudtools::raylib" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "useraylib raycloud" << std::endl;
-  exit(exitCode);
+  exit(exit_code);
 }
 
 int main(int argc, char *argv[])

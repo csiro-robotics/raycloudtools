@@ -11,7 +11,7 @@
 #include <string.h>
 #include <iostream>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Reapply changes to a decimated cloud back onto the full resolution cloud." << std::endl;
   std::cout << "usage:" << std::endl;
@@ -200,5 +200,5 @@ int main(int argc, char *argv[])
     full_cloud.addRay(decimated_cloud, ray_index);
 
   full_cloud.save(full_cloud_file.nameStub() + "_restored.ply");
-  return true;
+  return 0;
 }

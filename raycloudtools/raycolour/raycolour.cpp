@@ -11,7 +11,7 @@
 #include <string.h>
 #include <iostream>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Colour the ray cloud, and/or shade it" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -177,5 +177,5 @@ int main(int argc, char *argv[])
   }
 
   cloud.save(cloud_file.nameStub() + "_coloured.ply");
-  return true;
+  return 0;
 }

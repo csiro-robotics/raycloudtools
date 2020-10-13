@@ -16,7 +16,7 @@
 #include <string.h>
 #include <iostream>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Generates simple example ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
   if (!ray::parseCommandLine(argc, argv, {&cloud_type, &seed}))
     usage();
 
-  srand(seed.value());
+  ray::srand(seed.value());
 
   ray::Cloud cloud;
   const double time_delta = 0.001; // between rays
@@ -152,5 +152,5 @@ int main(int argc, char *argv[])
     usage();
   cloud.save(type + ".ply");
 
-  return true;
+  return 0;
 }

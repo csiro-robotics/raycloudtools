@@ -103,6 +103,29 @@ For raywrap:
 * In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install. 
 * in raycloudtools/bbuild: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
 
+## Unit Tests
+
+Unit tests must be enabled at build time before running. To build with unit tests, the CMake variable `RAYCLOUD_BUILD_TESTS` must be `ON`. This can be done in the initial project configuration by running the following command from the `build` directory: `cmake  -DRAYCLOUD_BUILD_TESTS=ON ..`
+
+Unit tests may then be run directly or using `CTest`.
+
+### Running using CTest
+
+To run using CTest:
+
+* Change into the `build` directory
+* Run `ctest .`
+
+On some platforms it may be necessary to specify the build configuration to test. For example, the `Release` build may be tested using the modified command `ctest . -C Release`.
+
+### Directly invoking the tests
+
+When directly invoking the unit tests, is important that the tests are run from the directory to which the raycloud tools executables are built. To invoke the tests directly:
+
+* Change into the `build` directory
+* Change into the `bin/` directory
+* Run `./raytest`
+
 ## Notes
 
 ### Dependencies

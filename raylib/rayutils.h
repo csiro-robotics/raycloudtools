@@ -7,6 +7,7 @@
 #define RAYLIB_RAYUTILS_H
 
 #include "raylib/raylibconfig.h"
+#include "rayrandom.h"
 
 #include <algorithm>
 #include <cassert>
@@ -20,7 +21,6 @@
 #include <set>
 #include <string>
 #include <vector>
-
 #include <Eigen/Dense>
 
 namespace ray
@@ -73,8 +73,9 @@ inline int roundToInt(double x)
 /// Uniform distribution within range
 inline double random(double min, double max)
 {
-  return min + (max - min) * (double(rand()) / double(RAND_MAX));
+  return min + ((max - min) * randUniformDouble());
 }
+
 class RAYLIB_EXPORT Vector3iLess
 {
 public:

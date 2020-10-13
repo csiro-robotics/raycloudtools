@@ -74,7 +74,12 @@ public:
   void getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                   std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats,
                   Eigen::MatrixXi *neighbour_indices);
-  
+  /// Get first and second order moments of cloud. This can be used as a simple way to compare clouds
+  /// numerically. Note that different stats guarantee different clouds, but same stats do not guarantee same clouds
+  /// These stats are arranged as: start mean, start sigma, end mean, end sigma, colour mean, time mean, time sigma, 
+  /// colour sigma. Times are doubles and colours vector4s, the others are vector3s, to give a total of 22 real values.
+  Eigen::Array<double, 22, 1> getMoments() const;
+
   /// generates just the normal vectors of the ray end points based on each point's nearest neighbours.
   std::vector<Eigen::Vector3d> generateNormals(int search_size = 16);
 

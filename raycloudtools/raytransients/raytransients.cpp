@@ -20,7 +20,7 @@
 #include <iostream>
 #include <thread>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Splits a raycloud into the transient rays and the fixed part" << std::endl;
   std::cout << "usage:" << std::endl;
