@@ -25,8 +25,13 @@ void RAYLIB_EXPORT writePly(const std::string &file_name, const std::vector<Eige
                             const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
                             const std::vector<RGBA> &colours);
 
+/// write a .ply file representing a point cloud
+void RAYLIB_EXPORT writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &points, 
+                            const std::vector<double> &times, const std::vector<RGBA> &colours);
+
 /// write a .ply file representing a triangular mesh
 void RAYLIB_EXPORT writePlyMesh(const std::string &file_name_rawaw, const Mesh &mesh, bool flip_normals = false);
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYPLY_H

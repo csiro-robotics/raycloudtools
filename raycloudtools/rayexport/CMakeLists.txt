@@ -1,8 +1,8 @@
 set(SOURCES
-  rayconvert.cpp
+  rayexport.cpp
 )
 
-ras_add_executable(rayconvert
+ras_add_executable(rayexport
   LIBS raylib
   SOURCES ${SOURCES}
   PROJECT_FOLDER "raycloudtools"

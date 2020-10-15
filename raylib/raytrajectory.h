@@ -14,30 +14,29 @@
 namespace ray
 {
 
+/// Simple class to represent a moving point over time
 class RAYLIB_EXPORT Trajectory
 {
 public:
   class RAYLIB_EXPORT Node
   {
   public:
-    Pose pose;
+    Eigen::Vector3d pos;
     double time;
 
     Node() {}
-    Node(const Pose &pose, double time)
+    Node(const Eigen::Vector3d &pos, double time)
     {
-      this->pose = pose;
+      this->pos = pos;
       this->time = time;
-    }
-    
-    inline void normalise()
-    {
-      pose.normalise();
     }
   };
   std::vector<Node> nodes;
 
-  void save(const std::string &file_name, double time_offset = 0.0);
+  /// Save trajectory to a text file. One line per Node
+  void save(const std::string &file_name);
+
+  /// Load trajectory from file. The file is expected to be a text file, with one Node entry per line
   bool load(const std::string &file_name);
 };
 

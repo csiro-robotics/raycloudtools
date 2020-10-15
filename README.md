@@ -29,7 +29,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 
 ## Examples:
 
-**rayconvert forest.laz forest_traj.ply** &nbsp;&nbsp;&nbsp; Convert point cloud and trajectory to a single raycloud file: forest.ply
+**rayimport forest.laz forest_traj.ply** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file: forest.ply
 
 **raycreate room 0** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 0.
 <p align="center">

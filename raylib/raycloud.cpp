@@ -69,7 +69,19 @@ bool Cloud::load(const std::string &point_cloud, const std::string &traj_file)
   }
 
   Trajectory trajectory;
-  if (!trajectory.load(traj_file))
+  std::string traj_end = traj_file.substr(traj_file.size() - 4);
+  if (traj_end == ".ply")
+  {
+    std::vector<Eigen::Vector3d> starts;
+    std::vector<Eigen::Vector3d> ends;
+    std::vector<double> times;
+    std::vector<RGBA> colours;
+    if (!readPly(traj_file, starts, ends, times, colours, false))
+      return false;
+    for (size_t i = 0; i<ends.size(); i++)
+      trajectory.nodes.push_back(Trajectory::Node(ends[i], times[i]));
+  }
+  else if (!trajectory.load(traj_file))
     return false;
 
   calculateStarts(trajectory);
@@ -94,8 +106,8 @@ void Cloud::calculateStarts(const Trajectory &trajectory)
       double blend =
         (times[i] - trajectory.nodes[n - 1].time) / (trajectory.nodes[n].time - trajectory.nodes[n - 1].time);
       starts[i] =
-        trajectory.nodes[n - 1].pose.position +
-        (trajectory.nodes[n].pose.position - trajectory.nodes[n - 1].pose.position) * clamped(blend, 0.0, 1.0);
+        trajectory.nodes[n - 1].pos +
+        (trajectory.nodes[n].pos - trajectory.nodes[n - 1].pos) * clamped(blend, 0.0, 1.0);
     }
   }
   else
