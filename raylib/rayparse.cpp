@@ -289,7 +289,7 @@ bool OptionalKeyValueArgument::parse(int argc, char *argv[], int &index, bool se
   if (index >= argc)
     return false;
   std::string str(argv[index]);
-  if (str == ("--" + name_))
+  if (str == ("--" + name_) || str == ("-" + std::string(1, character_)))
   {
     if (set_value) 
       is_set_ = true;

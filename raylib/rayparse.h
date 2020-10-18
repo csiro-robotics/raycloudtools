@@ -236,12 +236,14 @@ private:
 struct RAYLIB_EXPORT OptionalKeyValueArgument : OptionalArgument 
 {
 public:
-  OptionalKeyValueArgument(const std::string &name, ValueArgument *value) : 
-    name_(name), value_(value), is_set_(false) {}
+  OptionalKeyValueArgument(const std::string &name, char character, ValueArgument *value) : 
+    name_(name), character_(character), value_(value), is_set_(false) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
+  inline bool isSet() const { return is_set_; }
 private:
   std::string name_;
+  char character_;
   ValueArgument *value_;
   bool is_set_;
 };
