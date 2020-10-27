@@ -164,7 +164,8 @@ void FineAlignment::generateSurfels()
         surfels_[c].push_back(Surfel(centroid, mat, width, normal, true));
       }
     }
-    DebugDraw::instance()->drawCloud(decimated_points, 0.5 + 0.4 * (double)c, c);
+    if (verbose_)
+      DebugDraw::instance()->drawCloud(decimated_points, 0.5 + 0.4 * (double)c, c);
   }
   translation_weight_ = 0.4 / avg_max_spacing;  // smaller finds matches further away
   if (verbose_)

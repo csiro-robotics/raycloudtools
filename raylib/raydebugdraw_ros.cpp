@@ -242,7 +242,6 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
     marker.color.b = float(colour[2]);
 
     Eigen::Quaterniond q(poses[i]);
-    Eigen::Matrix3d rotMat = q.toRotationMatrix();
 
     q.normalize();
     marker.pose.orientation.w = q.w();
