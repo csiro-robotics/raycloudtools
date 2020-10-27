@@ -11,9 +11,9 @@ namespace ray
 {
 void FineAlignment::Surfel::draw(const std::vector<Surfel> &surfels, const Eigen::Vector3d &colour)
 {
-  std::vector<Eigen::Matrix3d> matrices;
-  std::vector<Eigen::Vector3d> centroids;
-  std::vector<Eigen::Vector3d> widths;
+  std::vector<Eigen::Matrix3d> matrices(surfels.size());
+  std::vector<Eigen::Vector3d> centroids(surfels.size());
+  std::vector<Eigen::Vector3d> widths(surfels.size());
   for (size_t i = 0; i<surfels.size(); i++)
   {
     matrices[i] = surfels[i].matrix;
