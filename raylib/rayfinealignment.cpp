@@ -9,6 +9,7 @@
 
 namespace ray
 {
+// Simple conversion of surfels for rendering as ellipsoids
 void FineAlignment::Surfel::draw(const std::vector<Surfel> &surfels, const Eigen::Vector3d &colour)
 {
   std::vector<Eigen::Matrix3d> matrices(surfels.size());
@@ -23,6 +24,7 @@ void FineAlignment::Surfel::draw(const std::vector<Surfel> &surfels, const Eigen
   DebugDraw::instance()->drawEllipsoids(centroids, matrices, widths, colour, 1);
 }
 
+// Convert the set of points into a covariance matrix, and from that into surfel information, using an eigendecomposition
 void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int> &ids, Eigen::Vector3d &centroid, Eigen::Vector3d &width,
                Eigen::Matrix3d &mat)
 {
@@ -39,15 +41,18 @@ void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int
   }
   scatter / (double)ids.size();
 
+  // eigendecomposition:
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
   ASSERT(eigen_solver.info() == Eigen::ComputationInfo::Success);
   width = ray::maxVector(eigen_solver.eigenvalues(), Eigen::Vector3d(1e-5, 1e-5, 1e-5));
+  // ellipsoid radii are the square root because it is the decomposition of a covariance matrix
   width = Eigen::Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
   mat = eigen_solver.eigenvectors();
   if (mat.determinant() < 0.0)
-    mat.col(0) = -mat.col(0); // make right-handed
+    mat.col(0) = -mat.col(0); // make right-handed, so that we can convert to a quaternion for rendering
 }
 
+// Convert clouds_[] into sets of surfels. 
 void FineAlignment::generateSurfels()
 {
   double point_spacings[2];
@@ -61,7 +66,9 @@ void FineAlignment::generateSurfels()
     double min_spacing = min_spacing_scale*point_spacings[c];
     double max_spacing = max_spacing_scale*point_spacings[c];
     avg_max_spacing += 0.5*max_spacing;
-    std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing << "m" << std::endl;
+    if (verbose_)
+      std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing << "m" << std::endl;
+    
     // 1. decimate quite fine
     std::vector<int64_t> decimated = ray::voxelSubsample(clouds_[c].ends, min_spacing);
     std::vector<Eigen::Vector3d> decimated_points;
@@ -90,10 +97,10 @@ void FineAlignment::generateSurfels()
       candidate_starts[i] = decimated_starts[candidates[i]];
     }
 
+    // Now find all the finely decimated points that are close neighbours of each coarse candidate point
     int search_size = 20;
     size_t q_size = candidates.size();
     size_t p_size = decimated_points.size();
-
     Nabo::NNSearchD *nns;
     Eigen::MatrixXd points_q(3, q_size);
     for (size_t i = 0; i < q_size; i++) points_q.col(i) = candidate_points[i];
@@ -109,6 +116,7 @@ void FineAlignment::generateSurfels()
     nns->knn(points_q, indices, dists2, search_size, 0.01*max_spacing, 0, max_spacing);
     delete nns;
 
+    // Convert these set of nearest neighbours into surfels
     surfels_[c].reserve(q_size);
     std::vector<int> ids;
     ids.reserve(search_size);
@@ -136,7 +144,7 @@ void FineAlignment::generateSurfels()
         if (c == 1)
           surfels_[c].push_back(Surfel(centroid, mat, width, -mat.col(2), false));
       }
-      else
+      else // planar
       {
         Eigen::Vector3d normal = mat.col(0);
         if ((centroid - candidate_starts[i]).dot(normal) > 0.0)
@@ -172,6 +180,7 @@ void FineAlignment::generateSurfels()
     Surfel::draw(surfels_[1], Eigen::Vector3d(0, 1, 0));
 }
 
+// Match surfels_[0] to surfels_[1] based on proximity, normal difference and whether it is a plane or cylinder
 void FineAlignment::generateSurfelMatches(std::vector<Match> &matches)
 {
   std::vector<Eigen::Vector3d> line_starts;
@@ -242,6 +251,7 @@ void FineAlignment::generateSurfelMatches(std::vector<Match> &matches)
   }
 }
 
+// Convert the correspondences into a linear system to solve
 void FineAlignment::buildLinearSystem(const std::vector<Match> &matches, double d, FineAlignment::LinearSystem &system)
 {
   // don't go above 30*... or below 10*...
@@ -267,7 +277,7 @@ void FineAlignment::buildLinearSystem(const std::vector<Match> &matches, double 
     error_sqr += (s0.normal - s1.normal).squaredNorm();
     double weight = pow(std::max(1.0 - error_sqr / ray::sqr(max_normal_difference_), 0.0), d * d);
     square_error += ray::sqr(error);
-    Eigen::Matrix<double, 1, state_size> a;  // the Jacobian
+    Eigen::Matrix<double, 1, LinearSystem::state_size> a;  // the Jacobian
     a.setZero();
 
     for (int i = 0; i < 3; i++)  // change in error with change in raycloud translation
@@ -296,14 +306,16 @@ void FineAlignment::buildLinearSystem(const std::vector<Match> &matches, double 
     std::cout << "rmse: " << sqrt(square_error / (double)matches.size()) << std::endl;
 }
 
-Eigen::Matrix<double, state_size, 1> FineAlignment::LinearSystem::solve()
+Eigen::Matrix<double, FineAlignment::LinearSystem::state_size, 1> FineAlignment::LinearSystem::solve(bool verbose)
 { 
-  Eigen::Matrix<double, state_size, 1> x = At_A.ldlt().solve(At_b); 
-  std::cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4]
-            << ", " << x[5] << std::endl;
+  Eigen::Matrix<double, FineAlignment::LinearSystem::state_size, 1> x = At_A.ldlt().solve(At_b); 
+  if (verbose)
+    std::cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4]
+              << ", " << x[5] << std::endl;
   return x;
 }
 
+// Update clouds_[0] and surfels_[0] from the specified transformation
 void FineAlignment::updateLinearSystem(std::vector<Match> &matches, const QuadraticTransformation &trans)
 {
   Pose shift = trans.getEuclideanPart();
@@ -330,29 +342,31 @@ void FineAlignment::updateLinearSystem(std::vector<Match> &matches, const Quadra
   }
 }
 
-// The fine grained alignment.
-// Method:
-// 1. for each cloud: decimate the cloud to make it even, but still quite detailed, e.g. one point per cubic 10cm
-// 2. decimate again to pick one point per cubic 1m (for instance)
-// 3. now match the closest X points in 1 to those in 2, and generate surfel per point in 2.
-// 4. repeatedly: match surfels in cloud0 to those in cloud1
-// 5. solve a weighted least squares to find the transform of best fit
-// 6. apply the transform to cloud0 and save it out.
+// The fine grained alignment method
 void FineAlignment::align()
 {
+  // For each cloud: decimate the cloud to make it even, but still quite detailed, e.g. one point per cubic 10cm
+  // Decimate again to pick one point per cubic 1m (for instance)
+  // Now match the closest X points in 1 to those in 2, and generate surfel per point in 2.
   generateSurfels();
-  // Now we have the ellipsoids, we need to do a nearest neighbour on this set of data, trying to match orientation as
-  // well as location
+ 
+  // Iteratively reweighted least squares. Iteration loop:
   int max_iterations = 8;
-  for (int it = 0; it < max_iterations; it++)
+  for (int it = 0; it < max_iterations; it++) 
   {
+    // Match surfels in cloud0 to those in cloud1
     std::vector<Match> matches;
     generateSurfelMatches(matches);
-    double d = 20.0 * (double)it / (double)max_iterations;
     
+    // Convert the match constraints into a linear system
     LinearSystem system;
+    double d = 20.0 * (double)it / (double)max_iterations;
     buildLinearSystem(matches, d, system);
-    QuadraticTransformation perturbation(system.solve());
+
+    // Solve as a weighted least squares problem, to find the transformation of best fit
+    QuadraticTransformation perturbation(system.solve(verbose_));
+
+    // Update the ray cloud and surfels from on the transformation of best fit
     updateLinearSystem(matches, perturbation);
   }
 }
