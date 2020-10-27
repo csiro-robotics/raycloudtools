@@ -67,7 +67,6 @@ int main(int argc, char *argv[])
   if (!standard_format && !concatenate && !threeway && !threeway_concatenate)
     usage();
 
-  ray::DebugDraw::init(argc, argv, "raycombine");
   // we know there is at least one file, as we specified a minimum number in FileArgumentList
   std::string file_stub = (threeway || threeway_concatenate) ? base_cloud.nameStub() : cloud_files.files()[0].nameStub(); 
 

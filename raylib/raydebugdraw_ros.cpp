@@ -232,40 +232,24 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
     marker.type = marker.SPHERE;
     marker.action = marker.ADD;
 
-    double q1 = radii[i][0] / radii[i][1];
-    double q2 = radii[i][1] / radii[i][2];
+    marker.scale.x = 2*radii[i][0];
+    marker.scale.y = 2*radii[i][1];
+    marker.scale.z = 2*radii[i][2];
 
-    int ind = q1 < q2 ? 0 : 2;
-    marker.scale.z = radii[i][ind];
-    marker.scale.x = radii[i][(ind + 1) % 3];
-    marker.scale.y = radii[i][(ind + 2) % 3];
     marker.color.a = 1.0;
     marker.color.r = float(colour[0]);
     marker.color.g = float(colour[1]);
     marker.color.b = float(colour[2]);
 
-    Eigen::Vector3d len = poses[i].col(ind);
-    Eigen::Vector3d ax = len.cross(Eigen::Vector3d(0, 0, 1));
-    double angle = atan2(ax.norm(), len[2]);
-    Eigen::Vector3d rot_vector = ax.normalized() * -angle;
-    Eigen::Quaterniond q(Eigen::AngleAxisd(rot_vector.norm(), rot_vector.normalized()));
+    Eigen::Quaterniond q(poses[i]);
+    Eigen::Matrix3d rotMat = q.toRotationMatrix();
 
     q.normalize();
-    if (!(abs(q.squaredNorm() - 1.0) < 0.001))
-    {
-      std::cout << "quat " << i << " unnormalized: " << q.w() << ", " << q.x() << ", " << q.y() << ", " << q.z()
-                << std::endl;
-      std::cout << "poses: " << poses[i] << std::endl;
-    }
     marker.pose.orientation.w = q.w();
     marker.pose.orientation.x = q.x();
     marker.pose.orientation.y = q.y();
     marker.pose.orientation.z = q.z();
     Eigen::Vector3d mid = centres[i];
-    if (!(mid[0] == mid[0]))
-    {
-      std::cout << "bad centre: " << mid.transpose() << std::endl;
-    }
     marker.pose.position.x = mid[0];
     marker.pose.position.y = mid[1];
     marker.pose.position.z = mid[2];
