@@ -32,6 +32,16 @@ void RAYLIB_EXPORT writePly(const std::string &file_name, const std::vector<Eige
 /// write a .ply file representing a triangular mesh
 void RAYLIB_EXPORT writePlyMesh(const std::string &file_name_rawaw, const Mesh &mesh, bool flip_normals = false);
 
+
+bool readPly(const std::string &file_name, bool is_ray_cloud, 
+             std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, 
+             std::vector<RGBA> &colours, bool start_chunk, bool end_chunk)> apply,
+             int chunk_size = 100000);
+
+/// write a .ply file representing a ray cloud
+bool RAYLIB_EXPORT writePlyChunk(std::ofstream &out, std::vector<Eigen::Matrix<float, 9, 1>> &vertices, const std::vector<Eigen::Vector3d> &starts,
+                   const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
+                   const std::vector<RGBA> &colours, bool /*start_chunk*/, bool end_chunk);
 }  // namespace ray
 
 #endif  // RAYLIB_RAYPLY_H

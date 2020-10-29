@@ -51,7 +51,6 @@ public:
 
   void save(const std::string &file_name) const;
   bool load(const std::string &file_name);
-  bool load(const std::string &point_cloud, const std::string &traj_file);
 
   Eigen::Vector3d calcMinBound() const;
   Eigen::Vector3d calcMaxBound() const;
@@ -102,8 +101,11 @@ public:
   bool calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds, unsigned flags = kBFEnd,
                   Progress *progress = nullptr) const;
 
-private:
+  /// Calculate the start locations of each ray, by interpolating the @c trajectory according to each time
+  /// point in the cloud
   void calculateStarts(const Trajectory &trajectory);
+
+private:
   bool loadPLY(const std::string &file);
 };
 

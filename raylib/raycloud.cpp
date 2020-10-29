@@ -49,45 +49,6 @@ bool Cloud::load(const std::string &file_name)
   return false;
 }
 
-bool Cloud::load(const std::string &point_cloud, const std::string &traj_file)
-{
-  std::string name_end = point_cloud.substr(point_cloud.size() - 4);
-  if (name_end == ".ply")
-  {
-    if (!readPly(point_cloud, starts, ends, times, colours, false)) // special case of reading a non-ray-cloud ply
-      return false;
-  }
-  else if (name_end == ".laz" || name_end == ".las")
-  {
-    if (!readLas(point_cloud, ends, times, colours, 1))
-      return false;
-  }
-  else
-  {
-    std::cout << "Error converting unknown type: " << point_cloud << std::endl;
-    return false;
-  }
-
-  Trajectory trajectory;
-  std::string traj_end = traj_file.substr(traj_file.size() - 4);
-  if (traj_end == ".ply")
-  {
-    std::vector<Eigen::Vector3d> starts;
-    std::vector<Eigen::Vector3d> ends;
-    std::vector<double> times;
-    std::vector<RGBA> colours;
-    if (!readPly(traj_file, starts, ends, times, colours, false))
-      return false;
-    for (size_t i = 0; i<ends.size(); i++)
-      trajectory.nodes.push_back(Trajectory::Node(ends[i], times[i]));
-  }
-  else if (!trajectory.load(traj_file))
-    return false;
-
-  calculateStarts(trajectory);
-  return true;
-}
-
 bool Cloud::loadPLY(const std::string &file)
 {
   return readPly(file, starts, ends, times, colours, true);
