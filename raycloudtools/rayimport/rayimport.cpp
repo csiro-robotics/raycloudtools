@@ -59,17 +59,18 @@ int main(int argc, char *argv[])
   std::string name_end = point_cloud.substr(point_cloud.size() - 4);
   if (name_end == ".ply")
   {
-    std::ofstream ofs(save_file + ".ply", std::ios::binary | std::ios::out);
-    std::vector<Eigen::Matrix<float, 9, 1>> buffer;
-    auto lam = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours, bool start, bool end)
-      {
-        // TODO: calculate starts here, like this
-        //  cloud.calculateStarts(trajectory);
-
-        ray::writePlyChunk(ofs, buffer, starts, ends, times, colours, start, end);
-      };
-    if (!ray::readPly(point_cloud, false, lam)) // special case of reading a non-ray-cloud ply
+    std::ofstream ofs;
+    if (!ray::writePlyChunkStart(save_file + ".ply", ofs))
       usage();
+    std::vector<Eigen::Matrix<float, 9, 1>> buffer;
+    auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+    {
+      trajectory.calculateStartPoints(times, starts);
+      ray::writePlyChunk(ofs, buffer, starts, ends, times, colours);
+    };
+    if (!ray::readPly(point_cloud, false, add_chunk)) // special case of reading a non-ray-cloud ply
+      usage();
+    ray::writePlyChunkEnd(ofs);
   }
   else if (name_end == ".laz" || name_end == ".las")
   {

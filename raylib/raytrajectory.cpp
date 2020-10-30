@@ -7,6 +7,22 @@
 
 namespace ray
 {
+void Trajectory::calculateStartPoints(const std::vector<double> &times, std::vector<Eigen::Vector3d> &starts)
+{
+  // Aha!, problem in calculating starts when times are not ordered.
+  if (nodes.empty())
+    std::cout << "Warning: can only calculate start points when a trajectory is available" << std::endl;
+
+  int n = 1;
+  starts.resize(times.size());
+  for (size_t i = 0; i < times.size(); i++)
+  {
+    while ((times[i] > nodes[n].time) && n < (int)nodes.size() - 1) n++;
+    double blend = (times[i] - nodes[n - 1].time) / (nodes[n].time - nodes[n - 1].time);
+    starts[i] = nodes[n - 1].pos + (nodes[n].pos - nodes[n - 1].pos) * clamped(blend, 0.0, 1.0);
+  }
+}
+
 void Trajectory::save(const std::string &file_name)
 {
   std::cout << "saving trajectory " << file_name << std::endl;

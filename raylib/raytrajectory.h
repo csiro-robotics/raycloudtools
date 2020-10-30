@@ -38,6 +38,8 @@ public:
 
   /// Load trajectory from file. The file is expected to be a text file, with one Node entry per line
   bool load(const std::string &file_name);
+
+  void calculateStartPoints(const std::vector<double> &times, std::vector<Eigen::Vector3d> &starts);
 };
 
 

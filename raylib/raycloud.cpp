@@ -54,27 +54,6 @@ bool Cloud::loadPLY(const std::string &file)
   return readPly(file, starts, ends, times, colours, true);
 }
 
-void Cloud::calculateStarts(const Trajectory &trajectory)
-{
-  // Aha!, problem in calculating starts when times are not ordered.
-  if (trajectory.nodes.size() > 0)
-  {
-    int n = 1;
-    starts.resize(ends.size());
-    for (size_t i = 0; i < ends.size(); i++)
-    {
-      while ((times[i] > trajectory.nodes[n].time) && n < (int)trajectory.nodes.size() - 1) n++;
-      double blend =
-        (times[i] - trajectory.nodes[n - 1].time) / (trajectory.nodes[n].time - trajectory.nodes[n - 1].time);
-      starts[i] =
-        trajectory.nodes[n - 1].pos +
-        (trajectory.nodes[n].pos - trajectory.nodes[n - 1].pos) * clamped(blend, 0.0, 1.0);
-    }
-  }
-  else
-    std::cout << "can only recalculate when a trajectory is available" << std::endl;
-}
-
 Eigen::Vector3d Cloud::calcMinBound() const
 {
   Eigen::Vector3d min_v(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
@@ -171,7 +150,8 @@ void Cloud::removeUnboundedRays()
 
 void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set)
 {
-  std::vector<int64_t> subsample = voxelSubsample(ends, voxel_width, voxel_set);
+  std::vector<int64_t> subsample;
+  voxelSubsample(ends, voxel_width, subsample, voxel_set);
   for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
   {
     int64_t id = subsample[i];

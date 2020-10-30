@@ -5,6 +5,7 @@
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
 #include "raylib/rayparse.h"
+#include "raylib/rayply.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,25 +31,71 @@ int main(int argc, char *argv[])
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity}))
     usage();
 
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
+  std::ofstream ofs;
+  if (!ray::writePlyChunkStart(cloud_file.nameStub() + "_decimated.ply", ofs))
     usage();
 
-  ray::Cloud new_cloud;
-  std::string type = quantity.selectedKey();
-  if (type == "cm")
+  // By maintaining these buffers below, we avoid almost all memory fragmentation  
+  std::vector<Eigen::Matrix<float, 9, 1>> buffer;
+  std::vector<Eigen::Vector3d> start_points;
+  std::vector<Eigen::Vector3d> end_points;
+  std::vector<double> time_points;
+  std::vector<ray::RGBA> colour_values;
+  std::vector<int64_t> subsample;
+
+  // voxel set is global, however its size is proportional to the decimated cloud size,
+  // so we expect it to fit within RAM limits
+  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;  
+
+  auto decimate_cm = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    cloud.decimate(0.01 * vox_width.value());
-  }
-  else if (type == "rays")
+    double width = 0.01 * vox_width.value();
+
+    subsample.clear();
+    voxelSubsample(ends, width, subsample, &voxel_set);
+    start_points.resize(subsample.size());
+    end_points.resize(subsample.size());
+    time_points.resize(subsample.size());
+    colour_values.resize(subsample.size());
+    for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
+    {
+      int64_t id = subsample[i];
+      start_points[i] = starts[id];
+      end_points[i] = ends[id];
+      colour_values[i] = colours[id];
+      time_points[i] = times[id];
+    }
+    ray::writePlyChunk(ofs, buffer, start_points, end_points, time_points, colour_values);
+  };
+  auto decimate_rays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     int decimation = num_rays.value();
-    for (int i = 0; i < (int)cloud.ends.size(); i += decimation)
-      new_cloud.addRay(cloud, i);
-    cloud = new_cloud;
-  }
+    size_t count = ends.size() / (size_t)decimation;
+    start_points.resize(count);
+    end_points.resize(count);
+    time_points.resize(count);
+    colour_values.resize(count);
+    for (size_t i = 0, c = 0; i < ends.size(); i += decimation, c++)
+    {
+      start_points[c] = starts[i];
+      end_points[c] = ends[i];
+      time_points[c] = times[i];
+      colour_values[c] = colours[i];
+    }
+    ray::writePlyChunk(ofs, buffer, start_points, end_points, time_points, colour_values);
+  };
+
+  bool success;
+  if (quantity.selectedKey() == "cm")
+    success = ray::readPly(cloud_file.name(), false, decimate_cm, 10000);
   else
-    usage(false);
-  cloud.save(cloud_file.nameStub() + "_decimated.ply");
+    success = ray::readPly(cloud_file.name(), false, decimate_rays, 10000);
+  if (!success)
+    usage();
+//  auto &add_chunk = quantity.selectedKey() == "cm" ? decimate_cm : decimate_rays; 
+//  if (!ray::readPly(cloud_file.name(), false, add_chunk, 10000)) // special case of reading a non-ray-cloud ply
+//    usage();
+  ray::writePlyChunkEnd(ofs);
+
   return 0;
 }

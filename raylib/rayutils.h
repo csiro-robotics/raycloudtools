@@ -89,10 +89,10 @@ public:
   }
 };
 
-inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set = NULL)
+inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::vector<int64_t> &indices, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set = NULL)
 {
-  std::vector<int64_t> indices;
-  std::set<Eigen::Vector3i, Vector3iLess> vox_set;
+  std::set<Eigen::Vector3i, Vector3iLess> voxel_set_buffer;
+  std::set<Eigen::Vector3i, Vector3iLess> *vox_set = voxel_set ? voxel_set : &voxel_set_buffer; 
   // We do a backwards iteration of the list in order to pick the last (newest) point in each voxel.
   // The choice of which opint per voxel is ambiguous, but while we are ordering chronologically, it benefits
   // merge-and-decimate operations to pick the most recent point
@@ -100,9 +100,9 @@ inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &p
   {
     Eigen::Vector3i voxel(int(std::floor(points[i][0] / voxel_width)), int(std::floor(points[i][1] / voxel_width)),
                           int(std::floor(points[i][2] / voxel_width)));
-    if (vox_set.find(voxel) == vox_set.end())
+    if (vox_set->find(voxel) == vox_set->end())
     {
-      vox_set.insert(voxel);
+      vox_set->insert(voxel);
       indices.push_back(i);
     }
   }
@@ -110,9 +110,6 @@ inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &p
   int64_t numIndices = (int64_t)indices.size();
   for (int64_t i = 0; i<numIndices/2; i++)
     std::swap(indices[i], indices[numIndices - 1 - i]);
-  if (voxel_set != NULL)
-    *voxel_set = std::move(vox_set);
-  return indices;
 }
 
 /// Square a value

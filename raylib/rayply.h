@@ -20,28 +20,29 @@ bool RAYLIB_EXPORT readPly(const std::string &file_name, std::vector<Eigen::Vect
 /// read in a .ply file that represents a triangular mesh, into the @c Mesh structure
 bool RAYLIB_EXPORT readPlyMesh(const std::string &file, Mesh &mesh);
 
-/// write a .ply file representing a ray cloud
-void RAYLIB_EXPORT writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &starts,
-                            const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
-                            const std::vector<RGBA> &colours);
-
-/// write a .ply file representing a point cloud
-void RAYLIB_EXPORT writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &points, 
-                            const std::vector<double> &times, const std::vector<RGBA> &colours);
-
 /// write a .ply file representing a triangular mesh
 void RAYLIB_EXPORT writePlyMesh(const std::string &file_name_rawaw, const Mesh &mesh, bool flip_normals = false);
 
 
 bool readPly(const std::string &file_name, bool is_ray_cloud, 
-             std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, 
-             std::vector<RGBA> &colours, bool start_chunk, bool end_chunk)> apply,
-             int chunk_size = 100000);
+     std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t chunk_size = 100000);
+
+
+/// write a .ply file representing a point cloud
+void RAYLIB_EXPORT writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &points, 
+                            const std::vector<double> &times, const std::vector<RGBA> &colours);
 
 /// write a .ply file representing a ray cloud
+void RAYLIB_EXPORT writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &starts,
+                            const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
+                            const std::vector<RGBA> &colours);
+
+/// Chunked version of writePly for ray clouds
+bool RAYLIB_EXPORT writePlyChunkStart(const std::string &file_name, std::ofstream &out);
 bool RAYLIB_EXPORT writePlyChunk(std::ofstream &out, std::vector<Eigen::Matrix<float, 9, 1>> &vertices, const std::vector<Eigen::Vector3d> &starts,
-                   const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
-                   const std::vector<RGBA> &colours, bool /*start_chunk*/, bool end_chunk);
+     const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours);
+void RAYLIB_EXPORT writePlyChunkEnd(std::ofstream &out);
 }  // namespace ray
 
 #endif  // RAYLIB_RAYPLY_H
