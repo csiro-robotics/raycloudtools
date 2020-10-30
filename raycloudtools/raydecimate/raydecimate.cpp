@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     usage();
 
   // By maintaining these buffers below, we avoid almost all memory fragmentation  
-  std::vector<Eigen::Matrix<float, 9, 1>> buffer;
+  ray::RayPlyBuffer buffer;
   std::vector<Eigen::Vector3d> start_points;
   std::vector<Eigen::Vector3d> end_points;
   std::vector<double> time_points;

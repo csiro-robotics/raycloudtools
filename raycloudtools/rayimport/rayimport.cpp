@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
     std::ofstream ofs;
     if (!ray::writePlyChunkStart(save_file + ".ply", ofs))
       usage();
-    std::vector<Eigen::Matrix<float, 9, 1>> buffer;
+    ray::RayPlyBuffer buffer;
     auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
     {
       trajectory.calculateStartPoints(times, starts);

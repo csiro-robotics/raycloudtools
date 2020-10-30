@@ -45,7 +45,7 @@ bool writePlyChunkStart(const std::string &file_name, std::ofstream &out)
   return true;
 }
 
-bool writePlyChunk(std::ofstream &out, std::vector<Eigen::Matrix<float, 9, 1>> &vertices, const std::vector<Eigen::Vector3d> &starts,
+bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours)
 {
   if (ends.size() == 0)
@@ -93,14 +93,14 @@ bool writePlyChunk(std::ofstream &out, std::vector<Eigen::Matrix<float, 9, 1>> &
     vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)u.f[0], (float)u.f[1], (float)n[0],
       (float)n[1], (float)n[2], (float &)colours[i];
   }
-  out.write((const char *)&vertices[0], sizeof(Eigen::Matrix<float, 9, 1>) * vertices.size());   
+  out.write((const char *)&vertices[0], sizeof(RayPlyEntry) * vertices.size());   
   return true;
 }
 
 void writePlyChunkEnd(std::ofstream &out)
 {
   unsigned long size = (unsigned long) out.tellp() - chunk_header_length;
-  unsigned long number_of_rays = size / sizeof(Eigen::Matrix<float, 9, 1>);
+  unsigned long number_of_rays = size / sizeof(RayPlyEntry);
   out.seekp(vertex_size_pos);
   out << number_of_rays; // TODO 1: does this insert or replace the spaces?
   std::cout << "... saved out " << number_of_rays << " rays." << std::endl;
@@ -119,7 +119,7 @@ void writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &
 
   std::ofstream ofs;
   writePlyChunkStart(file_name, ofs);
-  std::vector<Eigen::Matrix<float, 9, 1>> buffer;
+  RayPlyBuffer buffer;
   // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
   writePlyChunk(ofs, buffer, starts, ends, times, rgb); 
   writePlyChunkEnd(ofs);
@@ -139,7 +139,7 @@ void writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &
   else
     colourByTime(times, rgb);
 
-  std::vector<Eigen::Matrix<float, 6, 1>> vertices(points.size());  // 4d to give space for colour
+  std::vector<PointPlyEntry> vertices(points.size());  // 4d to give space for colour
   bool warned = false;
   for (size_t i = 0; i < points.size(); i++)
   {
@@ -181,7 +181,7 @@ void writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &
   out << "property uchar alpha" << std::endl;
   out << "end_header" << std::endl;
 
-  out.write((const char *)&vertices[0], sizeof(Eigen::Matrix<float, 6, 1>) * vertices.size());
+  out.write((const char *)&vertices[0], sizeof(PointPlyEntry) * vertices.size());
 }
 
 bool readPly(const std::string &file_name, bool is_ray_cloud, 
