@@ -26,7 +26,7 @@ void RAYLIB_EXPORT writePlyMesh(const std::string &file_name_rawaw, const Mesh &
 
 bool readPly(const std::string &file_name, bool is_ray_cloud, 
      std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-     std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t chunk_size = 100000);
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t chunk_size = 1000000);
 
 
 /// write a .ply file representing a point cloud
