@@ -148,7 +148,7 @@ void Cloud::removeUnboundedRays()
   colours.resize(valids.size());
 }
 
-void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set)
+void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> &voxel_set)
 {
   std::vector<int64_t> subsample;
   voxelSubsample(ends, voxel_width, subsample, voxel_set);

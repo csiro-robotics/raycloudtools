@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     double width = 0.01 * vox_width.value();
 
     subsample.clear();
-    voxelSubsample(ends, width, subsample, &voxel_set);
+    voxelSubsample(ends, width, subsample, voxel_set);
     start_points.resize(subsample.size());
     end_points.resize(subsample.size());
     time_points.resize(subsample.size());
@@ -69,8 +69,8 @@ int main(int argc, char *argv[])
   };
   auto decimate_rays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    int decimation = num_rays.value();
-    size_t count = 1 + ends.size() / (size_t)decimation;
+    size_t decimation = (size_t)num_rays.value();
+    size_t count = (ends.size() + decimation - 1) / decimation;
     start_points.resize(count);
     end_points.resize(count);
     time_points.resize(count);
@@ -87,9 +87,9 @@ int main(int argc, char *argv[])
 
   bool success;
   if (quantity.selectedKey() == "cm")
-    success = ray::readPly(cloud_file.name(), false, decimate_cm);
+    success = ray::readPly(cloud_file.name(), true, decimate_cm);
   else
-    success = ray::readPly(cloud_file.name(), false, decimate_rays);
+    success = ray::readPly(cloud_file.name(), true, decimate_rays);
   if (!success)
     usage();
   ray::writePlyChunkEnd(ofs);

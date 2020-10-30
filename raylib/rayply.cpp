@@ -4,6 +4,9 @@
 //
 // Author: Thomas Lowe
 #include "rayply.h"
+#include "raylib/rayprogress.h"
+#include "raylib/rayprogressthread.h"
+
 #include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -117,7 +120,8 @@ void writePly(const std::string &file_name, const std::vector<Eigen::Vector3d> &
   std::ofstream ofs;
   writePlyChunkStart(file_name, ofs);
   std::vector<Eigen::Matrix<float, 9, 1>> buffer;
-  writePlyChunk(ofs, buffer, starts, ends, times, rgb);
+  // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
+  writePlyChunk(ofs, buffer, starts, ends, times, rgb); 
   writePlyChunkEnd(ofs);
 }
 
@@ -258,6 +262,12 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   size_t length = filestatus.st_size;
 #endif
   size_t size = length / row_size;
+
+  ray::Progress progress;
+  ray::ProgressThread progress_thread(progress);
+  size_t num_chunks = (size + (chunk_size - 1))/chunk_size;
+  progress.begin("read and process", num_chunks);
+
   std::vector<unsigned char> vertices(row_size);
   size_t num_bounded = 0;
   size_t num_unbounded = 0;
@@ -410,8 +420,13 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       times.clear();
       colours.clear();
       intensities.clear();
+      progress.increment();
     }
   }
+  progress.end();
+  progress_thread.requestQuit();
+  progress_thread.join();
+
   return true;
 }
 

@@ -58,7 +58,7 @@ public:
   /// apply a Euclidean transform and time shift to the ray cloud
   void transform(const Pose &pose, double time_delta);
   /// spatial decimation of the ray cloud, into one end point per voxel of width @c voxel_width
-  void decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set = NULL);
+  void decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> &voxel_set);
   /// add a new ray to the ray cloud
   void addRay(const Eigen::Vector3d &start, const Eigen::Vector3d &end, double time, const RGBA &colour);
   /// add a new ray to the ray cloud, from another cloud
