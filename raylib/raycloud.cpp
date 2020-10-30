@@ -9,7 +9,6 @@
 #include "raylaz.h"
 #include "rayply.h"
 #include "rayprogress.h"
-#include "raytrajectory.h"
 
 #include <nabo/nabo.h>
 

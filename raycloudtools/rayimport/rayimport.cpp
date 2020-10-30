@@ -12,6 +12,7 @@
 #include "raylib/rayply.h"
 #include "raylib/raylaz.h"
 #include "raylib/rayparse.h"
+#include "raylib/raytrajectory.h"
 
 void usage(int exit_code = 1)
 {
@@ -45,8 +46,8 @@ int main(int argc, char *argv[])
     std::vector<ray::RGBA> colours;
     if (!ray::readPly(traj_file, starts, ends, times, colours, false))
       return false;
-    for (size_t i = 0; i<ends.size(); i++)
-      trajectory.nodes.push_back(ray::Trajectory::Node(ends[i], times[i]));
+    trajectory.points_ = std::move(ends);
+    trajectory.times_ = std::move(times);
   }
   else if (!trajectory.load(traj_file))
     usage();

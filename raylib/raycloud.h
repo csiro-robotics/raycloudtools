@@ -10,7 +10,6 @@
 
 #include "rayutils.h"
 #include "raypose.h"
-#include "raytrajectory.h"
 #include "raygrid.h"
 #include <set>
 
