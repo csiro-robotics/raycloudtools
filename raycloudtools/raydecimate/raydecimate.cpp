@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
   auto decimate_rays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     int decimation = num_rays.value();
-    size_t count = ends.size() / (size_t)decimation;
+    size_t count = 1 + ends.size() / (size_t)decimation;
     start_points.resize(count);
     end_points.resize(count);
     time_points.resize(count);
@@ -87,14 +87,11 @@ int main(int argc, char *argv[])
 
   bool success;
   if (quantity.selectedKey() == "cm")
-    success = ray::readPly(cloud_file.name(), false, decimate_cm, 10000);
+    success = ray::readPly(cloud_file.name(), false, decimate_cm);
   else
-    success = ray::readPly(cloud_file.name(), false, decimate_rays, 10000);
+    success = ray::readPly(cloud_file.name(), false, decimate_rays);
   if (!success)
     usage();
-//  auto &add_chunk = quantity.selectedKey() == "cm" ? decimate_cm : decimate_rays; 
-//  if (!ray::readPly(cloud_file.name(), false, add_chunk, 10000)) // special case of reading a non-ray-cloud ply
-//    usage();
   ray::writePlyChunkEnd(ofs);
 
   return 0;

@@ -16,7 +16,7 @@ static unsigned long vertex_size_pos = 0;     // this is set once and is constan
 
 bool writePlyChunkStart(const std::string &file_name, std::ofstream &out)
 {
-  std::cout << "saving to " << file_name << std::endl;
+  std::cout << "saving to " << file_name << " ..." << std::endl;
   out.open(file_name, std::ios::binary | std::ios::out);
   if (!out.is_open())
     return false;
@@ -100,6 +100,7 @@ void writePlyChunkEnd(std::ofstream &out)
   unsigned long number_of_rays = size / sizeof(Eigen::Matrix<float, 9, 1>);
   out.seekp(vertex_size_pos);
   out << number_of_rays; // TODO 1: does this insert or replace the spaces?
+  std::cout << "... saved out " << number_of_rays << " rays." << std::endl;
 }
 
 
