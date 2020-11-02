@@ -21,6 +21,7 @@
 void usage(int exit_code = 1)
 {
   std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
+  std::cout << "This method is for when there is more than approximately 30% overlap between clouds." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayalign raycloudA raycloudB" << std::endl;
   std::cout << "                             --nonrigid - nonrigid (quadratic) alignment" << std::endl;
@@ -47,7 +48,7 @@ int main(int argc, char *argv[])
   bool local_only = local.isSet();
   bool non_rigid = nonrigid.isSet();
   bool verbose = is_verbose.isSet();
-  if (verbose)
+//  if (verbose)
     ray::DebugDraw::init(argc, argv, "rayalign");
   if (!local_only)
   {
