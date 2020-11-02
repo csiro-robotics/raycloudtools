@@ -4,7 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "raylaz.h"
-
+#include "raylib/rayprogress.h"
+#include "raylib/rayprogressthread.h"
 #include "rayunused.h"
 
 #if RAYLIB_WITH_LAS
@@ -15,11 +16,11 @@
 
 namespace ray
 {
-bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<RGBA> &colours,
-                  int decimation)
+bool readLas(const std::string &file_name,
+     std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t chunk_size)
 {
 #if RAYLIB_WITH_LAS
-  std::vector<uint8_t> intensities;
   std::cout << "readLas: filename: " << file_name << std::endl;
 
   std::ifstream ifs;
@@ -35,35 +36,66 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
   liblas::Reader reader = f.CreateWithStream(ifs);
   liblas::Header header = reader.GetHeader();
 
-  unsigned int size = header.GetPointRecordsCount();
+  size_t size = header.GetPointRecordsCount();
+  
+  ray::Progress progress;
+  ray::ProgressThread progress_thread(progress);
+  size_t num_chunks = (size + (chunk_size - 1))/chunk_size;
+  chunk_size = std::min(size, chunk_size);
+  progress.begin("read and process", num_chunks);
+
+  std::vector<Eigen::Vector3d> starts;
+  std::vector<Eigen::Vector3d> ends;
+  std::vector<double> times;
+  std::vector<RGBA> colours;
+  std::vector<uint8_t> intensities;
+  starts.reserve(chunk_size);
+  ends.reserve(chunk_size);
+  times.reserve(chunk_size);
+  intensities.reserve(chunk_size);
+  colours.reserve(chunk_size);
 
   int num_intensities = 0;
   for (unsigned int i = 0; i < size; i++)
   {
     reader.ReadNextPoint();
     liblas::Point point = reader.GetPoint();
-    // we're downsampling to 1/decimation of the orginal file.
-    if ((i % decimation) == 0)
+
+    Eigen::Vector3d position;
+    position[0] = point.GetX();
+    position[1] = point.GetY();
+    position[2] = point.GetZ();
+    ends.push_back(position);
+    starts.push_back(position); // equal to position for laz files, as we do not store the start points
+    times.push_back(point.GetTime());
+    uint8_t intensity = (uint8_t) std::min(point.GetIntensity(), (uint16_t)255);
+    if (intensity > 0)
+      num_intensities++;
+    intensities.push_back(intensity);
+
+    if (ends.size() == chunk_size || i==size-1)
     {
-      Eigen::Vector3d position;
-      position[0] = point.GetX();
-      position[1] = point.GetY();
-      position[2] = point.GetZ();
-      positions.push_back(position);
-      times.push_back(point.GetTime());
-      uint8_t intensity = (uint8_t) std::min(point.GetIntensity(), (uint16_t)255);
-      if (intensity > 0)
-        num_intensities++;
-      intensities.push_back(intensity);
+      colourByTime(times, colours);
+      if (num_intensities == 0)
+        for (auto &i : intensities) i = 1.0;
+      for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
+        colours[i].alpha = intensities[i];
+      apply(starts, ends, times, colours);
+      starts.clear();
+      ends.clear();
+      times.clear();
+      colours.clear();
+      intensities.clear();
+      progress.increment();
+      num_intensities = 0;
     }
   }
-  if (num_intensities == 0)
-    for (auto &i : intensities) i = 1.0;
-  colourByTime(times, colours);
-  for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
-    colours[i].alpha = intensities[i];
 
-  std::cout << "loaded " << file_name << " with " << positions.size() << " points" << std::endl;
+  progress.end();
+  progress_thread.requestQuit();
+  progress_thread.join();
+
+  std::cout << "loaded " << file_name << " with " << size << " points" << std::endl;
   return true;
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
@@ -74,6 +106,22 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
   std::cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
+}  
+
+bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, std::vector<RGBA> &colours)
+{
+  std::vector<Eigen::Vector3d> starts; // dummy as lax just reads in point clouds, not ray clouds
+  auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points, 
+     std::vector<double> &time_points, std::vector<RGBA> &colour_values)
+  {
+    // Uses move syntax, so that the return references (starts, ends etc) just point to the allocated vector memory
+    // instead of allocating and copying what can be a large amount of data
+    starts = std::move(start_points);
+    positions = std::move(end_points);
+    times = std::move(time_points);
+    colours = std::move(colour_values);
+  };
+  return readLas(file_name, apply, std::numeric_limits<size_t>::max());
 }
 
 bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,

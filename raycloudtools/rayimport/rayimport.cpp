@@ -58,24 +58,23 @@ int main(int argc, char *argv[])
 
 
   std::string name_end = point_cloud.substr(point_cloud.size() - 4);
+  ray::RayPlyBuffer buffer;
+  std::ofstream ofs;
+  if (!ray::writePlyChunkStart(save_file + ".ply", ofs))
+    usage();
+  auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    trajectory.calculateStartPoints(times, starts);
+    ray::writePlyChunk(ofs, buffer, starts, ends, times, colours);
+  };
   if (name_end == ".ply")
   {
-    std::ofstream ofs;
-    if (!ray::writePlyChunkStart(save_file + ".ply", ofs))
-      usage();
-    ray::RayPlyBuffer buffer;
-    auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-    {
-      trajectory.calculateStartPoints(times, starts);
-      ray::writePlyChunk(ofs, buffer, starts, ends, times, colours);
-    };
     if (!ray::readPly(point_cloud, false, add_chunk)) // special case of reading a non-ray-cloud ply
       usage();
-    ray::writePlyChunkEnd(ofs);
   }
   else if (name_end == ".laz" || name_end == ".las")
   {
-    if (!ray::readLas(point_cloud, cloud.ends, cloud.times, cloud.colours, 1))
+    if (!ray::readLas(point_cloud, add_chunk))
       usage();
   }
   else
@@ -83,5 +82,6 @@ int main(int argc, char *argv[])
     std::cout << "Error converting unknown type: " << point_cloud << std::endl;
     usage();
   }
+  ray::writePlyChunkEnd(ofs);
   return 0;
 }
