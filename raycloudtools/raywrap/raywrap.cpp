@@ -38,7 +38,6 @@ int main(int argc, char *argv[])
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &direction, &curvature}, {&full}))
     usage();
 
-  ray::DebugDraw::init(argc, argv, "ConcaveHull");
   ray::Cloud cloud;
   if (!cloud.load(cloud_file.name()))
     usage();
