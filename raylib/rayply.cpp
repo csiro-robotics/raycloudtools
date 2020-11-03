@@ -8,8 +8,6 @@
 #include "raylib/rayprogressthread.h"
 
 #include <iostream>
-#include <sys/types.h>
-#include <sys/stat.h>
 // #define OUTPUT_MOMENTS // useful when setting up unit test expected ray clouds
 
 namespace ray
@@ -251,16 +249,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     return false;
   }
 
-#if 1
   std::streampos start = input.tellg();
   input.seekg(0, input.end);
   size_t length = input.tellg() - start;
   input.seekg(start);
-#else // doesn't need to seek the end, but might only work on unix... 
-  struct stat filestatus;
-  stat(file_name.c_str(), &filestatus);
-  size_t length = filestatus.st_size;
-#endif
   size_t size = length / row_size;
 
   ray::Progress progress;
