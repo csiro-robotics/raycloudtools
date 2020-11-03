@@ -18,8 +18,10 @@ namespace ray
 class RAYLIB_EXPORT Trajectory
 {
 public:
-  std::vector<Eigen::Vector3d> points_;
-  std::vector<double> times_;
+  inline std::vector<Eigen::Vector3d> &points(){ return points_; }
+  inline const std::vector<Eigen::Vector3d> &points() const { return points_; }
+  inline std::vector<double> &times(){ return times_; }
+  inline const std::vector<double> &times() const { return times_; }
 
   /// Save trajectory to a text file. One line per Node
   void save(const std::string &file_name);
@@ -27,6 +29,7 @@ public:
   /// Load trajectory from file. The file is expected to be a text file, with one Node entry per line
   bool load(const std::string &file_name);
 
+  /// Interpolation of the set @c starts based on the @c times_ of the trajectory
   void calculateStartPoints(const std::vector<double> &times, std::vector<Eigen::Vector3d> &starts);
 
 
@@ -58,7 +61,7 @@ public:
     return points_[index] * (1-time) + points_[index+1] * time;
   }
 
-protected:
+private:
   size_t getIndexAndNormaliseTime(double &time) const
   {
     size_t index = std::lower_bound(times_.begin(), times_.end(), time) - times_.begin();
@@ -70,6 +73,8 @@ protected:
     time = (time - times_[index]) / (times_[index + 1] - times_[index]);
     return index;
   }
+  std::vector<Eigen::Vector3d> points_;
+  std::vector<double> times_;
 };
 
 }

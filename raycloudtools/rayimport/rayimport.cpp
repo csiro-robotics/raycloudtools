@@ -46,8 +46,8 @@ int main(int argc, char *argv[])
     std::vector<ray::RGBA> colours;
     if (!ray::readPly(traj_file, starts, ends, times, colours, false))
       return false;
-    trajectory.points_ = std::move(ends);
-    trajectory.times_ = std::move(times);
+    trajectory.points() = std::move(ends);
+    trajectory.times() = std::move(times);
   }
   else if (!trajectory.load(traj_file))
     usage();

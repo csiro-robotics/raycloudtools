@@ -97,8 +97,8 @@ int main(int argc, char *argv[])
   if (trajectory_file.nameExt() == "txt")
   {
     ray::Trajectory trajectory;
-    trajectory.times_ = std::move(times);
-    trajectory.points_ = std::move(starts);
+    trajectory.times() = std::move(times);
+    trajectory.points() = std::move(starts);
     trajectory.save(trajectory_file.name());
   }
   else if (trajectory_file.nameExt() == "ply")
