@@ -29,6 +29,8 @@ void usage(int exit_code = 1)
   std::cout
     << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
     << std::endl;
+  std::cout << "rayalign raycloud                       - axis aligns to the walls, placing the major walls at (0,0,0)"
+    << std::endl;
   exit(exit_code);
 }
 
@@ -36,29 +38,38 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_a, cloud_b;
   ray::OptionalFlagArgument nonrigid("nonrigid", 'n'), is_verbose("verbose", 'v'), local("local", 'l');
-  if (!ray::parseCommandLine(argc, argv, {&cloud_a, &cloud_b}, {&nonrigid, &is_verbose, &local}))
+  bool cross_align = ray::parseCommandLine(argc, argv, {&cloud_a, &cloud_b}, {&nonrigid, &is_verbose, &local});
+  bool self_align  = ray::parseCommandLine(argc, argv, {&cloud_a});
+  if (!cross_align && !self_align)
     usage();
 
   ray::Cloud clouds[2];
   if (!clouds[0].load(cloud_a.name()))
     usage();
-  if (!clouds[1].load(cloud_b.name()))
-    usage();
-
-  bool local_only = local.isSet();
-  bool non_rigid = nonrigid.isSet();
-  bool verbose = is_verbose.isSet();
-//  if (verbose)
-    ray::DebugDraw::init(argc, argv, "rayalign");
-  if (!local_only)
+  if (self_align)
   {
-    alignCloud0ToCloud1(clouds, 0.5, verbose);
-    if (verbose)
-      clouds[0].save(cloud_a.nameStub() + "_coarse_aligned.ply");
+    alignCloudToAxes(clouds[0]);
   }
+  else // cross_align
+  {
+    if (!clouds[1].load(cloud_b.name()))
+      usage();
 
-  ray::FineAlignment fineAlign(clouds, non_rigid, verbose);
-  fineAlign.align();
+    bool local_only = local.isSet();
+    bool non_rigid = nonrigid.isSet();
+    bool verbose = is_verbose.isSet();
+  //  if (verbose)
+      ray::DebugDraw::init(argc, argv, "rayalign");
+    if (!local_only)
+    {
+      alignCloud0ToCloud1(clouds, 0.5, verbose);
+      if (verbose)
+        clouds[0].save(cloud_a.nameStub() + "_coarse_aligned.ply");
+    }
+
+    ray::FineAlignment fineAlign(clouds, non_rigid, verbose);
+    fineAlign.align();
+  }
 
   clouds[0].save(cloud_a.nameStub() + "_aligned.ply");
   return 0;

@@ -24,6 +24,9 @@ namespace ray
 /// The method uses a scale-free Fourier-Mellin transform to efficiently cross-correlate the cloud's end point densities.
 /// NOTE @c clouds is a pair of clouds, it should point to an array with at least 2 elements
 void RAYLIB_EXPORT alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose = false);
+
+
+void RAYLIB_EXPORT alignCloudToAxes(Cloud &cloud);
 }  // namespace ray
 
 #endif  // RAYLIB_RAYALIGNMENT_H

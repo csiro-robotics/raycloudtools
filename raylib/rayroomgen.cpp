@@ -16,6 +16,7 @@ void RoomGen::generate()
 
   Eigen::Vector3d floor_centre(0, 0, -room_height * 0.5);  // random(-10.0, 10.0), random(-10.0, 10.0), random(-10.0, 10.0));
   double room_yaw = random(0.0, 2.0 * kPi);
+  std::cout << "room yaw: " << room_yaw << std::endl;
 
   std::vector<Cuboid> negatives;
   Cuboid room(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(room_width, room_length, room_height));

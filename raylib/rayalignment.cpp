@@ -531,4 +531,138 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   Pose transform(pos, Eigen::Quaterniond::Identity());
   clouds[0].transform(transform, 0.0);
 }
+
+void alignCloudToAxes(Cloud &cloud)
+{
+  // Idea 1: Calculate normals, find 2 largest densities of orthogonal normals
+  // Idea 2: Calculate normals, each normal add complex c = e^4*angle, angle of total c is aligned angle
+  // Idea 3: Idea 2, but repeat reweighting normals away from best guess (i.e. robust)
+  // But normals don't work on vineyard rows. We need densities (histograms) in each direction...
+  // Idea 4: 2D Hough transform, for each point draw circle, the brightest point indicates a line, 
+  //         we then find the brightest orthogonal point
+  // Idea 5: 3D Hough transform, to find the brightest corner (L shape)
+
+  // I think I'll go with idea 4, it works on noisy data too.
+
+  // first decimate the cloud (I'll do this later)
+ 
+  Eigen::Vector3d min_bound = cloud.calcMinBound();
+  Eigen::Vector3d max_bound = cloud.calcMaxBound();
+  Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
+  Eigen::Vector3d centroid(0,0,0);
+  for (size_t e = 0; e<cloud.ends.size(); e++)
+  {
+    if (!cloud.rayBounded(e))
+      continue;
+    centroid += cloud.ends[e];
+  }
+  centroid /= (double)cloud.ends.size();
+
+  const int ang_res = 256, amp_res = 256; // ang_res must be divisible by 4
+  double weights[ang_res][amp_res];
+  std::memset(weights, 0, sizeof(double)*ang_res*amp_res);
+  double radius = 0.5 * std::sqrt(2.0) * std::max(max_bound[0]-min_bound[0], max_bound[1]-min_bound[1]);
+
+  for (size_t e = 0; e<cloud.ends.size(); e++)
+  {
+    if (!cloud.rayBounded(e))
+      continue;
+    Eigen::Vector3d pos = cloud.ends[e] - mid;
+    double angle = atan2(pos[0], pos[1]);
+    double amp = std::sqrt(pos[0]*pos[0] + pos[1]*pos[1]) / radius;
+
+    // now draw the sine wave for this point. (should it be anti-aliased?)
+    for (int i = 0; i<ang_res; i++)
+    {
+      double ang = kPi * (double)i/(double)ang_res;
+      double y = amp * std::sin(ang + angle);
+      int j = (int)std::floor((double)amp_res * (0.5 + 0.5*y));
+      
+      weights[i][j]++;
+    }
+  } 
+  // now find heighest weight:    
+  int max_i = 0, max_j = 0;
+  double max_weight = 0.0;
+  for (int i = 0; i<ang_res; i++)
+  {
+    for (int j = 0; j<amp_res; j++)
+    {
+      if (weights[i][j] > max_weight)
+      {
+        max_i = i;
+        max_j = j;
+        max_weight = weights[i][j];
+      }
+    }
+  }
+
+  // now interpolate the location
+  double x0 = weights[(max_i + ang_res-1)%ang_res][max_j];
+  double x1 = weights[max_i][max_j];
+  double x2 = weights[(max_i+1)%ang_res][max_j];
+  double angle = max_i + 0.5 * (x0 - x2) / (x0 + x2 - 2.0 * x1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  angle *= kPi / (double)ang_res;
+  std::cout << "principle angle: " << angle << ", direction vec: " << std::cos(angle) << ", " << std::sin(angle) << std::endl;
+
+  double y0 = weights[max_i][std::max(0, max_j-1)];
+  double y1 = weights[max_i][max_j];
+  double y2 = weights[max_i][std::min(max_j+1, amp_res-1)];
+  double amp = max_j + 0.5 * (y0 - y2) / (y0 + y2 - 2.0 * y1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  amp = radius * ((2.0 * amp/(double)amp_res) - 1.0);
+  std::cout << "distance along direction: " << amp << ", radius: " << radius << "maxj/ampres: " << max_j/(double)amp_res << std::endl;
+
+/*  if (amp < 0.0)
+  {
+    angle += kPi;
+    amp = -amp;
+  }*/
+  Eigen::Vector2d line_vector = amp * Eigen::Vector2d(std::cos(angle), std::sin(angle));
+
+  // now find the orthogonal best edge. Simply the greatest weight along the orthogonal angle
+  int orth_i = (max_i + ang_res/2)%ang_res;
+  double max_w = 0.0;
+  int max_orth_j = 0;
+  for (int j = 0; j<amp_res; j++)
+  {
+    if (weights[orth_i][j] > max_w)
+    {
+      max_w = weights[orth_i][j];
+      max_orth_j = j;
+    }
+  }
+  // now interpolate this orthogonal direction:
+  double z0 = weights[orth_i][std::max(0, max_orth_j-1)];
+  double z1 = weights[orth_i][max_orth_j];
+  double z2 = weights[orth_i][std::min(max_orth_j+1, amp_res-1)];
+  double amp2 = max_orth_j + 0.5 * (z0 - z2) / (z0 + z2 - 2.0 * z1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  amp2 = radius * ((2.0 * amp2/(double)amp_res) - 1.0);
+
+  if (amp < 0 && amp2 > 0)
+    amp2 = -amp2;
+  Eigen::Vector2d line2_vector = amp2 * Eigen::Vector2d(std::cos(angle+kPi/2.0), std::sin(angle+kPi/2.0));
+  std::cout << "amp: " << amp << ", amp2: " << amp2 << std::endl;
+
+  // great, we now have the angle and cross-over position. Next is to flip it so the largest side is positive
+  Eigen::Vector2d centre = line_vector + line2_vector;
+  Eigen::Quaterniond id(1,0,0,0);
+  Pose to_mid(-mid - Eigen::Vector3d(centre[0], centre[1], 0), id);
+  Pose rot(Eigen::Vector3d::Zero(), Eigen::Quaterniond(Eigen::AngleAxisd(-angle, Eigen::Vector3d(0,0,1))));
+  Pose pose = rot * to_mid;
+
+
+  // now rotate the cloud into the positive quadrant
+  Eigen::Vector3d mid_point = pose * centroid;
+  Eigen::Quaterniond yaw90(std::sqrt(0.5), 0,0, std::sqrt(0.5));
+  int c = 0;
+  while ((mid_point[0] < 0.0 || mid_point[1] < 0.0) && c++ <= 4) // the latter is just for safety
+  {
+    pose = Pose(Eigen::Vector3d(0,0,0), yaw90) * pose;
+    mid_point = pose * centroid;
+  }
+  std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
+
+  cloud.transform(pose, 0);
+}
+
 } // namespace ray
