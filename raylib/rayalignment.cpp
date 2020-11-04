@@ -612,11 +612,6 @@ void alignCloudToAxes(Cloud &cloud)
   amp = radius * ((2.0 * amp/(double)amp_res) - 1.0);
   std::cout << "distance along direction: " << amp << ", radius: " << radius << "maxj/ampres: " << max_j/(double)amp_res << std::endl;
 
-/*  if (amp < 0.0)
-  {
-    angle += kPi;
-    amp = -amp;
-  }*/
   Eigen::Vector2d line_vector = amp * Eigen::Vector2d(std::cos(angle), std::sin(angle));
 
   // now find the orthogonal best edge. Simply the greatest weight along the orthogonal angle
@@ -660,6 +655,32 @@ void alignCloudToAxes(Cloud &cloud)
     pose = Pose(Eigen::Vector3d(0,0,0), yaw90) * pose;
     mid_point = pose * centroid;
   }
+
+  // lastly move cloud vertically based on densest point. 
+  double ws[amp_res];
+  memset(ws, 0, sizeof(double)*amp_res);
+  double eps = 0.0001;
+  double step_z = ((double)amp_res - eps) / (max_bound[2] - min_bound[2]);
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+  {
+    if (!cloud.rayBounded(i))
+      continue;
+    int k = (int)((cloud.ends[i][2] - min_bound[2]) * step_z);
+    ws[k]++;
+  }
+  int max_k = 0;
+  double max_wt = 0;
+  for (int k = 0; k<amp_res; k++)
+  {
+    if (ws[k] > max_wt) 
+    {
+      max_wt = ws[k];
+      max_k = k;
+    }
+  }
+  double height = ((double)max_k / step_z) + min_bound[2];
+  pose.position[2] = -height;
+
   std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
 
   cloud.transform(pose, 0);
