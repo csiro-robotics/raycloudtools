@@ -562,6 +562,7 @@ void alignCloudToAxes(Cloud &cloud)
   double weights[ang_res][amp_res];
   std::memset(weights, 0, sizeof(double)*ang_res*amp_res);
   double radius = 0.5 * std::sqrt(2.0) * std::max(max_bound[0]-min_bound[0], max_bound[1]-min_bound[1]);
+  double eps = 0.0001;
 
   for (size_t e = 0; e<cloud.ends.size(); e++)
   {
@@ -576,9 +577,12 @@ void alignCloudToAxes(Cloud &cloud)
     {
       double ang = kPi * (double)i/(double)ang_res;
       double y = amp * std::sin(ang + angle);
-      int j = (int)std::floor((double)amp_res * (0.5 + 0.5*y));
+      double x = ((double)amp_res-1.0-eps) * (0.5 + 0.5*y);
+      int j = (int)x;
+      double blend = x - (double)j;
       
-      weights[i][j]++;
+      weights[i][j] += (1.0-blend);
+      weights[i][j+1] += blend;
     }
   } 
   // now find heighest weight:    
@@ -601,14 +605,14 @@ void alignCloudToAxes(Cloud &cloud)
   double x0 = weights[(max_i + ang_res-1)%ang_res][max_j];
   double x1 = weights[max_i][max_j];
   double x2 = weights[(max_i+1)%ang_res][max_j];
-  double angle = max_i + 0.5 * (x0 - x2) / (x0 + x2 - 2.0 * x1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double angle = (double)max_i+0.5 + 0.5 * (x0 - x2) / (x0 + x2 - 2.0 * x1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
   angle *= kPi / (double)ang_res;
   std::cout << "principle angle: " << angle << ", direction vec: " << std::cos(angle) << ", " << std::sin(angle) << std::endl;
 
   double y0 = weights[max_i][std::max(0, max_j-1)];
   double y1 = weights[max_i][max_j];
   double y2 = weights[max_i][std::min(max_j+1, amp_res-1)];
-  double amp = max_j + 0.5 * (y0 - y2) / (y0 + y2 - 2.0 * y1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double amp = (double)max_j+0.5 + 0.5 * (y0 - y2) / (y0 + y2 - 2.0 * y1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
   amp = radius * ((2.0 * amp/(double)amp_res) - 1.0);
   std::cout << "distance along direction: " << amp << ", radius: " << radius << "maxj/ampres: " << max_j/(double)amp_res << std::endl;
 
@@ -630,7 +634,7 @@ void alignCloudToAxes(Cloud &cloud)
   double z0 = weights[orth_i][std::max(0, max_orth_j-1)];
   double z1 = weights[orth_i][max_orth_j];
   double z2 = weights[orth_i][std::min(max_orth_j+1, amp_res-1)];
-  double amp2 = max_orth_j + 0.5 * (z0 - z2) / (z0 + z2 - 2.0 * z1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double amp2 = (double)max_orth_j+0.5 + 0.5 * (z0 - z2) / (z0 + z2 - 2.0 * z1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
   amp2 = radius * ((2.0 * amp2/(double)amp_res) - 1.0);
 
   if (amp < 0 && amp2 > 0)
@@ -659,14 +663,16 @@ void alignCloudToAxes(Cloud &cloud)
   // lastly move cloud vertically based on densest point. 
   double ws[amp_res];
   memset(ws, 0, sizeof(double)*amp_res);
-  double eps = 0.0001;
-  double step_z = ((double)amp_res - eps) / (max_bound[2] - min_bound[2]);
+  double step_z = ((double)amp_res - 1.0 - eps) / (max_bound[2] - min_bound[2]);
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
       continue;
-    int k = (int)((cloud.ends[i][2] - min_bound[2]) * step_z);
-    ws[k]++;
+    double z = ((cloud.ends[i][2] - min_bound[2]) * step_z);
+    int k = (int)z;
+    double blend = z - (double)k;
+    ws[k] += (1.0 - blend);
+    ws[k+1] += blend;
   }
   int max_k = 0;
   double max_wt = 0;
@@ -678,7 +684,7 @@ void alignCloudToAxes(Cloud &cloud)
       max_k = k;
     }
   }
-  double height = ((double)max_k / step_z) + min_bound[2];
+  double height = (((double)max_k + 0.5) / step_z) + min_bound[2];
   pose.position[2] = -height;
 
   std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
