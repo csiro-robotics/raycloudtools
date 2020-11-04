@@ -564,27 +564,49 @@ void alignCloudToAxes(Cloud &cloud)
   double radius = 0.5 * std::sqrt(2.0) * std::max(max_bound[0]-min_bound[0], max_bound[1]-min_bound[1]);
   double eps = 0.0001;
 
+  // first convert the cloud into a weighted centroid field. I'm using element [2] for the weight.
+  Eigen::Vector3d ps[amp_res][amp_res];
+  std::memset(ps, 0, sizeof(Eigen::Vector3d)*amp_res*amp_res);
+  double step_x = ((double)amp_res-1.0-eps) / (max_bound[0]-min_bound[0]);
+  double step_y = ((double)amp_res-1.0-eps) / (max_bound[1]-min_bound[1]);
   for (size_t e = 0; e<cloud.ends.size(); e++)
   {
     if (!cloud.rayBounded(e))
       continue;
+    Eigen::Vector3d index = cloud.ends[e] - min_bound;
+    index[0] *= step_x;
+    index[1] *= step_y;
     Eigen::Vector3d pos = cloud.ends[e] - mid;
-    double angle = atan2(pos[0], pos[1]);
-    double amp = std::sqrt(pos[0]*pos[0] + pos[1]*pos[1]) / radius;
+    pos[2] = 1.0;
+    ps[(int)index[0]][(int)index[1]] += pos;
+  }
 
-    // now draw the sine wave for this point. (should it be anti-aliased?)
-    for (int i = 0; i<ang_res; i++)
+  for (int ii = 0; ii<amp_res; ii++)
+  {
+    for (int jj = 0; jj<amp_res; jj++)
     {
-      double ang = kPi * (double)i/(double)ang_res;
-      double y = amp * std::sin(ang + angle);
-      double x = ((double)amp_res-1.0-eps) * (0.5 + 0.5*y);
-      int j = (int)x;
-      double blend = x - (double)j;
-      
-      weights[i][j] += (1.0-blend);
-      weights[i][j+1] += blend;
-    }
-  } 
+      Eigen::Vector3d &p = ps[ii][jj];
+      double w = p[2];
+      if (w == 0.0)
+        continue;
+      Eigen::Vector2d pos(p[0]/w, p[1]/w);
+      double angle = atan2(pos[0], pos[1]);
+      double amp = std::sqrt(pos[0]*pos[0] + pos[1]*pos[1]) / radius;
+
+      // now draw the sine wave for this point. (should it be anti-aliased?)
+      for (int i = 0; i<ang_res; i++)
+      {
+        double ang = kPi * (double)i/(double)ang_res;
+        double y = amp * std::sin(ang + angle);
+        double x = ((double)amp_res-1.0-eps) * (0.5 + 0.5*y);
+        int j = (int)x;
+        double blend = x - (double)j;
+        
+        weights[i][j] += (1.0-blend)*w;
+        weights[i][j+1] += blend*w;
+      }
+    } 
+  }
   // now find heighest weight:    
   int max_i = 0, max_j = 0;
   double max_weight = 0.0;
@@ -637,7 +659,7 @@ void alignCloudToAxes(Cloud &cloud)
   double amp2 = (double)max_orth_j+0.5 + 0.5 * (z0 - z2) / (z0 + z2 - 2.0 * z1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
   amp2 = radius * ((2.0 * amp2/(double)amp_res) - 1.0);
 
-  if (amp < 0 && amp2 > 0)
+  if (amp < 0 && amp2 > 0) // not this!!
     amp2 = -amp2;
   Eigen::Vector2d line2_vector = amp2 * Eigen::Vector2d(std::cos(angle+kPi/2.0), std::sin(angle+kPi/2.0));
   std::cout << "amp: " << amp << ", amp2: " << amp2 << std::endl;
@@ -652,16 +674,11 @@ void alignCloudToAxes(Cloud &cloud)
 
   // now rotate the cloud into the positive quadrant
   Eigen::Vector3d mid_point = pose * centroid;
-  Eigen::Quaterniond yaw90(std::sqrt(0.5), 0,0, std::sqrt(0.5));
-  int c = 0;
-  while ((mid_point[0] < 0.0 || mid_point[1] < 0.0) && c++ <= 4) // the latter is just for safety
-  {
-    pose = Pose(Eigen::Vector3d(0,0,0), yaw90) * pose;
-    mid_point = pose * centroid;
-  }
+  if (mid_point[0] < 0.0)
+    pose = Pose(Eigen::Vector3d(0,0,0), Eigen::Quaterniond(0,0,0,1)) * pose; // 180 degree yaw
 
   // lastly move cloud vertically based on densest point. 
-  double ws[amp_res];
+  double ws[amp_res]; // TODO: height is usually much less than width... more constant voxel size?
   memset(ws, 0, sizeof(double)*amp_res);
   double step_z = ((double)amp_res - 1.0 - eps) / (max_bound[2] - min_bound[2]);
   for (size_t i = 0; i<cloud.ends.size(); i++)
@@ -684,7 +701,11 @@ void alignCloudToAxes(Cloud &cloud)
       max_k = k;
     }
   }
-  double height = (((double)max_k + 0.5) / step_z) + min_bound[2];
+  double w0 = ws[std::max(0, max_k-1)];
+  double w1 = ws[max_k];
+  double w2 = ws[std::min(max_k+1, amp_res-1)];
+  double k2 = (double)max_k+0.5 + 0.5 * (w0 - w2) / (w0 + w2 - 2.0 * w1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double height = (k2 / step_z) + min_bound[2];
   pose.position[2] = -height;
 
   std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
