@@ -558,7 +558,7 @@ void alignCloudToAxes(Cloud &cloud)
   }
   centroid /= (double)cloud.ends.size();
 
-  const int ang_res = 256, amp_res = 256; // ang_res must be divisible by 4
+  const int ang_res = 256, amp_res = 256; // ang_res must be divisible by 2
   double weights[ang_res][amp_res];
   std::memset(weights, 0, sizeof(double)*ang_res*amp_res);
   double radius = 0.5 * std::sqrt(2.0) * std::max(max_bound[0]-min_bound[0], max_bound[1]-min_bound[1]);
@@ -622,6 +622,7 @@ void alignCloudToAxes(Cloud &cloud)
       }
     }
   }
+  std::cout << "max_i: " << max_i << ", max_j: " << max_j << std::endl;
 
   // now interpolate the location
   double x0 = weights[(max_i + ang_res-1)%ang_res][max_j];
@@ -658,10 +659,12 @@ void alignCloudToAxes(Cloud &cloud)
   double z2 = weights[orth_i][std::min(max_orth_j+1, amp_res-1)];
   double amp2 = (double)max_orth_j+0.5 + 0.5 * (z0 - z2) / (z0 + z2 - 2.0 * z1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
   amp2 = radius * ((2.0 * amp2/(double)amp_res) - 1.0);
+  std::cout << "orthi: " << orth_i << ", max_i: " << max_i << std::endl;
+  if (orth_i < max_i) // the %res earlier puts it in antiphase (since we only have 180 degrees per weights map)
+    amp2 = -amp2;     // so negate the amplitude here
 
-  if (amp < 0 && amp2 > 0) // not this!!
-    amp2 = -amp2;
   Eigen::Vector2d line2_vector = amp2 * Eigen::Vector2d(std::cos(angle+kPi/2.0), std::sin(angle+kPi/2.0));
+  std::cout << "line2_vector: " << line2_vector.transpose() << std::endl;
   std::cout << "amp: " << amp << ", amp2: " << amp2 << std::endl;
 
   // great, we now have the angle and cross-over position. Next is to flip it so the largest side is positive
@@ -670,7 +673,6 @@ void alignCloudToAxes(Cloud &cloud)
   Pose to_mid(-mid - Eigen::Vector3d(centre[0], centre[1], 0), id);
   Pose rot(Eigen::Vector3d::Zero(), Eigen::Quaterniond(Eigen::AngleAxisd(-angle, Eigen::Vector3d(0,0,1))));
   Pose pose = rot * to_mid;
-
 
   // now rotate the cloud into the positive quadrant
   Eigen::Vector3d mid_point = pose * centroid;

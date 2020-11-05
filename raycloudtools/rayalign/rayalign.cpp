@@ -29,7 +29,7 @@ void usage(int exit_code = 1)
   std::cout
     << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
     << std::endl;
-  std::cout << "rayalign raycloud                       - axis aligns to the walls, placing the major walls at (0,0,0)"
+  std::cout << "rayalign raycloud  - axis aligns to the walls, placing the major walls at (0,0,0), biggest along y."
     << std::endl;
   exit(exit_code);
 }
