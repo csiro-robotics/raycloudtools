@@ -27,6 +27,7 @@ void usage(int exit_code = 1)
        << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  speed 1.0              - splits out rays when sensor moving above the given speed" << std::endl;
+  std::cout << "                  box 10,1,1             - splits around an axis-aligned box at 0,0,0 of given half widths" << std::endl;
   exit(exit_code);
 }
 
@@ -34,10 +35,10 @@ void usage(int exit_code = 1)
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  ray::Vector3dArgument pos, colour(0.0, 1.0), startpos, raydir(-1.0, 1.0);
+  ray::Vector3dArgument pos, colour(0.0, 1.0), startpos, raydir(-1.0, 1.0), box(0.0001, 1e10);
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), speed(0.0,1000.0);
-  ray::KeyValueChoice choice({"pos", "time", "colour", "alpha", "startpos", "raydir", "range", "speed"}, 
-                             {&pos,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed});
+  ray::KeyValueChoice choice({"pos", "time", "colour", "alpha", "startpos", "raydir", "range", "speed", "box"}, 
+                             {&pos,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed, &box});
   ray::FileArgument mesh_file;
   ray::TextArgument text("distance");
   ray::DoubleArgument mesh_offset;
@@ -105,6 +106,17 @@ int main(int argc, char *argv[])
         if (i == 0)
           return false;
         return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > speed.value();
+      });
+    }
+    else if (parameter == "box")
+    {
+      Eigen::Vector3d extents = box.value();
+      cloud.split(inside, outside, [&](int i) 
+      { 
+        Eigen::Vector3d &p = cloud.ends[i];
+        return p[0] < -extents[0] || p[0] > extents[0] ||
+               p[1] < -extents[1] || p[1] > extents[1] ||
+               p[2] < -extents[2] || p[2] > extents[2];
       });
     }
   }
