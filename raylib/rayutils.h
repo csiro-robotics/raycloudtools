@@ -89,21 +89,6 @@ public:
   }
 };
 
-inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::vector<int64_t> &indices)
-{
-  std::set<Eigen::Vector3i, Vector3iLess> vox_set; 
-  for (int64_t i = 0; i<(int64_t)points.size(); i++)
-  {
-    Eigen::Vector3i voxel(int(std::floor(points[i][0] / voxel_width)), int(std::floor(points[i][1] / voxel_width)),
-                          int(std::floor(points[i][2] / voxel_width)));
-    if (vox_set.find(voxel) == vox_set.end())
-    {
-      vox_set.insert(voxel);
-      indices.push_back(i);
-    }
-  }
-}
-
 inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::vector<int64_t> &indices, std::set<Eigen::Vector3i, Vector3iLess> &vox_set)
 {
   for (int64_t i = 0; i<(int64_t)points.size(); i++)
@@ -116,6 +101,12 @@ inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double vo
       indices.push_back(i);
     }
   }
+}
+
+inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::vector<int64_t> &indices)
+{
+  std::set<Eigen::Vector3i, Vector3iLess> vox_set; 
+  voxelSubsample(points, voxel_width, indices, vox_set);
 }
 
 /// Square a value

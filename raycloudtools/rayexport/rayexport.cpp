@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
   if (pointcloud_file.nameExt() == "laz")
     writeLas(pointcloud_file.name(), cloud.ends, cloud.times, cloud.colours);
   else if (pointcloud_file.nameExt() == "ply")
-    writePly(pointcloud_file.name(), cloud.ends, cloud.times, cloud.colours);
+    writePlyPointCloud(pointcloud_file.name(), cloud.ends, cloud.times, cloud.colours);
   else
     usage();
 
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     trajectory.save(trajectory_file.name());
   }
   else if (trajectory_file.nameExt() == "ply")
-    writePly(trajectory_file.name(), starts, times, colours);
+    writePlyPointCloud(trajectory_file.name(), starts, times, colours);
   else
     usage();
 }      

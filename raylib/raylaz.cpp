@@ -18,7 +18,7 @@ namespace ray
 {
 bool readLas(const std::string &file_name,
      std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-     std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t chunk_size)
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t &num_bounded, size_t chunk_size)
 {
 #if RAYLIB_WITH_LAS
   std::cout << "readLas: filename: " << file_name << std::endl;
@@ -36,12 +36,12 @@ bool readLas(const std::string &file_name,
   liblas::Reader reader = f.CreateWithStream(ifs);
   liblas::Header header = reader.GetHeader();
 
-  size_t size = header.GetPointRecordsCount();
+  const size_t number_of_points = header.GetPointRecordsCount();
   
   ray::Progress progress;
   ray::ProgressThread progress_thread(progress);
-  size_t num_chunks = (size + (chunk_size - 1))/chunk_size;
-  chunk_size = std::min(size, chunk_size);
+  const size_t num_chunks = (number_of_points + (chunk_size - 1))/chunk_size;
+  chunk_size = std::min(number_of_points, chunk_size);
   progress.begin("read and process", num_chunks);
 
   std::vector<Eigen::Vector3d> starts;
@@ -55,8 +55,8 @@ bool readLas(const std::string &file_name,
   intensities.reserve(chunk_size);
   colours.reserve(chunk_size);
 
-  int num_intensities = 0;
-  for (unsigned int i = 0; i < size; i++)
+  num_bounded = 0;
+  for (unsigned int i = 0; i < number_of_points; i++)
   {
     reader.ReadNextPoint();
     liblas::Point point = reader.GetPoint();
@@ -68,16 +68,14 @@ bool readLas(const std::string &file_name,
     ends.push_back(position);
     starts.push_back(position); // equal to position for laz files, as we do not store the start points
     times.push_back(point.GetTime());
-    uint8_t intensity = (uint8_t) std::min(point.GetIntensity(), (uint16_t)255);
+    const uint8_t intensity = static_cast<uint8_t>(std::min(point.GetIntensity(), static_cast<uint16_t>(255)));
     if (intensity > 0)
-      num_intensities++;
+      num_bounded++;
     intensities.push_back(intensity);
 
-    if (ends.size() == chunk_size || i==size-1)
+    if (ends.size() == chunk_size || i==number_of_points-1)
     {
       colourByTime(times, colours);
-      if (num_intensities == 0)
-        for (auto &i : intensities) i = 1.0;
       for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
         colours[i].alpha = intensities[i];
       apply(starts, ends, times, colours);
@@ -87,7 +85,6 @@ bool readLas(const std::string &file_name,
       colours.clear();
       intensities.clear();
       progress.increment();
-      num_intensities = 0;
     }
   }
 
@@ -95,7 +92,7 @@ bool readLas(const std::string &file_name,
   progress_thread.requestQuit();
   progress_thread.join();
 
-  std::cout << "loaded " << file_name << " with " << size << " points" << std::endl;
+  std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
   return true;
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
@@ -121,7 +118,15 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
     times = std::move(time_points);
     colours = std::move(colour_values);
   };
-  return readLas(file_name, apply, std::numeric_limits<size_t>::max());
+  size_t num_bounded;
+  bool success = readLas(file_name, apply, num_bounded, std::numeric_limits<size_t>::max());
+  if (num_bounded == 0)
+  {
+    std::cout << "warning: all laz file intensities are 0, which would make all rays unbounded. Setting them to 1." << std::endl;
+    for (auto &c: colours)
+      c.alpha = 255;
+  }
+  return success;
 }
 
 bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
@@ -141,7 +146,10 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
   std::ofstream ofs;
   ofs.open(file_name.c_str(), std::ios::out | std::ios::binary);
   if (!ofs.is_open())
+  {
+    std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
     return false;
+  }
 
   const double scale = 1e-4;
   header.SetScale(scale, scale, scale);

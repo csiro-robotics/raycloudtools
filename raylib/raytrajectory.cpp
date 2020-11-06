@@ -115,4 +115,31 @@ bool Trajectory::load(const std::string &file_name)
 
   return true;
 }
+
+Eigen::Vector3d Trajectory::nearest(double time) const
+{
+  ASSERT(!points_.empty());
+  if (points_.size() == 1)
+    return points_[0];
+  const size_t index = getIndexAndNormaliseTime(time);
+  return time < 0.5 ? points_[index] : points_[index + 1];
+}
+
+/// Linear interpolation/extrapolation of nearest neighbours at given time.
+/// If 'extrapolate' is false, outlier times will clamp to the start or end value
+Eigen::Vector3d Trajectory::linear(double time, bool extrapolate) const
+{
+  ASSERT(!points_.empty());
+  if (points_.size() == 1)
+    return points_[0];
+  const size_t index = getIndexAndNormaliseTime(time);
+  if (!extrapolate)
+  {
+    if (time < 0.0)
+      return points_.front();
+    else if (time > 1.0)
+      return points_.back();
+  }
+  return points_[index] * (1-time) + points_[index+1] * time;
+}
 } // ray

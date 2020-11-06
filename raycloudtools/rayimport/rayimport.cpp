@@ -21,23 +21,25 @@ void usage(int exit_code = 1)
   std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las or .ply file" << std::endl;
   std::cout << "                                           trajectoryfile is a text file in time,x,y,z format"
        << std::endl;
+  std::cout << "                                        --full_intensity - force all rays to be bounded." << std::endl;
   std::cout << "The output is a .ply file of the same name (or with suffix _raycloud if the input was a .ply file)." << std::endl;
   exit(exit_code);
 }
 
 int main(int argc, char *argv[])
 {
+  ray::OptionalFlagArgument full_intensity("full_intensity", 'f');
   ray::FileArgument cloud_file, trajectory_file;
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &trajectory_file}))
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &trajectory_file}, {&full_intensity}))
     usage();
 
   ray::Cloud cloud;
-  std::string point_cloud = cloud_file.name();
-  std::string traj_file = trajectory_file.name();
+  const std::string &point_cloud = cloud_file.name();
+  const std::string &traj_file = trajectory_file.name();
 
   // load the trajectory first, it should fit into main memory
   ray::Trajectory trajectory;
-  std::string traj_end = traj_file.substr(traj_file.size() - 4);
+  const std::string traj_end = traj_file.substr(traj_file.size() - 4);
   if (traj_end == ".ply")
   {
     std::vector<Eigen::Vector3d> starts;
@@ -56,7 +58,7 @@ int main(int argc, char *argv[])
   if (cloud_file.nameExt() == "ply")
     save_file += "_raycloud";
 
-
+  size_t num_bounded;
   std::string name_end = point_cloud.substr(point_cloud.size() - 4);
   ray::RayPlyBuffer buffer;
   std::ofstream ofs;
@@ -65,6 +67,11 @@ int main(int argc, char *argv[])
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     trajectory.calculateStartPoints(times, starts);
+    if (full_intensity.isSet())
+    {
+      for (auto &c: colours)
+        c.alpha = 255;
+    }
     ray::writePlyChunk(ofs, buffer, starts, ends, times, colours);
   };
   if (name_end == ".ply")
@@ -74,7 +81,7 @@ int main(int argc, char *argv[])
   }
   else if (name_end == ".laz" || name_end == ".las")
   {
-    if (!ray::readLas(point_cloud, add_chunk))
+    if (!ray::readLas(point_cloud, add_chunk, num_bounded))
       usage();
   }
   else
@@ -82,6 +89,12 @@ int main(int argc, char *argv[])
     std::cout << "Error converting unknown type: " << point_cloud << std::endl;
     usage();
   }
+  if (num_bounded == 0 && !full_intensity.isSet())
+  {
+    std::cout << "warning: all laz file intensities are 0." << std::endl;
+    std::cout << "If your sensor lacks intensity information, set them to 1 using:" << std::endl;
+    std::cout << "rayimport <point cloud> <trajectory file> --full_intensity" << std::endl;
+  }  
   ray::writePlyChunkEnd(ofs);
   return 0;
 }

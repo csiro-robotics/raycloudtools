@@ -33,7 +33,7 @@ void Cloud::save(const std::string &file_name) const
   std::string name = file_name;
   if (name.substr(name.length() - 4) != ".ply")
     name += ".ply";
-  writePly(name, starts, ends, times, colours);
+  writePlyRayCloud(name, starts, ends, times, colours);
   #if defined OUTPUT_CLOUD_MOMENTS
   getMoments();
   #endif // defined OUTPUT_CLOUD_MOMENTS
@@ -153,7 +153,7 @@ void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess>
   voxelSubsample(ends, voxel_width, subsample, voxel_set);
   for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
   {
-    int64_t id = subsample[i];
+    const int64_t id = subsample[i];
     starts[i] = starts[id];
     ends[i] = ends[id];
     colours[i] = colours[id];
