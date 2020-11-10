@@ -23,7 +23,7 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 *Dependencies:*
 
-Eigen: sudo apt-get install libeigen3-dev should do it
+Eigen: sudo apt-get install libeigen3-dev
 
 LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
 
@@ -64,7 +64,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_smooth2.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 
-**raytransients min room.ply 0.5 s** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when re-observed more than 0.5 seconds later or before. 
+**raytransients min room.ply 2 rays** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when matter has been re-observed as missing by 2 or more rays. 
 
 &nbsp;&nbsp;&nbsp; Leaving the ***minimum*** of geometry when transient.
 
@@ -82,7 +82,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 
 <p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_all.png?at=refs%2Fheads%2Fmaster"/></p>
 
-**raycombine min room.ply room2.ply** &nbsp;&nbsp;&nbsp; Combine the two ray clouds keeping only the ***minimum*** of geometry where there is a difference. 
+**raycombine min room.ply room2.ply 1 rays** &nbsp;&nbsp;&nbsp; Combine the two ray clouds keeping only the ***minimum*** of geometry where there is a difference. 
 
 &nbsp;&nbsp;&nbsp; This is a form of union of the two volumes. 
 
@@ -101,7 +101,7 @@ For raywrap:
 
 * git clone http://github.com/qhull/qhull.git, git checkout tags/v7.3.2
 * In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install. 
-* in raycloudtools/bbuild: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
+* in raycloudtools/build: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
 
 ## Unit Tests
 
