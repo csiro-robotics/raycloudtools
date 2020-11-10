@@ -9,7 +9,7 @@ raycreate building 1
 
 outputs: building.ply
 
-##Build:
+## Build:
 ```console
 mkdir build
 cd build
