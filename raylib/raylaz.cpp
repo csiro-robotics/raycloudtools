@@ -96,10 +96,9 @@ bool readLas(const std::string &file_name,
   return true;
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
-  RAYLIB_UNUSED(positions);
-  RAYLIB_UNUSED(times);
-  RAYLIB_UNUSED(colours);
-  RAYLIB_UNUSED(decimation);
+  RAYLIB_UNUSED(apply);
+  RAYLIB_UNUSED(num_bounded);
+  RAYLIB_UNUSED(chunk_size);
   std::cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
