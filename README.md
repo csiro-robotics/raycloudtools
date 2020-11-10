@@ -1,14 +1,6 @@
 ## Ray Cloud Tools
 A set of command line tools for processing ray clouds, together with an associated C++ library. 
 
-## Run Directly On Server:
-```console
-ssh <user>@video-ph.nexus.csiro.au
-raycreate building 1   
-```
-
-outputs: building.ply
-
 ## Build:
 ```console
 mkdir build
@@ -31,7 +23,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 
 **rayimport forest.laz forest_traj.ply** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file: forest.ply
 
-**raycreate room 0** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 0.
+**raycreate room 1** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 1.
 <p align="center">
 <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster"/>
   <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room3.png?at=refs%2Fheads%2Fmaster"/>
