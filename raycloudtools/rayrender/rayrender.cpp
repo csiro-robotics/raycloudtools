@@ -16,7 +16,7 @@ void usage(int exit_code = 1)
 {
   std::cout << "Render a ray cloud as an image, from a specified viewpoint" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayrender raycloudfile top solid outputfile.png - render file from top (plan view), in solid colour" << std::endl;
+  std::cout << "rayrender raycloudfile top ends outputfile.png - render file from top (plan view), in solid colour" << std::endl;
   std::cout << "                       left                     - facing negative x axis" << std::endl;
   std::cout << "                       right                    - facing positive x axis" << std::endl;
   std::cout << "                       front                    - facing negative y axis" << std::endl;
@@ -26,6 +26,7 @@ void usage(int exit_code = 1)
     << std::endl;
   std::cout << "                           density              - shade according to estimated density within pixel"
     << std::endl;
+  std::cout << "                           starts               - render the ray start points" << std::endl;
   std::cout << "                           rays                 - render the full set of rays" << std::endl;
   std::cout << "                                 outputfile.hdr - format allows a wider scale range"
     << std::endl;
@@ -36,7 +37,7 @@ void usage(int exit_code = 1)
 int main(int argc, char *argv[])
 {
   ray::KeyChoice viewpoint({"top", "left", "right", "front", "back"});
-  ray::KeyChoice style({"solid", "mean", "sum", "density", "rays"});
+  ray::KeyChoice style({"ends", "mean", "sum", "density", "starts", "rays"});
   ray::DoubleArgument pixel_width(0.0001, 1000.0);
   ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
   ray::FileArgument cloud_file, image_file;
@@ -74,13 +75,15 @@ int main(int argc, char *argv[])
       continue;
     ray::RGBA &colour = cloud.colours[i];
     Eigen::Vector3d col(colour.red, colour.green, colour.blue);
-    Eigen::Vector3d pos = (cloud.ends[i] - min_bounds) / pix_width;
+    Eigen::Vector3d point = style.selectedID() == 4 ? cloud.starts[i] : cloud.ends[i];
+    Eigen::Vector3d pos = (point - min_bounds) / pix_width;
     Eigen::Vector3i p = (pos).cast<int>();
     int x = p[ax1], y = p[ax2];
     Eigen::Vector4d &pix = pixels[x + width*y];
     switch (style.selectedID())
     {
-      case 0: // solid
+      case 0: // ends
+      case 4: // starts
         if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0)
           pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
         break;
@@ -95,7 +98,7 @@ int main(int argc, char *argv[])
         break;
       case 3: // density
         break;
-      case 4: // rays
+      case 5: // rays
         // walk each ray:
         break;
       default:
