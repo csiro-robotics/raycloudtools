@@ -18,19 +18,23 @@ using RayPlyEntry = Eigen::Matrix<float, 9, 1>;    // structure of raycloud clou
 using RayPlyBuffer = std::vector<RayPlyEntry>;     // buffer for storing a list of rays to be written
 
 /// read in a .ply file into the fields given by reference
+/// Note that @c max_intensity is only used when reading in a point cloud. Intensities are already stored in the
+/// colour alpha channel in ray clouds.
 bool RAYLIB_EXPORT readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
                            std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours, 
-                           bool is_ray_cloud);
+                           bool is_ray_cloud, double max_intensity = 0);
 /// read in a .ply file that represents a triangular mesh, into the @c Mesh structure
 bool RAYLIB_EXPORT readPlyMesh(const std::string &file, Mesh &mesh);
 
 /// write a .ply file representing a triangular mesh
 bool RAYLIB_EXPORT writePlyMesh(const std::string &file_name_rawaw, const Mesh &mesh, bool flip_normals = false);
 
-
-bool readPly(const std::string &file_name, bool is_ray_cloud, 
+/// ready in a ray cloud or point cloud .ply file, and call the @c apply function one chunk at a time, 
+/// @c chunk_size is the number of rays to read at one time. This method can be used on large clouds where
+/// the full set of rays is not required to be in memory at one time.
+bool RAYLIB_EXPORT readPly(const std::string &file_name, bool is_ray_cloud, 
      std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-     std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t chunk_size = 1000000);
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply, double max_intensity, size_t chunk_size = 1000000);
 
 
 /// write a .ply file representing a point cloud

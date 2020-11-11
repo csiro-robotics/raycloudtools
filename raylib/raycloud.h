@@ -39,6 +39,9 @@ public:
   std::vector<RGBA> colours;
 
   void clear();
+  /// resize the cloud's vectors
+  void resize(size_t size);
+
   /// is the ray at index @c i bounded. Unbounded rays are non-returns, typically due to exceeding lidar range. 
   inline bool rayBounded(size_t i) const { return colours[i].alpha > 0; }
   /// this reflects the intensity of return recorded by the lidar. It is optional and does not affect the raycloudtools

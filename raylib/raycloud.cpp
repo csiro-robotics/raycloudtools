@@ -318,6 +318,14 @@ void Cloud::addRay(const Cloud &other_cloud, size_t index)
   colours.push_back(other_cloud.colours[index]);
 }
 
+void Cloud::resize(size_t size)
+{
+  starts.resize(size);
+  ends.resize(size);
+  times.resize(size);
+  colours.resize(size);
+}
+
 Eigen::Array<double, 22, 1> Cloud::getMoments() const
 {
   Eigen::Vector3d startMean(0,0,0);

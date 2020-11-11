@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
   bool local_only = local.isSet();
   bool non_rigid = nonrigid.isSet();
   bool verbose = is_verbose.isSet();
-//  if (verbose)
+  if (verbose)
     ray::DebugDraw::init(argc, argv, "rayalign");
   if (!local_only)
   {

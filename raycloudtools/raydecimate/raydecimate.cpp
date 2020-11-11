@@ -37,10 +37,7 @@ int main(int argc, char *argv[])
 
   // By maintaining these buffers below, we avoid almost all memory fragmentation  
   ray::RayPlyBuffer buffer;
-  std::vector<Eigen::Vector3d> start_points;
-  std::vector<Eigen::Vector3d> end_points;
-  std::vector<double> time_points;
-  std::vector<ray::RGBA> colour_values;
+  ray::Cloud chunk;
   std::vector<int64_t> subsample;
 
   // voxel set is global, however its size is proportional to the decimated cloud size,
@@ -53,43 +50,37 @@ int main(int argc, char *argv[])
 
     subsample.clear();
     voxelSubsample(ends, width, subsample, voxel_set);
-    start_points.resize(subsample.size());
-    end_points.resize(subsample.size());
-    time_points.resize(subsample.size());
-    colour_values.resize(subsample.size());
+    chunk.resize(subsample.size());
     for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
     {
       int64_t id = subsample[i];
-      start_points[i] = starts[id];
-      end_points[i] = ends[id];
-      colour_values[i] = colours[id];
-      time_points[i] = times[id];
+      chunk.starts[i] = starts[id];
+      chunk.ends[i] = ends[id];
+      chunk.colours[i] = colours[id];
+      chunk.times[i] = times[id];
     }
-    ray::writePlyChunk(ofs, buffer, start_points, end_points, time_points, colour_values);
+    ray::writePlyChunk(ofs, buffer, chunk.starts, chunk.ends, chunk.times, chunk.colours);
   };
   auto decimate_rays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     size_t decimation = (size_t)num_rays.value();
     size_t count = (ends.size() + decimation - 1) / decimation;
-    start_points.resize(count);
-    end_points.resize(count);
-    time_points.resize(count);
-    colour_values.resize(count);
+    chunk.resize(count);
     for (size_t i = 0, c = 0; i < ends.size(); i += decimation, c++)
     {
-      start_points[c] = starts[i];
-      end_points[c] = ends[i];
-      time_points[c] = times[i];
-      colour_values[c] = colours[i];
+      chunk.starts[c] = starts[i];
+      chunk.ends[c] = ends[i];
+      chunk.times[c] = times[i];
+      chunk.colours[c] = colours[i];
     }
-    ray::writePlyChunk(ofs, buffer, start_points, end_points, time_points, colour_values);
+    ray::writePlyChunk(ofs, buffer, chunk.starts, chunk.ends, chunk.times, chunk.colours);
   };
 
   bool success;
   if (quantity.selectedKey() == "cm")
-    success = ray::readPly(cloud_file.name(), true, decimate_cm);
+    success = ray::readPly(cloud_file.name(), true, decimate_cm, 0);
   else
-    success = ray::readPly(cloud_file.name(), true, decimate_rays);
+    success = ray::readPly(cloud_file.name(), true, decimate_rays, 0);
   if (!success)
     usage();
   ray::writePlyChunkEnd(ofs);
