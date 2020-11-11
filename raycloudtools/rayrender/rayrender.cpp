@@ -103,8 +103,31 @@ int main(int argc, char *argv[])
       case 3: // density
         break;
       case 5: // rays
-        // walk each ray:
+      {
+        // factor this out (same as in rayalignment.cpp)
+        Eigen::Vector3d start = (cloud.starts[i] - min_bounds) / pix_width;
+        Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
+        Eigen::Vector3d dir_sign(ray::sgn(dir[0]), ray::sgn(dir[1]), ray::sgn(dir[2]));
+
+        Eigen::Vector3i start_index(start.cast<int>());
+        Eigen::Vector3i &end_index = p;
+        double length_sqr = (end_index - start_index).squaredNorm();
+        Eigen::Vector3i index = start_index;
+        while ((index - start_index).squaredNorm() <= length_sqr + 1e-10)
+        {
+          if (index[ax1] >= 0 && index[ax1] < width && index[ax2] >= 0 && index[ax2] < height)
+            pixels[index[ax1] + width*index[ax2]] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+          Eigen::Vector3d mid = min_bounds + pix_width * Eigen::Vector3d(index[0] + 0.5, index[1] + 0.5, index[2] + 0.5);
+          Eigen::Vector3d next_boundary = mid + 0.5 * pix_width * dir_sign;
+          Eigen::Vector3d delta = next_boundary - cloud.starts[i];
+          Eigen::Vector3d d(delta[0] / dir[0], delta[1] / dir[1], delta[2] / dir[2]);
+          if (d[ax1] < d[ax2])
+            index[ax1] += dir_sign.cast<int>()[ax1];
+          else
+            index[ax2] += dir_sign.cast<int>()[ax2];
+        }
         break;
+      }
       default:
         break;
     }
@@ -126,6 +149,7 @@ int main(int argc, char *argv[])
       switch (style.selectedID())
       {
         case 1: // mean
+        case 5: // rays
           col3d /= colour[3];
           break;
         case 2: // sum
