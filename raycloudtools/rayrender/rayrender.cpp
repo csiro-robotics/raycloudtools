@@ -16,21 +16,22 @@ void usage(int exit_code = 1)
 {
   std::cout << "Render a ray cloud as an image, from a specified viewpoint" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayrender raycloudfile top ends outputfile.png - render file from top (plan view), in solid colour" << std::endl;
-  std::cout << "                       left                     - facing negative x axis" << std::endl;
-  std::cout << "                       right                    - facing positive x axis" << std::endl;
-  std::cout << "                       front                    - facing negative y axis" << std::endl;
-  std::cout << "                       back                     - facing positive y axis" << std::endl;
-  std::cout << "                           mean                 - mean colour on axis" << std::endl;
-  std::cout << "                           sum                  - sum colours (globally scaled to colour range)"
+  std::cout << "rayrender raycloudfile.ply top ends    - render file from top (plan view), in solid colour" << std::endl;
+  std::cout << "                           left        - facing negative x axis" << std::endl;
+  std::cout << "                           right       - facing positive x axis" << std::endl;
+  std::cout << "                           front       - facing negative y axis" << std::endl;
+  std::cout << "                           back        - facing positive y axis" << std::endl;
+  std::cout << "                               mean    - mean colour on axis" << std::endl;
+  std::cout << "                               sum     - sum colours (globally scaled to colour range)"
     << std::endl;
-  std::cout << "                           density              - shade according to estimated density within pixel"
+  std::cout << "                               density - shade according to estimated density within pixel"
     << std::endl;
-  std::cout << "                           starts               - render the ray start points" << std::endl;
-  std::cout << "                           rays                 - render the full set of rays" << std::endl;
-  std::cout << "                                 outputfile.hdr - format allows a wider scale range"
-    << std::endl;
-  std::cout << "                              --pixel_width 0.1 - optional pixel width in m" << std::endl;
+  std::cout << "                               starts  - render the ray start points" << std::endl;
+  std::cout << "                               rays    - render the full set of rays" << std::endl;
+  std::cout << "                     --pixel_width 0.1 - optional pixel width in m" << std::endl;
+  std::cout << "                     --output name.png - optional output file name. " << std::endl;
+  std::cout << "                                         Supports .png, .tga, .hdr, .jpg, .bmp" << std::endl;
+  std::cout << "Default output is raycloudfile.png" << std::endl;
   exit(exit_code);
 }
 
@@ -39,10 +40,13 @@ int main(int argc, char *argv[])
   ray::KeyChoice viewpoint({"top", "left", "right", "front", "back"});
   ray::KeyChoice style({"ends", "mean", "sum", "density", "starts", "rays"});
   ray::DoubleArgument pixel_width(0.0001, 1000.0);
-  ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
   ray::FileArgument cloud_file, image_file;
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style, &image_file}, {&pixel_width_option}))
+  ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
+  ray::OptionalKeyValueArgument output_file_option("output", 'o', &image_file);
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style}, {&pixel_width_option, &output_file_option}))
     usage();
+  if (!output_file_option.isSet())
+    image_file.name() = cloud_file.nameStub() + ".png";
 
   ray::Cloud cloud;
   if (!cloud.load(cloud_file.name()))
@@ -125,7 +129,7 @@ int main(int argc, char *argv[])
           col3d /= colour[3];
           break;
         case 2: // sum
-          col3d *= 255.0 / max_val;
+          col3d *= 2.0 * 255.0 / max_val;
           break;
         default:
           break;

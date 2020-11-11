@@ -87,6 +87,7 @@ public:
     return "";
   }
   inline const std::string &name() const { return name_; }
+  inline std::string &name() { return name_; }
 private:
   std::string name_;
 };
@@ -179,16 +180,16 @@ private:
 class RAYLIB_EXPORT KeyValueChoice : public FixedArgument 
 {
 public:
-  KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<ValueArgument *> &values) : 
+  KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<FixedArgument *> &values) : 
     keys_(keys), values_(values), selected_id_(-1) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
-  inline const std::vector<ValueArgument *> &values() const { return values_; }
+  inline const std::vector<FixedArgument *> &values() const { return values_; }
   inline int selectedID() const { return selected_id_; }
   inline const std::string &selectedKey() const { return selected_key_; }
 private:
   std::vector<std::string> keys_;
-  std::vector<ValueArgument *> values_; 
+  std::vector<FixedArgument *> values_; 
   int selected_id_;
   std::string selected_key_;
 };
@@ -236,7 +237,7 @@ private:
 struct RAYLIB_EXPORT OptionalKeyValueArgument : OptionalArgument 
 {
 public:
-  OptionalKeyValueArgument(const std::string &name, char character, ValueArgument *value) : 
+  OptionalKeyValueArgument(const std::string &name, char character, FixedArgument *value) : 
     name_(name), character_(character), value_(value), is_set_(false) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
@@ -244,7 +245,7 @@ public:
 private:
   std::string name_;
   char character_;
-  ValueArgument *value_;
+  FixedArgument *value_;
   bool is_set_;
 };
 
