@@ -297,21 +297,17 @@ int main(int argc, char *argv[])
     }
     grid = std::move(grid2);
     double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
-    if (percentage < 1.0 || percentage > 50.0)
+    std::cout << "Density calculation: " << percentage << " voxels had insufficient (<" 
+      << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
+    if (percentage > 50.0)
     {
-      std::cout << "Density calculation: " << percentage << "% or " << 
-        num_hit_points_unsatisfied << " out of " << num_hit_points << " voxels had insufficient (<" 
-        << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
-      if (percentage > 50.0)
-      {
-        std::cout << "This is high. Consider using a larger pixel size, or a denser cloud, or reducing DENSITY_MIN_RAYS, for consistent results"
-         << std::endl;
-      }
-      else
-      {
-        std::cout << "This is low enough that you could get more fidelity from using a smaller pixel size" << std::endl;
-        std::cout << "or more accuracy by increasing DENSITY_MIN_RAYS" << std::endl;
-      }
+      std::cout << "This is high. Consider using a larger pixel size, or a denser cloud, or reducing DENSITY_MIN_RAYS, for consistent results"
+        << std::endl;
+    }
+    else if (percentage < 1.0)
+    {
+      std::cout << "This is low enough that you could get more fidelity from using a smaller pixel size" << std::endl;
+      std::cout << "or more accuracy by increasing DENSITY_MIN_RAYS" << std::endl;
     }
     #endif
 
@@ -329,8 +325,8 @@ int main(int argc, char *argv[])
           VoxelGrid::Voxel &voxel = grid.voxels[grid.getIndex(ind)];
           total_density += voxel.density();
         }
-        float shade = (float)(total_density / 1.0);
-        pixels[x + width * y] = Eigen::Vector4d(shade, shade, shade, 0);
+        max_val = std::max(max_val, total_density);
+        pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, 0);
       }
     }
   }
@@ -396,12 +392,15 @@ int main(int argc, char *argv[])
   }
 
   std::vector<ray::RGBA> pixel_colours;
-  std::vector<Eigen::Vector3f> float_pixel_colours;
-  bool is_hdr = image_file.nameExt() == ".hdr";
+  std::vector<float> float_pixel_colours;
+  bool is_hdr = image_file.nameExt() == "hdr";
   if (is_hdr)
-    float_pixel_colours.resize(width * height);
+    float_pixel_colours.resize(3 * width * height);
   else
     pixel_colours.resize(width*height);
+  max_val /= 2.0; // so we saturate at half way. This gives more useful information within the 0-255 range
+  if (is_hdr)
+    max_val = 1.0; // we don't rescale for high dynamic range. This lets us compare images quantitatively
 
   for (int x = 0; x < width; x++)
   {
@@ -416,12 +415,19 @@ int main(int argc, char *argv[])
           col3d /= colour[3];
           break;
         case 2: // sum
-          col3d *= 2.0 * 255.0 / max_val;
+        case 5: // density
+          col3d *= 255.0 / max_val;
           break;
         case 6: // density_rgb
         {
-          double shade = colour[0]/255.0;
-          col3d = 255.0 * ray::redGreenBlue(shade);
+          double shade = colour[0] / max_val;
+          if (is_hdr)
+          {
+            shade = colour[0] / (150.0 + colour[0]); // make it infinite range
+            col3d = colour[0] * ray::redGreenBlue(shade);
+          }
+          else 
+            col3d = 255.0 * ray::redGreenBlue(shade);
           if (shade < 0.05)
             col3d *= 20.0*shade;
           break;
@@ -429,8 +435,13 @@ int main(int argc, char *argv[])
         default:
           break;
       }
+      int ind = x + width * (height - 1 - y);
       if (is_hdr)
-        float_pixel_colours[x + width * y] = col3d.cast<float>();
+      {
+        float_pixel_colours[3*ind + 0] = (float)col3d[0];
+        float_pixel_colours[3*ind + 1] = (float)col3d[1];
+        float_pixel_colours[3*ind + 2] = (float)col3d[2];
+      }
       else
       {
         ray::RGBA col;
@@ -442,6 +453,7 @@ int main(int argc, char *argv[])
       }
     }
   }
+  std::cout << "outputting image: " << image_file.name() << std::endl;
   const char *image_name = image_file.name().c_str();
   if (image_file.nameExt() == "png")
     stbi_write_png(image_name, width, height, 4, (void *)&pixel_colours[0], 4 * width);
@@ -452,7 +464,7 @@ int main(int argc, char *argv[])
   else if (image_file.nameExt() == "png")
     stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // maximal quality
   else if (image_file.nameExt() == "hdr")
-    stbi_write_hdr(image_name, width, height, 4, (float *)&float_pixel_colours[0]);
+    stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
   else
   {
     std::cerr << "Error: image format " << image_file.nameExt() << " not known" << std::endl;
