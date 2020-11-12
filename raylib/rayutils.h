@@ -186,19 +186,25 @@ struct RGBA
   uint8_t alpha;
 };
 
+/// Converts a value from 0 to 1 into a RGBA structure 
+inline Eigen::Vector3d redGreenBlue(double val)
+{
+  static const Eigen::Vector3d hue_cycle[6] = {Eigen::Vector3d(1.0, 0.0, 0.5), Eigen::Vector3d(1.0, 0.5, 0.0), 
+                                               Eigen::Vector3d(0.5, 1.0, 0.0), Eigen::Vector3d(0.0, 1.0, 0.5), 
+                                               Eigen::Vector3d(0.0, 0.5, 1.0), Eigen::Vector3d(0.5, 0.0, 1.0)};
+  double v = 0.5 + 4.0*clamped(val, 0.0, 1.0);
+  int id = (int)v;
+  double blend = v - (double)id;
+  return hue_cycle[id]*(1.0-blend) + hue_cycle[id+1]*blend;
+}
+
 inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient, double min_value,
                                  double max_value, bool replace_alpha)
 {
   gradient.resize(values.size());
-  Eigen::Vector3d hue_cycle[6] = {Eigen::Vector3d(1.0, 0.0, 0.5), Eigen::Vector3d(1.0, 0.5, 0.0), 
-                                  Eigen::Vector3d(0.5, 1.0, 0.0), Eigen::Vector3d(0.0, 1.0, 0.5), 
-                                  Eigen::Vector3d(0.0, 0.5, 1.0), Eigen::Vector3d(0.5, 0.0, 1.0)};
   for (size_t i = 0; i < values.size(); i++)
   {
-    double v = 0.5 + 4.0*clamped((values[i] - min_value)/(max_value - min_value), 0.0, 1.0);
-    int id = (int)v;
-    double blend = v - (double)id;
-    Eigen::Vector3d col = hue_cycle[id]*(1.0-blend) + hue_cycle[id+1]*blend;
+    Eigen::Vector3d col = redGreenBlue((values[i] - min_value)/(max_value - min_value));
     gradient[i].red = uint8_t(255.0 * col[0]);
     gradient[i].green = uint8_t(255.0 * col[1]);
     gradient[i].blue = uint8_t(255.0 * col[2]);
