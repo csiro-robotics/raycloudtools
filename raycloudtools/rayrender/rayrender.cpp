@@ -422,14 +422,13 @@ int main(int argc, char *argv[])
         {
           double shade = colour[0] / max_val;
           if (is_hdr)
-          {
-            shade = colour[0] / (150.0 + colour[0]); // make it infinite range
-            col3d = colour[0] * ray::redGreenBlue(shade);
-          }
+            col3d = colour[0] * ray::redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
           else 
-            col3d = 255.0 * ray::redGreenBlue(shade);
-          if (shade < 0.05)
-            col3d *= 20.0*shade;
+          {
+            col3d = 255.0 * ray::redGreenBlueGradient(shade);
+            if (shade < 0.05)
+              col3d *= 20.0*shade;
+          }
           break;
         }
         default:
