@@ -12,7 +12,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "raylib/imagewrite.h"
 
-#define BLEND_DENSITY // a variable blend, to meet a minimum accuracy criterion
+#define DENSITY_MIN_RAYS 10 // larger is more accurate but more blurred. 0 for no adaptive blending
 
 void usage(int exit_code = 1)
 {
@@ -69,6 +69,14 @@ struct VoxelGrid
       numHits += other.numHits;
       numRays += other.numRays; 
       pathLength += other.pathLength; 
+    }
+    Voxel operator *(double scale)
+    {
+      Voxel voxel;
+      voxel.numHits = numHits * scale;
+      voxel.numRays = numRays * scale;
+      voxel.pathLength = pathLength * scale;
+      return voxel;
     }
   };
 
@@ -210,8 +218,15 @@ int main(int argc, char *argv[])
     grid.voxels.resize(grid.voxelDims[0]*grid.voxelDims[1]*grid.voxelDims[2]);
     grid.calculateDensities(cloud);
 
-    #if defined BLEND_DENSITY
+    #if DENSITY_MIN_RAYS > 0
     VoxelGrid grid2 = grid; 
+    int X = 1;
+    int Y = dims[0];
+    int Z = dims[0]*dims[1];
+    auto &voxels = grid.voxels;
+    VoxelGrid::Voxel neighbours;
+    double num_hit_points = 0.0;
+    double num_hit_points_unsatisfied = 0.0;
     for (int x = 1; x<grid.voxelDims[0]-1; x++)
     {
       for (int y = 1; y<grid.voxelDims[1]-1; y++)
@@ -220,16 +235,84 @@ int main(int argc, char *argv[])
         {
           int ind = grid2.getIndex(Eigen::Vector3i(x,y,z));
           VoxelGrid::Voxel &voxel = grid2.voxels[ind];
-          voxel += grid.voxels[ind-1];
-          voxel += grid.voxels[ind+1];
-          voxel += grid.voxels[ind-dims[0]];
-          voxel += grid.voxels[ind+dims[0]];
-          voxel += grid.voxels[ind-dims[0]*dims[1]];
-          voxel += grid.voxels[ind+dims[0]*dims[1]];
+          if (voxels[ind].numHits > 0)
+            num_hit_points++;
+          double needed = DENSITY_MIN_RAYS - voxels[ind].numRays;
+          if (needed < 0.0)
+            continue;
+          neighbours  = voxels[ind-X];
+          neighbours += voxels[ind+X];
+          neighbours += voxels[ind-Y];
+          neighbours += voxels[ind+Y];
+          neighbours += voxels[ind-Z];
+          neighbours += voxels[ind+Z];
+          if (neighbours.numRays >= needed)
+          {
+            voxel += neighbours * (needed/neighbours.numRays); // add minimal amount to reach DENSITY_MIN_RAYS
+            continue;
+          }
+          voxel += neighbours;
+          needed -= neighbours.numRays;
+
+          neighbours  = voxels[ind-X-Y];
+          neighbours += voxels[ind-X+Y];
+          neighbours += voxels[ind+X-Y];
+          neighbours += voxels[ind+X+Y];
+
+          neighbours += voxels[ind-X-Z];
+          neighbours += voxels[ind-X+Z];
+          neighbours += voxels[ind+X-Z];
+          neighbours += voxels[ind+X+Z];
+
+          neighbours += voxels[ind-Y-Z];
+          neighbours += voxels[ind-Y+Z];
+          neighbours += voxels[ind+Y-Z];
+          neighbours += voxels[ind+Y+Z];
+          if (neighbours.numRays >= needed)
+          {
+            voxel += neighbours * (needed/neighbours.numRays); // add minimal amount to reach DENSITY_MIN_RAYS
+            continue;
+          }
+          voxel += neighbours;
+          needed -= neighbours.numRays;
+
+          neighbours  = voxels[ind-X-Y-Z];          
+          neighbours += voxels[ind-X-Y+Z];          
+          neighbours += voxels[ind-X+Y-Z];          
+          neighbours += voxels[ind+X-Y-Z];          
+          neighbours += voxels[ind-X+Y+Z];          
+          neighbours += voxels[ind+X-Y+Z];          
+          neighbours += voxels[ind+X+Y-Z];          
+          neighbours += voxels[ind+X+Y+Z];     
+          if (neighbours.numRays >= needed)
+          {
+            voxel += neighbours * (needed/neighbours.numRays); // add minimal amount to reach DENSITY_MIN_RAYS
+            continue;
+          }
+          voxel += neighbours;    
+          if (voxels[ind].numHits > 0)
+            num_hit_points_unsatisfied++;
         }
       }
     }
-    grid = grid2;
+    grid = std::move(grid2);
+    double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
+    if (percentage < 1.0 || percentage > 50.0)
+    {
+      std::cout << "Density calculation: " << percentage << "% or " << 
+        num_hit_points_unsatisfied << " out of " << num_hit_points << " voxels had insufficient (<" 
+        << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
+      if (percentage > 50.0)
+      {
+        std::cout << "This is high. Consider using a larger pixel size, or a denser cloud, or reducing DENSITY_MIN_RAYS, for consistent results"
+         << std::endl;
+      }
+      else
+      {
+        std::cout << "This is low enough that you could get more fidelity from using a smaller pixel size" << std::endl;
+        std::cout << "or more accuracy by increasing DENSITY_MIN_RAYS" << std::endl;
+      }
+    }
     #endif
 
     for (int x = 0; x < width; x++)
