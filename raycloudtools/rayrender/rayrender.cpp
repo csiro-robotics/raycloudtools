@@ -400,7 +400,7 @@ int main(int argc, char *argv[])
     pixel_colours.resize(width*height);
   max_val /= 2.0; // so we saturate at half way. This gives more useful information within the 0-255 range
   if (is_hdr)
-    max_val = 1.0; // we don't rescale for high dynamic range. This lets us compare images quantitatively
+    max_val = 255.0; // For hdr colours are just 0-1, otherwise unscaled. This lets us compare images quantitatively
 
   for (int x = 0; x < width; x++)
   {
@@ -420,11 +420,11 @@ int main(int argc, char *argv[])
           break;
         case 6: // density_rgb
         {
-          double shade = colour[0] / max_val;
           if (is_hdr)
             col3d = colour[0] * ray::redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
           else 
           {
+            double shade = colour[0] / max_val;
             col3d = 255.0 * ray::redGreenBlueGradient(shade);
             if (shade < 0.05)
               col3d *= 20.0*shade;
