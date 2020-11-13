@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
     }
     grid = std::move(grid2);
     double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
-    std::cout << "Density calculation: " << percentage << " voxels had insufficient (<" 
+    std::cout << "Density calculation: " << percentage << "% of voxels had insufficient (<" 
       << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
     if (percentage > 50.0)
     {
