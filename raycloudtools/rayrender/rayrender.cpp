@@ -197,6 +197,7 @@ int main(int argc, char *argv[])
   double dir = 1;
   if (viewpoint.selectedKey() == "left" || viewpoint.selectedKey() == "front")
     dir = -1;
+  bool flip_x = viewpoint.selectedKey() == "left" || viewpoint.selectedKey() == "back";
   
   int x_axes[] = {1, 0, 0};
   int y_axes[] = {2, 2, 1};
@@ -421,6 +422,7 @@ int main(int argc, char *argv[])
 
   for (int x = 0; x < width; x++)
   {
+    int indx = flip_x ? width - 1 - x : x;
     for (int y = 0; y < height; y++)
     {
       Eigen::Vector4d colour = pixels[x + width*y];
@@ -452,7 +454,7 @@ int main(int argc, char *argv[])
         default:
           break;
       }
-      int ind = x + width * (height - 1 - y);
+      int ind = indx + width *y;
       if (is_hdr)
       {
         float_pixel_colours[3*ind + 0] = (float)col3d[0];
@@ -466,12 +468,13 @@ int main(int argc, char *argv[])
         col.green = uint8_t(std::min(255.0*col3d[1], 255.0));
         col.blue  = uint8_t(std::min(255.0*col3d[2], 255.0));
         col.alpha = alpha;
-        pixel_colours[x + width * (height - 1 - y)] = col;
+        pixel_colours[ind] = col;
       }
     }
   }
   std::cout << "outputting image: " << image_file.name() << std::endl;
   const char *image_name = image_file.name().c_str();
+  stbi_flip_vertically_on_write(1);
   if (image_file.nameExt() == "png")
     stbi_write_png(image_name, width, height, 4, (void *)&pixel_colours[0], 4 * width);
   else if (image_file.nameExt() == "bmp")
