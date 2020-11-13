@@ -10,7 +10,6 @@
 
 #include "rayutils.h"
 #include "raypose.h"
-#include "raytrajectory.h"
 #include "raygrid.h"
 #include <set>
 
@@ -40,6 +39,9 @@ public:
   std::vector<RGBA> colours;
 
   void clear();
+  /// resize the cloud's vectors
+  void resize(size_t size);
+
   /// is the ray at index @c i bounded. Unbounded rays are non-returns, typically due to exceeding lidar range. 
   inline bool rayBounded(size_t i) const { return colours[i].alpha > 0; }
   /// this reflects the intensity of return recorded by the lidar. It is optional and does not affect the raycloudtools
@@ -51,7 +53,6 @@ public:
 
   void save(const std::string &file_name) const;
   bool load(const std::string &file_name);
-  bool load(const std::string &point_cloud, const std::string &traj_file);
 
   Eigen::Vector3d calcMinBound() const;
   Eigen::Vector3d calcMaxBound() const;
@@ -59,7 +60,7 @@ public:
   /// apply a Euclidean transform and time shift to the ray cloud
   void transform(const Pose &pose, double time_delta);
   /// spatial decimation of the ray cloud, into one end point per voxel of width @c voxel_width
-  void decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set = NULL);
+  void decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> &voxel_set);
   /// add a new ray to the ray cloud
   void addRay(const Eigen::Vector3d &start, const Eigen::Vector3d &end, double time, const RGBA &colour);
   /// add a new ray to the ray cloud, from another cloud
@@ -103,7 +104,6 @@ public:
                   Progress *progress = nullptr) const;
 
 private:
-  void calculateStarts(const Trajectory &trajectory);
   bool loadPLY(const std::string &file);
 };
 

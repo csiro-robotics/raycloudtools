@@ -39,7 +39,7 @@ namespace raytest
   /// detects differing clouds, and always equal clouds, given a tolerance @c eps.
   void compareMoments(const Eigen::ArrayXd &m1, const std::vector<double> &m2, double eps = 0.1)
   {
-    for (int i = 0; i<m1.rows(); i++)
+    for (size_t i = 0; i<m2.size(); i++)
     {
       EXPECT_GT(m1[i], m2[i]-eps);
       EXPECT_LT(m1[i], m2[i]+eps);
@@ -96,7 +96,9 @@ namespace raytest
     EXPECT_EQ(command("raydecimate forest.ply 10 cm"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("forest_decimated.ply"));
-    compareMoments(cloud.getMoments(), {0.0999941, -0.0399831, 1.53571, 3.19998, 3.00533, 1.43086, 0.124131, -0.0325141, 1.46963, 3.09061, 2.97752, 1.49306, 38.1685, 19.0383, 0.631202, 0.458633, 0.325229, 1, 0.382899, 0.333503, 0.380153, 0});
+    // Below does not compare the time values (or the colour values, which are based on time here)
+    // because spatial decimation does not constraint which time it picks points from.
+    compareMoments(cloud.getMoments(), {0.0999941, -0.0399831, 1.53571, 3.19998, 3.00533, 1.43086, 0.124131, -0.0325141, 1.46963, 3.09061, 2.97752, 1.49306});
   }
 
   /// Creates a room, and calls denoise using a fixed distance threshols, and compares to expected result

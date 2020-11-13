@@ -18,28 +18,42 @@ namespace ray
 class RAYLIB_EXPORT Trajectory
 {
 public:
-  class RAYLIB_EXPORT Node
-  {
-  public:
-    Eigen::Vector3d pos;
-    double time;
-
-    Node() {}
-    Node(const Eigen::Vector3d &pos, double time)
-    {
-      this->pos = pos;
-      this->time = time;
-    }
-  };
-  std::vector<Node> nodes;
+  inline std::vector<Eigen::Vector3d> &points(){ return points_; }
+  inline const std::vector<Eigen::Vector3d> &points() const { return points_; }
+  inline std::vector<double> &times(){ return times_; }
+  inline const std::vector<double> &times() const { return times_; }
 
   /// Save trajectory to a text file. One line per Node
   void save(const std::string &file_name);
 
   /// Load trajectory from file. The file is expected to be a text file, with one Node entry per line
   bool load(const std::string &file_name);
-};
 
+  /// Interpolation of the set @c starts based on the @c times_ of the trajectory
+  void calculateStartPoints(const std::vector<double> &times, std::vector<Eigen::Vector3d> &starts);
+
+  /// Nearest position node on the trajectory to the given @c time
+  Eigen::Vector3d nearest(double time) const;
+  
+  /// Linear interpolation/extrapolation of nearest neighbours at given time.
+  /// If 'extrapolate' is false, outlier times will clamp to the start or end value
+  Eigen::Vector3d linear(double time, bool extrapolate = true) const;
+
+private:
+  inline size_t getIndexAndNormaliseTime(double &time) const
+  {
+    size_t index = std::lower_bound(times_.begin(), times_.end(), time) - times_.begin();
+    if (index == 0)
+      index++;
+    if (index == times_.size())
+      index--;
+    index--;
+    time = (time - times_[index]) / (times_[index + 1] - times_[index]);
+    return index;
+  }
+  std::vector<Eigen::Vector3d> points_;
+  std::vector<double> times_;
+};
 
 }
 
