@@ -203,7 +203,6 @@ int main(int argc, char *argv[])
   int width  = 1 + static_cast<int>(extent[ax1] / pix_width);
   int height = 1 + static_cast<int>(extent[ax2] / pix_width);
   std::cout << "outputting " << width << "x" << height << " image" << std::endl;
-  double max_val = 0.0;
 
   std::vector<Eigen::Vector4d> pixels(width * height); 
   memset(&pixels[0], 0, sizeof(Eigen::Vector4d) * width*height);
@@ -325,8 +324,7 @@ int main(int argc, char *argv[])
           VoxelGrid::Voxel &voxel = grid.voxels[grid.getIndex(ind)];
           total_density += voxel.density();
         }
-        max_val = std::max(max_val, total_density);
-        pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, 0);
+        pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
       }
     }
   }
@@ -337,7 +335,7 @@ int main(int argc, char *argv[])
       if (!cloud.rayBounded(i))
         continue;
       ray::RGBA &colour = cloud.colours[i];
-      Eigen::Vector3d col(colour.red, colour.green, colour.blue);
+      Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
       Eigen::Vector3d point = style.selectedID() == 3 ? cloud.starts[i] : cloud.ends[i];
       Eigen::Vector3d pos = (point - min_bounds) / pix_width;
       Eigen::Vector3i p = (pos).cast<int>();
@@ -355,9 +353,6 @@ int main(int argc, char *argv[])
           break;
         case 2: // sum
           pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-          max_val = std::max(max_val, pix[0]);
-          max_val = std::max(max_val, pix[1]);
-          max_val = std::max(max_val, pix[2]);
           break;
         case 4: // rays
         {
@@ -391,16 +386,36 @@ int main(int argc, char *argv[])
     }
   }
 
+  double max_val = 1.0;
+  bool is_hdr = image_file.nameExt() == "hdr";
+  if (!is_hdr) // limited range, so work out a decent maximum value, I'm using mean + two standard deviations:
+  {
+    double sum = 0.0;
+    double num = 0.0;
+    for (auto &pixel: pixels)
+    {
+      sum += pixel[3];
+      if (pixel[3] > 0.0)
+        num++;
+    }
+    double mean = sum / num;
+    double sum_sqr = 0.0;
+    for (auto &pixel: pixels)
+    {
+      if (pixel[3] > 0.0)
+        sum_sqr += ray::sqr(pixel[3] - mean);
+    }
+    double standard_deviation = std::sqrt(sum_sqr / num);
+    std::cout << "mean: " << mean << ", sd: " << standard_deviation << std::endl;
+    max_val = mean + 2.0*standard_deviation;
+  }
+
   std::vector<ray::RGBA> pixel_colours;
   std::vector<float> float_pixel_colours;
-  bool is_hdr = image_file.nameExt() == "hdr";
   if (is_hdr)
     float_pixel_colours.resize(3 * width * height);
   else
     pixel_colours.resize(width*height);
-  max_val /= 2.0; // so we saturate at half way. This gives more useful information within the 0-255 range
-  if (is_hdr)
-    max_val = 255.0; // For hdr colours are just 0-1, otherwise unscaled. This lets us compare images quantitatively
 
   for (int x = 0; x < width; x++)
   {
@@ -416,7 +431,7 @@ int main(int argc, char *argv[])
           break;
         case 2: // sum
         case 5: // density
-          col3d *= 255.0 / max_val;
+          col3d /= max_val;
           break;
         case 6: // density_rgb
         {
@@ -425,7 +440,7 @@ int main(int argc, char *argv[])
           else 
           {
             double shade = colour[0] / max_val;
-            col3d = 255.0 * ray::redGreenBlueGradient(shade);
+            col3d = ray::redGreenBlueGradient(shade);
             if (shade < 0.05)
               col3d *= 20.0*shade;
           }
@@ -444,9 +459,9 @@ int main(int argc, char *argv[])
       else
       {
         ray::RGBA col;
-        col.red   = uint8_t(std::min(col3d[0], 255.0));
-        col.green = uint8_t(std::min(col3d[1], 255.0));
-        col.blue  = uint8_t(std::min(col3d[2], 255.0));
+        col.red   = uint8_t(std::min(255.0*col3d[0], 255.0));
+        col.green = uint8_t(std::min(255.0*col3d[1], 255.0));
+        col.blue  = uint8_t(std::min(255.0*col3d[2], 255.0));
         col.alpha = 255;
         pixel_colours[x + width * (height - 1 - y)] = col;
       }
