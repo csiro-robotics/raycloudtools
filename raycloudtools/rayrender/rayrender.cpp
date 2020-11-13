@@ -198,8 +198,10 @@ int main(int argc, char *argv[])
   if (viewpoint.selectedKey() == "left" || viewpoint.selectedKey() == "front")
     dir = -1;
   
-  int ax1 = (axis+1)%3;
-  int ax2 = (axis+2)%3;
+  int x_axes[] = {1, 0, 0};
+  int y_axes[] = {2, 2, 1};
+  int ax1 = x_axes[axis];
+  int ax2 = y_axes[axis];
   int width  = 1 + static_cast<int>(extent[ax1] / pix_width);
   int height = 1 + static_cast<int>(extent[ax2] / pix_width);
   std::cout << "outputting " << width << "x" << height << " image" << std::endl;
@@ -423,6 +425,7 @@ int main(int argc, char *argv[])
     {
       Eigen::Vector4d colour = pixels[x + width*y];
       Eigen::Vector3d col3d(colour[0], colour[1], colour[2]);
+      uint8_t alpha = colour[3] == 0.0 ? 0 : 255;
       switch (style.selectedID())
       {
         case 1: // mean
@@ -456,13 +459,13 @@ int main(int argc, char *argv[])
         float_pixel_colours[3*ind + 1] = (float)col3d[1];
         float_pixel_colours[3*ind + 2] = (float)col3d[2];
       }
-      else
+      else 
       {
         ray::RGBA col;
         col.red   = uint8_t(std::min(255.0*col3d[0], 255.0));
         col.green = uint8_t(std::min(255.0*col3d[1], 255.0));
         col.blue  = uint8_t(std::min(255.0*col3d[2], 255.0));
-        col.alpha = 255;
+        col.alpha = alpha;
         pixel_colours[x + width * (height - 1 - y)] = col;
       }
     }
