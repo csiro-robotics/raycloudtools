@@ -30,6 +30,46 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
+/// This is a helper function to aid in splitting the cloud while chunk-loading it. The purpose is to be able to
+/// split clouds of any size, without running out of main memory. 
+void split(ray::Cloud &cloud_buffer, const std::string &file_name, std::string &in_name, std::string &out_name, 
+           std::function<bool(int i)> fptr)
+{
+  std::ofstream inside_ofs, outside_ofs;
+  if (!ray::writePlyChunkStart(in_name, inside_ofs))
+    usage();
+  if (!ray::writePlyChunkStart(out_name, outside_ofs))
+    usage();
+  ray::RayPlyBuffer buffer;
+  ray::Cloud in_chunk, out_chunk;
+
+  /// This function assumes (correctly) that the passed in arguments are at end-of-life from readPly. 
+  /// So it is valid to use std::move on them.
+  auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    // I move these into the cloud buffer, so that they can be indexed easily in fptr (by index). 
+    cloud_buffer.starts = std::move(starts);
+    cloud_buffer.ends = std::move(ends);
+    cloud_buffer.times = std::move(times);
+    cloud_buffer.colours = std::move(colours);
+
+    for (int i = 0; i < (int)cloud_buffer.ends.size(); i++)
+    {
+      ray::Cloud &cloud = fptr(i) ? out_chunk : in_chunk;
+      cloud.addRay(cloud_buffer.starts[i], cloud_buffer.ends[i], cloud_buffer.times[i], cloud_buffer.colours[i]);
+    }
+    ray::writePlyChunk(inside_ofs, buffer, in_chunk.starts, in_chunk.ends, in_chunk.times, in_chunk.colours);
+    ray::writePlyChunk(outside_ofs, buffer, out_chunk.starts, out_chunk.ends, out_chunk.times, out_chunk.colours);
+    in_chunk.clear();
+    out_chunk.clear();
+  };
+  if (!ray::readPly(file_name, true, per_chunk, 0))
+    usage(); 
+
+  ray::writePlyChunkEnd(inside_ofs);
+  ray::writePlyChunkEnd(outside_ofs);
+}
+
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
@@ -46,42 +86,48 @@ int main(int argc, char *argv[])
   if (!standard_format && !mesh_split)
     usage();
 
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
-    usage();
-  ray::Cloud inside, outside;
-  if (mesh_split)
+  std::string in_name = cloud_file.nameStub() + "_inside.ply";
+  std::string out_name = cloud_file.nameStub() + "_outside.ply";
+  std::string rc_name = cloud_file.name(); // ray cloud name
+  ray::Cloud cloud; // used as a buffer when chunk loading
+
+  if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
   {
+    if (!cloud.load(rc_name))
+      usage();
     ray::Mesh mesh;
     ray::readPlyMesh(mesh_file.name(), mesh);
+    ray::Cloud inside, outside;
     mesh.splitCloud(cloud, mesh_offset.value(), inside, outside);
+    inside.save(in_name);
+    outside.save(out_name);
   }
   else
   {
     const std::string &parameter = choice.selectedKey();
     if (parameter == "time")
     {
-      cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > time.value(); });
+      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.times[i] > time.value(); });
     }
     else if (parameter == "alpha")
     {
       uint8_t c = uint8_t(255.0 * alpha.value());
-      cloud.split(inside, outside, [&](int i) { return cloud.colours[i].alpha > c; });
+      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.colours[i].alpha > c; });
     }
     else if (parameter == "pos")
     {
       Eigen::Vector3d vec = pos.value() / pos.value().squaredNorm();
-      cloud.split(inside, outside, [&](int i) { return cloud.ends[i].dot(vec) > 1.0; });
+      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.ends[i].dot(vec) > 1.0; });
     }
     else if (parameter == "startpos")
     {
       Eigen::Vector3d vec = startpos.value() / startpos.value().squaredNorm();
-      cloud.split(inside, outside, [&](int i) { return cloud.starts[i].dot(vec) > 0.0; });
+      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.starts[i].dot(vec) > 0.0; });
     }
     else if (parameter == "raydir")
     {
       Eigen::Vector3d vec = raydir.value() / raydir.value().squaredNorm();
-      cloud.split(inside, outside, [&](int i) {
+      split(cloud, rc_name, in_name, out_name, [&](int i) {
         Eigen::Vector3d ray_dir = (cloud.ends[i] - cloud.starts[i]).normalized();
         return ray_dir.dot(vec) > 0.0;
       });
@@ -89,7 +135,7 @@ int main(int argc, char *argv[])
     else if (parameter == "colour")
     {
       Eigen::Vector3d vec = colour.value() / colour.value().squaredNorm();
-      cloud.split(inside, outside, [&](int i) {
+      split(cloud, rc_name, in_name, out_name, [&](int i) {
         Eigen::Vector3d col((double)cloud.colours[i].red / 255.0, (double)cloud.colours[i].green / 255.0,
                      (double)cloud.colours[i].blue / 255.0);
         return col.dot(vec) > 0.0;
@@ -97,20 +143,18 @@ int main(int argc, char *argv[])
     }
     else if (parameter == "range")
     {
-      cloud.split(inside, outside, [&](int i) { return (cloud.starts[i] - cloud.ends[i]).norm() > range.value(); });
+      split(cloud, rc_name, in_name, out_name, [&](int i) { 
+        return (cloud.starts[i] - cloud.ends[i]).norm() > range.value(); 
+      });
     }
     else if (parameter == "speed")
     {
-      cloud.split(inside, outside, [&](int i) {
+      split(cloud, rc_name, in_name, out_name, [&](int i) {
         if (i == 0)
           return false;
         return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > speed.value();
       });
     }
   }
-
-  std::string file_stub = cloud_file.nameStub();
-  inside.save(file_stub + "_inside.ply");
-  outside.save(file_stub + "_outside.ply");
   return 0;
 }
