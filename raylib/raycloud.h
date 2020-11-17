@@ -53,8 +53,14 @@ public:
   bool load(const std::string &file_name);
   bool load(const std::string &point_cloud, const std::string &traj_file);
 
+  /// minimum bounds of all bounded rays
   Eigen::Vector3d calcMinBound() const;
+  /// maximum bounds of all bounded rays
   Eigen::Vector3d calcMaxBound() const;
+  /// minimum bounds of end points of all bounded rays
+  Eigen::Vector3d calcMinPointBound() const;
+  /// maximum bounds of end points of all bounded rays
+  Eigen::Vector3d calcMaxPointBound() const;
 
   /// apply a Euclidean transform and time shift to the ray cloud
   void transform(const Pose &pose, double time_delta);
