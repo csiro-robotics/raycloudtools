@@ -35,9 +35,16 @@ bool readLas(const std::string &file_name,
 
   liblas::ReaderFactory f;
   liblas::Reader reader = f.CreateWithStream(ifs);
-  liblas::Header header = reader.GetHeader();
+  liblas::Header const &header = reader.GetHeader();
 
   const size_t number_of_points = header.GetPointRecordsCount();
+  bool using_time = (header.GetDataFormatId() & 1) > 0;
+  bool using_colour = (header.GetDataFormatId() & 2) > 0;
+  if (!using_time)
+  {
+    std::cerr << "No timetamps found on laz file, these are required" << std::endl;
+    return false;
+  }
   
   ray::Progress progress;
   ray::ProgressThread progress_thread(progress);
@@ -68,7 +75,18 @@ bool readLas(const std::string &file_name,
     position[2] = point.GetZ();
     ends.push_back(position);
     starts.push_back(position); // equal to position for laz files, as we do not store the start points
+
+    if (using_colour)
+    {
+      liblas::Color colour = point.GetColor();
+      RGBA col;
+      col.red = static_cast<uint8_t>(colour.GetRed());
+      col.green = static_cast<uint8_t>(colour.GetGreen());
+      col.blue = static_cast<uint8_t>(colour.GetBlue());
+      colours.push_back(col);
+    }
     times.push_back(point.GetTime());
+
     const double point_int = point.GetIntensity();
     const double normalised_intensity = (255.0 * point_int) / max_intensity;
     const uint8_t intensity = static_cast<uint8_t>(std::min(normalised_intensity, 255.0));
@@ -78,7 +96,10 @@ bool readLas(const std::string &file_name,
 
     if (ends.size() == chunk_size || i==number_of_points-1)
     {
-      colourByTime(times, colours);
+      if (colours.size() == 0)
+      {
+        colourByTime(times, colours);
+      }
       for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
         colours[i].alpha = intensities[i];
       apply(starts, ends, times, colours);

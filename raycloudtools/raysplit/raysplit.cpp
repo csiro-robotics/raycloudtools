@@ -12,13 +12,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <limits>
 
 void usage(int exit_code = 1)
 {
   std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raysplit raycloud pos 10,0,0             - splits along x axis" << std::endl;
-  std::cout << "                  time 10000             - splits at given acquisition time" << std::endl;
   std::cout << "                  colour 0.5,0,0         - splits by colour, around half red component" << std::endl;
   std::cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity" << std::endl;
   std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << std::endl;
@@ -27,6 +27,9 @@ void usage(int exit_code = 1)
        << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  speed 1.0              - splits out rays when sensor moving above the given speed" << std::endl;
+  std::cout << "                  time 10000             - splits at given acquisition time" << std::endl;
+  std::cout << "                  time 50 %              - splits at given perentage between earliest and latest times"
+       << std::endl;
   exit(exit_code);
 }
 
@@ -79,11 +82,12 @@ int main(int argc, char *argv[])
   ray::KeyValueChoice choice({"pos", "time", "colour", "alpha", "startpos", "raydir", "range", "speed"}, 
                              {&pos,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed});
   ray::FileArgument mesh_file;
-  ray::TextArgument text("distance");
+  ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
-  bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &text, &mesh_offset});
-  if (!standard_format && !mesh_split)
+  bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
+  bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
+  if (!standard_format && !mesh_split && !time_percent)
     usage();
 
   std::string in_name = cloud_file.nameStub() + "_inside.ply";
@@ -101,6 +105,19 @@ int main(int argc, char *argv[])
     mesh.splitCloud(cloud, mesh_offset.value(), inside, outside);
     inside.save(in_name);
     outside.save(out_name);
+  }
+  else if (time_percent)
+  {
+    std::cout << "time: " << time.value() << std::endl;
+    double min_time = std::numeric_limits<double>::max();
+    double max_time = std::numeric_limits<double>::lowest();
+    for (auto &time: cloud.times)
+    {
+      min_time = std::min(time, min_time);
+      max_time = std::max(time, max_time);
+    }
+    double time_thresh = min_time + (max_time - min_time) * time.value()/100.0;
+    cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > time_thresh; });
   }
   else
   {
