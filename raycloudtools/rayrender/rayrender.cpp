@@ -188,13 +188,13 @@ int main(int argc, char *argv[])
   if (!output_file_option.isSet())
     image_file.name() = cloud_file.nameStub() + ".png";
 
-  ray::Cuboid bounds, start_bounds, ray_bounds;
-  int num_bounded, num_unbounded;
-  if (!ray::Cloud::getInfo(cloud_file.name(), bounds, start_bounds, ray_bounds, num_bounded, num_unbounded))
+  ray::Cloud::CloudInfo info;
+  if (!ray::Cloud::getInfo(cloud_file.name(), info))
     usage();
+  ray::Cuboid bounds = info.ends_bound; // exclude the unbounded ray lengths (e.g. up into the sky)
   double pix_width = pixel_width.value();
   if (!pixel_width_option.isSet())
-    pix_width = ray::Cloud::estimatePointSpacing(cloud_file.name(), bounds, num_bounded);
+    pix_width = ray::Cloud::estimatePointSpacing(cloud_file.name(), bounds, info.num_bounded);
   if (pix_width <= 0.0)
     usage();
 

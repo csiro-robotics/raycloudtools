@@ -275,34 +275,37 @@ std::vector<Eigen::Vector3d> Cloud::generateNormals(int search_size)
   return normals;
 }
 
-bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Cuboid &ends, Cuboid &starts, Cuboid &rays,
-                                  int &num_bounded, int &num_unbounded)
+bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, CloudInfo &info)
 {
   double min_s = std::numeric_limits<double>::max();
   double max_s = std::numeric_limits<double>::lowest();
   Eigen::Vector3d min_v(min_s, min_s, min_s);
   Eigen::Vector3d max_v(max_s, max_s, max_s);
   Cuboid unbounded(min_v, max_v);
-  ends = starts = rays = unbounded;
-  num_unbounded = num_bounded = 0;
-  auto find_bounds = [&](std::vector<Eigen::Vector3d> &start_list, std::vector<Eigen::Vector3d> &end_list, std::vector<double> &, std::vector<ray::RGBA> &colours)
+  info.ends_bound = info.starts_bound = info.rays_bound = unbounded;
+  info.num_unbounded = info.num_bounded = 0;
+  info.min_time = min_s;
+  info.max_time = max_s;
+  auto find_bounds = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    for (size_t i = 0; i<end_list.size(); i++)
+    for (size_t i = 0; i<ends.size(); i++)
     {
       if (colours[i].alpha > 0)
       {
-        ends.min_bound_ = minVector(ends.min_bound_, end_list[i]);
-        ends.max_bound_ = maxVector(ends.max_bound_, end_list[i]);
-        num_bounded++;
+        info.ends_bound.min_bound_ = minVector(info.ends_bound.min_bound_, ends[i]);
+        info.ends_bound.max_bound_ = maxVector(info.ends_bound.max_bound_, ends[i]);
+        info.num_bounded++;
       }
-      num_unbounded++;
-      starts.min_bound_ = minVector(starts.min_bound_, start_list[i]);
-      starts.max_bound_ = maxVector(starts.max_bound_, start_list[i]);
-      rays.min_bound_ = minVector(rays.min_bound_, end_list[i]);
-      rays.max_bound_ = maxVector(rays.max_bound_, end_list[i]);
+      info.num_unbounded++;
+      info.starts_bound.min_bound_ = minVector(info.starts_bound.min_bound_, starts[i]);
+      info.starts_bound.max_bound_ = maxVector(info.starts_bound.max_bound_, starts[i]);
+      info.rays_bound.min_bound_ = minVector(info.rays_bound.min_bound_, ends[i]);
+      info.rays_bound.max_bound_ = maxVector(info.rays_bound.max_bound_, ends[i]);
+      info.min_time = std::min(info.min_time, times[i]);
+      info.max_time = std::max(info.max_time, times[i]);
     }
-    rays.min_bound_ = minVector(rays.min_bound_, starts.min_bound_);
-    rays.max_bound_ = maxVector(rays.max_bound_, starts.max_bound_);
+    info.rays_bound.min_bound_ = minVector(info.rays_bound.min_bound_, info.starts_bound.min_bound_);
+    info.rays_bound.max_bound_ = maxVector(info.rays_bound.max_bound_, info.starts_bound.max_bound_);
   };  
   return readPly(file_name, true, find_bounds, 0);
 }
