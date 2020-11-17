@@ -89,7 +89,6 @@ struct VoxelGrid
 // density is the probability of hitting something per metre depth
 void VoxelGrid::calculateDensities(const ray::Cloud &cloud)
 {
-  std::cout << "size of voxel: " << sizeof(VoxelGrid::Voxel) << std::endl;
   ray::Cuboid bounds(min_bound, max_bound);
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
@@ -215,9 +214,9 @@ int main(int argc, char *argv[])
   memset(&pixels[0], 0, sizeof(Eigen::Vector4d) * width*height);
   if (style.selectedKey() == "density" || style.selectedKey() == "density_rgb") // special (and complicatd) case
   {
-    Eigen::Vector3i dims = (extent/pix_width).cast<int>() + Eigen::Vector3i(1,1,1);
+    Eigen::Vector3i dims = (extent/pix_width).cast<int>() + Eigen::Vector3i(2,2,2);
     VoxelGrid grid;
-    grid.min_bound = min_bounds;
+    grid.min_bound = min_bounds - Eigen::Vector3d(pix_width, pix_width, pix_width);
     grid.max_bound = max_bounds;
     grid.voxelWidth = pix_width;
     grid.voxelDims = dims;
@@ -225,7 +224,6 @@ int main(int argc, char *argv[])
     grid.calculateDensities(cloud);
 
     #if DENSITY_MIN_RAYS > 0
-    VoxelGrid grid2 = grid; 
     int X = 1;
     int Y = dims[0];
     int Z = dims[0]*dims[1];
@@ -235,17 +233,20 @@ int main(int argc, char *argv[])
     double num_hit_points_unsatisfied = 0.0;
     // This simple 3x3x3 convolution needs to be a bit sneaky to avoid having to double the memory cost.
     // well, not that sneaky, just output into relative cell -1,-1,-1
+    
     for (int x = 1; x<grid.voxelDims[0]-1; x++)
     {
       for (int y = 1; y<grid.voxelDims[1]-1; y++)
       {
         for (int z = 1; z<grid.voxelDims[2]-1; z++)
         {
-          int ind = grid2.getIndex(Eigen::Vector3i(x,y,z));
-          VoxelGrid::Voxel &voxel = grid2.voxels[ind];
+          int ind = grid.getIndex(Eigen::Vector3i(x,y,z));
           if (voxels[ind].numHits > 0)
             num_hit_points++;
           float needed = DENSITY_MIN_RAYS - voxels[ind].numRays;
+          VoxelGrid::Voxel corner_vox = voxels[ind - X - Y - Z];
+          VoxelGrid::Voxel &voxel = voxels[ind - X - Y - Z];
+          voxel = voxels[ind]; // move centre up to corner 
           if (needed < 0.0)
             continue;
           neighbours  = voxels[ind-X];
@@ -284,7 +285,7 @@ int main(int argc, char *argv[])
           voxel += neighbours;
           needed -= neighbours.numRays;
 
-          neighbours  = voxels[ind-X-Y-Z];          
+          neighbours  = corner_vox;          
           neighbours += voxels[ind-X-Y+Z];          
           neighbours += voxels[ind-X+Y-Z];          
           neighbours += voxels[ind+X-Y-Z];          
@@ -303,7 +304,6 @@ int main(int argc, char *argv[])
         }
       }
     }
-    grid = std::move(grid2);
     double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
     std::cout << "Density calculation: " << percentage << "% of voxels had insufficient (<" 
       << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
@@ -324,14 +324,13 @@ int main(int argc, char *argv[])
       for (int y = 0; y < height; y++)
       {
         double total_density = 0.0;
-        for (int z = 0; z< grid.voxelDims[axis]; z++)
+        for (int z = 0; z< grid.voxelDims[axis]-1; z++)
         {
           Eigen::Vector3i ind;
           ind[axis] = z;
           ind[ax1] = x;
           ind[ax2] = y;
-          VoxelGrid::Voxel &voxel = grid.voxels[grid.getIndex(ind)];
-          total_density += voxel.density();
+          total_density += grid.voxels[grid.getIndex(ind)].density();
         }
         pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
       }
