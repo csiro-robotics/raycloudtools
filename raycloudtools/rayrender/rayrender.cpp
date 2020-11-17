@@ -245,8 +245,8 @@ int main(int argc, char *argv[])
             num_hit_points++;
           float needed = DENSITY_MIN_RAYS - voxels[ind].numRays;
           VoxelGrid::Voxel corner_vox = voxels[ind - X - Y - Z];
-          VoxelGrid::Voxel &voxel = voxels[ind - X - Y - Z];
-          voxel = voxels[ind]; // move centre up to corner 
+          voxels[ind - X - Y - Z] = voxels[ind]; // move centre up to corner 
+          VoxelGrid::Voxel &voxel = voxels[ind - X - Y - Z]; 
           if (needed < 0.0)
             continue;
           neighbours  = voxels[ind-X];
