@@ -275,6 +275,79 @@ std::vector<Eigen::Vector3d> Cloud::generateNormals(int search_size)
   return normals;
 }
 
+bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Cuboid &ends, Cuboid &starts, Cuboid &rays,
+                                  int &num_bounded, int &num_unbounded)
+{
+  double min_s = std::numeric_limits<double>::max();
+  double max_s = std::numeric_limits<double>::lowest();
+  Eigen::Vector3d min_v(min_s, min_s, min_s);
+  Eigen::Vector3d max_v(max_s, max_s, max_s);
+  Cuboid unbounded(min_v, max_v);
+  ends = starts = rays = unbounded;
+  num_unbounded = num_bounded = 0;
+  auto find_bounds = [&](std::vector<Eigen::Vector3d> &start_list, std::vector<Eigen::Vector3d> &end_list, std::vector<double> &, std::vector<ray::RGBA> &colours)
+  {
+    for (size_t i = 0; i<end_list.size(); i++)
+    {
+      if (colours[i].alpha > 0)
+      {
+        ends.min_bound_ = minVector(ends.min_bound_, end_list[i]);
+        ends.max_bound_ = maxVector(ends.max_bound_, end_list[i]);
+        num_bounded++;
+      }
+      num_unbounded++;
+      starts.min_bound_ = minVector(starts.min_bound_, start_list[i]);
+      starts.max_bound_ = maxVector(starts.max_bound_, start_list[i]);
+      rays.min_bound_ = minVector(rays.min_bound_, end_list[i]);
+      rays.max_bound_ = maxVector(rays.max_bound_, end_list[i]);
+    }
+    rays.min_bound_ = minVector(rays.min_bound_, starts.min_bound_);
+    rays.max_bound_ = maxVector(rays.max_bound_, starts.max_bound_);
+  };  
+  return readPly(file_name, true, find_bounds, 0);
+}
+
+
+double Cloud::estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points)
+{
+  // two-iteration estimation, modelling the point distribution by the below exponent.
+  // larger exponents (towards 2.5) match thick forests, lower exponents (towards 2) match smooth terrain and surfaces
+  const double cloud_exponent = 2.0; // model num_points = (cloud_width/voxel_width)^cloud_exponent
+
+  Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
+  double cloud_width = pow(extent[0]*extent[1]*extent[2], 1.0/3.0); // an average
+  double voxel_width = cloud_width / pow((double)num_points, 1.0/cloud_exponent);
+  voxel_width *= 5.0; // we want to use a larger width because this process only works when the width is an overestimation
+  std::cout << "initial voxel width estimate: " << voxel_width << std::endl;
+  double num_voxels = 0;
+  std::set<Eigen::Vector3i, Vector3iLess> test_set;
+
+  auto estimate_size = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<ray::RGBA> &colours)
+  {
+    for (unsigned int i = 0; i < ends.size(); i++)
+    {
+      if (colours[i].alpha == 0)
+        continue;
+
+      const Eigen::Vector3d &point = ends[i];
+      Eigen::Vector3i place(int(std::floor(point[0] / voxel_width)), int(std::floor(point[1] / voxel_width)),
+                            int(std::floor(point[2] / voxel_width)));
+      if (test_set.find(place) == test_set.end())
+      {
+        test_set.insert(place);
+        num_voxels++;
+      }
+    }
+  };  
+  if (!readPly(file_name, true, estimate_size, 0))
+    return 0;
+
+  double points_per_voxel = (double)num_points / num_voxels;
+  double width = voxel_width / pow(points_per_voxel, 1.0/cloud_exponent);
+  std::cout << "estimated point spacing: " << width << std::endl;
+  return width;
+}
+
 double Cloud::estimatePointSpacing() const
 {
   // two-iteration estimation, modelling the point distribution by the below exponent.
@@ -289,7 +362,7 @@ double Cloud::estimatePointSpacing() const
     if (rayBounded(i))
       num_points++;
   double cloud_width = pow(extent[0]*extent[1]*extent[2], 1.0/3.0); // an average
-  double voxel_width = cloud_width / pow((double)ends.size(), 1.0/cloud_exponent);
+  double voxel_width = cloud_width / pow((double)num_points, 1.0/cloud_exponent);
   voxel_width *= 5.0; // we want to use a larger width because this process only works when the width is an overestimation
   std::cout << "initial voxel width estimate: " << voxel_width << std::endl;
   double num_voxels = 0;

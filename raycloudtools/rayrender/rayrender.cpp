@@ -10,6 +10,7 @@
 #include "raylib/raycloud.h"
 #include "raylib/rayparse.h"
 #include "raylib/raycuboid.h"
+#include "raylib/rayply.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "raylib/imagewrite.h"
 
@@ -45,13 +46,13 @@ struct VoxelGrid
   static const int minVoxelHits = 2;
   static constexpr double sphericalDistributionScale = 2.0; // average area scale due to a spherical uniform distribution of leave angles relative to the rays
   
-  void calculateDensities(const ray::Cloud &cloud);
+  void calculateDensities(const std::string &file_name);
   Eigen::Vector3d getCentre(const Eigen::Vector3d &pos);
   Eigen::Vector3d getCentre(const Eigen::Vector3i &inds);
   int getIndex(const Eigen::Vector3d &pos);
   int getIndex(const Eigen::Vector3i &inds);
 
-  Eigen::Vector3d min_bound, max_bound;
+  ray::Cuboid bounds;
   
   struct Voxel
   {
@@ -87,62 +88,65 @@ struct VoxelGrid
 };
 
 // density is the probability of hitting something per metre depth
-void VoxelGrid::calculateDensities(const ray::Cloud &cloud)
+void VoxelGrid::calculateDensities(const std::string &file_name)
 {
-  ray::Cuboid bounds(min_bound, max_bound);
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  auto calculate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<ray::RGBA> &colours)
   {
-    Eigen::Vector3d start = cloud.starts[i];
-    Eigen::Vector3d end   = cloud.ends[i];
-    bounds.clipRay(start, end);
-
-    // now walk the voxels
-    Eigen::Vector3d dir = end - start;
-    Eigen::Vector3d source = (start - min_bound)/voxelWidth;
-    Eigen::Vector3d p = source;
-    Eigen::Vector3d target = (end - min_bound)/voxelWidth;
-    double length = dir.norm();
-    double maxDist = (target - source).norm();
-    Eigen::Vector3i inds = p.cast<int>();
-    double depth = 0;
-    do
+    for (size_t i = 0; i<ends.size(); i++)
     {
-      int axis = 0;
-      double minL = 1e10;
-      for (int k = 0; k<3; k++)
+      Eigen::Vector3d start = starts[i];
+      Eigen::Vector3d end   = ends[i];
+      bounds.clipRay(start, end);
+
+      // now walk the voxels
+      Eigen::Vector3d dir = end - start;
+      Eigen::Vector3d source = (start - bounds.min_bound_)/voxelWidth;
+      Eigen::Vector3d p = source;
+      Eigen::Vector3d target = (end - bounds.min_bound_)/voxelWidth;
+      double length = dir.norm();
+      double maxDist = (target - source).norm();
+      Eigen::Vector3i inds = p.cast<int>();
+      double depth = 0;
+      do
       {
-        double l = (dir[k] > 0 ? ceil(p[k]) - p[k] : p[k] - floor(p[k])) * length / abs(dir[k]);
-        if (l < minL)
+        int axis = 0;
+        double minL = 1e10;
+        for (int k = 0; k<3; k++)
         {
-          minL = l;
-          axis = k;
+          double l = (dir[k] > 0 ? ceil(p[k]) - p[k] : p[k] - floor(p[k])) * length / abs(dir[k]);
+          if (l < minL)
+          {
+            minL = l;
+            axis = k;
+          }
         }
-      }
-      depth += minL + 1e-9;
-      inds[axis] += dir[axis] > 0 ? 1 : -1;
-      if (inds[axis] < 0 || inds[axis] >= voxelDims[axis])
-        break;
-      p = source + depth * dir / length;
-      int j = getIndex(inds);
-      if (cloud.rayBounded(i) && depth > maxDist)
-      {
-        double d = minL + maxDist - depth;
-        voxels[j].pathLength += static_cast<float>(d*voxelWidth);
-        voxels[j].numHits++;
-        voxels[j].numRays++;
-      }
-      else
-      {
-        voxels[j].pathLength += static_cast<float>(minL*voxelWidth); 
-        voxels[j].numRays++;
-      }
-    } while (depth <= maxDist);
-  }
+        depth += minL + 1e-9;
+        inds[axis] += dir[axis] > 0 ? 1 : -1;
+        if (inds[axis] < 0 || inds[axis] >= voxelDims[axis])
+          break;
+        p = source + depth * dir / length;
+        int j = getIndex(inds);
+        if (colours[i].alpha > 0 && depth > maxDist)
+        {
+          double d = minL + maxDist - depth;
+          voxels[j].pathLength += static_cast<float>(d*voxelWidth);
+          voxels[j].numHits++;
+          voxels[j].numRays++;
+        }
+        else
+        {
+          voxels[j].pathLength += static_cast<float>(minL*voxelWidth); 
+          voxels[j].numRays++;
+        }
+      } while (depth <= maxDist);
+    }
+  };
+  ray::readPly(file_name, true, calculate, 0);
 }
 
 Eigen::Vector3d VoxelGrid::getCentre(const Eigen::Vector3d &pos)
 {
-  Eigen::Vector3d source = (pos - min_bound)/voxelWidth;
+  Eigen::Vector3d source = (pos - bounds.min_bound_)/voxelWidth;
   Eigen::Vector3i inds = source.cast<int>();
   return getCentre(inds);
 }
@@ -151,13 +155,13 @@ Eigen::Vector3d VoxelGrid::getCentre(const Eigen::Vector3i &inds)
 {
   Eigen::Vector3d res(inds[0], inds[1], inds[2]);
   res += Eigen::Vector3d(0.5,0.5,0.5);
-  res = res*voxelWidth + min_bound;
+  res = res*voxelWidth + bounds.min_bound_;
   return res;  
 }
 
 int VoxelGrid::getIndex(const Eigen::Vector3d &pos)
 {
-  Eigen::Vector3d source = (pos - min_bound)/voxelWidth;
+  Eigen::Vector3d source = (pos - bounds.min_bound_)/voxelWidth;
   Eigen::Vector3i inds = source.cast<int>();
   return getIndex(inds);
 }
@@ -184,14 +188,17 @@ int main(int argc, char *argv[])
   if (!output_file_option.isSet())
     image_file.name() = cloud_file.nameStub() + ".png";
 
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
+  ray::Cuboid bounds, start_bounds, ray_bounds;
+  int num_bounded, num_unbounded;
+  if (!ray::Cloud::getInfo(cloud_file.name(), bounds, start_bounds, ray_bounds, num_bounded, num_unbounded))
+    usage();
+  double pix_width = pixel_width.value();
+  if (!pixel_width_option.isSet())
+    pix_width = ray::Cloud::estimatePointSpacing(cloud_file.name(), bounds, num_bounded);
+  if (pix_width <= 0.0)
     usage();
 
-  double pix_width = pixel_width_option.isSet() ? pixel_width.value() : cloud.estimatePointSpacing();
-  Eigen::Vector3d min_bounds = cloud.calcMinPointBound();
-  Eigen::Vector3d max_bounds = cloud.calcMaxPointBound();
-  Eigen::Vector3d extent = max_bounds - min_bounds;
+  Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
   int axis = 0;
   if (viewpoint.selectedKey() == "top")
     axis = 2;
@@ -208,20 +215,24 @@ int main(int argc, char *argv[])
   int ax2 = y_axes[axis];
   int width  = 1 + static_cast<int>(extent[ax1] / pix_width);
   int height = 1 + static_cast<int>(extent[ax2] / pix_width);
+  int depth  = 1 + static_cast<int>(extent[axis] / pix_width);
   std::cout << "outputting " << width << "x" << height << " image" << std::endl;
 
   std::vector<Eigen::Vector4d> pixels(width * height); 
   memset(&pixels[0], 0, sizeof(Eigen::Vector4d) * width*height);
   if (style.selectedKey() == "density" || style.selectedKey() == "density_rgb") // special (and complicatd) case
   {
-    Eigen::Vector3i dims = (extent/pix_width).cast<int>() + Eigen::Vector3i(2,2,2);
+    Eigen::Vector3i dims = (extent/pix_width).cast<int>() + Eigen::Vector3i(1,1,1);
+    #if DENSITY_MIN_RAYS > 0
+    dims += Eigen::Vector3i(1,1,1); // so that we have extra space to convolve
+    #endif
     VoxelGrid grid;
-    grid.min_bound = min_bounds - Eigen::Vector3d(pix_width, pix_width, pix_width);
-    grid.max_bound = max_bounds;
+    grid.bounds = bounds;
+    grid.bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
     grid.voxelWidth = pix_width;
     grid.voxelDims = dims;
     grid.voxels.resize(grid.voxelDims[0]*grid.voxelDims[1]*grid.voxelDims[2]);
-    grid.calculateDensities(cloud);
+    grid.calculateDensities(cloud_file.name());
 
     #if DENSITY_MIN_RAYS > 0
     int X = 1;
@@ -324,7 +335,7 @@ int main(int argc, char *argv[])
       for (int y = 0; y < height; y++)
       {
         double total_density = 0.0;
-        for (int z = 0; z< grid.voxelDims[axis]-1; z++)
+        for (int z = 0; z< depth; z++)
         {
           Eigen::Vector3i ind;
           ind[axis] = z;
@@ -338,67 +349,69 @@ int main(int argc, char *argv[])
   }
   else
   {
-    ray::Cuboid cuboid(min_bounds, max_bounds);
-
-    for (size_t i = 0; i<cloud.ends.size(); i++)
+    auto render = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<ray::RGBA> &colours)
     {
-      if (!cloud.rayBounded(i))
-        continue;
-      ray::RGBA &colour = cloud.colours[i];
-      Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
-      Eigen::Vector3d point = style.selectedID() == 3 ? cloud.starts[i] : cloud.ends[i];
-      Eigen::Vector3d pos = (point - min_bounds) / pix_width;
-      Eigen::Vector3i p = (pos).cast<int>();
-      int x = p[ax1], y = p[ax2];
-      Eigen::Vector4d &pix = pixels[x + width*y];
-      switch (style.selectedID())
+      for (size_t i = 0; i<ends.size(); i++)
       {
-        case 0: // ends
-        case 3: // starts
-          if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0)
-            pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
-          break;
-        case 1: // mean
-          pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-          break;
-        case 2: // sum
-          pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-          break;
-        case 4: // rays
+        ray::RGBA &colour = colours[i];
+        if (!colour.alpha == 0)
+          continue;
+        Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
+        Eigen::Vector3d point = style.selectedID() == 3 ? starts[i] : ends[i];
+        Eigen::Vector3d pos = (point - bounds.min_bound_) / pix_width;
+        Eigen::Vector3i p = (pos).cast<int>();
+        int x = p[ax1], y = p[ax2];
+        Eigen::Vector4d &pix = pixels[x + width*y];
+        switch (style.selectedID())
         {
-          // factor this out (same as in rayalignment.cpp)
-          Eigen::Vector3d cloud_start = cloud.starts[i];
-          Eigen::Vector3d cloud_end = cloud.ends[i];
-          cuboid.clipRay(cloud_start, cloud_end);
-
-          Eigen::Vector3d start = (cloud_start - min_bounds) / pix_width;
-          Eigen::Vector3d end = (cloud_end - min_bounds) / pix_width;
-          Eigen::Vector3d dir = cloud_end - cloud_start;
-          Eigen::Vector3d dir_sign(ray::sgn(dir[0]), ray::sgn(dir[1]), ray::sgn(dir[2]));
-
-          Eigen::Vector3i start_index(start.cast<int>());
-          Eigen::Vector3i end_index(end.cast<int>());
-          double length_sqr = (end_index - start_index).squaredNorm();
-          Eigen::Vector3i index = start_index;
-          while ((index - start_index).squaredNorm() <= length_sqr + 1e-10)
+          case 0: // ends
+          case 3: // starts
+            if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0)
+              pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
+            break;
+          case 1: // mean
+            pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+            break;
+          case 2: // sum
+            pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+            break;
+          case 4: // rays
           {
-            if (index[ax1] >= 0 && index[ax1] < width && index[ax2] >= 0 && index[ax2] < height)
-              pixels[index[ax1] + width*index[ax2]] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-            Eigen::Vector3d mid = min_bounds + pix_width * Eigen::Vector3d(index[0] + 0.5, index[1] + 0.5, index[2] + 0.5);
-            Eigen::Vector3d next_boundary = mid + 0.5 * pix_width * dir_sign;
-            Eigen::Vector3d delta = next_boundary - cloud_start;
-            Eigen::Vector3d d(delta[0] / dir[0], delta[1] / dir[1], delta[2] / dir[2]);
-            if (d[ax1] < d[ax2])
-              index[ax1] += dir_sign.cast<int>()[ax1];
-            else
-              index[ax2] += dir_sign.cast<int>()[ax2];
+            // factor this out (same as in rayalignment.cpp)
+            Eigen::Vector3d cloud_start = starts[i];
+            Eigen::Vector3d cloud_end = ends[i];
+            bounds.clipRay(cloud_start, cloud_end);
+
+            Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
+            Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
+            Eigen::Vector3d dir = cloud_end - cloud_start;
+            Eigen::Vector3d dir_sign(ray::sgn(dir[0]), ray::sgn(dir[1]), ray::sgn(dir[2]));
+
+            Eigen::Vector3i start_index(start.cast<int>());
+            Eigen::Vector3i end_index(end.cast<int>());
+            double length_sqr = (end_index - start_index).squaredNorm();
+            Eigen::Vector3i index = start_index;
+            while ((index - start_index).squaredNorm() <= length_sqr + 1e-10)
+            {
+              if (index[ax1] >= 0 && index[ax1] < width && index[ax2] >= 0 && index[ax2] < height)
+                pixels[index[ax1] + width*index[ax2]] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+              Eigen::Vector3d mid = bounds.min_bound_ + pix_width * Eigen::Vector3d(index[0] + 0.5, index[1] + 0.5, index[2] + 0.5);
+              Eigen::Vector3d next_boundary = mid + 0.5 * pix_width * dir_sign;
+              Eigen::Vector3d delta = next_boundary - cloud_start;
+              Eigen::Vector3d d(delta[0] / dir[0], delta[1] / dir[1], delta[2] / dir[2]);
+              if (d[ax1] < d[ax2])
+                index[ax1] += dir_sign.cast<int>()[ax1];
+              else
+                index[ax2] += dir_sign.cast<int>()[ax2];
+            }
+            break;
           }
-          break;
+          default:
+            break;
         }
-        default:
-          break;
       }
-    }
+    };
+    ray::readPly(cloud_file.name(), true, render, 0);
   }
 
   double max_val = 1.0;

@@ -7,6 +7,7 @@
 #define RAYLIB_RAYCLOUD_H
 
 #include "raylib/raylibconfig.h"
+#include "raylib/raycuboid.h"
 
 #include "rayutils.h"
 #include "raypose.h"
@@ -96,6 +97,16 @@ public:
   /// estimate the average spacing between end points of the ray cloud. This should be similar to the voxel
   /// width used on any spatially decimated ray clouds
   double estimatePointSpacing() const;
+
+  /// Version for estimating the spacing between points for raycloud files. This uses chunk loading
+  /// so that the entire ray cloud does not have to reside in memory
+  static double estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points);
+
+  /// Calculate the bounds of a ray cloud. This is done without having to load teh entire cloud into memory
+  /// @c ends are only the bounded ones. @c starts are for all rays
+  /// @c rays is all rays, so using the minimum known length for unbounded rays
+  static bool RAYLIB_EXPORT getInfo(const std::string &file_name, Cuboid &ends, Cuboid &starts, Cuboid &rays, 
+                                    int &num_bounded, int &num_unbounded);
 
   /// Calculate the ray cloud bounds. By default, the bounds only consder the ray end points. This behaviour
   /// can be modified via the @p flags argument.
