@@ -7,7 +7,6 @@
 
 #include "raylaz.h"
 #include "rayply.h"
-#include "raytrajectory.h"
 #include "rayunused.h"
 
 #include <set>

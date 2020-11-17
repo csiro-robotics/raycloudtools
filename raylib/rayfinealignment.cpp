@@ -70,7 +70,8 @@ void FineAlignment::generateSurfels()
       std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing << "m" << std::endl;
     
     // 1. decimate quite fine
-    std::vector<int64_t> decimated = ray::voxelSubsample(clouds_[c].ends, min_spacing);
+    std::vector<int64_t> decimated;
+    ray::voxelSubsample(clouds_[c].ends, min_spacing, decimated);
     std::vector<Eigen::Vector3d> decimated_points;
     decimated_points.reserve(decimated.size());
     std::vector<Eigen::Vector3d> decimated_starts;
@@ -88,7 +89,8 @@ void FineAlignment::generateSurfels()
     centres_[c] /= (double)decimated_points.size(); 
 
     // 2. find the coarser random candidate points. We just want a fairly even spread but not the voxel centres
-    std::vector<int64_t> candidates = ray::voxelSubsample(decimated_points, max_spacing);
+    std::vector<int64_t> candidates;
+    ray::voxelSubsample(decimated_points, max_spacing, candidates);
     std::vector<Eigen::Vector3d> candidate_points(candidates.size());
     std::vector<Eigen::Vector3d> candidate_starts(candidates.size());
     for (int64_t i = 0; i < (int64_t)candidates.size(); i++)

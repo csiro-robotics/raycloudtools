@@ -9,7 +9,6 @@
 #include "raylaz.h"
 #include "rayply.h"
 #include "rayprogress.h"
-#include "raytrajectory.h"
 
 #include <nabo/nabo.h>
 
@@ -34,7 +33,7 @@ void Cloud::save(const std::string &file_name) const
   std::string name = file_name;
   if (name.substr(name.length() - 4) != ".ply")
     name += ".ply";
-  writePly(name, starts, ends, times, colours);
+  writePlyRayCloud(name, starts, ends, times, colours);
   #if defined OUTPUT_CLOUD_MOMENTS
   getMoments();
   #endif // defined OUTPUT_CLOUD_MOMENTS
@@ -49,69 +48,9 @@ bool Cloud::load(const std::string &file_name)
   return false;
 }
 
-bool Cloud::load(const std::string &point_cloud, const std::string &traj_file)
-{
-  std::string name_end = point_cloud.substr(point_cloud.size() - 4);
-  if (name_end == ".ply")
-  {
-    if (!readPly(point_cloud, starts, ends, times, colours, false)) // special case of reading a non-ray-cloud ply
-      return false;
-  }
-  else if (name_end == ".laz" || name_end == ".las")
-  {
-    if (!readLas(point_cloud, ends, times, colours, 1))
-      return false;
-  }
-  else
-  {
-    std::cout << "Error converting unknown type: " << point_cloud << std::endl;
-    return false;
-  }
-
-  Trajectory trajectory;
-  std::string traj_end = traj_file.substr(traj_file.size() - 4);
-  if (traj_end == ".ply")
-  {
-    std::vector<Eigen::Vector3d> starts;
-    std::vector<Eigen::Vector3d> ends;
-    std::vector<double> times;
-    std::vector<RGBA> colours;
-    if (!readPly(traj_file, starts, ends, times, colours, false))
-      return false;
-    for (size_t i = 0; i<ends.size(); i++)
-      trajectory.nodes.push_back(Trajectory::Node(ends[i], times[i]));
-  }
-  else if (!trajectory.load(traj_file))
-    return false;
-
-  calculateStarts(trajectory);
-  return true;
-}
-
 bool Cloud::loadPLY(const std::string &file)
 {
   return readPly(file, starts, ends, times, colours, true);
-}
-
-void Cloud::calculateStarts(const Trajectory &trajectory)
-{
-  // Aha!, problem in calculating starts when times are not ordered.
-  if (trajectory.nodes.size() > 0)
-  {
-    int n = 1;
-    starts.resize(ends.size());
-    for (size_t i = 0; i < ends.size(); i++)
-    {
-      while ((times[i] > trajectory.nodes[n].time) && n < (int)trajectory.nodes.size() - 1) n++;
-      double blend =
-        (times[i] - trajectory.nodes[n - 1].time) / (trajectory.nodes[n].time - trajectory.nodes[n - 1].time);
-      starts[i] =
-        trajectory.nodes[n - 1].pos +
-        (trajectory.nodes[n].pos - trajectory.nodes[n - 1].pos) * clamped(blend, 0.0, 1.0);
-    }
-  }
-  else
-    std::cout << "can only recalculate when a trajectory is available" << std::endl;
 }
 
 Eigen::Vector3d Cloud::calcMinBound() const
@@ -230,12 +169,13 @@ void Cloud::removeUnboundedRays()
   colours.resize(valids.size());
 }
 
-void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set)
+void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> &voxel_set)
 {
-  std::vector<int64_t> subsample = voxelSubsample(ends, voxel_width, voxel_set);
+  std::vector<int64_t> subsample;
+  voxelSubsample(ends, voxel_width, subsample, voxel_set);
   for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
   {
-    int64_t id = subsample[i];
+    const int64_t id = subsample[i];
     starts[i] = starts[id];
     ends[i] = ends[id];
     colours[i] = colours[id];
@@ -398,6 +338,14 @@ void Cloud::addRay(const Cloud &other_cloud, size_t index)
   ends.push_back(other_cloud.ends[index]);
   times.push_back(other_cloud.times[index]);
   colours.push_back(other_cloud.colours[index]);
+}
+
+void Cloud::resize(size_t size)
+{
+  starts.resize(size);
+  ends.resize(size);
+  times.resize(size);
+  colours.resize(size);
 }
 
 Eigen::Array<double, 22, 1> Cloud::getMoments() const

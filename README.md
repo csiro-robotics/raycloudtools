@@ -118,6 +118,14 @@ When directly invoking the unit tests, is important that the tests are run from 
 * Change into the `bin/` directory
 * Run `./raytest`
 
+## Acknowledgements and citations
+This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible. 
+
+If you publish articles based on this tool set, please cite
+```
+Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." arXiv preprint arXiv:2007.15652 (2020).
+```
+
 ## Notes
 
 ### Dependencies

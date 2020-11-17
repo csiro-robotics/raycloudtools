@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
   {
     voxel_width = 0.01 * vox_width.value();
     full_decimated = full_cloud;
-    full_decimated.decimate(voxel_width, &voxel_set); 
+    full_decimated.decimate(voxel_width, voxel_set); 
   }
   else
   {
