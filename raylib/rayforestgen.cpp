@@ -11,10 +11,10 @@ namespace ray
 
 void ForestGen::make(double random_factor)
 {
-  double field_width = 10;
-  double max_tree_radius = 0.1;
+  double field_width = 20;
+  double max_tree_radius = 0.2;
   double dimension = 2.0;            // #trees = radius^-d
-  double adult_tree_density = 0.04;  // #trees per m^2
+  double adult_tree_density = 0.01;  // #trees per m^2
 
   double rad = max_tree_radius;
   double num_trees = sqr(field_width) * adult_tree_density;

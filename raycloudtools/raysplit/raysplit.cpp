@@ -27,9 +27,7 @@ void usage(int exit_code = 1)
        << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  speed 1.0              - splits out rays when sensor moving above the given speed" << std::endl;
-  std::cout << "                  time 10000             - splits at given acquisition time" << std::endl;
-  std::cout << "                  time 50 %              - splits at given perentage between earliest and latest times"
-       << std::endl;
+  std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
   exit(exit_code);
 }
 
@@ -46,15 +44,13 @@ void split(ray::Cloud &cloud_buffer, const std::string &file_name, std::string &
   ray::RayPlyBuffer buffer;
   ray::Cloud in_chunk, out_chunk;
 
-  /// This function assumes (correctly) that the passed in arguments are at end-of-life from readPly. 
-  /// So it is valid to use std::move on them.
   auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     // I move these into the cloud buffer, so that they can be indexed easily in fptr (by index). 
-    cloud_buffer.starts = std::move(starts);
-    cloud_buffer.ends = std::move(ends);
-    cloud_buffer.times = std::move(times);
-    cloud_buffer.colours = std::move(colours);
+    cloud_buffer.starts = starts;
+    cloud_buffer.ends = ends;
+    cloud_buffer.times = times;
+    cloud_buffer.colours = colours;
 
     for (int i = 0; i < (int)cloud_buffer.ends.size(); i++)
     {
@@ -108,16 +104,25 @@ int main(int argc, char *argv[])
   }
   else if (time_percent)
   {
-    std::cout << "time: " << time.value() << std::endl;
+    // chunk load the file just to get the time bounds
     double min_time = std::numeric_limits<double>::max();
     double max_time = std::numeric_limits<double>::lowest();
-    for (auto &time: cloud.times)
+    auto time_bounds = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &, std::vector<double> &times, std::vector<ray::RGBA> &)
     {
-      min_time = std::min(time, min_time);
-      max_time = std::max(time, max_time);
-    }
+      for (auto &time: times)
+      {
+        min_time = std::min(min_time, time);
+        max_time = std::max(max_time, time);
+      }
+    };
+    if (!ray::readPly(cloud_file.name(), true, time_bounds, 0))
+      usage();
+    std::cout << "minimum time: " << min_time << " maximum time: " << max_time << ", difference: " 
+              << max_time - min_time << std::endl;
+
+    // now split based on this
     double time_thresh = min_time + (max_time - min_time) * time.value()/100.0;
-    cloud.split(inside, outside, [&](int i) -> bool { return cloud.times[i] > time_thresh; });
+    split(cloud, rc_name, in_name, out_name, [&](int i) -> bool { return cloud.times[i] > time_thresh; });
   }
   else
   {

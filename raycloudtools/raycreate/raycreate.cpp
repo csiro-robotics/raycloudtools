@@ -119,15 +119,15 @@ int main(int argc, char *argv[])
         cloud.times[i] = time;
         time += time_delta;
       }
-      box_min *= 2.5;
-      box_max *= 2.5;
+      box_min *= 5;
+      box_max *= 5;
     }
     int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
     for (int i = 0; i < num; i++)
     {
       Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), ray::random(box_min[1], box_max[1]), ray::random(box_min[2], box_max[2]));
       cloud.ends.push_back(pos);
-      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-0.1, 0.1), ray::random(-0.1, 0.1), ray::random(0.2, 0.5)));
+      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-0.1, 0.1), ray::random(-0.1, 0.1), 1.5));
       cloud.times.push_back(time);
       time += time_delta;
     }
