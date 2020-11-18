@@ -57,8 +57,8 @@ bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector
 {
   if (ends.size() == 0)
   {
-    std::cerr << "Error: saving out ray file chunk with zero rays" << std::endl;
-    return false;
+    // this is not an error. Allowing empty chunks avoids wrapping every call to writePlyChunk in a condition
+    return true;   
   }
   if (out.tellp() < (long)chunk_header_length) 
   {
