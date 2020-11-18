@@ -33,17 +33,18 @@ void usage(int exit_code = 1)
 
 /// This is a helper function to aid in splitting the cloud while chunk-loading it. The purpose is to be able to
 /// split clouds of any size, without running out of main memory. 
-void split(ray::Cloud &cloud_buffer, const std::string &file_name, std::string &in_name, std::string &out_name, 
-           std::function<bool(int i)> fptr)
+void split(ray::Cloud &cloud_buffer, const std::string &file_name, const std::string &in_name, 
+           const std::string &out_name, std::function<bool(int i)> fptr)
 {
   std::ofstream inside_ofs, outside_ofs;
   if (!ray::writePlyChunkStart(in_name, inside_ofs))
     usage();
   if (!ray::writePlyChunkStart(out_name, outside_ofs))
     usage();
-  ray::RayPlyBuffer buffer;
-  ray::Cloud in_chunk, out_chunk;
+  ray::RayPlyBuffer buffer;       // used to avoid repeated allocation and deallocation of memory in writePlyChunk
+  ray::Cloud in_chunk, out_chunk; // ray sets to write to the _inside and _outside rayclouds respectively.
 
+  /// move each ray into either the in_chunk or out_chunk, depending on the condition function fptr
   auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     // I move these into the cloud buffer, so that they can be indexed easily in fptr (by index). 
@@ -84,17 +85,21 @@ int main(int argc, char *argv[])
   bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
   if (!standard_format && !mesh_split && !time_percent)
+  {
     usage();
+  }
 
-  std::string in_name = cloud_file.nameStub() + "_inside.ply";
-  std::string out_name = cloud_file.nameStub() + "_outside.ply";
-  std::string rc_name = cloud_file.name(); // ray cloud name
+  const std::string in_name = cloud_file.nameStub() + "_inside.ply";
+  const std::string out_name = cloud_file.nameStub() + "_outside.ply";
+  const std::string rc_name = cloud_file.name(); // ray cloud name
   ray::Cloud cloud; // used as a buffer when chunk loading
 
   if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
   {
     if (!cloud.load(rc_name))
+    {
       usage();
+    }
     ray::Mesh mesh;
     ray::readPlyMesh(mesh_file.name(), mesh);
     ray::Cloud inside, outside;
@@ -121,7 +126,7 @@ int main(int argc, char *argv[])
               << max_time - min_time << std::endl;
 
     // now split based on this
-    double time_thresh = min_time + (max_time - min_time) * time.value()/100.0;
+    const double time_thresh = min_time + (max_time - min_time) * time.value()/100.0;
     split(cloud, rc_name, in_name, out_name, [&](int i) -> bool { return cloud.times[i] > time_thresh; });
   }
   else
@@ -173,7 +178,9 @@ int main(int argc, char *argv[])
     {
       split(cloud, rc_name, in_name, out_name, [&](int i) {
         if (i == 0)
+        {
           return false;
+        }
         return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > speed.value();
       });
     }
