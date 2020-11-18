@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
       for (size_t i = 0; i<ends.size(); i++)
       {
         ray::RGBA &colour = colours[i];
-        if (!colour.alpha == 0)
+        if (colour.alpha == 0)
           continue;
         Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
         Eigen::Vector3d point = style.selectedID() == 3 ? starts[i] : ends[i];
