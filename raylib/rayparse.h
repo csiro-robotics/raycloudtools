@@ -12,6 +12,12 @@
 
 namespace ray
 {
+/// Helper function: get the part of the filename before the .  
+std::string RAYLIB_EXPORT getFileNameStub(const std::string &name);
+
+/// Helper function: get the part of the filename after the . 
+std::string RAYLIB_EXPORT getFileNameExtension(const std::string &name);
+
 /// Parses a command line according to a given format which can include fixed arguments and then a set of optional arguments
 /// Values in the passed-in lists are only set when it returns true. This allows the function to be called multiple times for different formats
 /// Only make @param set_values false if you only need to know if the format matches the arguments @param argv.
@@ -71,21 +77,10 @@ class RAYLIB_EXPORT FileArgument : public FixedArgument
 public:
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   /// Stub is the part of the file before the '.'
-  std::string nameStub() const 
-  { 
-    const size_t last_dot = name_.find_last_of('.');
-    if (last_dot != std::string::npos)
-      return name_.substr(0, last_dot);
-    return name_;
-  }
+  std::string nameStub() const { return getFileNameStub(name_); }
   /// The extension (excluding the dot)
-  std::string nameExt() const 
-  { 
-    const size_t last_dot = name_.find_last_of('.');
-    if (last_dot != std::string::npos)
-      return name_.substr(last_dot + 1);
-    return "";
-  }
+  std::string nameExt() const { return getFileNameExtension(name_); }
+
   inline const std::string &name() const { return name_; }
   inline std::string &name() { return name_; }
 private:

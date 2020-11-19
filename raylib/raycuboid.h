@@ -31,7 +31,7 @@ public:
   bool overlaps(const Cuboid &other) const;
 
   /// clip ray to cuboid. Return false if no ray left. 
-  bool clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end);
+  bool clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const;
 
   Eigen::Vector3d min_bound_, max_bound_;
 };

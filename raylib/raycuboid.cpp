@@ -13,7 +13,7 @@ Cuboid::Cuboid(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_boun
   max_bound_ = max_bound;
 }
 
-bool Cuboid::clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end)
+bool Cuboid::clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const
 {
   double max_near_d = 0;
   double min_far_d = 1.0;
