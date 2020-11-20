@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
   ray::Cloud::CloudInfo info;
   if (!ray::Cloud::getInfo(cloud_file.name(), info))
     usage();
-  ray::Cuboid bounds = info.ends_bound; // exclude the unbounded ray lengths (e.g. up into the sky)
+  const ray::Cuboid bounds = info.ends_bound; // exclude the unbounded ray lengths (e.g. up into the sky)
   double pix_width = pixel_width.value();
   if (!pixel_width_option.isSet())
     pix_width = ray::Cloud::estimatePointSpacing(cloud_file.name(), bounds, info.num_bounded);
@@ -61,8 +61,8 @@ int main(int argc, char *argv[])
     usage();
 
   // quick casting allowed, taking care that the text and enums are in the same order
-  ray::ViewDirection view_dir = static_cast<ray::ViewDirection>(viewpoint.selectedID());
-  ray::RenderStyle render_style = static_cast<ray::RenderStyle>(style.selectedID());
+  const ray::ViewDirection view_dir = static_cast<ray::ViewDirection>(viewpoint.selectedID());
+  const ray::RenderStyle render_style = static_cast<ray::RenderStyle>(style.selectedID());
 
   if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name()))
     usage();

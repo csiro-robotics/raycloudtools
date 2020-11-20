@@ -81,8 +81,10 @@ struct RAYLIB_EXPORT DensityGrid
   /// To void low-ray-count voxels giving unstable density estimates, we fuse with neighbour information
   /// up to a specified minimum number of rays. Specified in DENSITY_MIN_RAYS 
   void addNeighbourPriors();
-  inline int getIndex(const Eigen::Vector3d &pos) const;
+  /// Note, for performance, this index function does not check that the specified indices are in valid bounds. 
+  /// It is up to the calling function to assure this condition
   inline int getIndex(const Eigen::Vector3i &inds) const;
+  /// Return the vector of density voxels
   inline const std::vector<Voxel> &voxels() const { return voxels_; }
 
 private:
@@ -124,20 +126,9 @@ void DensityGrid::Voxel::addMissRay(float length)
   path_length_ += length;
   num_rays_++;
 }
-int DensityGrid::getIndex(const Eigen::Vector3d &pos) const
-{
-  Eigen::Vector3d source = (pos - bounds_.min_bound_)/voxel_width_;
-  Eigen::Vector3i inds = source.cast<int>();
-  return getIndex(inds);
-}
 int DensityGrid::getIndex(const Eigen::Vector3i &inds) const
 {
-  if (inds[0]>=0 && inds[0]<voxel_dims_[0]
-   && inds[1]>=0 && inds[1]<voxel_dims_[1]
-   && inds[2]>=0 && inds[2]<voxel_dims_[2])
-    return inds[0] + inds[1]*voxel_dims_[0] + inds[2] * voxel_dims_[0]*voxel_dims_[1];
-  return 0; // error value
+  return inds[0] + inds[1]*voxel_dims_[0] + inds[2] * voxel_dims_[0]*voxel_dims_[1];
 }
-
 }
 #endif // RAYLIB_RAYTRAJECTORY_H

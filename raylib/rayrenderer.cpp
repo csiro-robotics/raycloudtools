@@ -19,48 +19,64 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 {
   auto calculate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<RGBA> &colours)
   {
-    for (size_t i = 0; i<ends.size(); i++)
+    for (size_t i = 0; i<ends.size(); ++i)
     {
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end   = ends[i];
       bounds_.clipRay(start, end);
 
       // now walk the voxels
-      Eigen::Vector3d dir = end - start;
-      Eigen::Vector3d source = (start - bounds_.min_bound_)/voxel_width_;
-      Eigen::Vector3d p = source;
-      Eigen::Vector3d target = (end - bounds_.min_bound_)/voxel_width_;
-      double length = dir.norm();
-      double maxDist = (target - source).norm();
-      Eigen::Vector3i inds = p.cast<int>();
-      double depth = 0;
-      do
+      const Eigen::Vector3d dir = end - start;
+      const Eigen::Vector3d source = (start - bounds_.min_bound_)/voxel_width_;
+      const Eigen::Vector3d target = (end - bounds_.min_bound_)/voxel_width_;
+      const double length = dir.norm();
+      const double eps = 1e-9; // to stay away from edge cases
+      const double maxDist = (target - source).norm();
+      
+      // cached values to speed up the loop below
+      Eigen::Vector3i adds;
+      Eigen::Vector3d offsets;
+      for (int k = 0; k<3; ++k)
       {
-        int axis = 0;
-        double minL = 1e10;
-        for (int k = 0; k<3; k++)
+        if (dir[k] > 0.0)
         {
-          double l = (dir[k] > 0 ? ceil(p[k]) - p[k] : p[k] - floor(p[k])) * length / abs(dir[k]);
-          if (l < minL)
-          {
-            minL = l;
-            axis = k;
-          }
-        }
-        depth += minL + 1e-9;
-        inds[axis] += dir[axis] > 0 ? 1 : -1;
-        if (inds[axis] < 0 || inds[axis] >= voxel_dims_[axis])
-          break;
-        p = source + depth * dir / length;
-        int j = getIndex(inds);
-        if (colours[i].alpha > 0 && depth > maxDist)
-        {
-          double d = minL + maxDist - depth;
-          voxels_[j].addHitRay(static_cast<float>(d*voxel_width_));
+          adds[k] = 1;
+          offsets[k] = 0.5;
         }
         else
         {
-          voxels_[j].addMissRay(static_cast<float>(minL*voxel_width_)); 
+          adds[k] = -1;
+          offsets[k] = -0.5;
+        }
+      }
+ 
+      Eigen::Vector3d p = source; // our moving variable as we walk over the grid
+      Eigen::Vector3i inds = p.cast<int>();
+      double depth = 0;
+      // walk over the grid, one voxel at a time. 
+      do
+      {
+        double ls[3] = {(round(p[0] + offsets[0]) - p[0]) / dir[0],
+                        (round(p[1] + offsets[1]) - p[1]) / dir[1],
+                        (round(p[2] + offsets[2]) - p[2]) / dir[2]};
+        int axis = (ls[0] < ls[1] && ls[0] < ls[2]) ? 0 : (ls[1] < ls[2] ? 1 : 2);
+        inds[axis] += adds[axis];
+        if (inds[axis] < 0 || inds[axis] >= voxel_dims_[axis])
+        {
+          break;
+        }
+        double minL = ls[axis] * length;
+        depth += minL + eps;
+        p = source + dir * (depth / length);
+        int index = getIndex(inds);
+        if (colours[i].alpha > 0 && depth > maxDist)
+        {
+          double length_in_voxel = minL + maxDist - depth;
+          voxels_[index].addHitRay(static_cast<float>(length_in_voxel*voxel_width_));
+        }
+        else
+        {
+          voxels_[index].addMissRay(static_cast<float>(minL*voxel_width_)); 
         }
       } while (depth <= maxDist);
     }
@@ -71,9 +87,9 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
 void DensityGrid::addNeighbourPriors()
 {
-  int X = 1;
-  int Y = voxel_dims_[0];
-  int Z = voxel_dims_[0]*voxel_dims_[1];
+  const int X = 1;
+  const int Y = voxel_dims_[0];
+  const int Z = voxel_dims_[0]*voxel_dims_[1];
   DensityGrid::Voxel neighbours;
   double num_hit_points = 0.0;
   double num_hit_points_unsatisfied = 0.0;
@@ -86,11 +102,11 @@ void DensityGrid::addNeighbourPriors()
     {
       for (int z = 1; z<voxel_dims_[2]-1; z++)
       {
-        int ind = getIndex(Eigen::Vector3i(x,y,z));
+        const int ind = getIndex(Eigen::Vector3i(x,y,z));
         if (voxels_[ind].numHits() > 0)
           num_hit_points++;
         float needed = DENSITY_MIN_RAYS - voxels_[ind].numRays();
-        DensityGrid::Voxel corner_vox = voxels_[ind - X - Y - Z];
+        const DensityGrid::Voxel corner_vox = voxels_[ind - X - Y - Z];
         voxels_[ind - X - Y - Z] = voxels_[ind]; // move centre up to corner 
         DensityGrid::Voxel &voxel = voxels_[ind - X - Y - Z]; 
         if (needed < 0.0)
@@ -150,7 +166,7 @@ void DensityGrid::addNeighbourPriors()
       }
     }
   }
-  double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
+  const double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
   std::cout << "Density calculation: " << percentage << "% of voxels had insufficient (<" 
     << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
   if (percentage > 50.0)
@@ -177,17 +193,17 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   double dir = 1;
   if (view_direction == ViewDirection::Left || view_direction == ViewDirection::Front)
     dir = -1;
-  bool flip_x = view_direction == ViewDirection::Left || view_direction == ViewDirection::Back;
+  const bool flip_x = view_direction == ViewDirection::Left || view_direction == ViewDirection::Back;
   
   // pull out the main image axes (ax1,ax2 are the horiz,vertical axes)
-  Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
-  int x_axes[] = {1, 0, 0};
-  int y_axes[] = {2, 2, 1};
-  int ax1 = x_axes[axis];
-  int ax2 = y_axes[axis];
-  int width  = 1 + static_cast<int>(extent[ax1] / pix_width);
-  int height = 1 + static_cast<int>(extent[ax2] / pix_width);
-  int depth  = 1 + static_cast<int>(extent[axis] / pix_width);
+  const Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
+  const int x_axes[] = {1, 0, 0};
+  const int y_axes[] = {2, 2, 1};
+  const int ax1 = x_axes[axis];
+  const int ax2 = y_axes[axis];
+  const int width  = 1 + static_cast<int>(extent[ax1] / pix_width);
+  const int height = 1 + static_cast<int>(extent[ax2] / pix_width);
+  const int depth  = 1 + static_cast<int>(extent[axis] / pix_width);
   std::cout << "outputting " << width << "x" << height << " image" << std::endl;
 
   // accumulated colour buffer
@@ -234,14 +250,14 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     {
       for (size_t i = 0; i<ends.size(); i++)
       {
-        RGBA &colour = colours[i];
+        const RGBA &colour = colours[i];
         if (colour.alpha == 0)
           continue;
-        Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
-        Eigen::Vector3d point = style == RenderStyle::Starts ? starts[i] : ends[i];
-        Eigen::Vector3d pos = (point - bounds.min_bound_) / pix_width;
-        Eigen::Vector3i p = (pos).cast<int>();
-        int x = p[ax1], y = p[ax2];
+        const Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
+        const Eigen::Vector3d point = style == RenderStyle::Starts ? starts[i] : ends[i];
+        const Eigen::Vector3d pos = (point - bounds.min_bound_) / pix_width;
+        const Eigen::Vector3i p = (pos).cast<int>();
+        const int x = p[ax1], y = p[ax2];
         // using 4 dimensions helps us to accumulate colours in a greater variety of ways
         Eigen::Vector4d &pix = pixels[x + width*y]; 
         switch (style)
@@ -266,26 +282,26 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             bounds.clipRay(cloud_start, cloud_end); 
             Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
             Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
-            Eigen::Vector3d dir = cloud_end - cloud_start;
+            const Eigen::Vector3d dir = cloud_end - cloud_start;
 
             // fast approximate 2D line rendering requires picking the long axis to iterate along
-            bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
-            int axis_long   = x_long ? ax1 : ax2;
-            int axis_short  = x_long ? ax2 : ax1;
-            int width_long  = x_long ? 1 : width;
-            int width_short = x_long ? width : 1;
+            const bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
+            const int axis_long   = x_long ? ax1 : ax2;
+            const int axis_short  = x_long ? ax2 : ax1;
+            const int width_long  = x_long ? 1 : width;
+            const int width_short = x_long ? width : 1;
 
-            double gradient = dir[axis_short] / dir[axis_long]; 
+            const double gradient = dir[axis_short] / dir[axis_long]; 
             if (dir[axis_long] < 0.0)
               std::swap(start, end); // this lets us iterate from low up to high values
-            int start_long = static_cast<int>(start[axis_long]);
-            int end_long = static_cast<int>(end[axis_long]);
+            const int start_long = static_cast<int>(start[axis_long]);
+            const int end_long = static_cast<int>(end[axis_long]);
             // place a pixel at the height of each midpoint (of the pixel) in the long axis
-            double start_mid_point = 0.5 + static_cast<double>(start_long);
+            const double start_mid_point = 0.5 + static_cast<double>(start_long);
             double height = start[axis_short] + (start_mid_point - start[axis_long])*gradient;
             for (int l = start_long; l <= end_long; l++, height += gradient)
             {
-              int s = static_cast<int>(height);
+              const int s = static_cast<int>(height);
               pixels[width_long*l + width_short*s] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
             }
             break;
@@ -300,8 +316,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   }
 
   double max_val = 1.0;
-  std::string image_ext = getFileNameExtension(image_file);
-  bool is_hdr = image_ext == "hdr";
+  const std::string image_ext = getFileNameExtension(image_file);
+  const bool is_hdr = image_ext == "hdr";
   if (!is_hdr) // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
   {
     double sum = 0.0;
@@ -319,7 +335,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       if (pixel[3] > 0.0)
         sum_sqr += sqr(pixel[3] - mean);
     }
-    double standard_deviation = std::sqrt(sum_sqr / num);
+    const double standard_deviation = std::sqrt(sum_sqr / num);
     max_val = mean + 2.0*standard_deviation;
   }
 
@@ -333,12 +349,12 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 
   for (int x = 0; x < width; x++)
   {
-    int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction
+    const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction
     for (int y = 0; y < height; y++)
     {
-      Eigen::Vector4d colour = pixels[x + width*y];
+      const Eigen::Vector4d colour = pixels[x + width*y];
       Eigen::Vector3d col3d(colour[0], colour[1], colour[2]);
-      uint8_t alpha = colour[3] == 0.0 ? 0 : 255; // 'punch-through' alpha
+      const uint8_t alpha = colour[3] == 0.0 ? 0 : 255; // 'punch-through' alpha
       switch (style)
       {
         case RenderStyle::Mean:
@@ -365,7 +381,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         default:
           break;
       }
-      int ind = indx + width *y;
+      const int ind = indx + width *y;
       if (is_hdr)
       {
         float_pixel_colours[3*ind + 0] = (float)col3d[0];
