@@ -75,28 +75,6 @@ Eigen::Vector3d Cloud::calcMaxBound() const
   return max_v;
 }
 
-Eigen::Vector3d Cloud::calcMinPointBound() const
-{
-  Eigen::Vector3d min_v(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
-  for (int i = 0; i < (int)ends.size(); i++)
-  {
-    if (rayBounded(i))
-      min_v = minVector(min_v, ends[i]);
-  }
-  return min_v;
-}
-
-Eigen::Vector3d Cloud::calcMaxPointBound() const
-{
-  Eigen::Vector3d max_v(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest());
-  for (int i = 0; i < (int)ends.size(); i++)
-  {
-    if (rayBounded(i))
-      max_v = maxVector(max_v, ends[i]);
-  }
-  return max_v;
-}
-
 bool Cloud::calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds, unsigned flags, Progress *progress) const
 {
   if (rayCount() == 0)
