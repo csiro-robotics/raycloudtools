@@ -1,6 +1,10 @@
 ## Ray Cloud Tools
 A set of command line tools for processing ray clouds, together with an associated C++ library. 
 
+
+Ray clouds are point clouds with the sensor origin stored per point (currently encoded in the 'normal' field of .ply files).
+Ray clouds represent free space as well as surfaces. This allows processing that cannot be done on point cloud data alone. 
+
 ## Build:
 ```console
 mkdir build
@@ -8,14 +12,12 @@ cd build
 cmake ..
 ```
 
-To access the tools from anywhere, place in your ~/bashrc:
-```console
-  export PATH=$PATH:'source code path'/raycloudtools/build/bin
-```
-
 *Dependencies:*
 
-Eigen: sudo apt-get install libeigen3-dev
+Eigen: 
+```console
+sudo apt-get install libeigen3-dev
+``` 
 
 LibNabo: 
 ```console
@@ -23,6 +25,13 @@ git clone https://github.com/ethz-asl/libnabo.git
 git checkout tags/1.0.7
 ``` 
 then follow build and install instructions in its README.md.
+
+
+To run the rayXXXX tools from anywhere, place in your ~/bashrc:
+```console
+  export PATH=$PATH:'source code path'/raycloudtools/build/bin
+```
+
 
 ## Examples:
 
