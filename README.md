@@ -130,6 +130,15 @@ If you publish articles based on this tool set, please cite
 ```
 Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." arXiv preprint arXiv:2007.15652 (2020).
 ```
+### Paper (bibtex)
+```
+@article{lowe2020canopy,
+  title={Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM},
+  author={Lowe, Thomas and Moghadam, Peyman and Edwards, Everard and Williams, Jason},
+  journal={arXiv preprint arXiv:2007.15652},
+  year={2020}
+}
+```
 
 ## Notes
 
