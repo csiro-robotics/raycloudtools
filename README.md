@@ -1,7 +1,7 @@
 ## Ray Cloud Tools
 A set of command line tools for processing ray clouds, together with an associated C++ library.
 
-If you publish articles based on this tool set, please cite
+If you find this tool set useful for your research, please cite:  
 ```
 Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." arXiv preprint arXiv:2007.15652 (2020).
 ```
