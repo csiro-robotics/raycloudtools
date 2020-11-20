@@ -1,21 +1,6 @@
 ## Ray Cloud Tools
 A set of command line tools for processing ray clouds, together with an associated C++ library.
 
-If you find this tool set useful for your research, please cite:  
-```
-Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." arXiv preprint arXiv:2007.15652 (2020).
-```
-### Paper (bibtex)
-```
-@article{lowe2020canopy,
-  title={Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM},
-  author={Lowe, Thomas and Moghadam, Peyman and Edwards, Everard and Williams, Jason},
-  journal={arXiv preprint arXiv:2007.15652},
-  year={2020}
-}
-```
- 
-
 
 Ray clouds are point clouds with the sensor origin stored per point (currently encoded in the 'normal' field of .ply files).
 Ray clouds represent free space as well as surfaces. This allows processing that cannot be done on point cloud data alone. 
@@ -150,6 +135,21 @@ When directly invoking the unit tests, is important that the tests are run from 
 ## Acknowledgements
 This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible. 
 
+
+If you find this tool set useful for your research, please cite:  
+```
+Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." arXiv preprint arXiv:2007.15652 (2020).
+```
+### Paper (bibtex)
+```
+@article{lowe2020canopy,
+  title={Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM},
+  author={Lowe, Thomas and Moghadam, Peyman and Edwards, Everard and Williams, Jason},
+  journal={arXiv preprint arXiv:2007.15652},
+  year={2020}
+}
+```
+ 
 
 ## Notes
 
