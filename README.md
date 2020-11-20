@@ -17,7 +17,12 @@ To access the tools from anywhere, place in your ~/bashrc:
 
 Eigen: sudo apt-get install libeigen3-dev
 
-LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build and install instructions in its README.md.
+LibNabo: 
+```console
+git clone https://github.com/ethz-asl/libnabo.git
+git checkout tags/1.0.7
+``` 
+then follow build and install instructions in its README.md.
 
 ## Examples:
 
@@ -25,35 +30,35 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 
 **raycreate room 1** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 1.
 <p align="center">
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room1.png?at=refs%2Fheads%2Fmaster"/>
-  <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room3.png?at=refs%2Fheads%2Fmaster"/>
-  <img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room2.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room1.png?at=refs%2Fheads%2Fmaster"/>
+  <img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room3.png?at=refs%2Fheads%2Fmaster"/>
+  <img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room2.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 &nbsp;&nbsp;&nbsp; You can visualise the rays in meshlab with Render | Show Vertex Normals. The ray lengths need to be scaled: Tools | Options | NormalLength roughly 0.025 (smaller for larger clouds)
 
 **raydecimate room.ply 10 cm** &nbsp;&nbsp;&nbsp; Spatially decimate cloud to one point every cubic 10 cm.
 
-<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_decimated.png?at=refs%2Fheads%2Fmaster"/></p>
+<p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_decimated.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **raytranslate room.ply 3 0 0** &nbsp;&nbsp;&nbsp; Translate the ray cloud 3 metres along the x axis.
 
-<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_translate.png?at=refs%2Fheads%2Fmaster"/></p>
+<p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_translate.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **rayrotate room.ply 0 0 30** &nbsp;&nbsp;&nbsp; Rotate the ray cloud 30 degrees around the z axis.
 
-<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_rotate.png?at=refs%2Fheads%2Fmaster"/></p>
+<p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_rotate.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **raydenoise room.ply 10 cm** &nbsp;&nbsp;&nbsp; Remove rays with isolated end points more than 10 cm from any other, not including unbounded rays.
 
 <p align="center">
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_denoise1.png?at=refs%2Fheads%2Fmaster"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_denoise2.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_denoise1.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_denoise2.png?at=refs%2Fheads%2Fmaster"/>
 
 **raysmooth room.ply** &nbsp;&nbsp;&nbsp; Move ray end points onto the nearest surface, to smooth the resulting cloud.
 
 <p align="center">
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_smooth1.png?at=refs%2Fheads%2Fmaster"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_smooth2.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_smooth1.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_smooth2.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 
 **raytransients min room.ply 2 rays** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when matter has been re-observed as missing by 2 or more rays. 
@@ -63,9 +68,9 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 &nbsp;&nbsp;&nbsp; In this raycloud the table and cupboard appear only after the empty room has been scanned for several seconds, so we can isolate these transient objects.
 
 <p align="center">
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients1.png?at=refs%2Fheads%2Fmaster"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients2.png?at=refs%2Fheads%2Fmaster"/>
-<img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_transients3.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_transients1.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_transients2.png?at=refs%2Fheads%2Fmaster"/>
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_transients3.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 
 &nbsp;&nbsp;&nbsp; Left: original cloud. Middle: the fixed (untransient) raycloud. Right: the remaining transient rays are also saved.
@@ -78,7 +83,7 @@ LibNabo: git clone https://github.com/ethz-asl/libnabo.git, then follow build an
 
 &nbsp;&nbsp;&nbsp; This is a form of union of the two volumes. 
 
-<p align="center"><img img width="320" src="https://bitbucket.csiro.au/projects/ASR/repos/raycloudtools/raw/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
+<p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
 
