@@ -30,52 +30,34 @@ int main(int argc, char *argv[])
   ray::ValueKeyChoice quantity({&vox_width, &num_rays}, {"cm", "rays"});
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity, &full_cloud_file}))
     usage();
+  bool spatial_decimation = quantity.selectedKey() == "cm";
+  double voxel_width = 0.01 * vox_width.value();
+  int ray_step = num_rays.value();
 
+  // This function uses chunk loading to avoid the full resolution cloud being in memory
 
+  // Firstly, load the decimated cloud. We assume that this can fit in RAM
   ray::Cloud decimated_cloud;
   if (!decimated_cloud.load(cloud_file.name()))
     usage();
 
   ray::Cloud full_decimated; // we need a decimated version of the full cloud, to compare to
-  bool spatial_decimation = quantity.selectedKey() == "cm";
-#if 0
-  ray::Cloud full_cloud;
-  if (!full_cloud.load(full_cloud_file.name()))
-    usage();
-
-  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
-  double voxel_width = 0;
-  int ray_step = 0;
-  std::cout << "decimating..." << std::endl;
-  if (spatial_decimation)
-  {
-    voxel_width = 0.01 * vox_width.value();
-    full_decimated = full_cloud;
-    full_decimated.decimate(voxel_width, voxel_set); 
-  }
-  else
-  {
-    ray_step = num_rays.value();
-    for (size_t i = 0; i < full_cloud.ends.size(); i += ray_step)
-      full_decimated.addRay(full_cloud, i);
-  }
-#else
-  std::vector<int64_t> subsample;
+  std::vector<int64_t> subsample; // single buffer minimises memory allocations
   std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;  
   full_decimated.reserve(decimated_cloud.ends.size()); // good guess at memory required
 
+  // decimation functions
   auto decimate_cm = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    double width = 0.01 * vox_width.value();
     subsample.clear();
-    voxelSubsample(ends, width, subsample, voxel_set);
+    voxelSubsample(ends, voxel_width, subsample, voxel_set);
     for (auto &id: subsample)
       full_decimated.addRay(starts[id], ends[id], times[id], colours[id]);
   };
   auto decimate_rays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    size_t decimation = (size_t)num_rays.value();
-    for (size_t i = 0, c = 0; i < ends.size(); i += decimation, c++)
+    int num_points = static_cast<int>(ends.size());
+    for (int i = 0, c = 0; i < num_points; i += ray_step, c++)
       full_decimated.addRay(starts[i], ends[i], times[i], colours[i]);
   };
 
@@ -87,15 +69,9 @@ int main(int argc, char *argv[])
   if (!success)
     usage();
 
-
-  // temporary!
-  ray::Cloud full_cloud;
-  if (!full_cloud.load(full_cloud_file.name()))
-    usage();
-
-#endif
   std::cout << "full cloud decimated size: " << full_decimated.ends.size() << " modified cloud size: " << decimated_cloud.ends.size() << std::endl;
 
+  // Next we need to order the rays by time. Rather than shifting large data, we sort the indices:
   struct Node
   {
     size_t index;
@@ -116,30 +92,31 @@ int main(int argc, char *argv[])
   } 
   std::sort(full_decimated_nodes.begin(), full_decimated_nodes.end(), [](const Node &n1, const Node &n2){ return n1.time < n2.time; });
   
-
-  double voxel_width = 0.01 * vox_width.value();
-  int ray_step = num_rays.value();
+  // Now find matching points by time. We assume that accurate time is a unique identifier per point
   std::cout << "finding matching points" << std::endl;
   std::vector<Eigen::Vector2i> pairs; // corresponding ray indices between the two decimated clouds
   pairs.reserve(std::min(full_decimated.ends.size(), decimated_cloud.ends.size()));
   std::vector<size_t> added_ray_indices; // new rays added to the decimated_cloud
   added_ray_indices.reserve(decimated_cloud.ends.size());
   int j = 0;
-  const double time_eps = 1e-6; // small enough to account for 200,000 rays per second, 
+  const double time_eps = 1e-7; // small enough to account for 200,000 rays per second, 
                                 // but large enough to ignore file format/compression errors
   int num_removed_rays = 0;
   for (size_t i = 0; i<full_decimated_nodes.size(); i++)
   {
+    // rays added into the decimated_cloud
     while (decimated_nodes[j].time < full_decimated_nodes[i].time-time_eps && j<(int)decimated_nodes.size()-1)
     {
       added_ray_indices.push_back(decimated_nodes[j].index);
       j++;
     }
+    // matching points
     if (std::abs(decimated_nodes[j].time - full_decimated_nodes[i].time) <= time_eps)
     {
       pairs.push_back(Eigen::Vector2i(full_decimated_nodes[i].index, decimated_nodes[j].index));
       j++;
     }
+    // rays removed from the full_decimated cloud
     else
     {
       if (spatial_decimation)
@@ -161,14 +138,15 @@ int main(int argc, char *argv[])
   std::cout << "number of matched pairs: " << pairs.size() << ", number of removed rays: " << 
     num_removed_rays << ", number added: " << added_ray_indices.size() << std::endl;
  
+  // Now find the Euclidan transformation that transforms the point pairs
   std::cout << "looking for a Euclidean transformation" << std::endl;
   // pick i and j indices from three points at different time points in the ray cloud
   // these represent the three corresponding pairs required to find the rigid transformation between
   // full_decimated cloud and decimated_cloud
   int is[3] = {pairs[0][0], pairs[pairs.size()/3][0], pairs[2*pairs.size()/3][0]};
   int js[3] = {pairs[0][1], pairs[pairs.size()/3][1], pairs[2*pairs.size()/3][1]};
-  Eigen::Vector3d full_ps[3];
-  Eigen::Vector3d dec_ps[3];
+  Eigen::Vector3d full_ps[3]; // a triangle in the full_decimated cloud
+  Eigen::Vector3d dec_ps[3];  // a triangle in the decimated_cloud
   Eigen::Vector3d mid_full(0,0,0), mid_dec(0,0,0);
   for (int i = 0; i<3; i++)
   {
@@ -196,7 +174,7 @@ int main(int argc, char *argv[])
   Eigen::Vector3d translation = mid_dec - rotation * mid_full;
   ray::Pose transform(translation, rotation);
 
-  // now apply the estimated transform
+  // set transformation to identity, if it is very close. This makes the typical case more accurate
   double rot_mag_sqr = ray::sqr(rotation.x()) + ray::sqr(rotation.y()) + ray::sqr(rotation.z());
   const double rotation_changed_threshold = 1e-8;
   const double translation_changed_threshold = 1e-8;
@@ -213,7 +191,8 @@ int main(int argc, char *argv[])
     transform.rotation = Eigen::Quaterniond::Identity();
   }
 
-#if 1  
+  // now apply the estimated transformation. We need to chunk save the _restored file, using the
+  // re-chunkloaded full_cloud_file
   std::ofstream ofs;
   if (!ray::writePlyChunkStart(full_cloud_file.nameStub() + "_restored.ply", ofs))
     usage();
@@ -238,7 +217,8 @@ int main(int argc, char *argv[])
   {
     int pair_index = 0;
     chunk.clear();
-    for (int i = 0; i<static_cast<int>(ends.size()); i++)
+    int num_points = static_cast<int>(ends.size());
+    for (int i = 0; i<num_points; i++)
     {
       int closest_index = (i+ray_step/2)/ray_step;
       while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size()-1)
@@ -263,51 +243,5 @@ int main(int argc, char *argv[])
   ray::writePlyChunk(ofs, buffer, chunk.starts, chunk.ends, chunk.times, chunk.colours);
 
   ray::writePlyChunkEnd(ofs);
-#else
-
-  // then for every point in the full cloud, we have to look up whether it exists in the decimated clouds, 
-  // and include it if it does
-  std::cout << "applying full set of points to those found in decimated cloud" << std::endl;
-  std::vector<Eigen::Vector3d> &ps = full_cloud.ends; // just a short hand
-  std::vector<unsigned int> full_cloud_indices;
-  full_cloud_indices.reserve(full_cloud.ends.size());
-  if (spatial_decimation)
-  {
-    for (int i = 0; i<(int)ps.size(); i++)
-    {
-      Eigen::Vector3i place(int(std::floor(ps[i][0] / voxel_width)), int(std::floor(ps[i][1] / voxel_width)),
-                            int(std::floor(ps[i][2] / voxel_width)));
-      if (voxel_set.find(place) != voxel_set.end())
-        full_cloud_indices.push_back(i);
-    }
-  }
-  else
-  {
-    int pair_index = 0;
-    for (int i = 0; i<(int)ps.size(); i++)
-    {
-      int closest_index = (i+ray_step/2)/ray_step;
-      while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size()-1)
-        pair_index++;
-      if (pairs[pair_index][0] == closest_index)
-        full_cloud_indices.push_back(i);
-    }
-  }
-  ray::Cloud new_cloud;
-  new_cloud.reserve(full_cloud_indices.size());
-  for (auto &i: full_cloud_indices)
-    new_cloud.addRay(full_cloud, i);
-  full_cloud = new_cloud;
-  full_cloud.transform(transform, 0);
-  
-
-  // now, add back in the additional rays that were added to the modified cloud
-  std::cout << "added " << added_ray_indices.size() << " extra points that are in the modified cloud" << std::endl;
-  full_cloud.reserve(full_cloud.ends.size() + added_ray_indices.size());
-  for (auto &ray_index: added_ray_indices)
-    full_cloud.addRay(decimated_cloud, static_cast<int>(ray_index));
-
-  full_cloud.save(full_cloud_file.nameStub() + "_restored.ply");
-#endif
   return 0;
 }
