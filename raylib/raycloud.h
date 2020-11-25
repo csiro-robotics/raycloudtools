@@ -39,6 +39,8 @@ public:
   std::vector<RGBA> colours;
 
   void clear();
+  /// reserve the cloud's vectors
+  void reserve(size_t size);
   /// resize the cloud's vectors
   void resize(size_t size);
 

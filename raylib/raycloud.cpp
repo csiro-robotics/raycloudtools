@@ -326,6 +326,14 @@ void Cloud::resize(size_t size)
   colours.resize(size);
 }
 
+void Cloud::reserve(size_t size)
+{
+  starts.reserve(size);
+  ends.reserve(size);
+  times.reserve(size);
+  colours.reserve(size);
+}
+
 Eigen::Array<double, 22, 1> Cloud::getMoments() const
 {
   Eigen::Vector3d startMean(0,0,0);
