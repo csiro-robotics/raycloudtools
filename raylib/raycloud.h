@@ -105,6 +105,14 @@ public:
   bool calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds, unsigned flags = kBFEnd,
                   Progress *progress = nullptr) const;
 
+  /// static member functions
+
+  /// Reads a ray cloud from file, and calls the function for each ray
+  /// This forwards the call to a function appropriate to the ray cloud file format
+  static bool read(const std::string &file_name,  
+     std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply);
+
 private:
   bool loadPLY(const std::string &file);
 };

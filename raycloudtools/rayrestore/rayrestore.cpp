@@ -4,8 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/raycloudwriter.h"
 #include "raylib/rayparse.h"
-#include "raylib/rayply.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,26 +47,23 @@ int main(int argc, char *argv[])
   full_decimated.reserve(decimated_cloud.ends.size()); // good guess at memory required
 
   // decimation functions
-  auto decimate_cm = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    subsample.clear();
-    voxelSubsample(ends, voxel_width, subsample, voxel_set);
-    for (auto &id: subsample)
-      full_decimated.addRay(starts[id], ends[id], times[id], colours[id]);
+    if (spatial_decimation)
+    {
+      subsample.clear();
+      voxelSubsample(ends, voxel_width, subsample, voxel_set);
+      for (auto &id: subsample)
+        full_decimated.addRay(starts[id], ends[id], times[id], colours[id]);
+    }
+    else
+    {
+      int num_points = static_cast<int>(ends.size());
+      for (int i = 0, c = 0; i < num_points; i += ray_step, c++)
+        full_decimated.addRay(starts[i], ends[i], times[i], colours[i]);
+    }
   };
-  auto decimate_rays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-  {
-    int num_points = static_cast<int>(ends.size());
-    for (int i = 0, c = 0; i < num_points; i += ray_step, c++)
-      full_decimated.addRay(starts[i], ends[i], times[i], colours[i]);
-  };
-
-  bool success;
-  if (spatial_decimation)
-    success = ray::readPly(full_cloud_file.name(), true, decimate_cm, 0);
-  else
-    success = ray::readPly(full_cloud_file.name(), true, decimate_rays, 0);
-  if (!success)
+  if (!ray::Cloud::read(full_cloud_file.name(), decimate))
     usage();
 
   std::cout << "full cloud decimated size: " << full_decimated.ends.size() << " modified cloud size: " << decimated_cloud.ends.size() << std::endl;
@@ -193,46 +190,40 @@ int main(int argc, char *argv[])
 
   // now apply the estimated transformation. We need to chunk save the _restored file, using the
   // re-chunkloaded full_cloud_file
-  std::ofstream ofs;
-  if (!ray::writePlyChunkStart(full_cloud_file.nameStub() + "_restored.ply", ofs))
+  ray::CloudWriter writer;
+  if (!writer.begin(full_cloud_file.nameStub() + "_restored.ply"))
     usage();
-
-  // By maintaining these buffers below, we avoid almost all memory fragmentation  
-  ray::RayPlyBuffer buffer;
   ray::Cloud chunk;
 
-  auto transfer_cm = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  auto transfer = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     chunk.clear();
-    for (size_t i = 0; i<ends.size(); i++)
+    if (spatial_decimation)
     {
-      Eigen::Vector3i place(int(std::floor(ends[i][0] / voxel_width)), int(std::floor(ends[i][1] / voxel_width)),
-                            int(std::floor(ends[i][2] / voxel_width)));
-      if (voxel_set.find(place) != voxel_set.end())
-        chunk.addRay(transform * starts[i], transform * ends[i], times[i], colours[i]);
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        Eigen::Vector3i place(int(std::floor(ends[i][0] / voxel_width)), int(std::floor(ends[i][1] / voxel_width)),
+                              int(std::floor(ends[i][2] / voxel_width)));
+        if (voxel_set.find(place) != voxel_set.end())
+          chunk.addRay(transform * starts[i], transform * ends[i], times[i], colours[i]);
+      }
     }
-    ray::writePlyChunk(ofs, buffer, chunk.starts, chunk.ends, chunk.times, chunk.colours);
-  };
-  auto transfer_rays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-  {
-    int pair_index = 0;
-    chunk.clear();
-    int num_points = static_cast<int>(ends.size());
-    for (int i = 0; i<num_points; i++)
+    else
     {
-      int closest_index = (i+ray_step/2)/ray_step;
-      while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size()-1)
-        pair_index++;
-      if (pairs[pair_index][0] == closest_index)
-        chunk.addRay(transform * starts[i], transform * ends[i], times[i], colours[i]);
+      int pair_index = 0;
+      int num_points = static_cast<int>(ends.size());
+      for (int i = 0; i<num_points; i++)
+      {
+        int closest_index = (i+ray_step/2)/ray_step;
+        while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size()-1)
+          pair_index++;
+        if (pairs[pair_index][0] == closest_index)
+          chunk.addRay(transform * starts[i], transform * ends[i], times[i], colours[i]);
+      }
     }
-    ray::writePlyChunk(ofs, buffer, chunk.starts, chunk.ends, chunk.times, chunk.colours);
+    writer.writeChunk(chunk);
   };
-  if (spatial_decimation)
-    success = ray::readPly(full_cloud_file.name(), true, transfer_cm, 0);
-  else
-    success = ray::readPly(full_cloud_file.name(), true, transfer_rays, 0);
-  if (!success)
+  if (!ray::Cloud::read(full_cloud_file.name(), transfer))
     usage();
 
   std::cout << "added " << added_ray_indices.size() << " extra points that are in the modified cloud" << std::endl;
@@ -240,8 +231,8 @@ int main(int argc, char *argv[])
   chunk.reserve(added_ray_indices.size());
   for (auto &ray_index: added_ray_indices)
     chunk.addRay(decimated_cloud, static_cast<int>(ray_index));
-  ray::writePlyChunk(ofs, buffer, chunk.starts, chunk.ends, chunk.times, chunk.colours);
+  writer.writeChunk(chunk);
+  writer.end();
 
-  ray::writePlyChunkEnd(ofs);
   return 0;
 }

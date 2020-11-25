@@ -380,5 +380,11 @@ Eigen::Array<double, 22, 1> Cloud::getMoments() const
   return result; // Note: this is used once per cloud, returning by value is not a performance issue
 }
 
+bool Cloud::read(const std::string &file_name,  
+     std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply)
+{
+  return readPly(file_name, true, apply, 0);
+}
 
 } // namespace ray
