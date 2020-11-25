@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
   ray::ValueKeyChoice quantity({&vox_width, &num_rays}, {"cm", "rays"});
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity}))
     usage();
-  bool spatial_decimation = quantity.selectedKey() == "cm";
+  const bool spatial_decimation = quantity.selectedKey() == "cm";
 
   ray::CloudWriter writer;
   if (!writer.begin(cloud_file.nameStub() + "_decimated.ply"))

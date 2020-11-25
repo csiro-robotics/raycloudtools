@@ -30,9 +30,9 @@ int main(int argc, char *argv[])
   ray::ValueKeyChoice quantity({&vox_width, &num_rays}, {"cm", "rays"});
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity, &full_cloud_file}))
     usage();
-  bool spatial_decimation = quantity.selectedKey() == "cm";
-  double voxel_width = 0.01 * vox_width.value();
-  int ray_step = num_rays.value();
+  const bool spatial_decimation = quantity.selectedKey() == "cm";
+  const double voxel_width = 0.01 * vox_width.value();
+  const int ray_step = num_rays.value();
 
   // This function uses chunk loading to avoid the full resolution cloud being in memory
 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-      int num_points = static_cast<int>(ends.size());
+      const int num_points = static_cast<int>(ends.size());
       for (int i = 0, c = 0; i < num_points; i += ray_step, c++)
         full_decimated.addRay(starts[i], ends[i], times[i], colours[i]);
     }
@@ -140,8 +140,8 @@ int main(int argc, char *argv[])
   // pick i and j indices from three points at different time points in the ray cloud
   // these represent the three corresponding pairs required to find the rigid transformation between
   // full_decimated cloud and decimated_cloud
-  int is[3] = {pairs[0][0], pairs[pairs.size()/3][0], pairs[2*pairs.size()/3][0]};
-  int js[3] = {pairs[0][1], pairs[pairs.size()/3][1], pairs[2*pairs.size()/3][1]};
+  const int is[3] = {pairs[0][0], pairs[pairs.size()/3][0], pairs[2*pairs.size()/3][0]};
+  const int js[3] = {pairs[0][1], pairs[pairs.size()/3][1], pairs[2*pairs.size()/3][1]};
   Eigen::Vector3d full_ps[3]; // a triangle in the full_decimated cloud
   Eigen::Vector3d dec_ps[3];  // a triangle in the decimated_cloud
   Eigen::Vector3d mid_full(0,0,0), mid_dec(0,0,0);
@@ -163,16 +163,16 @@ int main(int argc, char *argv[])
   }
 
   // how to get rotation from two triangles? do it in two stages:
-  Eigen::Quaterniond quat = Eigen::Quaterniond::FromTwoVectors(full_ps[1], dec_ps[1]);
-  Eigen::Vector3d p1 = dec_ps[1].cross(dec_ps[2]);
-  Eigen::Vector3d p2 = (full_ps[1].cross(full_ps[2]));
-  Eigen::Quaterniond quat2 = Eigen::Quaterniond::FromTwoVectors(quat * p2, p1);
-  Eigen::Quaterniond rotation = quat2 * quat;
-  Eigen::Vector3d translation = mid_dec - rotation * mid_full;
+  const Eigen::Quaterniond quat = Eigen::Quaterniond::FromTwoVectors(full_ps[1], dec_ps[1]);
+  const Eigen::Vector3d p1 = dec_ps[1].cross(dec_ps[2]);
+  const Eigen::Vector3d p2 = (full_ps[1].cross(full_ps[2]));
+  const Eigen::Quaterniond quat2 = Eigen::Quaterniond::FromTwoVectors(quat * p2, p1);
+  const Eigen::Quaterniond rotation = quat2 * quat;
+  const Eigen::Vector3d translation = mid_dec - rotation * mid_full;
   ray::Pose transform(translation, rotation);
 
   // set transformation to identity, if it is very close. This makes the typical case more accurate
-  double rot_mag_sqr = ray::sqr(rotation.x()) + ray::sqr(rotation.y()) + ray::sqr(rotation.z());
+  const double rot_mag_sqr = ray::sqr(rotation.x()) + ray::sqr(rotation.y()) + ray::sqr(rotation.z());
   const double rotation_changed_threshold = 1e-8;
   const double translation_changed_threshold = 1e-8;
   if (rot_mag_sqr > ray::sqr(rotation_changed_threshold) || translation.squaredNorm() > ray::sqr(translation_changed_threshold))

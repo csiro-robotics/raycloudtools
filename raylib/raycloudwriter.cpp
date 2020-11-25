@@ -22,7 +22,7 @@ bool CloudWriter::begin(const std::string &file_name)
 
 void CloudWriter::end()
 {
-  unsigned long num_rays = ray::writePlyChunkEnd(ofs_);
+  const unsigned long num_rays = ray::writePlyChunkEnd(ofs_);
   std::cout << num_rays << " rays saved to " << file_name_ << std::endl;
   ofs_.close();
 }
