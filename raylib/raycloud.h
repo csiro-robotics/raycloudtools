@@ -40,6 +40,8 @@ public:
   std::vector<RGBA> colours;
 
   void clear();
+  /// reserve the cloud's vectors
+  void reserve(size_t size);
   /// resize the cloud's vectors
   void resize(size_t size);
 
@@ -127,6 +129,12 @@ public:
     double max_time;
   };
   static bool RAYLIB_EXPORT getInfo(const std::string &file_name, CloudInfo &info);
+
+  /// Reads a ray cloud from file, and calls the function for each ray
+  /// This forwards the call to a function appropriate to the ray cloud file format
+  static bool read(const std::string &file_name,  
+     std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+     std::vector<double> &times, std::vector<RGBA> &colours)> apply);
 
 private:
   bool loadPLY(const std::string &file);

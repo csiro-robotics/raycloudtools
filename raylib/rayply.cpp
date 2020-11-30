@@ -3,6 +3,7 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include "raymesh.h"
 #include "rayply.h"
 #include "raylib/rayprogress.h"
 #include "raylib/rayprogressthread.h"
@@ -21,7 +22,6 @@ unsigned long vertex_size_pos = 0;     // this is set once and is constant after
 bool writePlyChunkStart(const std::string &file_name, std::ofstream &out)
 {
   int num_zeros = std::numeric_limits<unsigned long>::digits10;
-  std::cout << "saving to " << file_name << " ..." << std::endl;
   out.open(file_name, std::ios::binary | std::ios::out);
   if (!out.is_open())
   {
@@ -57,8 +57,7 @@ bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector
 {
   if (ends.size() == 0)
   {
-    std::cerr << "Error: saving out ray file chunk with zero rays" << std::endl;
-    return false;
+    return true;
   }
   if (out.tellp() < (long)chunk_header_length) 
   {
@@ -109,7 +108,7 @@ bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector
   return true;
 }
 
-void writePlyChunkEnd(std::ofstream &out)
+unsigned long writePlyChunkEnd(std::ofstream &out)
 {
   const unsigned long size = static_cast<unsigned long>(out.tellp()) - chunk_header_length;
   const unsigned long number_of_rays = size / sizeof(RayPlyEntry);
@@ -118,7 +117,7 @@ void writePlyChunkEnd(std::ofstream &out)
   std::string str = stream.str();
   out.seekp(vertex_size_pos - str.length());
   out << str; 
-  std::cout << "... saved out " << number_of_rays << " rays." << std::endl;
+  return number_of_rays;
 }
 
 
