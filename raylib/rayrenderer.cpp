@@ -5,7 +5,6 @@
 // Author: Thomas Lowe
 #include "rayrenderer.h"
 #include "raycloud.h"
-#include "rayply.h"
 #include "rayparse.h"
 #include "imagewrite.h"
 
@@ -81,7 +80,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
       } while (depth <= maxDist);
     }
   };
-  readPly(file_name, true, calculate, 0);
+  Cloud::read(file_name, calculate);
 }
 
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
@@ -311,7 +310,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         }
       }
     };
-    if (!readPly(cloud_file, true, render, 0))
+    if (!Cloud::read(cloud_file, render))
       return false;
   }
 
