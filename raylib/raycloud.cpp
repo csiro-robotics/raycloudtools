@@ -34,9 +34,6 @@ void Cloud::save(const std::string &file_name) const
   if (name.substr(name.length() - 4) != ".ply")
     name += ".ply";
   writePlyRayCloud(name, starts, ends, times, colours);
-  #if defined OUTPUT_CLOUD_MOMENTS
-  getMoments();
-  #endif // defined OUTPUT_CLOUD_MOMENTS
 }
 
 bool Cloud::load(const std::string &file_name)
@@ -50,7 +47,11 @@ bool Cloud::load(const std::string &file_name)
 
 bool Cloud::loadPLY(const std::string &file)
 {
-  return readPly(file, starts, ends, times, colours, true);
+  bool res = readPly(file, starts, ends, times, colours, true);
+  #if defined OUTPUT_CLOUD_MOMENTS
+  getMoments();
+  #endif // defined OUTPUT_CLOUD_MOMENTS
+  return res;
 }
 
 Eigen::Vector3d Cloud::calcMinBound() const
