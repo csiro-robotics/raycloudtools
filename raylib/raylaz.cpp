@@ -119,6 +119,7 @@ bool readLas(const std::string &file_name,
   std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
   return true;
 #else   // RAYLIB_WITH_LAS
+  RAYLIB_UNUSED(max_intensity);
   RAYLIB_UNUSED(file_name);
   RAYLIB_UNUSED(apply);
   RAYLIB_UNUSED(num_bounded);

@@ -90,8 +90,8 @@ private:
   double voxelSizeForCloud(const Cloud &cloud) const;
 
   void markIntersectedEllipsoids(const Cloud &cloud, const Grid<unsigned> &ray_grid,
-                                 std::vector<Bool> *transient_ray_marks, bool self_transient,
-                                 Progress *progress);
+                                 std::vector<Bool> *transient_ray_marks, double num_rays, 
+                                 bool self_transient, Progress *progress);
 
   /// Finalise the cloud filter and populate @c transientResults() and @c fixedResults() .
   void finaliseFilter(const Cloud &cloud, const std::vector<Bool> &transient_ray_marks);
