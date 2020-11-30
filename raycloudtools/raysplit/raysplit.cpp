@@ -7,6 +7,7 @@
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
 #include "raylib/rayparse.h"
+#include "raylib/raycloudwriter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,13 +37,13 @@ void usage(int exit_code = 1)
 void split(ray::Cloud &cloud_buffer, const std::string &file_name, const std::string &in_name, 
            const std::string &out_name, std::function<bool(int i)> fptr)
 {
+  ray::CloudWriter in_writer, out_writer;
   std::ofstream inside_ofs, outside_ofs;
-  if (!ray::writePlyChunkStart(in_name, inside_ofs))
+  if (!in_writer.begin(in_name))
     usage();
-  if (!ray::writePlyChunkStart(out_name, outside_ofs))
+  if (!out_writer.begin(out_name))
     usage();
-  ray::RayPlyBuffer buffer;       // used to avoid repeated allocation and deallocation of memory in writePlyChunk
-  ray::Cloud in_chunk, out_chunk; // ray sets to write to the _inside and _outside rayclouds respectively.
+  ray::Cloud in_chunk, out_chunk;
 
   /// move each ray into either the in_chunk or out_chunk, depending on the condition function fptr
   auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
@@ -58,16 +59,15 @@ void split(ray::Cloud &cloud_buffer, const std::string &file_name, const std::st
       ray::Cloud &cloud = fptr(i) ? out_chunk : in_chunk;
       cloud.addRay(cloud_buffer.starts[i], cloud_buffer.ends[i], cloud_buffer.times[i], cloud_buffer.colours[i]);
     }
-    ray::writePlyChunk(inside_ofs, buffer, in_chunk.starts, in_chunk.ends, in_chunk.times, in_chunk.colours);
-    ray::writePlyChunk(outside_ofs, buffer, out_chunk.starts, out_chunk.ends, out_chunk.times, out_chunk.colours);
+    in_writer.writeChunk(in_chunk);
+    out_writer.writeChunk(out_chunk);
     in_chunk.clear();
     out_chunk.clear();
   };
-  if (!ray::readPly(file_name, true, per_chunk, 0))
+  if (!ray::Cloud::read(file_name, per_chunk))
     usage(); 
-
-  ray::writePlyChunkEnd(inside_ofs);
-  ray::writePlyChunkEnd(outside_ofs);
+  in_writer.end();
+  out_writer.end();
 }
 
 // Decimates the ray cloud, spatially or in time
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
         max_time = std::max(max_time, time);
       }
     };
-    if (!ray::readPly(cloud_file.name(), true, time_bounds, 0))
+    if (!ray::Cloud::read(cloud_file.name(), time_bounds))
       usage();
     std::cout << "minimum time: " << min_time << " maximum time: " << max_time << ", difference: " 
               << max_time - min_time << std::endl;
