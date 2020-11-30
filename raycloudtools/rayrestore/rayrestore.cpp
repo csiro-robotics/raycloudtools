@@ -164,9 +164,9 @@ int main(int argc, char *argv[])
 
   // how to get rotation from two triangles? do it in two stages:
   const Eigen::Quaterniond quat = Eigen::Quaterniond::FromTwoVectors(full_ps[1], dec_ps[1]);
-  const Eigen::Vector3d p1 = dec_ps[1].cross(dec_ps[2]);
-  const Eigen::Vector3d p2 = (full_ps[1].cross(full_ps[2]));
-  const Eigen::Quaterniond quat2 = Eigen::Quaterniond::FromTwoVectors(quat * p2, p1);
+  const Eigen::Vector3d normal1 = dec_ps[1].cross(dec_ps[2]);
+  const Eigen::Vector3d normal2 = full_ps[1].cross(full_ps[2]);
+  const Eigen::Quaterniond quat2 = Eigen::Quaterniond::FromTwoVectors(quat * normal2, normal1);
   const Eigen::Quaterniond rotation = quat2 * quat;
   const Eigen::Vector3d translation = mid_dec - rotation * mid_full;
   ray::Pose transform(translation, rotation);
