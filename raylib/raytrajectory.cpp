@@ -17,10 +17,15 @@ void Trajectory::calculateStartPoints(const std::vector<double> &times, std::vec
     starts[i] = linear(times[i]);
 }
 
-void Trajectory::save(const std::string &file_name)
+bool Trajectory::save(const std::string &file_name)
 {
   std::cout << "saving trajectory " << file_name << std::endl;
   std::ofstream ofs(file_name.c_str(), std::ios::out);
+  if (!ofs.is_open())
+  {
+    std::cerr << "error: cannot open file " << file_name << " for writing" << std::endl;
+    return false;
+  }  
   ofs.unsetf(std::ios::floatfield);
   ofs.precision(15);
   ofs << "%time x y z userfields" << std::endl;
@@ -29,7 +34,28 @@ void Trajectory::save(const std::string &file_name)
     const Eigen::Vector3d &pos = points_[i];
     ofs << times_[i] << " " << pos[0] << " " << pos[1] << " " << pos[2] << " " << std::endl;
   }
+  return true;
 }
+
+bool saveTrajectory(const std::vector<TrajectoryNode> &nodes, const std::string &file_name)
+{
+  std::cout << "saving trajectory " << file_name << std::endl;
+  std::ofstream ofs(file_name.c_str(), std::ios::out);
+  if (!ofs.is_open())
+  {
+    std::cerr << "error: cannot open file " << file_name << " for writing" << std::endl;
+    return false;
+  }
+  ofs.unsetf(std::ios::floatfield);
+  ofs.precision(15);
+  ofs << "%time x y z userfields" << std::endl;
+  for (auto &node: nodes)
+  {
+    ofs << node.time << " " << node.point[0] << " " << node.point[1] << " " << node.point[2] << " " << std::endl;
+  }  
+  return true;
+}
+
 
 /**Loads the trajectory into the supplied vector and returns if successful*/
 bool Trajectory::load(const std::string &file_name)

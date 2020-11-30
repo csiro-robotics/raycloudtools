@@ -14,6 +14,7 @@
 namespace ray
 {
 using PointPlyEntry = Eigen::Matrix<float, 6, 1>;
+using PointPlyBuffer = std::vector<PointPlyEntry>;
 using RayPlyEntry = Eigen::Matrix<float, 9, 1>;    // structure of raycloud cloud rays, written to ply file
 using RayPlyBuffer = std::vector<RayPlyEntry>;     // buffer for storing a list of rays to be written
 
@@ -46,11 +47,18 @@ bool RAYLIB_EXPORT writePlyRayCloud(const std::string &file_name, const std::vec
                                     const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
                                     const std::vector<RGBA> &colours);
 
-/// Chunked version of writePly for ray clouds
+/// Chunked version of writePlyRayCloud
 bool RAYLIB_EXPORT writePlyChunkStart(const std::string &file_name, std::ofstream &out);
 bool RAYLIB_EXPORT writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours);
 void RAYLIB_EXPORT writePlyChunkEnd(std::ofstream &out);
+
+/// Chunked version of writePlyPointCloud
+bool RAYLIB_EXPORT writePointCloudChunkStart(const std::string &file_name, std::ofstream &out);
+bool RAYLIB_EXPORT writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &points, 
+                          const std::vector<double> &times, const std::vector<RGBA> &colours);
+void RAYLIB_EXPORT writePointCloudChunkEnd(std::ofstream &out);
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYPLY_H
