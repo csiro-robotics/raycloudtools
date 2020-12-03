@@ -13,7 +13,8 @@
 namespace ray
 {
   
-// density is the probability of hitting something per metre depth
+/// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
+/// of surface angles.
 void DensityGrid::calculateDensities(const std::string &file_name)
 {
   auto calculate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<RGBA> &colours)
@@ -408,7 +409,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   else if (image_ext == "tga")
     stbi_write_tga(image_name, width, height, 4, (void *)&pixel_colours[0]);
   else if (image_ext == "png")
-    stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // maximal quality
+    stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // 100 is maximal quality
   else if (image_ext == "hdr")
     stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
   else
