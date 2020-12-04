@@ -3,8 +3,8 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#ifndef RAYLIB_RAYTRAJECTORY_H
-#define RAYLIB_RAYTRAJECTORY_H
+#ifndef RAYLIB_RAYRENDERER_H
+#define RAYLIB_RAYRENDERER_H
 
 #include "raylib/raylibconfig.h"
 #include "raycuboid.h"
@@ -135,4 +135,4 @@ int DensityGrid::getIndex(const Eigen::Vector3i &inds) const
   return inds[0] + inds[1]*voxel_dims_[0] + inds[2] * voxel_dims_[0]*voxel_dims_[1];
 }
 }
-#endif // RAYLIB_RAYTRAJECTORY_H
+#endif // RAYLIB_RAYRENDERER_H

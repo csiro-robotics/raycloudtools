@@ -197,8 +197,10 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   
   // pull out the main image axes (ax1,ax2 are the horiz,vertical axes)
   const Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
-  const int x_axes[] = {1, 0, 0};
-  const int y_axes[] = {2, 2, 1};
+  // for each view axis (side,top,front = 0,1,2) we need to have an image x axis, and y axis.
+  // e.g. x_axes[axis] is the 3D axis to use (x,y,z = 0,1,2) for the image horizontal direction
+  const std::array<int, 3> x_axes = {1, 0, 0};
+  const std::array<int, 3> y_axes = {2, 2, 1};
   const int ax1 = x_axes[axis];
   const int ax2 = y_axes[axis];
   const int width  = 1 + static_cast<int>(extent[ax1] / pix_width);
@@ -208,7 +210,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 
   // accumulated colour buffer
   std::vector<Eigen::Vector4d> pixels(width * height); 
-  memset(&pixels[0], 0, sizeof(Eigen::Vector4d) * width*height);
+  std::fill(pixels.begin(), pixels.end(), Eigen::Vector4d(0,0,0,0));
   // density calculation is a special case
   if (style == RenderStyle::Density || style == RenderStyle::Density_rgb) 
   {

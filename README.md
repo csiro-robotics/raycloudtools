@@ -70,6 +70,12 @@ To run the rayXXXX tools from anywhere, place in your ~/bashrc:
 <img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_smooth2.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 
+**rayrender room.ply top density_rgb** &nbsp;&nbsp;&nbsp; Render the cloud from the top, as a surface area density.
+
+<p align="center">
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayrender_room_top_density_rgb.png?at=refs%2Fheads%2Fmaster"/>
+</p>
+
 **raytransients min room.ply 2 rays** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when matter has been re-observed as missing by 2 or more rays. 
 
 &nbsp;&nbsp;&nbsp; Leaving the ***minimum*** of geometry when transient.
