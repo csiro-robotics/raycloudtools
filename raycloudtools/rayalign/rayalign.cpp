@@ -43,15 +43,15 @@ int main(int argc, char *argv[])
   if (!cross_align && !self_align)
     usage();
 
-  ray::Cloud clouds[2];
-  if (!clouds[0].load(cloud_a.name()))
-    usage();
   if (self_align)
   {
-    alignCloudToAxes(clouds[0]);
+    ray::alignCloudToAxes(cloud_a.name());
   }
   else // cross_align
   {
+    ray::Cloud clouds[2];
+    if (!clouds[0].load(cloud_a.name()))
+      usage();
     if (!clouds[1].load(cloud_b.name()))
       usage();
 

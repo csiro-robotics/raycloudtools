@@ -532,9 +532,19 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   clouds[0].transform(transform, 0.0);
 }
 
-void alignCloudToAxes(Cloud &cloud)
+void alignCloudToAxes(std::string &cloud_name)
 {
-  // 1. Calculate extents:
+  // A radon transform is used as follows:
+  // 1. we quantise the cloud into a 2D grid of centroids, weighted by number of end points within the cell
+  // 2. for each cell, render a sine wave to weights image
+  // 3. find the maximum weight in the image (the new y axis) and interpolate the angle and position using its neighbours
+  // 4. find the highest orthogonal weight (the new x axis) and interpolate its position
+  // 5. quantise density vertically into an array to get the strongest ground height signal, interpolating the max value
+
+  // The advantage of the radon transform is that it does not require normals (unreliable on vegetation), it can work on 
+  // fairly noisy planes (such as a vineyard row), and it should parallelise well.
+
+  // Calculate extents:
   const double mx = std::numeric_limits<double>::max();
   const double mn = std::numeric_limits<double>::lowest();
 
@@ -562,7 +572,7 @@ void alignCloudToAxes(Cloud &cloud)
     return false;
   Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
 
-  // 2. fill in the arrays
+  // fill in the arrays
   const int ang_res = 256, amp_res = 256; // ang_res must be divisible by 2
   double weights[ang_res][amp_res];
   std::memset(weights, 0, sizeof(double)*ang_res*amp_res);
@@ -605,8 +615,7 @@ void alignCloudToAxes(Cloud &cloud)
   if (!readPly(cloud_name, true, fill_arrays, 0))
     return false;
 
-  // 3. process the data into a Euclidean transform called pose:
-
+  // process the data into a Euclidean transform called pose:
   for (int ii = 0; ii<amp_res; ii++)
   {
     for (int jj = 0; jj<amp_res; jj++)
@@ -734,7 +743,7 @@ void alignCloudToAxes(Cloud &cloud)
   std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.w() << ", " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
 
 
-  // 4. finally, transform the cloud:
+  // finally, transform the cloud:
 
   std::ofstream ofs;
   if (!ray::writePlyChunkStart(aligned_file, ofs))
