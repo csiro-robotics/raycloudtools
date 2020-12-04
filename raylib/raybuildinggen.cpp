@@ -262,7 +262,7 @@ void BuildingGen::generate()
       }
     }
     // get range in box it already intersects
-    cuboids[start_id].rayIntersects(start, dir, range, false);
+    cuboids[start_id].intersectsRay(start, dir, range, false);
     const double eps = 1e-6;
     Eigen::Vector3d hit = start + dir*(range+eps);
 
@@ -270,7 +270,7 @@ void BuildingGen::generate()
     bool found = range < max_range;
     for (auto &cuboid: furniture[id]) // if the room furniture is closer, then use this
     {
-      if (cuboid.rayIntersects(start, dir, range, true))
+      if (cuboid.intersectsRay(start, dir, range, true))
       {
         found = false;
         break;
@@ -286,14 +286,14 @@ void BuildingGen::generate()
           continue;
         // hit intersects, so we extend the ray as far as this cuboid reaches
         double new_range = max_range;
-        cuboids[other_id].rayIntersects(start, dir, new_range, false);
+        cuboids[other_id].intersectsRay(start, dir, new_range, false);
         range = new_range;
         hit = start + dir*(range + eps);
         id = other_id;
         found = new_range < max_range;
         for (auto &cuboid: furniture[id]) // also check the furniture in this space
         {
-          if (cuboid.rayIntersects(start, dir, range, true))
+          if (cuboid.intersectsRay(start, dir, range, true))
           {
             found = false;
             break;

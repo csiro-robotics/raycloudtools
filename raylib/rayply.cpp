@@ -571,4 +571,5 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
   std::cout << "reading from " << file << ", " << mesh.index_list().size() << " triangles." << std::endl;
   return true;
 }
+
 } // ray

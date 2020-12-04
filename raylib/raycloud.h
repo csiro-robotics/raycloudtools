@@ -7,6 +7,7 @@
 #define RAYLIB_RAYCLOUD_H
 
 #include "raylib/raylibconfig.h"
+#include "raylib/raycuboid.h"
 
 #include "rayutils.h"
 #include "raypose.h"
@@ -56,7 +57,9 @@ public:
   void save(const std::string &file_name) const;
   bool load(const std::string &file_name);
 
+  /// minimum bounds of all bounded rays
   Eigen::Vector3d calcMinBound() const;
+  /// maximum bounds of all bounded rays
   Eigen::Vector3d calcMaxBound() const;
 
   /// apply a Euclidean transform and time shift to the ray cloud
@@ -105,7 +108,27 @@ public:
   bool calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds, unsigned flags = kBFEnd,
                   Progress *progress = nullptr) const;
 
-  /// static member functions
+  /// Static functions. These operate on the cloud file, and so do not require the full file to fit in memory
+
+  /// Version for estimating the spacing between points for raycloud files. 
+  static double estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points);
+
+  /// Calculate the key information of a ray cloud, such as its bounds
+  /// @c ends are only the bounded ones. @c starts are for all rays
+  /// @c rays is all rays, so using the minimum known length for unbounded rays
+  struct CloudInfo
+  {
+    // Axis-aligned bounding boxes
+    Cuboid ends_bound;   // just the end points (not including for unbounded rays)
+    Cuboid starts_bound; // all start points
+    Cuboid rays_bound;   // all ray extents
+
+    int num_bounded;
+    int num_unbounded;
+    double min_time;
+    double max_time;
+  };
+  static bool RAYLIB_EXPORT getInfo(const std::string &file_name, CloudInfo &info);
 
   /// Reads a ray cloud from file, and calls the function for each ray
   /// This forwards the call to a function appropriate to the ray cloud file format
