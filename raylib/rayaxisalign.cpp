@@ -22,32 +22,12 @@ namespace ray
 bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_file)
 {
   // Calculate extents:
-  const double mx = std::numeric_limits<double>::max();
-  const double mn = std::numeric_limits<double>::lowest();
-
-  Eigen::Vector3d min_bound(mx, mx, mx);
-  Eigen::Vector3d max_bound(mn, mn, mn); 
-  Eigen::Vector3d centroid(0,0,0);
-  int num_bounded = 0;
-
-  auto calculate_extents = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-  {
-    RAYLIB_UNUSED(starts);
-    RAYLIB_UNUSED(times);
-    RAYLIB_UNUSED(colours);
-    for (size_t i = 0; i<ends.size(); i++)
-    {
-      min_bound = minVector(min_bound, ends[i]);
-      max_bound = maxVector(max_bound, ends[i]);
-      if (colours[i].alpha == 0)
-        continue;
-      centroid += ends[i];
-      num_bounded++;
-    }
-  };
-  if (!readPly(cloud_name, true, calculate_extents, 0))
+  Cloud::Info info;
+  if (!Cloud::getInfo(cloud_name, info))
     return false;
-  Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
+  const Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
+  const Eigen::Vector3d &max_bound = info.rays_bound.max_bound_;
+  const Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
 
   // fill in the arrays
   const int ang_res = 256, amp_res = 256; // ang_res must be divisible by 2
@@ -89,7 +69,7 @@ bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_
       ws[k+1] += blend;      
     }
   };
-  if (!readPly(cloud_name, true, fill_arrays, 0))
+  if (!Cloud::read(cloud_name, fill_arrays))
     return false;
 
   // process the data into a Euclidean transform called pose:
@@ -187,7 +167,7 @@ bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_
   Pose pose = rot * to_mid;
 
   // now rotate the cloud into the positive x/y axis, depending on which is the stronger signal
-  Eigen::Vector3d mid_point = pose * centroid;
+  Eigen::Vector3d mid_point = pose * info.centroid;
   if (std::abs(mid_point[0]) > std::abs(mid_point[1]))
   {
     if (mid_point[0] < 0.0)
