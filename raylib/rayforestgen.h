@@ -13,13 +13,24 @@
 
 namespace ray
 {
+struct ForestParams
+{
+  ForestParams() : field_width(20.0), max_tree_radius(0.2), dimension(2.0), adult_tree_density(0.01),
+                   random_factor(0.0) {}
+  double field_width;
+  double max_tree_radius;
+  double dimension;           // number of trees = radius^-d
+  double adult_tree_density;  // number of trees per m^2
+  double random_factor;
+};
+
 /// Forest ray cloud generation class. This generates a realistic random distribution of trees, each of which
 /// has the attributes of a ray cloud. The random distribution can be seeded using @c srand()
 class RAYLIB_EXPORT ForestGen
 {
 public:
   /// makes the forest geometry
-  void make(double random_factor = 0.0);
+  void make(const ForestParams &params = ForestParams());
   /// converts the forest geometry into a set of rays, for a chosen @c ray_density
   void generateRays(double ray_density);
 

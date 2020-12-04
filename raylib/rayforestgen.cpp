@@ -8,26 +8,20 @@
 
 namespace ray
 {
-
-void ForestGen::make(double random_factor)
+void ForestGen::make(const ForestParams &params)
 {
-  double field_width = 20;
-  double max_tree_radius = 0.2;
-  double dimension = 2.0;            // #trees = radius^-d
-  double adult_tree_density = 0.01;  // #trees per m^2
-
-  double rad = max_tree_radius;
-  double num_trees = sqr(field_width) * adult_tree_density;
+  double rad = params.max_tree_radius;
+  double num_trees = sqr(params.field_width) * params.adult_tree_density;
   for (int level = 0; level < 2; level++)
   {
     for (int i = 0; i < (int)num_trees; i++)
     {
-      double radius = rad * (1.0 + random(-0.25, 0.5) * random_factor);
+      double radius = rad * (1.0 + random(-0.25, 0.5) * params.random_factor);
       Eigen::Vector3d root;
       bool found = false;
       while (!found)
       {
-        root = field_width * 0.5 * Eigen::Vector3d(random(-1.0, 1.0), random(-1.0, 1.0), 0.0);
+        root = params.field_width * 0.5 * Eigen::Vector3d(random(-1.0, 1.0), random(-1.0, 1.0), 0.0);
         found = true;
         for (auto &tree : trees())
         {
@@ -41,10 +35,10 @@ void ForestGen::make(double random_factor)
       }
       TreeGen tree;
       trees().push_back(tree);
-      trees().back().make(root, radius, random_factor);
+      trees().back().make(root, radius, params.random_factor);
     }
     rad /= 2.0;
-    num_trees *= pow(2.0, dimension);
+    num_trees *= pow(2.0, params.dimension);
   }
 }
 

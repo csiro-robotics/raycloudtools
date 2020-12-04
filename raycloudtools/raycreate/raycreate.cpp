@@ -103,8 +103,10 @@ int main(int argc, char *argv[])
     }
     else if (type == "forest")
     {
+      ray::ForestParams params;
+      params.random_factor = 0.25;
       ray::ForestGen forest_gen;
-      forest_gen.make(0.25);
+      forest_gen.make(params);
       forest_gen.generateRays(density);
       for (auto &tree : forest_gen.trees())
       {  

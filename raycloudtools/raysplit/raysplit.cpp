@@ -34,9 +34,10 @@ void usage(int exit_code = 1)
 
 /// This is a helper function to aid in splitting the cloud while chunk-loading it. The purpose is to be able to
 /// split clouds of any size, without running out of main memory. 
-void split(ray::Cloud &cloud_buffer, const std::string &file_name, const std::string &in_name, 
-           const std::string &out_name, std::function<bool(int i)> fptr)
+void split(const std::string &file_name, const std::string &in_name, 
+           const std::string &out_name, std::function<bool(const ray::Cloud &cloud, int i)> is_outside)
 {
+  ray::Cloud cloud_buffer;
   ray::CloudWriter in_writer, out_writer;
   std::ofstream inside_ofs, outside_ofs;
   if (!in_writer.begin(in_name))
@@ -45,10 +46,12 @@ void split(ray::Cloud &cloud_buffer, const std::string &file_name, const std::st
     usage();
   ray::Cloud in_chunk, out_chunk;
 
-  /// move each ray into either the in_chunk or out_chunk, depending on the condition function fptr
-  auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  /// move each ray into either the in_chunk or out_chunk, depending on the condition function is_outside
+  auto per_chunk = [&cloud_buffer, &in_writer, &out_writer, &in_chunk, &out_chunk, &is_outside](
+    std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+    std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    // I move these into the cloud buffer, so that they can be indexed easily in fptr (by index). 
+    // I move these into the cloud buffer, so that they can be indexed easily in is_outside (by index). 
     cloud_buffer.starts = starts;
     cloud_buffer.ends = ends;
     cloud_buffer.times = times;
@@ -56,7 +59,7 @@ void split(ray::Cloud &cloud_buffer, const std::string &file_name, const std::st
 
     for (int i = 0; i < (int)cloud_buffer.ends.size(); i++)
     {
-      ray::Cloud &cloud = fptr(i) ? out_chunk : in_chunk;
+      ray::Cloud &cloud = is_outside(cloud_buffer, i) ? out_chunk : in_chunk;
       cloud.addRay(cloud_buffer.starts[i], cloud_buffer.ends[i], cloud_buffer.times[i], cloud_buffer.colours[i]);
     }
     in_writer.writeChunk(in_chunk);
@@ -92,10 +95,10 @@ int main(int argc, char *argv[])
   const std::string in_name = cloud_file.nameStub() + "_inside.ply";
   const std::string out_name = cloud_file.nameStub() + "_outside.ply";
   const std::string rc_name = cloud_file.name(); // ray cloud name
-  ray::Cloud cloud; // used as a buffer when chunk loading
 
   if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
   {
+    ray::Cloud cloud; // used as a buffer when chunk loading
     if (!cloud.load(rc_name))
     {
       usage();
@@ -127,34 +130,44 @@ int main(int argc, char *argv[])
 
     // now split based on this
     const double time_thresh = min_time + (max_time - min_time) * time.value()/100.0;
-    split(cloud, rc_name, in_name, out_name, [&](int i) -> bool { return cloud.times[i] > time_thresh; });
+    split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
+      return cloud.times[i] > time_thresh; 
+    });
   }
   else
   {
     const std::string &parameter = choice.selectedKey();
     if (parameter == "time")
     {
-      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.times[i] > time.value(); });
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
+        return cloud.times[i] > time.value(); 
+      });
     }
     else if (parameter == "alpha")
     {
       uint8_t c = uint8_t(255.0 * alpha.value());
-      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.colours[i].alpha > c; });
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
+        return cloud.colours[i].alpha > c; 
+      });
     }
     else if (parameter == "pos")
     {
       Eigen::Vector3d vec = pos.value() / pos.value().squaredNorm();
-      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.ends[i].dot(vec) > 1.0; });
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
+        return cloud.ends[i].dot(vec) > 1.0; 
+      });
     }
     else if (parameter == "startpos")
     {
       Eigen::Vector3d vec = startpos.value() / startpos.value().squaredNorm();
-      split(cloud, rc_name, in_name, out_name, [&](int i) { return cloud.starts[i].dot(vec) > 0.0; });
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
+        return cloud.starts[i].dot(vec) > 0.0; 
+      });
     }
     else if (parameter == "raydir")
     {
       Eigen::Vector3d vec = raydir.value() / raydir.value().squaredNorm();
-      split(cloud, rc_name, in_name, out_name, [&](int i) {
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
         Eigen::Vector3d ray_dir = (cloud.ends[i] - cloud.starts[i]).normalized();
         return ray_dir.dot(vec) > 0.0;
       });
@@ -162,7 +175,7 @@ int main(int argc, char *argv[])
     else if (parameter == "colour")
     {
       Eigen::Vector3d vec = colour.value() / colour.value().squaredNorm();
-      split(cloud, rc_name, in_name, out_name, [&](int i) {
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
         Eigen::Vector3d col((double)cloud.colours[i].red / 255.0, (double)cloud.colours[i].green / 255.0,
                      (double)cloud.colours[i].blue / 255.0);
         return col.dot(vec) > 0.0;
@@ -170,13 +183,13 @@ int main(int argc, char *argv[])
     }
     else if (parameter == "range")
     {
-      split(cloud, rc_name, in_name, out_name, [&](int i) { 
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
         return (cloud.starts[i] - cloud.ends[i]).norm() > range.value(); 
       });
     }
     else if (parameter == "speed")
     {
-      split(cloud, rc_name, in_name, out_name, [&](int i) {
+      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
         if (i == 0)
         {
           return false;
