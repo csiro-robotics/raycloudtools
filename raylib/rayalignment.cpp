@@ -532,19 +532,20 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   clouds[0].transform(transform, 0.0);
 }
 
-// Transform cloud so it lines up with its strongest planes
 void alignCloudToAxes(Cloud &cloud)
 {
-  // A radon transform is used as follows:
-  // 1. we quantise the cloud into a 2D grid of centroids, weighted by number of end points within the cell
-  // 2. for each cell, render a sine wave to weights image
-  // 3. find the maximum weight in the image (the new y axis) and interpolate the angle and position using its neighbours
-  // 4. find the highest orthogonal weight (the new x axis) and interpolate its position
-  // 5. quantise density vertically into an array to get the strongest ground height signal, interpolating the max value
+  // Idea 1: Calculate normals, find 2 largest densities of orthogonal normals
+  // Idea 2: Calculate normals, each normal add complex c = e^4*angle, angle of total c is aligned angle
+  // Idea 3: Idea 2, but repeat reweighting normals away from best guess (i.e. robust)
+  // But normals don't work on vineyard rows. We need densities (histograms) in each direction...
+  // Idea 4: 2D Hough transform, for each point draw circle, the brightest point indicates a line, 
+  //         we then find the brightest orthogonal point
+  // Idea 5: 3D Hough transform, to find the brightest corner (L shape)
 
-  // The advantage of the radon transform is that it does not require normals (unreliable on vegetation), it can work on 
-  // fairly noisy planes (such as a vineyard row), and it should parallelise well. 
+  // I think I'll go with idea 4, it works on noisy data too.
 
+  // first decimate the cloud (I'll do this later)
+ 
   Eigen::Vector3d min_bound = cloud.calcMinBound();
   Eigen::Vector3d max_bound = cloud.calcMaxBound();
   Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
