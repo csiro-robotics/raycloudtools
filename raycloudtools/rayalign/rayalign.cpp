@@ -73,6 +73,5 @@ int main(int argc, char *argv[])
     fineAlign.align();
     clouds[0].save(aligned_name);
   }
-
   return 0;
 }
