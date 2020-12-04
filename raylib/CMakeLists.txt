@@ -15,6 +15,7 @@ configure_file(raylibconfig.in.h "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h")
 
 set(PUBLIC_HEADERS
   rayalignment.h
+  rayaxisalign.h
   raycloud.h
   raycloudwriter.h
   rayconcavehull.h
@@ -53,6 +54,7 @@ set(SOURCES
   ${PUBLIC_HEADERS}
   ${PRIVATE_HEADERS}
   rayalignment.cpp
+  rayaxisalign.cpp
   raycloud.cpp
   raycloudwriter.cpp
   rayconcavehull.cpp

@@ -6,6 +6,7 @@
 
 #include "raylib/raycloud.h"
 #include "raylib/rayalignment.h"
+#include "raylib/rayaxisalign.h"
 #include "raylib/rayfinealignment.h"
 #include "raylib/raydebugdraw.h"
 #include "raylib/rayparse.h"
