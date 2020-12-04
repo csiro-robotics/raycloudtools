@@ -4,7 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "rayalignment.h"
-
+#include "rayunused.h"
+#include "rayply.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "imagewrite.h"
 
@@ -532,7 +533,7 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   clouds[0].transform(transform, 0.0);
 }
 
-void alignCloudToAxes(std::string &cloud_name)
+bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_file)
 {
   // A radon transform is used as follows:
   // 1. we quantise the cloud into a 2D grid of centroids, weighted by number of end points within the cell

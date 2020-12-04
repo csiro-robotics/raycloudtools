@@ -33,7 +33,7 @@ void RAYLIB_EXPORT alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool v
 /// if the centroid y component is farther from the origin than its x component, then make centroid y positive
 /// otherwise make centroid x positive.
 /// The purpose of this is to make the chosen alignment as robust as possible to variation, or rescans.
-void RAYLIB_EXPORT alignCloudToAxes(std::string &cloud_name);
+bool RAYLIB_EXPORT alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_file);
 }  // namespace ray
 
 #endif  // RAYLIB_RAYALIGNMENT_H
