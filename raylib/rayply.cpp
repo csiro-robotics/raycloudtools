@@ -139,7 +139,8 @@ bool writePlyRayCloud(const std::string &file_name, const std::vector<Eigen::Vec
   // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
   if (!writePlyChunk(ofs, buffer, starts, ends, times, rgb))
     return false; 
-  writePlyChunkEnd(ofs);
+  const unsigned long num_rays = ray::writePlyChunkEnd(ofs);
+  std::cout << num_rays << " rays saved to " << file_name << std::endl;
   return true;
 }
 

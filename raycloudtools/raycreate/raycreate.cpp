@@ -82,9 +82,17 @@ int main(int argc, char *argv[])
   }
   else if (type == "tree" || type == "forest")
   {
+    const double density = 500.0;  // density of points on the branches of the trees
+    const double tree_ground_extent = 2.0; // extent (from centre) is the half-width
+    const double ground_noise_extent = 0.025; // vertical noise in the ground
+    const double forest_ground_multiplier = 5.0; // how much larger the forest ground is
+    const double ground_ray_deviation = 0.1; // lateral deviation in start of ray, from end point
+    const double ground_ray_vertical_height = 1.5; // height above ground for ray start
+
     ray::fillBranchAngleLookup();
-    double density = 500.0;
-    Eigen::Vector3d box_min(-2.0, -2.0, -0.025), box_max(2.0, 2.0, 0.025);
+
+    Eigen::Vector3d box_min(-tree_ground_extent, -tree_ground_extent, -ground_noise_extent); 
+    Eigen::Vector3d box_max(tree_ground_extent, tree_ground_extent, ground_noise_extent);
     double time = 0.0;
     if (type == "tree")
     {
@@ -121,15 +129,19 @@ int main(int argc, char *argv[])
         cloud.times[i] = time;
         time += time_delta;
       }
-      box_min *= 5;
-      box_max *= 5;
+      box_min *= forest_ground_multiplier; // for a forest, we need a larger ground 
+      box_max *= forest_ground_multiplier;
     }
     int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
     for (int i = 0; i < num; i++)
     {
-      Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), ray::random(box_min[1], box_max[1]), ray::random(box_min[2], box_max[2]));
+      Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), 
+                          ray::random(box_min[1], box_max[1]), 
+                          ray::random(box_min[2], box_max[2]));
       cloud.ends.push_back(pos);
-      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-0.1, 0.1), ray::random(-0.1, 0.1), 1.5));
+      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-ground_ray_deviation, ground_ray_deviation), 
+                                                   ray::random(-ground_ray_deviation, ground_ray_deviation), 
+                                                   ground_ray_vertical_height));
       cloud.times.push_back(time);
       time += time_delta;
     }
