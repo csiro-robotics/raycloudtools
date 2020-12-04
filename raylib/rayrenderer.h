@@ -35,11 +35,15 @@ enum class RAYLIB_EXPORT RenderStyle
   Density_rgb
 };
 
-/// Render a ray cloud according to the supplies parameters
+/// Render a ray cloud according to the supplied parameters
 bool RAYLIB_EXPORT renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, 
                                RenderStyle style, double pix_width, const std::string &image_file);
 
 /// This is used for estimating the per-voxel density of a ray cloud
+/// Density represents the surface area per volume, assuming an unbiased distribution of surface angles
+/// It is most effective as a measure of leaf area per volume on vegetation, and is described in:
+/// Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." 
+/// arXiv preprint arXiv:2007.15652 (2020).
 struct RAYLIB_EXPORT DensityGrid
 {
   static const int min_voxel_hits = 2;
