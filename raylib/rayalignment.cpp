@@ -534,30 +534,35 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
 
 void alignCloudToAxes(Cloud &cloud)
 {
-  // Idea 1: Calculate normals, find 2 largest densities of orthogonal normals
-  // Idea 2: Calculate normals, each normal add complex c = e^4*angle, angle of total c is aligned angle
-  // Idea 3: Idea 2, but repeat reweighting normals away from best guess (i.e. robust)
-  // But normals don't work on vineyard rows. We need densities (histograms) in each direction...
-  // Idea 4: 2D Hough transform, for each point draw circle, the brightest point indicates a line, 
-  //         we then find the brightest orthogonal point
-  // Idea 5: 3D Hough transform, to find the brightest corner (L shape)
+  // 1. Calculate extents:
+  const double mx = std::numeric_limits<double>::max();
+  const double mn = std::numeric_limits<double>::lowest();
 
-  // I think I'll go with idea 4, it works on noisy data too.
-
-  // first decimate the cloud (I'll do this later)
- 
-  Eigen::Vector3d min_bound = cloud.calcMinBound();
-  Eigen::Vector3d max_bound = cloud.calcMaxBound();
-  Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
+  Eigen::Vector3d min_bound(mx, mx, mx);
+  Eigen::Vector3d max_bound(mn, mn, mn); 
   Eigen::Vector3d centroid(0,0,0);
-  for (size_t e = 0; e<cloud.ends.size(); e++)
-  {
-    if (!cloud.rayBounded(e))
-      continue;
-    centroid += cloud.ends[e];
-  }
-  centroid /= (double)cloud.ends.size();
+  int num_bounded = 0;
 
+  auto calculate_extents = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    RAYLIB_UNUSED(starts);
+    RAYLIB_UNUSED(times);
+    RAYLIB_UNUSED(colours);
+    for (size_t i = 0; i<ends.size(); i++)
+    {
+      min_bound = minVector(min_bound, ends[i]);
+      max_bound = maxVector(max_bound, ends[i]);
+      if (colours[i].alpha == 0)
+        continue;
+      centroid += ends[i];
+      num_bounded++;
+    }
+  };
+  if (!readPly(cloud_name, true, calculate_extents, 0))
+    return false;
+  Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
+
+  // 2. fill in the arrays
   const int ang_res = 256, amp_res = 256; // ang_res must be divisible by 2
   double weights[ang_res][amp_res];
   std::memset(weights, 0, sizeof(double)*ang_res*amp_res);
@@ -569,17 +574,38 @@ void alignCloudToAxes(Cloud &cloud)
   std::memset(ps, 0, sizeof(Eigen::Vector3d)*amp_res*amp_res);
   double step_x = ((double)amp_res-1.0-eps) / (max_bound[0]-min_bound[0]);
   double step_y = ((double)amp_res-1.0-eps) / (max_bound[1]-min_bound[1]);
-  for (size_t e = 0; e<cloud.ends.size(); e++)
+  // and set up the vertical arrays too
+  double ws[amp_res]; // TODO: height is usually much less than width... more constant voxel size?
+  std::memset(ws, 0, sizeof(double)*amp_res);
+  double step_z = ((double)amp_res - 1.0 - eps) / (max_bound[2] - min_bound[2]);
+
+  auto fill_arrays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    if (!cloud.rayBounded(e))
-      continue;
-    Eigen::Vector3d index = cloud.ends[e] - min_bound;
-    index[0] *= step_x;
-    index[1] *= step_y;
-    Eigen::Vector3d pos = cloud.ends[e] - mid;
-    pos[2] = 1.0;
-    ps[(int)index[0]][(int)index[1]] += pos;
-  }
+    RAYLIB_UNUSED(starts);
+    RAYLIB_UNUSED(times);
+    RAYLIB_UNUSED(colours);
+    for (size_t e = 0; e<ends.size(); e++)
+    {
+      if (colours[e].alpha == 0) // unbounded
+        continue;
+      Eigen::Vector3d index = ends[e] - min_bound;
+      index[0] *= step_x;
+      index[1] *= step_y;
+      index[2] *= step_z;
+      Eigen::Vector3d pos = ends[e] - mid;
+      pos[2] = 1.0;
+      ps[(int)index[0]][(int)index[1]] += pos;
+
+      int k = (int)index[2];
+      double blend = index[2] - (double)k;
+      ws[k] += (1.0 - blend);
+      ws[k+1] += blend;      
+    }
+  };
+  if (!readPly(cloud_name, true, fill_arrays, 0))
+    return false;
+
+  // 3. process the data into a Euclidean transform called pose:
 
   for (int ii = 0; ii<amp_res; ii++)
   {
@@ -674,25 +700,20 @@ void alignCloudToAxes(Cloud &cloud)
   Pose rot(Eigen::Vector3d::Zero(), Eigen::Quaterniond(Eigen::AngleAxisd(-angle, Eigen::Vector3d(0,0,1))));
   Pose pose = rot * to_mid;
 
-  // now rotate the cloud into the positive quadrant
+  // now rotate the cloud into the positive x/y axis, depending on which is the stronger signal
   Eigen::Vector3d mid_point = pose * centroid;
-  if (mid_point[0] < 0.0)
-    pose = Pose(Eigen::Vector3d(0,0,0), Eigen::Quaterniond(0,0,0,1)) * pose; // 180 degree yaw
-
-  // lastly move cloud vertically based on densest point. 
-  double ws[amp_res]; // TODO: height is usually much less than width... more constant voxel size?
-  memset(ws, 0, sizeof(double)*amp_res);
-  double step_z = ((double)amp_res - 1.0 - eps) / (max_bound[2] - min_bound[2]);
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  if (std::abs(mid_point[0]) > std::abs(mid_point[1]))
   {
-    if (!cloud.rayBounded(i))
-      continue;
-    double z = ((cloud.ends[i][2] - min_bound[2]) * step_z);
-    int k = (int)z;
-    double blend = z - (double)k;
-    ws[k] += (1.0 - blend);
-    ws[k+1] += blend;
+    if (mid_point[0] < 0.0)
+      pose = Pose(Eigen::Vector3d(0,0,0), Eigen::Quaterniond(0,0,0,1)) * pose; // 180 degree yaw
   }
+  else
+  {
+    if (mid_point[1] < 0.0)
+      pose = Pose(Eigen::Vector3d(0,0,0), Eigen::Quaterniond(0,0,0,1)) * pose; // 180 degree yaw
+  }
+
+  // now get the vertical displacement
   int max_k = 0;
   double max_wt = 0;
   for (int k = 0; k<amp_res; k++)
@@ -710,9 +731,36 @@ void alignCloudToAxes(Cloud &cloud)
   double height = (k2 / step_z) + min_bound[2];
   pose.position[2] = -height;
 
-  std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
+  std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.w() << ", " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
 
-  cloud.transform(pose, 0);
+
+  // 4. finally, transform the cloud:
+
+  std::ofstream ofs;
+  if (!ray::writePlyChunkStart(aligned_file, ofs))
+    return false;
+
+  // By maintaining these buffers below, we avoid almost all memory fragmentation  
+  ray::RayPlyBuffer buffer;
+  std::vector<Eigen::Vector3d> new_starts, new_ends;
+
+  auto transform = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
+  {
+    for (size_t i = 0; i<ends.size(); i++)
+    {
+      new_starts.push_back(pose * starts[i]);
+      new_ends.push_back(pose * ends[i]);
+    }
+    ray::writePlyChunk(ofs, buffer, new_starts, new_ends, times, colours);
+    new_starts.clear();
+    new_ends.clear();
+  };
+
+  if (!ray::readPly(cloud_name, true, transform, 0))
+    return false;
+
+  ray::writePlyChunkEnd(ofs);
+  return true;  
 }
 
 } // namespace ray
