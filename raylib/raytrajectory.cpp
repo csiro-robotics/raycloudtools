@@ -7,6 +7,16 @@
 
 namespace ray
 {
+void Trajectory::calculateStartPoints(const std::vector<double> &times, std::vector<Eigen::Vector3d> &starts)
+{
+  if (points_.empty() || times_.empty())
+    std::cout << "Warning: can only calculate start points when a trajectory is available" << std::endl;
+
+  starts.resize(times.size());
+  for (size_t i = 0; i < times.size(); i++)
+    starts[i] = linear(times[i]);
+}
+
 void Trajectory::save(const std::string &file_name)
 {
   std::cout << "saving trajectory " << file_name << std::endl;
@@ -14,10 +24,10 @@ void Trajectory::save(const std::string &file_name)
   ofs.unsetf(std::ios::floatfield);
   ofs.precision(15);
   ofs << "%time x y z userfields" << std::endl;
-  for (size_t i = 0; i < nodes.size(); i++)
+  for (size_t i = 0; i < points_.size(); i++)
   {
-    const Eigen::Vector3d &pos = nodes[i].pos;
-    ofs << nodes[i].time << " " << pos[0] << " " << pos[1] << " " << pos[2] << " " << std::endl;
+    const Eigen::Vector3d &pos = points_[i];
+    ofs << times_[i] << " " << pos[0] << " " << pos[1] << " " << pos[2] << " " << std::endl;
   }
 }
 
@@ -50,8 +60,10 @@ bool Trajectory::load(const std::string &file_name)
     return false;
   }
   getline(ifs, line);
-  std::vector<Node> trajectory(size);
-  for (size_t i = 0; i < trajectory.size(); i++)
+  points_.resize(size);
+  times_.resize(size);
+  bool ordered = true;
+  for (int i = 0; i < size; i++)
   {
     if (!ifs)
     {
@@ -61,19 +73,73 @@ bool Trajectory::load(const std::string &file_name)
 
     getline(ifs, line);
     std::istringstream iss(line);
-    iss >> trajectory[i].time >> trajectory[i].pos[0] >> trajectory[i].pos[1] >>
-      trajectory[i].pos[2];
+    iss >> times_[i] >> points_[i][0] >> points_[i][1] >> points_[i][2];
+    if (i > 0 && times_[i] < times_[i-1])
+      ordered = false;
   }
-
   if (!ifs)
   {
     std::cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
     return false;
   }
-
-  // All is well add the loaded trajectory in
-  nodes = trajectory;
+  if (!ordered)
+  {
+    std::cout << "Warning: trajectory times not ordered. Ordering them now." << std::endl;
+    
+    struct Temp
+    {
+      double time;
+      size_t index;
+    };
+    std::vector<Temp> time_list(times_.size());
+    for (size_t i = 0; i < time_list.size(); i++)
+    {
+      time_list[i].time = times_[i];
+      time_list[i].index = i;
+    }
+    sort(time_list.begin(), time_list.end(), [](const Temp &a, const Temp &b) { return a.time < b.time; });
+    
+    std::vector<Eigen::Vector3d> new_points(points_.size());
+    std::vector<double> new_times(times_.size());
+    for (size_t i = 0; i < points_.size(); i++)
+    {
+      new_points[i] = points_[time_list[i].index];
+      new_times[i] = times_[time_list[i].index];
+      if (!(i%100))
+        std::cout << "time: " << new_times[i] - new_times[0] << std::endl;
+    }
+    points_ = std::move(new_points);  
+    times_ = std::move(new_times);
+    std::cout << "finished sorting" << std::endl;
+  }
 
   return true;
+}
+
+Eigen::Vector3d Trajectory::nearest(double time) const
+{
+  ASSERT(!points_.empty());
+  if (points_.size() == 1)
+    return points_[0];
+  const size_t index = getIndexAndNormaliseTime(time);
+  return time < 0.5 ? points_[index] : points_[index + 1];
+}
+
+/// Linear interpolation/extrapolation of nearest neighbours at given time.
+/// If 'extrapolate' is false, outlier times will clamp to the start or end value
+Eigen::Vector3d Trajectory::linear(double time, bool extrapolate) const
+{
+  ASSERT(!points_.empty());
+  if (points_.size() == 1)
+    return points_[0];
+  const size_t index = getIndexAndNormaliseTime(time);
+  if (!extrapolate)
+  {
+    if (time < 0.0)
+      return points_.front();
+    else if (time > 1.0)
+      return points_.back();
+  }
+  return points_[index] * (1-time) + points_[index+1] * time;
 }
 } // ray

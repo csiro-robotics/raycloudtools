@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
   if (pointcloud_file.nameExt() == "laz")
     writeLas(pointcloud_file.name(), cloud.ends, cloud.times, cloud.colours);
   else if (pointcloud_file.nameExt() == "ply")
-    writePly(pointcloud_file.name(), cloud.ends, cloud.times, cloud.colours);
+    writePlyPointCloud(pointcloud_file.name(), cloud.ends, cloud.times, cloud.colours);
   else
     usage();
 
@@ -51,12 +51,16 @@ int main(int argc, char *argv[])
     size_t index;
   };
   std::vector<TimeIndex> time_indices(cloud.times.size());
+  bool sorted = true;
   for (size_t i = 0; i<cloud.times.size(); i++)
   {
     time_indices[i].time = cloud.times[i];
     time_indices[i].index = i;
+    if (i > 0 && cloud.times[i] < cloud.times[i-1])
+      sorted = false;
   }
-  std::sort(time_indices.begin(), time_indices.end(), [](const TimeIndex &a, const TimeIndex &b){ return a.time < b.time; });
+  if (!sorted)
+    std::sort(time_indices.begin(), time_indices.end(), [](const TimeIndex &a, const TimeIndex &b){ return a.time < b.time; });
 
   // now temporally decimate:
   std::vector<Eigen::Vector3d> starts;
@@ -78,23 +82,27 @@ int main(int argc, char *argv[])
       }
     }
   }
-  else
+  else // apply the sorted trajectory, even if we're not using a frequency
   {
-    starts = cloud.starts;
-    times = cloud.times;
-    colours = cloud.colours;
+    for (size_t i = 0; i<time_indices.size(); i++)
+    {
+      size_t id = time_indices[i].index;
+      starts.push_back(cloud.starts[id]);
+      times.push_back(cloud.times[id]);
+      colours.push_back(cloud.colours[id]);
+    }
   }
 
   // and output the result, depending on the file format
   if (trajectory_file.nameExt() == "txt")
   {
     ray::Trajectory trajectory;
-    for (size_t i = 0; i<times.size(); i++)
-      trajectory.nodes.push_back(ray::Trajectory::Node(starts[i], times[i]));
+    trajectory.times() = std::move(times);
+    trajectory.points() = std::move(starts);
     trajectory.save(trajectory_file.name());
   }
   else if (trajectory_file.nameExt() == "ply")
-    writePly(trajectory_file.name(), starts, times, colours);
+    writePlyPointCloud(trajectory_file.name(), starts, times, colours);
   else
     usage();
 }      

@@ -16,6 +16,7 @@ configure_file(raylibconfig.in.h "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h")
 set(PUBLIC_HEADERS
   rayalignment.h
   raycloud.h
+  raycloudwriter.h
   rayconcavehull.h
   rayconvexhull.h
   raydebugdraw.h
@@ -41,6 +42,7 @@ set(PUBLIC_HEADERS
   rayutils.h
   rayparse.h
   rayrandom.h
+  rayrenderer.h
 )
 
 set(PRIVATE_HEADERS
@@ -52,6 +54,7 @@ set(SOURCES
   ${PRIVATE_HEADERS}
   rayalignment.cpp
   raycloud.cpp
+  raycloudwriter.cpp
   rayconcavehull.cpp
   rayconvexhull.cpp
   rayellipsoid.cpp
@@ -71,6 +74,7 @@ set(SOURCES
   raytreegen.cpp
   rayparse.cpp
   rayrandom.cpp
+  rayrenderer.cpp
 )
 
 # Select the source file to use with raydebudraw.

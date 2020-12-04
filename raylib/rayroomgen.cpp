@@ -87,7 +87,7 @@ void RoomGen::generate()
     for (int i = 0; i < (int)negatives.size(); i++)
     {
       double new_range = max_range;
-      if (negatives[i].rayIntersects(start, dir, new_range, false))
+      if (negatives[i].intersectsRay(start, dir, new_range, false))
         hits.push_back(start + dir * (new_range + 1e-6));
     }
     double range = max_range;
@@ -107,7 +107,7 @@ void RoomGen::generate()
     }
     if (i > num_rays / 2)
     {
-      for (auto &cuboid : positives) cuboid.rayIntersects(start, dir, range, true);
+      for (auto &cuboid : positives) cuboid.intersectsRay(start, dir, range, true);
     }
 
     const double range_noise = 0.03;

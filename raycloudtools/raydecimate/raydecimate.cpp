@@ -4,7 +4,9 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/raycloudwriter.h"
 #include "raylib/rayparse.h"
+#include "raylib/rayply.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,26 +31,55 @@ int main(int argc, char *argv[])
   ray::ValueKeyChoice quantity({&vox_width, &num_rays}, {"cm", "rays"});
   if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity}))
     usage();
+  const bool spatial_decimation = quantity.selectedKey() == "cm";
 
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
+  ray::CloudWriter writer;
+  if (!writer.begin(cloud_file.nameStub() + "_decimated.ply"))
     usage();
 
-  ray::Cloud new_cloud;
-  std::string type = quantity.selectedKey();
-  if (type == "cm")
+  // By maintaining these buffers below, we avoid almost all memory fragmentation  
+  ray::Cloud chunk;
+  std::vector<int64_t> subsample;
+  // voxel set is global, however its size is proportional to the decimated cloud size,
+  // so we expect it to fit within RAM limits
+  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;  
+
+  auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
-    cloud.decimate(0.01 * vox_width.value());
-  }
-  else if (type == "rays")
-  {
-    int decimation = num_rays.value();
-    for (int i = 0; i < (int)cloud.ends.size(); i += decimation)
-      new_cloud.addRay(cloud, i);
-    cloud = new_cloud;
-  }
-  else
-    usage(false);
-  cloud.save(cloud_file.nameStub() + "_decimated.ply");
+    if (spatial_decimation)
+    {
+      double width = 0.01 * vox_width.value();
+      subsample.clear();
+      voxelSubsample(ends, width, subsample, voxel_set);
+      chunk.resize(subsample.size());
+      for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
+      {
+        int64_t id = subsample[i];
+        chunk.starts[i] = starts[id];
+        chunk.ends[i] = ends[id];
+        chunk.colours[i] = colours[id];
+        chunk.times[i] = times[id];
+      }
+    }
+    else
+    {
+      size_t decimation = (size_t)num_rays.value();
+      size_t count = (ends.size() + decimation - 1) / decimation;
+      chunk.resize(count);
+      for (size_t i = 0, c = 0; i < ends.size(); i += decimation, c++)
+      {
+        chunk.starts[c] = starts[i];
+        chunk.ends[c] = ends[i];
+        chunk.times[c] = times[i];
+        chunk.colours[c] = colours[i];
+      }
+    }
+    writer.writeChunk(chunk);
+  };
+
+  if (!ray::Cloud::read(cloud_file.name(), decimate))
+    usage();
+  writer.end();
+
   return 0;
 }

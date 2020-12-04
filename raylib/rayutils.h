@@ -89,14 +89,9 @@ public:
   }
 };
 
-inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::set<Eigen::Vector3i, Vector3iLess> *voxel_set = NULL)
+inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::vector<int64_t> &indices, std::set<Eigen::Vector3i, Vector3iLess> &vox_set)
 {
-  std::vector<int64_t> indices;
-  std::set<Eigen::Vector3i, Vector3iLess> vox_set;
-  // We do a backwards iteration of the list in order to pick the last (newest) point in each voxel.
-  // The choice of which opint per voxel is ambiguous, but while we are ordering chronologically, it benefits
-  // merge-and-decimate operations to pick the most recent point
-  for (int64_t i = (int64_t)points.size()-1; i >= 0; i--)
+  for (int64_t i = 0; i<(int64_t)points.size(); i++)
   {
     Eigen::Vector3i voxel(int(std::floor(points[i][0] / voxel_width)), int(std::floor(points[i][1] / voxel_width)),
                           int(std::floor(points[i][2] / voxel_width)));
@@ -106,13 +101,12 @@ inline std::vector<int64_t> voxelSubsample(const std::vector<Eigen::Vector3d> &p
       indices.push_back(i);
     }
   }
-  // we need to reverse the list to maintain the ordering
-  int64_t numIndices = (int64_t)indices.size();
-  for (int64_t i = 0; i<numIndices/2; i++)
-    std::swap(indices[i], indices[numIndices - 1 - i]);
-  if (voxel_set != NULL)
-    *voxel_set = std::move(vox_set);
-  return indices;
+}
+
+inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double voxel_width, std::vector<int64_t> &indices)
+{
+  std::set<Eigen::Vector3i, Vector3iLess> vox_set; 
+  voxelSubsample(points, voxel_width, indices, vox_set);
 }
 
 /// Square a value
@@ -186,19 +180,25 @@ struct RGBA
   uint8_t alpha;
 };
 
+/// Converts a value from 0 to 1 into a RGBA structure 
+inline Eigen::Vector3d redGreenBlueGradient(double val)
+{
+  const Eigen::Vector3d hue_cycle[6] = {Eigen::Vector3d(1.0, 0.0, 0.5), Eigen::Vector3d(1.0, 0.5, 0.0), 
+                                        Eigen::Vector3d(0.5, 1.0, 0.0), Eigen::Vector3d(0.0, 1.0, 0.5), 
+                                        Eigen::Vector3d(0.0, 0.5, 1.0), Eigen::Vector3d(0.5, 0.0, 1.0)};
+  double v = 0.5 + 4.0*clamped(val, 0.0, 1.0);
+  int id = (int)v;
+  double blend = v - (double)id;
+  return hue_cycle[id]*(1.0-blend) + hue_cycle[id+1]*blend;
+}
+
 inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<RGBA> &gradient, double min_value,
                                  double max_value, bool replace_alpha)
 {
   gradient.resize(values.size());
-  Eigen::Vector3d hue_cycle[6] = {Eigen::Vector3d(1.0, 0.0, 0.5), Eigen::Vector3d(1.0, 0.5, 0.0), 
-                                  Eigen::Vector3d(0.5, 1.0, 0.0), Eigen::Vector3d(0.0, 1.0, 0.5), 
-                                  Eigen::Vector3d(0.0, 0.5, 1.0), Eigen::Vector3d(0.5, 0.0, 1.0)};
   for (size_t i = 0; i < values.size(); i++)
   {
-    double v = 0.5 + 4.0*clamped((values[i] - min_value)/(max_value - min_value), 0.0, 1.0);
-    int id = (int)v;
-    double blend = v - (double)id;
-    Eigen::Vector3d col = hue_cycle[id]*(1.0-blend) + hue_cycle[id+1]*blend;
+    const Eigen::Vector3d col = redGreenBlueGradient((values[i] - min_value)/(max_value - min_value));
     gradient[i].red = uint8_t(255.0 * col[0]);
     gradient[i].green = uint8_t(255.0 * col[1]);
     gradient[i].blue = uint8_t(255.0 * col[2]);
@@ -207,20 +207,25 @@ inline void redGreenBlueGradient(const std::vector<double> &values, std::vector<
   }
 }
 
+inline Eigen::Vector3d redGreenBlueSpectrum(double value)
+{
+  const Eigen::Vector3d rgb_cycle[6] = {Eigen::Vector3d(1.0, 0.5, 0.0), Eigen::Vector3d(0.5, 1.0, 0.0), 
+                                        Eigen::Vector3d(0.0, 1.0, 0.5), Eigen::Vector3d(0.0, 0.5, 1.0),
+                                        Eigen::Vector3d(0.5, 0.0, 1.0), Eigen::Vector3d(1.0, 0.0, 0.1)};
+
+  double v = 6.0 * (value - std::floor(value));
+  int id = (int)v;
+  double blend = v - (double)id;
+  return rgb_cycle[id]*(1.0-blend) + rgb_cycle[(id+1)%6]*blend;
+}
+
 inline void redGreenBlueSpectrum(const std::vector<double> &values, std::vector<RGBA> &gradient, double wavelength,
                                  bool replace_alpha)
 {
   gradient.resize(values.size());
-  Eigen::Vector3d cycle[6] = {Eigen::Vector3d(1.0, 0.5, 0.0), Eigen::Vector3d(0.5, 1.0, 0.0), 
-                              Eigen::Vector3d(0.0, 1.0, 0.5), Eigen::Vector3d(0.0, 0.5, 1.0),
-                              Eigen::Vector3d(0.5, 0.0, 1.0), Eigen::Vector3d(1.0, 0.0, 0.1)};
   for (size_t i = 0; i < values.size(); i++)
   {
-    double temp = values[i]/wavelength;
-    double v = 6.0 * (temp - std::floor(temp));
-    int id = (int)v;
-    double blend = v - (double)id;
-    Eigen::Vector3d col = cycle[id]*(1.0-blend) + cycle[(id+1)%6]*blend;
+    const Eigen::Vector3d col = redGreenBlueSpectrum(values[i]/wavelength);
     gradient[i].red = uint8_t(255.0 * col[0]);
     gradient[i].green = uint8_t(255.0 * col[1]);
     gradient[i].blue = uint8_t(255.0 * col[2]);

@@ -20,7 +20,8 @@ void usage(int exit_code = 1)
   std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
   std::cout << "                   normal        - colour by normal" << std::endl;
   std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
-  std::cout << "                   1,1,1         - just (r,g,b)" << std::endl;
+  std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
+  std::cout << "                   1,1,1         - set r,g,b" << std::endl;
   std::cout << "                         --unlit - flat shaded" << std::endl;
   exit(exit_code);
 }
@@ -32,9 +33,12 @@ int main(int argc, char *argv[])
   ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha"});
   ray::OptionalFlagArgument unlit("unlit", 'u');
   ray::Vector3dArgument col(0.0, 1.0);
+  ray::DoubleArgument alpha(0.0, 1.0);
+  ray::TextArgument alpha_text("alpha");
   bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&unlit});
   bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col}, {&unlit});
-  if (!standard_format && !flat_colour)
+  bool flat_alpha = ray::parseCommandLine(argc, argv, {&cloud_file, &alpha_text, &alpha}, {&unlit});
+  if (!standard_format && !flat_colour && !flat_alpha)
     usage();
   
   bool shading = !unlit.isSet();
@@ -85,6 +89,13 @@ int main(int argc, char *argv[])
       colour.red = (uint8_t)(255.0 * col.value()[0]);
       colour.green = (uint8_t)(255.0 * col.value()[1]);
       colour.blue = (uint8_t)(255.0 * col.value()[2]);
+    }
+  }
+  else if (flat_alpha)
+  {
+    for (auto &colour : cloud.colours)
+    {
+      colour.alpha = (uint8_t)(255.0 * alpha.value());
     }
   }
   else if (type == "time")

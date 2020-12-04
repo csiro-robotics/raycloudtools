@@ -39,7 +39,7 @@ namespace raytest
   /// detects differing clouds, and always equal clouds, given a tolerance @c eps.
   void compareMoments(const Eigen::ArrayXd &m1, const std::vector<double> &m2, double eps = 0.1)
   {
-    for (int i = 0; i<m1.rows(); i++)
+    for (size_t i = 0; i<m2.size(); i++)
     {
       EXPECT_GT(m1[i], m2[i]-eps);
       EXPECT_LT(m1[i], m2[i]+eps);
@@ -77,7 +77,7 @@ namespace raytest
     EXPECT_EQ(command("./raycombine min room.ply room2.ply 1 rays"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("room_combined.ply"));
-    compareMoments(cloud.getMoments(), {-0.0860881, -0.0688598, 0.562484, 0.0215294, 0.0272777, 0.499894, -0.345469, -0.191215, 0.625452, 3.00221, 2.51452, 1.64267, 17.2104, 10.1652, 0.313403, 0.766693, 0.41599, 0.978143, 0.3197, 0.22442, 0.388217, 0.146217});
+    compareMoments(cloud.getMoments(), {-0.0867714, -0.0679941, 0.546619, 0.0215326, 0.0272819, 0.499969, -0.305657, -0.186353, 0.582642, 2.95777, 2.47531, 1.63323, 17.4967, 10.1789, 0.305355, 0.763356, 0.427376, 0.979005, 0.318409, 0.225661, 0.389366, 0.143369});
   }
   
   /// Creates a building with random seed 1, and compares to the expected results
@@ -96,7 +96,9 @@ namespace raytest
     EXPECT_EQ(command("raydecimate forest.ply 10 cm"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("forest_decimated.ply"));
-    compareMoments(cloud.getMoments(), {0.0999941, -0.0399831, 1.53571, 3.19998, 3.00533, 1.43086, 0.124131, -0.0325141, 1.46963, 3.09061, 2.97752, 1.49306, 38.1685, 19.0383, 0.631202, 0.458633, 0.325229, 1, 0.382899, 0.333503, 0.380153, 0});
+    // Below does not compare the time values (or the colour values, which are based on time here)
+    // because spatial decimation does not constraint which time it picks points from.
+    compareMoments(cloud.getMoments(), {0.0999941, -0.0399831, 1.53571, 3.19998, 3.00533, 1.43086, 0.124131, -0.0325141, 1.46963, 3.09061, 2.97752, 1.49306});
   }
 
   /// Creates a room, and calls denoise using a fixed distance threshols, and compares to expected result

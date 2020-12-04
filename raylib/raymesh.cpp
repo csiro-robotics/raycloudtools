@@ -3,11 +3,10 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raycloud.h"
+#include "raymesh.h"
 
 #include "raylaz.h"
 #include "rayply.h"
-#include "raytrajectory.h"
 #include "rayunused.h"
 
 #include <set>
