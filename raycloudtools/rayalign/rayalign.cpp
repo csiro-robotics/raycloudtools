@@ -43,9 +43,11 @@ int main(int argc, char *argv[])
   if (!cross_align && !self_align)
     usage();
 
+  std::string aligned_name = cloud_a.nameStub() + "_aligned.ply";
   if (self_align)
   {
-    ray::alignCloudToAxes(cloud_a.name());
+    if (!ray::alignCloudToAxes(cloud_a.name(), aligned_name))
+      usage();
   }
   else // cross_align
   {
@@ -69,8 +71,8 @@ int main(int argc, char *argv[])
 
     ray::FineAlignment fineAlign(clouds, non_rigid, verbose);
     fineAlign.align();
+    clouds[0].save(aligned_name);
   }
 
-  clouds[0].save(cloud_a.nameStub() + "_aligned.ply");
   return 0;
 }
