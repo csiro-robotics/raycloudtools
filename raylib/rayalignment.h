@@ -25,7 +25,14 @@ namespace ray
 /// NOTE @c clouds is a pair of clouds, it should point to an array with at least 2 elements
 void RAYLIB_EXPORT alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose = false);
 
-
+/// Align cloud to its principle axes using 3D translation and 2D rotation (yaw about Z). 
+/// The highest density orthogonal planes define the new coordinate frame.
+/// The cloud is therefore translated to the intersection of these planes and 'yawed' such that the strongest 
+/// vertical plane represents the y axis. 
+/// Ambiguity with respect to 180 degrees is resolved as follows:
+/// if the centroid y component is farther from the origin than its x component, then make centroid y positive
+/// otherwise make centroid x positive.
+/// The purpose of this is to make the chosen alignment as robust as possible to variation, or rescans.
 void RAYLIB_EXPORT alignCloudToAxes(Cloud &cloud);
 }  // namespace ray
 
