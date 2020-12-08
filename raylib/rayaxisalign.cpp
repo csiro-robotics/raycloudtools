@@ -49,21 +49,29 @@ bool transformCloud(const std::string &in_file, const std::string &out_file, con
   return true;
 }
 
-Pose estimatePose(Eigen::Vector3d position_accumulator[][amp_res], const Cloud::Info &info)
+// just a quadratic maximum -b/2a for heights y0,y1,y2
+double peak(double y0, double y1, double y2)
+{
+  return 0.5 + 0.5 * (y0 - y2) / (y0 + y2 - 2.0 * y1);  
+}
+
+Pose estimatePose(const Eigen::Array<Eigen::Vector3d, Eigen::Dynamic, Eigen::Dynamic> &position_accumulator, const Cloud::Info &info)
 {
   const Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
   const Eigen::Vector3d &max_bound = info.rays_bound.max_bound_;
-  const Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
-  const double radius = 0.5 * std::sqrt(2.0) * std::max(max_bound[0]-min_bound[0], max_bound[1]-min_bound[1]);
-  const double eps = 0.0001;
-  double weights[ang_res][amp_res];
-  std::memset(weights, 0, sizeof(double)*ang_res*amp_res);
+  const Eigen::Vector3d mid_bound = (min_bound + max_bound)/2.0;
+
+  // radius used for maximum amplitude (distance from mid_bound)
+  const double radius = 0.5 * std::sqrt(ray::sqr(max_bound[0]-min_bound[0]) + ray::sqr(max_bound[1]-min_bound[1]));
+  const double eps = 0.0001; // avoids the most distant point 
+  Eigen::ArrayXXd weights(ang_res, amp_res);
+  weights.fill(0);
   // process the data into a Euclidean transform called pose:
   for (int ii = 0; ii<amp_res; ii++)
   {
     for (int jj = 0; jj<amp_res; jj++)
     {
-      Eigen::Vector3d &accumulator = position_accumulator[ii][jj];
+      const Eigen::Vector3d &accumulator = position_accumulator(ii, jj);
       double w = accumulator[2];
       if (w == 0.0)
         continue;
@@ -80,8 +88,8 @@ Pose estimatePose(Eigen::Vector3d position_accumulator[][amp_res], const Cloud::
         int j = (int)x;
         double blend = x - (double)j;
         
-        weights[i][j] += (1.0-blend)*w;
-        weights[i][j+1] += blend*w;
+        weights(i, j) += (1.0-blend)*w;
+        weights(i, j+1) += blend*w;
       }
     } 
   }
@@ -92,28 +100,22 @@ Pose estimatePose(Eigen::Vector3d position_accumulator[][amp_res], const Cloud::
   {
     for (int j = 0; j<amp_res; j++)
     {
-      if (weights[i][j] > max_weight)
+      if (weights(i, j) > max_weight)
       {
         max_i = i;
         max_j = j;
-        max_weight = weights[i][j];
+        max_weight = weights(i, j);
       }
     }
   }
   std::cout << "max_i: " << max_i << ", max_j: " << max_j << std::endl;
 
   // now interpolate the location
-  double x0 = weights[(max_i + ang_res-1)%ang_res][max_j];
-  double x1 = weights[max_i][max_j];
-  double x2 = weights[(max_i+1)%ang_res][max_j];
-  double angle = (double)max_i+0.5 + 0.5 * (x0 - x2) / (x0 + x2 - 2.0 * x1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double angle = (double)max_i + peak(weights((max_i + ang_res-1)%ang_res, max_j), weights(max_i, max_j), weights((max_i+1)%ang_res, max_j));
   angle *= kPi / (double)ang_res;
   std::cout << "principle angle: " << angle << ", direction vec: " << std::cos(angle) << ", " << std::sin(angle) << std::endl;
 
-  double y0 = weights[max_i][std::max(0, max_j-1)];
-  double y1 = weights[max_i][max_j];
-  double y2 = weights[max_i][std::min(max_j+1, amp_res-1)];
-  double amp = (double)max_j+0.5 + 0.5 * (y0 - y2) / (y0 + y2 - 2.0 * y1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double amp = (double)max_j + peak(weights(max_i, std::max(0, max_j-1)), weights(max_i, max_j), weights(max_i, std::min(max_j+1, amp_res-1)));
   amp = radius * ((2.0 * amp/(double)amp_res) - 1.0);
   std::cout << "distance along direction: " << amp << ", radius: " << radius << "maxj/ampres: " << max_j/(double)amp_res << std::endl;
 
@@ -125,17 +127,14 @@ Pose estimatePose(Eigen::Vector3d position_accumulator[][amp_res], const Cloud::
   int max_orth_j = 0;
   for (int j = 0; j<amp_res; j++)
   {
-    if (weights[orth_i][j] > max_w)
+    if (weights(orth_i, j) > max_w)
     {
-      max_w = weights[orth_i][j];
+      max_w = weights(orth_i, j);
       max_orth_j = j;
     }
   }
   // now interpolate this orthogonal direction:
-  double z0 = weights[orth_i][std::max(0, max_orth_j-1)];
-  double z1 = weights[orth_i][max_orth_j];
-  double z2 = weights[orth_i][std::min(max_orth_j+1, amp_res-1)];
-  double amp2 = (double)max_orth_j+0.5 + 0.5 * (z0 - z2) / (z0 + z2 - 2.0 * z1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double amp2 = (double)max_orth_j + peak(weights(orth_i, std::max(0, max_orth_j-1)), weights(orth_i, max_orth_j), weights(orth_i, std::min(max_orth_j+1, amp_res-1)));
   amp2 = radius * ((2.0 * amp2/(double)amp_res) - 1.0);
   std::cout << "orthi: " << orth_i << ", max_i: " << max_i << std::endl;
   if (orth_i < max_i) // the %res earlier puts it in antiphase (since we only have 180 degrees per weights map)
@@ -145,10 +144,9 @@ Pose estimatePose(Eigen::Vector3d position_accumulator[][amp_res], const Cloud::
   std::cout << "line2_vector: " << line2_vector.transpose() << std::endl;
   std::cout << "amp: " << amp << ", amp2: " << amp2 << std::endl;
 
-  // great, we now have the angle and cross-over position. Next is to flip it so the largest side is positive
   Eigen::Vector2d centre = line_vector + line2_vector;
   Eigen::Quaterniond id(1,0,0,0);
-  Pose to_mid(-mid - Eigen::Vector3d(centre[0], centre[1], 0), id);
+  Pose to_mid(-mid_bound - Eigen::Vector3d(centre[0], centre[1], 0), id);
   Pose rot(Eigen::Vector3d::Zero(), Eigen::Quaterniond(Eigen::AngleAxisd(-angle, Eigen::Vector3d(0,0,1))));
   Pose pose = rot * to_mid;
 
@@ -167,7 +165,7 @@ Pose estimatePose(Eigen::Vector3d position_accumulator[][amp_res], const Cloud::
   return pose;
 }
 
-// A radon transform is used as follovertical_weights:
+// A radon transform is used as follows:
 // 1. we quantise the cloud into a 2D grid of centroids, weighted by number of end points within the cell
 // 2. for each cell, render a sine wave to weights image
 // 3. find the maximum weight in the image (the new y axis) and interpolate the angle and position using its neighbours
@@ -183,14 +181,14 @@ bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_
     return false;
   const Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
   const Eigen::Vector3d &max_bound = info.rays_bound.max_bound_;
-  const Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
+  const Eigen::Vector3d mid_bound = (min_bound + max_bound)/2.0;
 
   // fill in the arrays
   double eps = 0.0001;
 
   // first convert the cloud into a weighted centroid field. I'm using element [2] for the weight.
-  Eigen::Vector3d position_accumulator[amp_res][amp_res];
-  std::memset(position_accumulator, 0, sizeof(Eigen::Vector3d)*amp_res*amp_res);
+  Eigen::Array<Eigen::Vector3d, Eigen::Dynamic, Eigen::Dynamic> position_accumulator(amp_res, amp_res);
+  position_accumulator.fill(Eigen::Vector3d::Zero());
   double step_x = ((double)amp_res-1.0-eps) / (max_bound[0]-min_bound[0]);
   double step_y = ((double)amp_res-1.0-eps) / (max_bound[1]-min_bound[1]);
   // and set up the vertical arrays too
@@ -211,9 +209,9 @@ bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_
       index[0] *= step_x;
       index[1] *= step_y;
       index[2] *= step_z;
-      Eigen::Vector3d pos = ends[e] - mid;
+      Eigen::Vector3d pos = ends[e] - mid_bound;
       pos[2] = 1.0;
-      position_accumulator[(int)index[0]][(int)index[1]] += pos;
+      position_accumulator((int)index[0], (int)index[1]) += pos;
 
       int k = (int)index[2];
       double blend = index[2] - (double)k;
@@ -237,18 +235,14 @@ bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_
       max_k = k;
     }
   }
-  double w0 = vertical_weights[std::max(0, max_k-1)];
-  double w1 = vertical_weights[max_k];
-  double w2 = vertical_weights[std::min(max_k+1, amp_res-1)];
-  double k2 = (double)max_k+0.5 + 0.5 * (w0 - w2) / (w0 + w2 - 2.0 * w1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
+  double k2 = (double)max_k + peak(vertical_weights[std::max(0, max_k-1)], vertical_weights[max_k], vertical_weights[std::min(max_k+1, amp_res-1)]);
   double height = (k2 / step_z) + min_bound[2];
   pose.position[2] = -height;
 
   std::cout << "pose: " << pose.position.transpose() << ", q: " << pose.rotation.w() << ", " << pose.rotation.x() << ", " << pose.rotation.y() << ", " << pose.rotation.z() << std::endl;
 
-
   // finally, transform the cloud:
-  return (transformCloud(cloud_name, aligned_file, pose));
+  return transformCloud(cloud_name, aligned_file, pose);
 }
 
 } // namespace ray
