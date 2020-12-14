@@ -5,6 +5,8 @@ A set of command line tools for processing ray clouds, together with an associat
 Ray clouds are point clouds with the sensor origin stored per point (currently encoded in the 'normal' field of .ply files).
 Ray clouds represent free space as well as surfaces. This allows processing that cannot be done on point cloud data alone. 
 
+This is an open-source research library, a place to release new techniques in ray cloud analysis and manipulation. So if you would like to contribute with a new or improved method, do suggest it in our discussions page: https://github.com/csiro-robotics/raycloudtools/discussions.
+
 ## Build:
 ```console
 mkdir build
