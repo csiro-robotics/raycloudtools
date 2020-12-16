@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
   std::string in_file = cloud_file.name();
   std::string out_file = cloud_file.nameStub() + "_coloured.ply";
 
-  if (type != "shape" && type != "normal") // chunk loading possible
+  if (type != "shape" && type != "normal") // chunk loading possible for simple cases
   {
     ray::CloudWriter writer;
     if (!writer.begin(out_file))
@@ -117,6 +117,7 @@ int main(int argc, char *argv[])
     if (!shading)
       return 0;
     in_file = out_file; // for shading we load again, from the saved output file
+    std::cout << "reopening file for shading..." << std::endl;
   }
 
   // The remainder cannot currently be done with chunk loading
