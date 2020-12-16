@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/raycloudwriter.h"
 #include "raylib/rayparse.h"
 
 #include <stdio.h>
@@ -22,8 +23,17 @@ void usage(int exit_code = 1)
   std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
   std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
   std::cout << "                   1,1,1         - set r,g,b" << std::endl;
-  std::cout << "                         --unlit - flat shaded" << std::endl;
+  std::cout << "                         --lit   - shaded (slow on large datasets)" << std::endl;
   exit(exit_code);
+}
+
+// shortcut, to place the red green blue spectrum into the RGBA structure
+void spectrumRGB(double value, ray::RGBA &colour)
+{
+  const Eigen::Vector3d col = ray::redGreenBlueSpectrum(value);
+  colour.red = static_cast<uint8_t>(255.0 * col[0]);
+  colour.green = static_cast<uint8_t>(255.0 * col[1]);
+  colour.blue = static_cast<uint8_t>(255.0 * col[2]);  
 }
 
 // Decimates the ray cloud, spatially or in time
@@ -31,21 +41,88 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha"});
-  ray::OptionalFlagArgument unlit("unlit", 'u');
+  ray::OptionalFlagArgument lit("lit", 'l');
   ray::Vector3dArgument col(0.0, 1.0);
   ray::DoubleArgument alpha(0.0, 1.0);
   ray::TextArgument alpha_text("alpha");
-  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&unlit});
-  bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col}, {&unlit});
-  bool flat_alpha = ray::parseCommandLine(argc, argv, {&cloud_file, &alpha_text, &alpha}, {&unlit});
+  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&lit});
+  bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col}, {&lit});
+  bool flat_alpha = ray::parseCommandLine(argc, argv, {&cloud_file, &alpha_text, &alpha}, {&lit});
   if (!standard_format && !flat_colour && !flat_alpha)
     usage();
   
-  bool shading = !unlit.isSet();
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
-    return 0;
+  bool shading = lit.isSet();
   std::string type = colour_type.selectedKey();
+  std::string in_file = cloud_file.name();
+  std::string out_file = cloud_file.nameStub() + "_coloured.ply";
+
+  if (type != "shape" && type != "normal") // chunk loading possible
+  {
+    ray::CloudWriter writer;
+    if (!writer.begin(out_file))
+      usage();
+
+    auto colour = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+    {
+      if (flat_colour)
+      {
+        for (auto &colour : colours)
+        {
+          colour.red = (uint8_t)(255.0 * col.value()[0]);
+          colour.green = (uint8_t)(255.0 * col.value()[1]);
+          colour.blue = (uint8_t)(255.0 * col.value()[2]);
+        }
+      }
+      else if (flat_alpha)
+      {
+        for (auto &colour : colours)
+        {
+          colour.alpha = (uint8_t)(255.0 * alpha.value());
+        }
+      }
+      else if (type == "time")
+      {
+        const double colour_repeat_period = 60.0; // repeating per minute gives a quick way to assess the scan length
+        for (size_t i = 0; i<ends.size(); i++)
+        {
+          spectrumRGB(times[i]/colour_repeat_period, colours[i]);
+        }
+      }
+      else if (type == "height")
+      {
+        const double wavelength = 10.0;
+        for (size_t i = 0; i<ends.size(); i++)
+        {
+          spectrumRGB(ends[i][2]/wavelength, colours[i]);
+        }
+      }
+      else if (type == "alpha")
+      {
+        for (auto &colour: colours)
+        {
+          const Eigen::Vector3d col = ray::redGreenBlueGradient(colour.alpha/255.0);
+          colour.red = uint8_t(255.0 * col[0]);
+          colour.green = uint8_t(255.0 * col[1]);
+          colour.blue = uint8_t(255.0 * col[2]);
+        }
+      }
+      else
+        usage();
+      writer.writeChunk(starts, ends, times, colours);
+    };
+
+    if (!ray::Cloud::read(cloud_file.name(), colour))
+      usage();
+    writer.end();
+    if (!shading)
+      return 0;
+    in_file = out_file; // for shading we load again, from the saved output file
+  }
+
+  // The remainder cannot currently be done with chunk loading
+  ray::Cloud cloud;
+  if (!cloud.load(in_file))
+    usage();
 
   // what I need is the normal, curvature, eigenvalues, per point.
   struct Data
@@ -81,34 +158,7 @@ int main(int argc, char *argv[])
 
   if (calc_surfels)
     cloud.getSurfels(search_size, cents, norms, dims, mats, inds);
-
-  if (flat_colour)
-  {
-    for (auto &colour : cloud.colours)
-    {
-      colour.red = (uint8_t)(255.0 * col.value()[0]);
-      colour.green = (uint8_t)(255.0 * col.value()[1]);
-      colour.blue = (uint8_t)(255.0 * col.value()[2]);
-    }
-  }
-  else if (flat_alpha)
-  {
-    for (auto &colour : cloud.colours)
-    {
-      colour.alpha = (uint8_t)(255.0 * alpha.value());
-    }
-  }
-  else if (type == "time")
-  {
-    colourByTime(cloud.times, cloud.colours, false);
-  }
-  else if (type == "height")
-  {
-    std::vector<double> heights(cloud.ends.size());
-    for (int i = 0; i < (int)cloud.ends.size(); i++) heights[i] = cloud.ends[i][2];
-    redGreenBlueSpectrum(heights, cloud.colours, 10.0, false);
-  }
-  else if (type == "shape")
+  if (type == "shape")
   {
     for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
@@ -133,16 +183,6 @@ int main(int argc, char *argv[])
       cloud.colours[i].blue = (uint8_t)(255.0 * (0.5 + 0.5 * normals[i][2]));
     }
   }
-  else if (type == "alpha")
-  {
-    std::vector<double> alphas(cloud.colours.size());
-    for (int i = 0; i < (int)cloud.colours.size(); i++)
-      alphas[i] = double(cloud.colours[i].alpha);
-    const bool replace_alpha = false;
-    redGreenBlueGradient(alphas, cloud.colours, 0.0, 255.0, replace_alpha);
-  }
-  else
-    usage();
 
   if (shading)
   {
@@ -186,7 +226,7 @@ int main(int argc, char *argv[])
       cloud.colours[i].blue = (uint8_t)((double)cloud.colours[i].blue * s);
     }
   }
+  cloud.save(out_file);
 
-  cloud.save(cloud_file.nameStub() + "_coloured.ply");
   return 0;
 }
