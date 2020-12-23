@@ -192,8 +192,8 @@ void splitGrid(const std::string &file_name, const std::string &cloud_name, cons
   Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
   Eigen::Vector3d &max_bound = info.rays_bound.max_bound_;
   
-  Eigen::Vector3d minID(std::floor(min_bound[0]/cell_width[0]), std::floor(min_bound[1]/cell_width[1]), std::floor(min_bound[2]/cell_width[2]));
-  Eigen::Vector3d maxID(std::ceil(max_bound[0]/cell_width[0]), std::ceil(max_bound[1]/cell_width[1]), std::ceil(max_bound[2]/cell_width[2]));
+  Eigen::Vector3d minID(std::floor(0.5 + min_bound[0]/cell_width[0]), std::floor(0.5 + min_bound[1]/cell_width[1]), std::floor(0.5 + min_bound[2]/cell_width[2]));
+  Eigen::Vector3d maxID(std::ceil(0.5 + max_bound[0]/cell_width[0]), std::ceil(0.5 + max_bound[1]/cell_width[1]), std::ceil(0.5 + max_bound[2]/cell_width[2]));
   Eigen::Vector3i minIndex = minID.cast<int>();
   Eigen::Vector3i maxIndex = maxID.cast<int>();
   Eigen::Vector3i dimensions = maxIndex - minIndex;
@@ -216,9 +216,12 @@ void splitGrid(const std::string &file_name, const std::string &cloud_name, cons
     {
       // how does the ray cross the different cells?
       // I guess I need to walk the cells (this again!!!)
-      Eigen::Vector3d pos = ends[i].cwiseQuotient(cell_width);
-      Eigen::Vector3i minI = Eigen::Vector3d(std::floor(pos[0]), std::floor(pos[1]), std::floor(pos[2])).cast<int>();
-      Eigen::Vector3i maxI = Eigen::Vector3d(std::ceil(pos[0]), std::ceil(pos[1]), std::ceil(pos[2])).cast<int>();
+      Eigen::Vector3d from = Eigen::Vector3d(0.5, 0.5, 0.5) + starts[i].cwiseQuotient(cell_width);
+      Eigen::Vector3d to = Eigen::Vector3d(0.5, 0.5, 0.5) + ends[i].cwiseQuotient(cell_width);
+      Eigen::Vector3d pos0 = ray::minVector(from, to);
+      Eigen::Vector3d pos1 = ray::maxVector(from, to);
+      Eigen::Vector3i minI = Eigen::Vector3d(std::floor(pos0[0]), std::floor(pos0[1]), std::floor(pos0[2])).cast<int>();
+      Eigen::Vector3i maxI = Eigen::Vector3d(std::ceil(pos1[0]), std::ceil(pos1[1]), std::ceil(pos1[2])).cast<int>();
       for (int x = minI[0]; x<maxI[0]; x++)
       {
         for (int y = minI[1]; y<maxI[1]; y++)
@@ -232,7 +235,7 @@ void splitGrid(const std::string &file_name, const std::string &cloud_name, cons
               usage();
             }
             // do actual clipping here.... 
-            Eigen::Vector3d box_min((double)x*cell_width[0], (double)y*cell_width[1], (double)z*cell_width[2]);
+            Eigen::Vector3d box_min(((double)x-0.5)*cell_width[0], ((double)y-0.5)*cell_width[1], ((double)z-0.5)*cell_width[2]);
             ray::Cuboid cuboid(box_min, box_min + cell_width);
             Eigen::Vector3d start = starts[i];
             Eigen::Vector3d end = ends[i];
