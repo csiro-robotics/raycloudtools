@@ -64,7 +64,6 @@ int main(int argc, char *argv[])
 
   size_t num_bounded;
   std::string name_end = point_cloud.substr(point_cloud.size() - 4);
-  ray::RayPlyBuffer buffer;
   std::ofstream ofs;
   if (!ray::writePlyChunkStart(save_file + ".ply", ofs))
     usage();
@@ -76,7 +75,7 @@ int main(int argc, char *argv[])
       for (auto &c: colours)
         c.alpha = 255;
     }
-    ray::writePlyChunk(ofs, buffer, starts, ends, times, colours);
+    ray::writePlyChunk(ofs, starts, ends, times, colours);
   };
   if (name_end == ".ply")
   {

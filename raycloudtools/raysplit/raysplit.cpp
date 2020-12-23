@@ -25,7 +25,6 @@ void usage(int exit_code = 1)
   std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << std::endl;
   std::cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
-  std::cout << "                  speed 1.0              - splits out rays when sensor moving above the given speed" << std::endl;
   std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
   std::cout << "                  box cx,cy,cz, rx,ry,rz - splits around an axis-aligned box at cx,cy,cz of given radii" << std::endl;
   std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz" << std::endl;
@@ -38,9 +37,9 @@ int main(int argc, char *argv[])
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
   ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_centre, box_radius(0.0001, max_val), cell_width(1.0, max_val);
-  ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), speed(0.0,1000.0);
-  ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "raydir", "range", "speed"}, 
-                             {&plane,  &time,  &colour,  &alpha,  &raydir,  &range,  &speed});
+  ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0);
+  ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "raydir", "range"}, 
+                             {&plane,  &time,  &colour,  &alpha,  &raydir,  &range});
   ray::FileArgument mesh_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
   ray::TextArgument box_text("box"), grid_text("grid");
@@ -89,8 +88,8 @@ int main(int argc, char *argv[])
     };
     if (!ray::Cloud::read(cloud_file.name(), time_bounds))
       usage();
-    std::cout << "minimum time: " << min_time << " maximum time: " << max_time << ", difference: " 
-              << max_time - min_time << std::endl;
+    std::cout << "Splitting cloud at " << (max_time - min_time) * time.value()/100.0 << 
+      " seconds into the " << max_time - min_time << " time period of this ray cloud." << std::endl;
 
     // now split based on this
     const double time_thresh = min_time + (max_time - min_time) * time.value()/100.0;
@@ -153,16 +152,6 @@ int main(int argc, char *argv[])
     {
       res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
         return (cloud.starts[i] - cloud.ends[i]).norm() > range.value(); 
-      });
-    }
-    else if (parameter == "speed")
-    {
-      res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
-        if (i == 0)
-        {
-          return false;
-        }
-        return (cloud.starts[i] - cloud.starts[i - 1]).norm() / (cloud.times[i] - cloud.times[i - 1]) > speed.value();
       });
     }
   }

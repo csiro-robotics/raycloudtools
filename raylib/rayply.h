@@ -12,10 +12,6 @@
 
 namespace ray
 {
-using PointPlyEntry = Eigen::Matrix<float, 6, 1>;
-using RayPlyEntry = Eigen::Matrix<float, 9, 1>;    // structure of raycloud cloud rays, written to ply file
-using RayPlyBuffer = std::vector<RayPlyEntry>;     // buffer for storing a list of rays to be written
-
 /// read in a .ply file into the fields given by reference
 /// Note that @c max_intensity is only used when reading in a point cloud. Intensities are already stored in the
 /// colour alpha channel in ray clouds.
@@ -46,7 +42,7 @@ bool RAYLIB_EXPORT writePlyRayCloud(const std::string &file_name, const std::vec
 
 /// Chunked version of writePly for ray clouds
 bool RAYLIB_EXPORT writePlyChunkStart(const std::string &file_name, std::ofstream &out);
-bool RAYLIB_EXPORT writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
+bool RAYLIB_EXPORT writePlyChunk(std::ofstream &out, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours);
 unsigned long RAYLIB_EXPORT writePlyChunkEnd(std::ofstream &out);
 }  // namespace ray
