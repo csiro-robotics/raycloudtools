@@ -24,9 +24,7 @@ void usage(int exit_code = 1)
   std::cout << "                  colour 0.5,0,0         - splits by colour, around half red component" << std::endl;
   std::cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity" << std::endl;
   std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << std::endl;
-  std::cout << "                  startpos 1,2,3         - splits based on start position, around plane 1,2,3" << std::endl;
-  std::cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays"
-       << std::endl;
+  std::cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  speed 1.0              - splits out rays when sensor moving above the given speed" << std::endl;
   std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
@@ -76,6 +74,60 @@ void split(const std::string &file_name, const std::string &in_name,
   out_writer.end();
 }
 
+/// Special case for splitting a plane. 
+void splitPlane(const std::string &file_name, const std::string &in_name, const std::string &out_name, const Eigen::Vector3d &plane)
+{
+  ray::CloudWriter inside_writer, outside_writer;
+  if (!inside_writer.begin(in_name))
+    usage();
+  if (!outside_writer.begin(out_name))
+    usage();
+  ray::Cloud in_chunk, out_chunk;
+
+  /// This function assumes (correctly) that the passed in arguments are at end-of-life from readPly. 
+  /// So it is valid to use std::move on them.
+  auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    // I move these into the cloud buffer, so that they can be indexed easily in fptr (by index). 
+    Eigen::Vector3d p = plane / plane.dot(plane);
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      double d1 = starts[i].dot(p) - 1.0;
+      double d2 = ends[i].dot(p) - 1.0;
+      if (d1*d2 > 0.0) // start and end are on the same side of the plane, so don't split...
+      {
+        ray::Cloud &chunk = d1 > 0.0 ? out_chunk : in_chunk;
+        chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+      }
+      else // split the ray...
+      {
+        ray::RGBA col = colours[i];
+        col.alpha = 0;
+        Eigen::Vector3d mid = starts[i] + (ends[i] - starts[i]) * d1/(d1-d2);
+        if (d1 > 0.0)
+        {
+          out_chunk.addRay(starts[i], mid, times[i], col);
+          in_chunk.addRay(mid, ends[i], times[i], colours[i]);
+        }
+        else
+        {
+          in_chunk.addRay(starts[i], mid, times[i], col);
+          out_chunk.addRay(mid, ends[i], times[i], colours[i]);
+        }
+      }
+    }   
+    inside_writer.writeChunk(in_chunk);
+    outside_writer.writeChunk(out_chunk);
+    in_chunk.clear();
+    out_chunk.clear();
+  };
+  if (!ray::readPly(file_name, true, per_chunk, 0))
+    usage(); 
+
+  inside_writer.end();
+  outside_writer.end();
+}
+
 /// Special case for splitting a box. 
 void splitBox(const std::string &file_name, const std::string &in_name, const std::string &out_name, 
            const Eigen::Vector3d &centre, const Eigen::Vector3d &extents)
@@ -92,10 +144,9 @@ void splitBox(const std::string &file_name, const std::string &in_name, const st
   auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     // I move these into the cloud buffer, so that they can be indexed easily in fptr (by index). 
+    ray::Cuboid cuboid(centre - extents, centre + extents);
     for (size_t i = 0; i < ends.size(); i++)
     {
-      Eigen::Vector3d p = ends[i] - centre;
-      ray::Cuboid cuboid(-extents, extents);
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end = ends[i];
       if (cuboid.clipRay(start, end))
@@ -137,7 +188,7 @@ void splitBox(const std::string &file_name, const std::string &in_name, const st
 void splitGrid(const std::string &file_name, const std::string &cloud_name, const Eigen::Vector3d &cell_width)
 {
   ray::Cloud::CloudInfo info;
-  ray::Cloud::getInfo(cloud_name, info);
+  ray::Cloud::getInfo(cloud_name + ".ply", info);
   Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
   Eigen::Vector3d &max_bound = info.rays_bound.max_bound_;
   
@@ -145,9 +196,9 @@ void splitGrid(const std::string &file_name, const std::string &cloud_name, cons
   Eigen::Vector3d maxID(std::ceil(max_bound[0]/cell_width[0]), std::ceil(max_bound[1]/cell_width[1]), std::ceil(max_bound[2]/cell_width[2]));
   Eigen::Vector3i minIndex = minID.cast<int>();
   Eigen::Vector3i maxIndex = maxID.cast<int>();
-  Eigen::Vector3i dimensions = Eigen::Vector3i(1,1,1) + maxIndex - minIndex;
+  Eigen::Vector3i dimensions = maxIndex - minIndex;
   int length = dimensions[0] * dimensions[1] * dimensions[2];
-  if (length > 100000)
+  if (length > 1000000)
   {
     std::cout << "Error: grid is too many cells" << std::endl;
     usage();
@@ -165,29 +216,36 @@ void splitGrid(const std::string &file_name, const std::string &cloud_name, cons
     {
       // how does the ray cross the different cells?
       // I guess I need to walk the cells (this again!!!)
-      Eigen::Vector3d minI(std::floor(ends[i][0]/cell_width[0]), std::floor(ends[i][1]/cell_width[1]), std::floor(ends[i][2]/cell_width[2]));
-      Eigen::Vector3d maxI(std::ceil(ends[i][0]/cell_width[0]), std::ceil(ends[i][1]/cell_width[1]), std::ceil(ends[i][2]/cell_width[2]));
-      for (int x = minI[0]; x<=maxI[0]; x++)
+      Eigen::Vector3d pos = ends[i].cwiseQuotient(cell_width);
+      Eigen::Vector3i minI = Eigen::Vector3d(std::floor(pos[0]), std::floor(pos[1]), std::floor(pos[2])).cast<int>();
+      Eigen::Vector3i maxI = Eigen::Vector3d(std::ceil(pos[0]), std::ceil(pos[1]), std::ceil(pos[2])).cast<int>();
+      for (int x = minI[0]; x<maxI[0]; x++)
       {
-        for (int y = minI[1]; y<=maxI[1]; y++)
+        for (int y = minI[1]; y<maxI[1]; y++)
         {
-          for (int z = minI[2]; z<=maxI[2]; z++)
+          for (int z = minI[2]; z<maxI[2]; z++)
           {
             int index = (x-minIndex[0]) + dimensions[0]*(y-minIndex[1]) + dimensions[0]*dimensions[1]*(z-minIndex[2]);
-            if (cells[index].fileName() == "") // first time in this cell, so start writing to a new file
+            if (index < 0 || index >= length)
             {
-              std::stringstream name;
-              name << cloud_name << "_" << x << "_" << y << "_" << z << ".ply"; 
-              cells[index].begin(name.str());
-            } 
+              std::cout << "Error: bad index: " << index << std::endl;
+              usage();
+            }
             // do actual clipping here.... 
             Eigen::Vector3d box_min((double)x*cell_width[0], (double)y*cell_width[1], (double)z*cell_width[2]);
             ray::Cuboid cuboid(box_min, box_min + cell_width);
             Eigen::Vector3d start = starts[i];
             Eigen::Vector3d end = ends[i];
+
             if (cuboid.clipRay(start, end))
             {
               ray::RGBA col = colours[i];
+              if (cells[index].fileName() == "") // first time in this cell, so start writing to a new file
+              {
+                std::stringstream name;
+                name << cloud_name << "_" << x << "_" << y << "_" << z << ".ply"; 
+                cells[index].begin(name.str());
+              } 
               if (!cuboid.intersects(ends[i])) // end point is outside, so mark an unbounded ray
               {
                 col.alpha = 0;
@@ -202,6 +260,8 @@ void splitGrid(const std::string &file_name, const std::string &cloud_name, cons
     {
       if (chunks[i].ends.size() > 0)
       {
+        if (cells[i].fileName() == "")
+          std::cout << "bad" << std::endl;
         cells[i].writeChunk(chunks[i]);
         chunks[i].clear();
       }
@@ -219,24 +279,25 @@ void splitGrid(const std::string &file_name, const std::string &cloud_name, cons
   }  
 }
 
-
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  ray::Vector3dArgument plane, colour(0.0, 1.0), startpos, raydir(-1.0, 1.0), box_centre, box_radius(0.0001, 1e10);
+  double max_val = std::numeric_limits<double>::max();
+  ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_centre, box_radius(0.0001, max_val), cell_width(1.0, max_val);
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), speed(0.0,1000.0);
-  ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "startpos", "raydir", "range", "speed"}, 
-                             {&plane,  &time,  &colour,  &alpha,  &startpos,  &raydir,  &range,  &speed});
+  ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "raydir", "range", "speed"}, 
+                             {&plane,  &time,  &colour,  &alpha,  &raydir,  &range,  &speed});
   ray::FileArgument mesh_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
-  ray::TextArgument box_text("box");
+  ray::TextArgument box_text("box"), grid_text("grid");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
   bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
   bool box_format = ray::parseCommandLine(argc, argv, {&cloud_file, &box_text, &box_centre, &box_radius});
+  bool grid_format = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
-  if (!standard_format && !box_format && !mesh_split && !time_percent)
+  if (!standard_format && !box_format && !grid_format && !mesh_split && !time_percent)
   {
     usage();
   }
@@ -289,7 +350,14 @@ int main(int argc, char *argv[])
     // we need to include rays that pass through the box. The intensity of these rays needs to be set to 0
     // so that they are treated as unbounded.
     splitBox(rc_name, in_name, out_name, box_centre.value(), box_radius.value());
-  }  
+  }
+  else if (grid_format)
+  {
+    // Can't use cloud::split as sets are not mutually exclusive here.
+    // we need to include rays that pass through the box. The intensity of these rays needs to be set to 0
+    // so that they are treated as unbounded.
+    splitGrid(rc_name, cloud_file.nameStub(), cell_width.value());
+  }    
   else
   {
     const std::string &parameter = choice.selectedKey();
@@ -308,17 +376,7 @@ int main(int argc, char *argv[])
     }
     else if (parameter == "plane")
     {
-      Eigen::Vector3d vec = plane.value() / plane.value().squaredNorm();
-      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
-        return cloud.ends[i].dot(vec) > 1.0; 
-      });
-    }
-    else if (parameter == "startpos")
-    {
-      Eigen::Vector3d vec = startpos.value() / startpos.value().squaredNorm();
-      split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool { 
-        return cloud.starts[i].dot(vec) > 0.0; 
-      });
+      splitPlane(rc_name, in_name, out_name, plane.value());
     }
     else if (parameter == "raydir")
     {

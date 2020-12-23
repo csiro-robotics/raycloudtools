@@ -23,11 +23,14 @@ bool Cuboid::clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const
   Eigen::Vector3d dir = end - start;
   for (int ax = 0; ax < 3; ax++)
   {
-    double s = dir[ax] > 0.0 ? 1.0 : -1.0;
-    double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
-    double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
-    max_near_d = std::max(max_near_d, near_d);
-    min_far_d = std::min(min_far_d, far_d);
+    double s = dir[ax] > 0.0 ? 1.0 : -1.0; 
+    if (dir[ax] != 0.0)
+    {
+      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
+      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
+      max_near_d = std::max(max_near_d, near_d);
+      min_far_d = std::min(min_far_d, far_d);
+    }
   }
   if (min_far_d <= max_near_d)
     return false; // ray is fully outside cuboid
