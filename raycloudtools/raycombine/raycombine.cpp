@@ -47,6 +47,7 @@ void usage(int exit_code = 1)
                "basecloud) at any differences. "
             << std::endl;
   std::cout << "For merge conflicts it uses the specified merge type." << std::endl;
+  std::cout << "        --output raycloud_combined.ply               - optionally specify the output file name." << std::endl;
   exit(exit_code);
 }
 
@@ -57,13 +58,17 @@ int main(int argc, char *argv[])
   ray::FileArgumentList cloud_files(2);
   ray::DoubleArgument num_rays(0.0, 100.0);
   ray::TextArgument rays_text("rays"), all_text("all");
-  ray::FileArgument base_cloud, cloud_1, cloud_2;
+
+  // Below: false = allow unusual file extensions, for auto-merging, which occurs on non-standard temporary file names
+  ray::FileArgument base_cloud(false), cloud_1(false), cloud_2(false), output_file(false); 
+  ray::OptionalKeyValueArgument output("output", 'o', &output_file);
 
   // three-way merge option
-  bool standard_format = ray::parseCommandLine(argc, argv, {&merge_type, &cloud_files, &num_rays, &rays_text});
-  bool concatenate = ray::parseCommandLine(argc, argv, {&all_text, &cloud_files}); 
-  bool threeway = ray::parseCommandLine(argc, argv, {&base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text});
-  bool threeway_concatenate = ray::parseCommandLine(argc, argv, {&base_cloud, &all_text, &cloud_1, &cloud_2});
+  bool standard_format = ray::parseCommandLine(argc, argv, {&merge_type, &cloud_files, &num_rays, &rays_text}, {&output});
+  bool concatenate = ray::parseCommandLine(argc, argv, {&all_text, &cloud_files}, {&output}); 
+  bool threeway = ray::parseCommandLine(argc, argv, {&base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text},
+                                                    {&output});
+  bool threeway_concatenate = ray::parseCommandLine(argc, argv, {&base_cloud, &all_text, &cloud_1, &cloud_2}, {&output});
   if (!standard_format && !concatenate && !threeway && !threeway_concatenate)
     usage();
 
@@ -74,9 +79,9 @@ int main(int argc, char *argv[])
   if (threeway || threeway_concatenate)
   {
     clouds.resize(2);
-    if (!clouds[0].load(cloud_1.name()))
+    if (!clouds[0].load(cloud_1.name(), false))
       usage();
-    if (!clouds[1].load(cloud_2.name()))
+    if (!clouds[1].load(cloud_2.name(), false))
       usage();
   }
   else
@@ -123,7 +128,7 @@ int main(int argc, char *argv[])
   if (threeway || threeway_concatenate)
   {
     ray::Cloud base_cloud;
-    if (!base_cloud.load(argv[1]))
+    if (!base_cloud.load(argv[1], false))
       usage();
     merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], &progress);
   }
@@ -148,6 +153,9 @@ int main(int argc, char *argv[])
 
   progress_thread.join();
 
-  fixed_cloud->save(file_stub + "_combined.ply");
+  if (output.isSet())
+    fixed_cloud->save(output_file.name());
+  else
+    fixed_cloud->save(file_stub + "_combined.ply");
   return 0;
 }
