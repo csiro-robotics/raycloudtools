@@ -75,7 +75,8 @@ private:
 class RAYLIB_EXPORT FileArgument : public FixedArgument 
 {
 public:
-  /// @c extension_length defines the number of characters in the file extension. -1 allows any number
+  /// @c check_extension determines whether a file's extension is checked (3 letters and alphanumeric)
+  /// False is used for example for auto-merging of temporary files, which don't have standard extensions.
   FileArgument(bool check_extension = true) : check_extension_(check_extension) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   /// Stub is the part of the file before the '.'
