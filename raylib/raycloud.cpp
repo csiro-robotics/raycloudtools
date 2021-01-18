@@ -44,7 +44,8 @@ bool Cloud::load(const std::string &file_name)
   // look first for the raycloud PLY
   if (file_name.substr(file_name.size() - 4) == ".ply")
     return loadPLY(file_name);
-
+    
+  std::cerr << "Attempting to load ray cloud " << file_name << " which doesn't have expected file extension .ply" << std::endl;
   return false;
 }
 

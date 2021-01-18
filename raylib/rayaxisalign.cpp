@@ -22,6 +22,7 @@ const int amp_res = 256;
 }
 
 /// the output file @c out_file is the input file @c in_file, transformed by @c pose
+/// returns whether the cloud was successfully modified
 bool transformAndSaveCloud(const std::string &in_file, const std::string &out_file, const Pose &pose)
 {
   CloudWriter writer;
@@ -29,7 +30,8 @@ bool transformAndSaveCloud(const std::string &in_file, const std::string &out_fi
     return false;
   Cloud chunk;
 
-  auto transform = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
+  auto transform = [&chunk, &writer, &pose](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+                                            std::vector<double> &times, std::vector<RGBA> &colours)
   {
     chunk.clear();
     chunk.times = times;
@@ -75,23 +77,23 @@ Pose estimate2DPose(const Eigen::Array<Eigen::Vector3d, Eigen::Dynamic, Eigen::D
     for (int jj = 0; jj<amp_res; jj++)
     {
       const Eigen::Vector3d &accumulator = position_accumulator(ii, jj);
-      double weight = accumulator[2]; // the weight here is the number of end points under this pixel (array cell)
+      const double weight = accumulator[2]; // the weight here is the number of end points under this pixel (array cell)
       if (weight == 0.0)
         continue;
-      Eigen::Vector2d centroid(accumulator[0]/weight, accumulator[1]/weight);
-      double angle = atan2(centroid[0], centroid[1]);
-      double amplitude = std::sqrt(centroid[0]*centroid[0] + centroid[1]*centroid[1]) / radius;
+      const Eigen::Vector2d centroid(accumulator[0]/weight, accumulator[1]/weight);
+      const double angle = atan2(centroid[0], centroid[1]);
+      const double amplitude = std::sqrt(centroid[0]*centroid[0] + centroid[1]*centroid[1]) / radius;
 
       // now draw the sine wave for this point.
       for (int i = 0; i<ang_res; i++)
       {
-        double ang = kPi * (double)i/(double)ang_res;
-        double height = amplitude * std::sin(ang + angle);
-        double y = (static_cast<double>(amp_res)-1.0-eps) * (0.5 + 0.5*height); // rescale the sine wave
+        const double ang = kPi * static_cast<double>(i)/static_cast<double>(ang_res);
+        const double height = amplitude * std::sin(ang + angle);
+        const double y = (static_cast<double>(amp_res)-1.0-eps) * (0.5 + 0.5*height); // rescale the sine wave
 
         // linear blend of the weight onto the two nearest neighbour pixels
-        int j = static_cast<int>(y);
-        double blend = y - static_cast<double>(j);        
+        const int j = static_cast<int>(y);
+        const double blend = y - static_cast<double>(j);        
         weights(i, j) += (1.0-blend)*weight;
         weights(i, j+1) += blend*weight;
       }
@@ -102,40 +104,40 @@ Pose estimate2DPose(const Eigen::Array<Eigen::Vector3d, Eigen::Dynamic, Eigen::D
   weights.maxCoeff(&max_i, &max_j);
 
   // find the sub-pixel peak, using its two neighbours in angle ...
-  double peak_angle = (double)max_i + peak(weights((max_i + ang_res-1)%ang_res, max_j), weights(max_i, max_j), weights((max_i+1)%ang_res, max_j));
-  peak_angle *= kPi / (double)ang_res;
+  double peak_angle = static_cast<double>(max_i) + peak(weights((max_i + ang_res-1)%ang_res, max_j), weights(max_i, max_j), weights((max_i+1)%ang_res, max_j));
+  peak_angle *= kPi / static_cast<double>(ang_res);
   std::cout << "principle angle: " << peak_angle << ", direction vector: " << std::cos(peak_angle) << ", " << std::sin(peak_angle) << std::endl;
   // ... and its two neighbours in the amplitude axis
-  double peak_amp = (double)max_j + peak(weights(max_i, std::max(0, max_j-1)), weights(max_i, max_j), weights(max_i, std::min(max_j+1, amp_res-1)));
-  peak_amp = radius * ((2.0 * peak_amp/(double)amp_res) - 1.0);
+  double peak_amp = static_cast<double>(max_j) + peak(weights(max_i, std::max(0, max_j-1)), weights(max_i, max_j), weights(max_i, std::min(max_j+1, amp_res-1)));
+  peak_amp = radius * ((2.0 * peak_amp/static_cast<double>(amp_res)) - 1.0);
   std::cout << "distance along direction: " << peak_amp << std::endl;
 
   // vector representing the strongest plane
   Eigen::Vector2d line_vector = peak_amp * Eigen::Vector2d(std::cos(peak_angle), std::sin(peak_angle));
 
   // now find the orthogonal best edge, which is the greatest weight along the orthogonal angle
-  int orth_i = (max_i + ang_res/2)%ang_res;
+  const int orth_i = (max_i + ang_res/2)%ang_res;
   int max_orth_j = 0;
   weights.row(orth_i).maxCoeff(&max_orth_j);
 
   // now find the sub-pixel peak amplitude in this orthogonal direction:
-  double ortho_amp = (double)max_orth_j + peak(weights(orth_i, std::max(0, max_orth_j-1)), weights(orth_i, max_orth_j), weights(orth_i, std::min(max_orth_j+1, amp_res-1)));
-  ortho_amp = radius * ((2.0 * ortho_amp/(double)amp_res) - 1.0);
+  double ortho_amp = static_cast<double>(max_orth_j) + peak(weights(orth_i, std::max(0, max_orth_j-1)), weights(orth_i, max_orth_j), weights(orth_i, std::min(max_orth_j+1, amp_res-1)));
+  ortho_amp = radius * ((2.0 * ortho_amp/static_cast<double>(amp_res)) - 1.0);
   if (orth_i < max_i) // the %res earlier puts it in antiphase (since we only have 180 degrees per weights map)
     ortho_amp = -ortho_amp;     // so negate the amplitude here
 
-  Eigen::Vector2d orthogonal_line_vector = ortho_amp * Eigen::Vector2d(std::cos(peak_angle+kPi/2.0), std::sin(peak_angle+kPi/2.0));
+  const Eigen::Vector2d orthogonal_line_vector = ortho_amp * Eigen::Vector2d(std::cos(peak_angle+kPi/2.0), std::sin(peak_angle+kPi/2.0));
   std::cout << "primary amplitude: " << peak_amp << ", orthogonal amplitude: " << ortho_amp << std::endl;
 
   // we can now find the 2D pose of best fit
-  Eigen::Vector2d centre = line_vector + orthogonal_line_vector; // find the intersection of the orthogonal strongest planes
-  Pose to_mid(-mid_bound - Eigen::Vector3d(centre[0], centre[1], 0), Eigen::Quaterniond::Identity());
-  Pose rotation(Eigen::Vector3d::Zero(), Eigen::Quaterniond(Eigen::AngleAxisd(-peak_angle, Eigen::Vector3d(0,0,1))));
+  const Eigen::Vector2d centre = line_vector + orthogonal_line_vector; // find the intersection of the orthogonal strongest planes
+  const Pose to_mid(-mid_bound - Eigen::Vector3d(centre[0], centre[1], 0), Eigen::Quaterniond::Identity());
+  const Pose rotation(Eigen::Vector3d::Zero(), Eigen::Quaterniond(Eigen::AngleAxisd(-peak_angle, Eigen::Vector3d(0,0,1))));
   Pose pose = rotation * to_mid;
 
   // now rotate the cloud into the positive x/y axis, depending on which has the largest difference
-  Eigen::Vector3d mid_point = pose * info.centroid;
-  Eigen::Quaterniond yaw180(0,0,0,1);
+  const Eigen::Vector3d mid_point = pose * info.centroid;
+  const Eigen::Quaterniond yaw180(0,0,0,1);
   if (std::abs(mid_point[0]) > std::abs(mid_point[1]))
   {
     if (mid_point[0] < 0.0)
@@ -169,25 +171,25 @@ bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_
   const Eigen::Vector3d mid_bound = (min_bound + max_bound)/2.0;
 
   // fill in the arrays
-  double eps = 0.0001;
+  double eps = 0.0001; // to stop edge cases exceeding the array bounds
 
   // 1. Convert the cloud into a weighted centroid field. I'm using element [2] for the weight.
   Eigen::Array<Eigen::Vector3d, Eigen::Dynamic, Eigen::Dynamic> position_accumulator(amp_res, amp_res);
   position_accumulator.fill(Eigen::Vector3d::Zero());
-  double step_x = ((double)amp_res - 1.0 - eps) / (max_bound[0] - min_bound[0]);
-  double step_y = ((double)amp_res - 1.0 - eps) / (max_bound[1] - min_bound[1]);
-  double step_z = ((double)amp_res - 1.0 - eps) / (max_bound[2] - min_bound[2]);
+  double step_x = (static_cast<double>(amp_res) - 1.0 - eps) / (max_bound[0] - min_bound[0]);
+  double step_y = (static_cast<double>(amp_res) - 1.0 - eps) / (max_bound[1] - min_bound[1]);
+  double step_z = (static_cast<double>(amp_res) - 1.0 - eps) / (max_bound[2] - min_bound[2]);
   // and set up the vertical arrays too
   Eigen::ArrayXd vertical_weights(amp_res); // TODO: height is usually much less than width... more constant voxel size?
   vertical_weights.fill(0);
 
   // fill in the accumulator: (sum of positions, #end points) within each cell
   // also fill in the vertical density (number of end points) array
-  auto fill_arrays = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  auto fill_arrays = [&min_bound, &mid_bound, &position_accumulator, &step_x, &step_y, &step_z, &vertical_weights](
+    std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     RAYLIB_UNUSED(starts);
     RAYLIB_UNUSED(times);
-    RAYLIB_UNUSED(colours);
     for (size_t e = 0; e<ends.size(); e++)
     {
       if (colours[e].alpha == 0) // unbounded
@@ -201,8 +203,8 @@ bool alignCloudToAxes(const std::string &cloud_name, const std::string &aligned_
       position_accumulator((int)index[0], (int)index[1]) += pos;
 
       // Distribute the weighting linearly between two nearest cells in the 1D array
-      int k = (int)index[2];
-      double blend = index[2] - (double)k;
+      const int k = (int)index[2];
+      const double blend = index[2] - static_cast<double>(k);
       vertical_weights[k] += (1.0 - blend);
       vertical_weights[k+1] += blend;      
     }
