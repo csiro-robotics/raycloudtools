@@ -11,7 +11,7 @@ namespace ray
 
 bool CloudWriter::begin(const std::string &file_name)
 {
-  if (file_name == "")
+  if (file_name.empty())
   {
     std::cerr << "Error: cloud writer begin called with empty file name" << std::endl;
     return false;
@@ -27,7 +27,7 @@ bool CloudWriter::begin(const std::string &file_name)
 
 void CloudWriter::end()
 {
-  if (file_name_ == "") // no effect if begin has not been called
+  if (file_name_.empty()) // no effect if begin has not been called
     return;
   const unsigned long num_rays = ray::writePlyChunkEnd(ofs_);
   std::cout << num_rays << " rays saved to " << file_name_ << std::endl;
@@ -36,7 +36,7 @@ void CloudWriter::end()
 
 bool CloudWriter::writeChunk(const Cloud &chunk)
 {
-  return writePlyChunk(ofs_, chunk.starts, chunk.ends, chunk.times, chunk.colours);
+  return writePlyChunk(ofs_, buffer_, chunk.starts, chunk.ends, chunk.times, chunk.colours);
 }
 
 

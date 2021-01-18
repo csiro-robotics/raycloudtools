@@ -10,9 +10,6 @@
 
 #include <iostream>
 // #define OUTPUT_MOMENTS // useful when setting up unit test expected ray clouds
-using PointPlyEntry = Eigen::Matrix<float, 6, 1>;
-using RayPlyEntry = Eigen::Matrix<float, 9, 1>;    // structure of raycloud cloud rays, written to ply file
-using RayPlyBuffer = std::vector<RayPlyEntry>;     // buffer for storing a list of rays to be written
 
 namespace ray
 {
@@ -55,7 +52,7 @@ bool writePlyChunkStart(const std::string &file_name, std::ofstream &out)
   return true;
 }
 
-bool writePlyChunk(std::ofstream &out, const std::vector<Eigen::Vector3d> &starts,
+bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours)
 {
   if (ends.size() == 0)
@@ -68,7 +65,7 @@ bool writePlyChunk(std::ofstream &out, const std::vector<Eigen::Vector3d> &start
     std::cerr << "Error: file header has not been written, use writePlyChunkStart" << std::endl;
     return false;
   }
-  RayPlyBuffer vertices(ends.size());
+  vertices.resize(ends.size());
 
   bool warned = false;
   for (size_t i = 0; i < ends.size(); i++)
@@ -138,8 +135,9 @@ bool writePlyRayCloud(const std::string &file_name, const std::vector<Eigen::Vec
   std::ofstream ofs;
   if (!writePlyChunkStart(file_name, ofs))
     return false;
+  RayPlyBuffer buffer;
   // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
-  if (!writePlyChunk(ofs, starts, ends, times, rgb))
+  if (!writePlyChunk(ofs, buffer, starts, ends, times, rgb))
     return false; 
   const unsigned long num_rays = ray::writePlyChunkEnd(ofs);
   std::cout << num_rays << " rays saved to " << file_name << std::endl;

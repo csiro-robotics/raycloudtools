@@ -18,7 +18,6 @@ bool split(const std::string &file_name, const std::string &in_name,
 {
   Cloud cloud_buffer;
   CloudWriter in_writer, out_writer;
-  std::ofstream inside_ofs, outside_ofs;
   if (!in_writer.begin(in_name))
     return false;
   if (!out_writer.begin(out_name))

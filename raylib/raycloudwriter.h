@@ -26,12 +26,14 @@ public:
   void end();
 
   /// return the stored file name
-  const std::string fileName(){ return file_name_; }
+  const std::string &fileName(){ return file_name_; }
 private:
   /// store the output file stream
   std::ofstream ofs_;
   /// store the file name, in order to provide a clear 'saved' message on end()
   std::string file_name_;
+  /// ray buffer to avoid repeated reallocations
+  RayPlyBuffer buffer_;
 };
 
 }  // namespace ray
