@@ -65,7 +65,7 @@ bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector
     std::cerr << "Error: file header has not been written, use writePlyChunkStart" << std::endl;
     return false;
   }
-  vertices.resize(ends.size()); // allocates the chunk size the first time, and nullop on subsequent chunks
+  vertices.resize(ends.size());
 
   bool warned = false;
   for (size_t i = 0; i < ends.size(); i++)
@@ -414,7 +414,9 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           intensity = (double)((float &)vertices[intensity_offset]);
         else
           intensity = (double &)vertices[intensity_offset];
-        intensities.push_back(static_cast<uint8_t>(255.0 * clamped(intensity / max_intensity, 0.0, 1.0)));
+        // ceil is so very small positive intensities remain positive as a uint8_t, as 0 is reserved to non-returns
+        intensity = std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0)); 
+        intensities.push_back(static_cast<uint8_t>(intensity));
       }
     }
     if (ends.size() == chunk_size || i==size-1)
