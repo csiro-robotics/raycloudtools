@@ -676,7 +676,7 @@ void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<unsigned> 
     // Resolve the ray marker for this thread.
     EllipsoidTransientMarker &marker = thread_markers.local();
     marker.mark(&ellipsoids_[ellipsoid_id], transient_ray_marks, cloud, ray_grid, num_rays,
-                config_.merge_type, self_transient, ellipsoid_first);
+                config_.merge_type, self_transient, ellipsoid_cloud_first);
     progress->increment();
   };
   tbb::parallel_for<size_t>(0u, cloud.rayCount(), tbb_process_ellipsoid);
