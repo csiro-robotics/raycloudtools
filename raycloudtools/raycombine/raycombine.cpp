@@ -40,20 +40,22 @@ void usage(int exit_code = 1)
             << std::endl;
   std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds."
             << std::endl;
+  std::cout << "           order  - conflicts are resolved in order, with the first taking priority."
+            << std::endl;
   std::cout
     << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
     << std::endl;
   std::cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from "
                "basecloud) at any differences. "
             << std::endl;
-  std::cout << "For merge conflicts it uses the specified merge type." << std::endl;
+  std::cout << "                                                       For merge conflicts it uses the specified merge type." << std::endl;
   exit(exit_code);
 }
 
 // Decimates the ray cloud, spatially or in timevpn-new.csiro.au
 int main(int argc, char *argv[])
 {
-  ray::KeyChoice merge_type({"min", "max", "oldest", "newest"});
+  ray::KeyChoice merge_type({"min", "max", "oldest", "newest", "order"});
   ray::FileArgumentList cloud_files(2);
   ray::DoubleArgument num_rays(0.0, 100.0);
   ray::TextArgument rays_text("rays"), all_text("all");
@@ -93,6 +95,10 @@ int main(int argc, char *argv[])
   config.num_rays_filter_threshold = num_rays.value();
   config.merge_type = ray::MergeType::Mininum;
 
+  if (merge_type.selectedKey() == "order")
+  {
+    config.merge_type = ray::MergeType::Order;
+  }
   if (merge_type.selectedKey() == "oldest")
   {
     config.merge_type = ray::MergeType::Oldest;
