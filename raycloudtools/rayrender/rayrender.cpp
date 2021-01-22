@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     image_file.name() = cloud_file.nameStub() + ".png";
   }
 
-  ray::Cloud::CloudInfo info;
+  ray::Cloud::Info info;
   if (!ray::Cloud::getInfo(cloud_file.name(), info))
   {
     usage();
