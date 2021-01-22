@@ -116,7 +116,7 @@ public:
   /// Calculate the key information of a ray cloud, such as its bounds
   /// @c ends are only the bounded ones. @c starts are for all rays
   /// @c rays is all rays, so using the minimum known length for unbounded rays
-  struct CloudInfo
+  struct Info
   {
     // Axis-aligned bounding boxes
     Cuboid ends_bound;   // just the end points (not including for unbounded rays)
@@ -127,8 +127,9 @@ public:
     int num_unbounded;
     double min_time;
     double max_time;
+    Eigen::Vector3d centroid;
   };
-  static bool RAYLIB_EXPORT getInfo(const std::string &file_name, CloudInfo &info);
+  static bool RAYLIB_EXPORT getInfo(const std::string &file_name, Info &info);
 
   /// Reads a ray cloud from file, and calls the function for each ray
   /// This forwards the call to a function appropriate to the ray cloud file format
