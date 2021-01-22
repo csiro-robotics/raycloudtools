@@ -158,6 +158,7 @@ Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops 
 }
 ```
  
+Associated field data examples are available on CSIRO's Data Access Portal (https://data.csiro.au/collections) under "AcScan3D Vineyard Data Examples". 
 
 ## Notes
 
