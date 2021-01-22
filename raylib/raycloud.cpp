@@ -39,7 +39,8 @@ bool Cloud::load(const std::string &file_name, bool check_extension)
   // look first for the raycloud PLY
   if (file_name.substr(file_name.size() - 4) == ".ply" || !check_extension)
     return loadPLY(file_name);
-
+    
+  std::cerr << "Attempting to load ray cloud " << file_name << " which doesn't have expected file extension .ply" << std::endl;
   return false;
 }
 
@@ -281,7 +282,7 @@ std::vector<Eigen::Vector3d> Cloud::generateNormals(int search_size)
   return normals;
 }
 
-bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, CloudInfo &info)
+bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Info &info)
 {
   double min_s = std::numeric_limits<double>::max();
   double max_s = std::numeric_limits<double>::lowest();
@@ -292,6 +293,7 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, CloudInfo &info)
   info.num_unbounded = info.num_bounded = 0;
   info.min_time = min_s;
   info.max_time = max_s;
+  info.centroid.setZero();
   auto find_bounds = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     for (size_t i = 0; i<ends.size(); i++)
@@ -301,6 +303,7 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, CloudInfo &info)
         info.ends_bound.min_bound_ = minVector(info.ends_bound.min_bound_, ends[i]);
         info.ends_bound.max_bound_ = maxVector(info.ends_bound.max_bound_, ends[i]);
         info.num_bounded++;
+        info.centroid += ends[i];
       }
       info.num_unbounded++;
       info.starts_bound.min_bound_ = minVector(info.starts_bound.min_bound_, starts[i]);
@@ -313,7 +316,9 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, CloudInfo &info)
     info.rays_bound.min_bound_ = minVector(info.rays_bound.min_bound_, info.starts_bound.min_bound_);
     info.rays_bound.max_bound_ = maxVector(info.rays_bound.max_bound_, info.starts_bound.max_bound_);
   };  
-  return readPly(file_name, true, find_bounds, 0);
+  bool success = readPly(file_name, true, find_bounds, 0);
+  info.centroid /= static_cast<double>(info.num_bounded);
+  return success;
 }
 
 

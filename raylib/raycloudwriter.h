@@ -24,14 +24,16 @@ public:
 
   /// finish writing, and adjust the vertex count at the start.
   void end();
+
+  /// return the stored file name
+  const std::string &fileName(){ return file_name_; }
 private:
-  /// When writing a chunk to file, we fill in a buffer of data and write it directly
-  /// By using the persistent buffer below, we avoid over-use of allocation and deallocation
-  RayPlyBuffer buffer_;
   /// store the output file stream
   std::ofstream ofs_;
   /// store the file name, in order to provide a clear 'saved' message on end()
   std::string file_name_;
+  /// ray buffer to avoid repeated reallocations
+  RayPlyBuffer buffer_;
 };
 
 }  // namespace ray
