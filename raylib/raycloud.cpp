@@ -31,15 +31,13 @@ void Cloud::clear()
 void Cloud::save(const std::string &file_name) const
 {
   std::string name = file_name;
-  if (name.substr(name.length() - 4) != ".ply")
-    name += ".ply";
   writePlyRayCloud(name, starts, ends, times, colours);
 }
 
-bool Cloud::load(const std::string &file_name)
+bool Cloud::load(const std::string &file_name, bool check_extension)
 {
   // look first for the raycloud PLY
-  if (file_name.substr(file_name.size() - 4) == ".ply")
+  if (file_name.substr(file_name.size() - 4) == ".ply" || !check_extension)
     return loadPLY(file_name);
     
   std::cerr << "Attempting to load ray cloud " << file_name << " which doesn't have expected file extension .ply" << std::endl;
@@ -167,9 +165,26 @@ void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess>
   times.resize(subsample.size());
 }
 
+void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid)
+{
+  int ray_id = ray_ids[index];
+  centroid = ends[ray_id];
+  for (int j = 0; j < num_neighbours; j++) centroid += ends[ray_ids[indices(j, index)]];
+  centroid /= (double)(num_neighbours + 1);
+  Eigen::Matrix3d scatter = (ends[ray_id] - centroid) * (ends[ray_id] - centroid).transpose();
+  for (int j = 0; j < num_neighbours; j++)
+  {
+    Eigen::Vector3d offset = ends[ray_ids[indices(j, index)]] - centroid;
+    scatter += offset * offset.transpose();
+  }
+  scatter /= (double)(num_neighbours + 1);
+  solver.compute(scatter.transpose());
+  ASSERT(solver.info() == Eigen::ComputationInfo::Success);
+}
+
 void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                        std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats, 
-                       Eigen::MatrixXi *neighbour_indices)
+                       Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays)
 {
   // simplest scheme... find 3 nearest neighbours and do cross product
   if (centroids)
@@ -204,32 +219,44 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
   for (int i = 0; i < (int)ray_ids.size(); i++)
   {
     int ray_id = ray_ids[i];
+    Eigen::Vector3d centroid;
+    int num_neighbours;
+    for (num_neighbours = 0; num_neighbours < search_size && indices(num_neighbours, i) > -1; num_neighbours++);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(3);
+
+    eigenSolve(ray_ids, indices, i, num_neighbours, eigen_solver, centroid);
+
+    if (reject_back_facing_rays)
+    {
+      Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);
+      if ((ends[ray_id] - starts[ray_id]).dot(normal) > 0.0)
+        normal = -normal;
+      bool changed = false;
+      for (int j = num_neighbours-1; j >= 0; j--)
+      {
+        int id = ray_ids[indices(j, i)];
+        if ((ends[id] - starts[id]).dot(normal) > 0.0)
+        {
+          indices(j, i) = indices(--num_neighbours, i);
+          changed = true;
+        }
+      }
+      if (changed)
+      {
+        eigenSolve(ray_ids, indices, i, num_neighbours, eigen_solver, centroid);
+      }
+    }
+
     if (neighbour_indices)
     {
       int j;
-      for (j = 0; j < search_size && indices(j, i) > -1; j++) 
+      for (j = 0; j < num_neighbours; j++) 
         (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
       if (j < search_size)
         (*neighbour_indices)(j, ray_id) = -1;
     }
-
-    Eigen::Vector3d centroid = ends[ray_id];
-    int num;
-    for (num = 0; num < search_size && indices(num, i) > -1; num++) centroid += ends[ray_ids[indices(num, i)]];
-    centroid /= (double)(num + 1);
     if (centroids)
       (*centroids)[ray_id] = centroid;
-
-    Eigen::Matrix3d scatter = (ends[ray_id] - centroid) * (ends[ray_id] - centroid).transpose();
-    for (int j = 0; j < num; j++)
-    {
-      Eigen::Vector3d offset = ends[ray_ids[indices(j, i)]] - centroid;
-      scatter += offset * offset.transpose();
-    }
-    scatter /= (double)(num + 1);
-
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
-    ASSERT(eigen_solver.info() == Eigen::ComputationInfo::Success);
     if (normals)
     {
       Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);

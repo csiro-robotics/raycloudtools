@@ -75,6 +75,9 @@ private:
 class RAYLIB_EXPORT FileArgument : public FixedArgument 
 {
 public:
+  /// @c check_extension determines whether a file's extension is checked (3 letters and alphanumeric)
+  /// False is used for example for auto-merging of temporary files, which don't have standard extensions.
+  FileArgument(bool check_extension = true) : check_extension_(check_extension) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   /// Stub is the part of the file before the '.'
   std::string nameStub() const { return getFileNameStub(name_); }
@@ -85,6 +88,7 @@ public:
   inline std::string &name() { return name_; }
 private:
   std::string name_;
+  bool check_extension_;
 };
 
 /// Numerical values
