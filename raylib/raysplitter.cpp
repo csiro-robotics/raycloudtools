@@ -164,7 +164,7 @@ bool splitBox(const std::string &file_name, const std::string &in_name, const st
 /// Special case for splitting based on a grid. 
 bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector3d &cell_width)
 {
-  Cloud::CloudInfo info;
+  Cloud::Info info;
   Cloud::getInfo(cloud_name_stub + ".ply", info);
   const Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
   const Eigen::Vector3d &max_bound = info.rays_bound.max_bound_;
