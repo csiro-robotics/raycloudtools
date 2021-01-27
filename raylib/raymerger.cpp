@@ -401,9 +401,10 @@ bool Merger::mergeMultiple(std::vector<Cloud> &clouds, Progress *progress)
       {
         continue;
       }
+      const bool ellipsoid_cloud_first = c < d; // used when argument order of the files is the merge type
       // use ellipsoid opacity to set transient flag true on transients
       markIntersectedEllipsoids(clouds[d], grids[d], &transient_ray_marks[d], config_.num_rays_filter_threshold,
-                                false, progress, c < d);
+                                false, progress, ellipsoid_cloud_first);
     }
 
     for (size_t i = 0; i < clouds[c].rayCount(); i++)
@@ -538,10 +539,11 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
     // just set opacity
     markIntersectedEllipsoids(*clouds[c], grids[c], &transients[c], 0, false, progress);
 
-    int d = 1 - c;
+    const int d = 1 - c;
+    const bool ellipsoid_cloud_first = c < d; // used when argument order of the files is the merge type
     // use ellipsoid opacity to set transient flag true on transients (intersected ellipsoids)
     markIntersectedEllipsoids(*clouds[d], grids[d], &transients[d], config_.num_rays_filter_threshold, 
-                              false, progress, c < d);
+                              false, progress, ellipsoid_cloud_first);
 
     for (size_t i = 0; i < ellipsoids_.size(); i++)
     {
@@ -670,7 +672,7 @@ void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<unsigned> 
   ThreadLocalRayMarkers thread_markers(EllipsoidTransientMarker(cloud.rayCount()));
 
   auto tbb_process_ellipsoid =
-    [this, &cloud, &ray_grid, transient_ray_marks, &num_rays, &thread_markers, 
+    [this, &cloud, &ray_grid, transient_ray_marks, &num_rays, &thread_markers, ellipsoid_cloud_first, 
      progress, self_transient](size_t ellipsoid_id)  //
   {
     // Resolve the ray marker for this thread.

@@ -40,7 +40,7 @@ void usage(int exit_code = 1)
             << std::endl;
   std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds."
             << std::endl;
-  std::cout << "           order  - conflicts are resolved in order, with the first taking priority."
+  std::cout << "           order  - conflicts are resolved in argument order, with the first taking priority."
             << std::endl;
   std::cout
     << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
