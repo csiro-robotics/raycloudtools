@@ -77,7 +77,7 @@ void setField2(sensor_msgs::PointField &field, const std::string &name, int offs
 void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
 {
   sensor_msgs::PointCloud2 point_cloud;
-  point_cloud.header.frame_id = 3;
+  point_cloud.header.frame_id = imp_->fixed_frame_id;
   point_cloud.header.stamp = ros::Time();
   unsigned int point_step = 0;
 
