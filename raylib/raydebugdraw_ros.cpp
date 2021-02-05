@@ -18,6 +18,8 @@ struct DebugDrawDetail
   ros::Publisher line_publisher;
   ros::Publisher cylinder_publisher[2];
   ros::Publisher ellipsoid_publisher[6];
+  ros::Publisher cylinderPublisher;
+  ros::Publisher ringPublisher;
   std::string fixed_frame_id;
 };
 }  // namespace ray
@@ -38,6 +40,8 @@ DebugDraw::DebugDraw(const std::string &fixed_frame_id)
   imp_->ellipsoid_publisher[3] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids4", 3, true);
   imp_->ellipsoid_publisher[4] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
   imp_->ellipsoid_publisher[5] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
+  imp_->cylinderPublisher = imp_->n.advertise<visualization_msgs::Marker>("cylinders", 3, true);
+  imp_->ringPublisher = imp_->n.advertise<visualization_msgs::Marker>("rings", 3, true);
   imp_->fixed_frame_id = fixed_frame_id;
 }
 
@@ -126,6 +130,114 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
 
   if (point_cloud.width > 0)
     imp_->cloud_publisher[id].publish(point_cloud);
+}
+
+void DebugDraw::drawRings(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Vector3d> &normals, const std::vector<double> &radii, int ID)
+{
+  visualization_msgs::Marker marker;
+
+  marker.header.frame_id = imp_->fixed_frame_id;
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "ring_marker";
+  marker.type = visualization_msgs::Marker::LINE_LIST;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0; 
+  double r = std::fmod((double)ID * 1.68, 1.0);
+  double b = std::fmod(13.3 + (double)ID * 1.68*1.68, 1.0);
+  marker.color.r = r;
+  marker.color.g = 0.0;
+  marker.color.b = 0.5 + 0.5*b;
+  marker.color.a = 1.0;
+  marker.scale.x = 0.03;
+  marker.scale.y = 0.03;
+  marker.scale.z = 0.03;
+  marker.id = ID;
+  marker.action = visualization_msgs::Marker::ADD;
+
+  for (int i = 0; i<(int)centres.size(); i++)
+  {
+    Eigen::Vector3d side1 = Eigen::Vector3d(0.0, 0.0, 1.0).cross(normals[i]);
+    if (side1.squaredNorm() < 1e-6)
+      side1 = Vector3d(1,0,0);
+    Eigen::Vector3d side2 = normals[i].cross(side1);
+    side1.normalize();
+    side2.normalize();
+    for (double angle = 0; angle < 2.0*kPi; angle += kPi/6.0)
+    {
+      for (int j = 0; j<2; j++)
+      {
+        double ang = angle + (double)j * kPi/6.0;
+        geometry_msgs::Point p;
+        Eigen::Vector3d c = centres[i] + (side1 * std::sin(ang) + side2 * std::cos(ang)) * radii[i];
+        p.x = c[0];
+        p.y = c[1];
+        p.z = c[2];
+        marker.points.push_back(p);
+      }
+    }
+  }  
+  ringPublisher.publish(marker);  
+}
+
+void DebugDraw::drawTrunks(const vector<Trunk> &trunks)
+{
+  visualization_msgs::Marker marker;
+
+  marker.header.frame_id = imp_->fixed_frame_id;
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "cylinder_marker";
+  marker.type = visualization_msgs::Marker::LINE_LIST;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0; 
+  marker.color.r = 1.0;
+  marker.color.g = 0.5;
+  marker.color.b = 0.0;
+  marker.color.a = 1.0;
+  marker.scale.x = 0.02;
+  marker.scale.y = 0.02;
+  marker.scale.z = 0.02;
+  marker.id = 0;
+//  marker.lifetime = ros::Duration();
+  marker.action = visualization_msgs::Marker::ADD;
+
+  for (int i = 0; i<(int)trunks.size(); i++)
+  {
+    for (double angle = 0; angle < 2.0*kPi; angle += kPi/6.0)
+    {
+      for (int height = 0; height<2; height++)
+      {
+        for (double dir = -1; dir < 1.1; dir += 2.0)
+        {
+          for (int j = 0; j<2; j++)
+          {
+            double ang = angle + (double)j * kPi/6.0;
+            geometry_msgs::Point p;
+            p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + dir*trunks[i].thickness) + (double)height*trunks[i].lean[0]*trunks[i].length;
+            p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + dir*trunks[i].thickness) + (double)height*trunks[i].lean[1]*trunks[i].length;
+            p.z = trunks[i].centre[2] + (-0.5 + (double)height)*trunks[i].length;
+            marker.points.push_back(p);
+          }
+        }
+      }
+    }
+    for (double angle = 0; angle < 2.0*kPi; angle += kPi/3.0)
+    {
+      for (int height = 0; height<2; height++)
+      {
+        double ang = angle;
+        geometry_msgs::Point p;
+        p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + trunks[i].thickness) + (double)height*trunks[i].lean[0]*trunks[i].length;
+        p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + trunks[i].thickness) + (double)height*trunks[i].lean[1]*trunks[i].length;
+        p.z = trunks[i].centre[2] + (-0.5 + (double)height)*trunks[i].length;
+        marker.points.push_back(p);
+      }
+    }
+  }  
+  cylinderPublisher.publish(marker);
 }
 
 void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)

@@ -1,39 +1,41 @@
-#pragma once
-#include "standardIncludes.h"
-#include "tools/raycloud.h"
+// Copyright (c) 2021
+// Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+// ABN 41 687 119 230
+//
+// Author: Thomas Lowe
+#ifndef RAYLIB_RAYEXTRACT_WOODS_H
+#define RAYLIB_RAYEXTRACT_WOODS_H
 
-#define LENGTH
-struct Trunk
+#include "raylib/raylibconfig.h"
+
+#include "rayutils.h"
+#include "raycloud.h"
+
+
+namespace ray
 {
-  Vector3d centre; // height is midway up trunk
-  double radius;
-  double score;
-  double weight;
-  double thickness;
-  double length; 
-  Vector2d lean;
-};
+#define LENGTH
 
 struct Ray
 {
-  Ray(const Vector3d &start, const Vector3d &pos) : start(start), pos(pos) {}
-  Vector3d start, pos;
+  Ray(const Eigen::Vector3d &start, const Eigen::Vector3d &pos) : start(start), pos(pos) {}
+  Eigen::Vector3d start, pos;
 };
 
 struct Cell
 {
-  vector<Ray> rays;
-  Vector2d minBound;
+  std::vector<Ray> rays;
+  Eigen::Vector2d minBound;
   double height;
 };
 
 struct Wood
 {
-  Wood(const RayCloud &cloud, double midRadius, double heightRange, const vector<Vector2d> &markedPoints);
-  vector<Cell> grid;
-  vector<Trunk> trunks;
+  Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose);
+  std::vector<Cell> grid;
+  std::vector<Trunk> trunks;
   double width;
-  Vector2i minBound, size;
+  Eigen::Vector2i minBound, size;
 };
 
 struct Accumulator
@@ -68,11 +70,13 @@ struct Accumulator
   }
   double weight;
   double x;
-  Vector2d y;
-  Vector2d xy;
+  Eigen::Vector2d y;
+  Eigen::Vector2d xy;
   double x2;
   double radius;
   double radius2;
-  Vector2d z;
-  Vector2d xz;
+  Eigen::Vector2d z;
+  Eigen::Vector2d xz;
 };
+} // namespace ray
+#endif // RAYLIB_RAYEXTRACT_WOODS_H
