@@ -160,7 +160,7 @@ void DebugDraw::drawRings(const std::vector<Eigen::Vector3d> &centres, const std
   {
     Eigen::Vector3d side1 = Eigen::Vector3d(0.0, 0.0, 1.0).cross(normals[i]);
     if (side1.squaredNorm() < 1e-6)
-      side1 = Vector3d(1,0,0);
+      side1 = Eigen::Vector3d(1,0,0);
     Eigen::Vector3d side2 = normals[i].cross(side1);
     side1.normalize();
     side2.normalize();
@@ -178,10 +178,10 @@ void DebugDraw::drawRings(const std::vector<Eigen::Vector3d> &centres, const std
       }
     }
   }  
-  ringPublisher.publish(marker);  
+  imp_->ringPublisher.publish(marker);  
 }
 
-void DebugDraw::drawTrunks(const vector<Trunk> &trunks)
+void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
 {
   visualization_msgs::Marker marker;
 
@@ -237,7 +237,7 @@ void DebugDraw::drawTrunks(const vector<Trunk> &trunks)
       }
     }
   }  
-  cylinderPublisher.publish(marker);
+  imp_->cylinderPublisher.publish(marker);
 }
 
 void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)

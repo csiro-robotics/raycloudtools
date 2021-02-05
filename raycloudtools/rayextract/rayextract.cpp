@@ -4,8 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
-#include "raylib/rayforestextraction.h"
-#include "raylib/rayforestgen.h"
+#include "raylib/rayextractwoods.h"
 #include "raylib/raydebugdraw.h"
 #include "raylib/rayparse.h"
 
@@ -41,10 +40,10 @@ int main(int argc, char *argv[])
 
   if (extract_type.selectedKey() == "woods")
   {
-    const double radius = 0.08;
+    const double radius = 0.15;
     const double length = 1.0;
-    ray::ExtractWoods woods(cloud, radius, length, verbose.isSet());
-    cout << "number of trunks found: " << woods.trunks.size() << endl;
+    ray::Wood woods(cloud, radius, length, verbose.isSet());
+    std::cout << "number of trunks found: " << woods.trunks.size() << std::endl;
   }
   return true;
 }

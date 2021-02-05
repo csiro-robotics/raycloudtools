@@ -21,10 +21,12 @@ Eigen::Vector3d vector3d(const Eigen::Vector2d &v)
 
 Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose)
 {
-  DebugDraw::instance()->drawCloud(cloud.ends, 0, 0.5);
+  if (verbose)
+    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
 
   Eigen::Vector3d min_bound = cloud.calcMinBound();
   Eigen::Vector3d max_bound = cloud.calcMaxBound();
+  std::cout << "cloud from: " << min_bound.transpose() << " to: " << max_bound.transpose() << std::endl;
   
   const int minPointsPerTrunk = 15;
   const double minScore = 1.1;
@@ -41,13 +43,19 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
       grid[x + size[0] * y].minBound = minBound + Eigen::Vector2d(x, y) * width;
 
   // populate the cells
+  int num_added = 0;
   for (int i = 0; i < (int)cloud.ends.size(); i++)
   {
+    if (!cloud.rayBounded(i))
+      continue;
     Eigen::Vector2i index(floor((cloud.ends[i][0] - minBound[0]) / width), floor((cloud.ends[i][1] - minBound[1]) / width));
     Cell &cell = grid[index[0] + size[0] * index[1]];
+    if (cell.rays.empty())
+      num_added++;
     cell.rays.push_back(Ray(cloud.starts[i], cloud.ends[i]));
     cell.height += cloud.ends[i][2];
   }
+  std::cout << "num cells added: " << num_added << std::endl;
 
   Trunk trunk;
   trunk.radius = midRadius;
@@ -65,6 +73,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
       trunks.push_back(trunk);
     }
   }
+  std::cout << "number of trunks added initially: " << trunks.size() << std::endl;
   
  // DebugDraw::instance()->drawText(components(trunks, centre), vector<std::string>());
 
@@ -72,7 +81,8 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
   const int maxIterations = 10;
   for (int it = 0; it < maxIterations; it++)
   {
-    DebugDraw::instance()->drawTrunks(trunks);
+    if (verbose)
+      DebugDraw::instance()->drawTrunks(trunks);
     std::vector<Eigen::Vector3d> spheres;
     std::vector<Eigen::Vector3d> ringCentres;
     std::vector<Eigen::Vector3d> ringNormals;
@@ -373,8 +383,11 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
       bestScore = std::max(bestScore, trunk.score);
     }
     std::cout << "best score: " << bestScore << std::endl;
-    DebugDraw::instance()->drawCloud(spheres, 1, 1.0);
-    DebugDraw::instance()->drawRings(ringCentres, ringNormals, ringRadii, 1);
+    if (verbose)
+    {
+      DebugDraw::instance()->drawCloud(spheres, 1.0, 1);
+      DebugDraw::instance()->drawRings(ringCentres, ringNormals, ringRadii, 1);
+    }
  /*   std::vector<std::string> strs;
     if (it == 0)
     {
@@ -406,6 +419,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
   trunks = newTrunks;
   std::cout << "num trunks after pruning: " << trunks.size() << std::endl;
   
-  DebugDraw::instance()->drawTrunks(trunks);
+  if (verbose)
+    DebugDraw::instance()->drawTrunks(trunks);
 }
 } // namespace ray
