@@ -12,9 +12,7 @@
 
 #include <functional>
 
-#define HASH_LOOKUP
-
-#if RAYLIB_WITH_TBB && defined(HASH_LOOKUP)
+#if RAYLIB_WITH_TBB 
 #define RAYLIB_PARALLEL_GRID 1
 #if RAYLIB_PARALLEL_GRID
 #include <tbb/spin_mutex.h>
@@ -31,7 +29,6 @@ struct RAYLIB_EXPORT GridRayInfo
   double ray_length;
 };
 
-#if defined HASH_LOOKUP
 /// 3D grid container class based on hash lookup, to accelerate the access to spatial data by location
 /// A hash lookup is used because ray cloud geometry is generally sparse, and so continuous 3D voxel arrays are memory
 /// intensive
@@ -165,10 +162,15 @@ public:
     return null_cell_;
   }
 
-  void insert(int x, int y, int z, const T &value)
+  inline void insert(int x, int y, int z, const T &value)
   {
     Eigen::Vector3i index(x, y, z);
-    int hash = hashFunc(x, y, z);
+    insert(index, value);
+  }
+
+  inline void insert(const Eigen::Vector3i &index, const T &value)
+  {
+    int hash = hashFunc(index[0], index[1], index[2]);
     Bucket &bucket = buckets_.at(hash);
 #if RAYLIB_PARALLEL_GRID
     Mutex::scoped_lock bucket_lock(bucket.mutex);
@@ -226,7 +228,6 @@ public:
         visit(*this, cell);
       }
     }
-    visit(*this, null_cell_);
   }
 
   Eigen::Vector3d box_min, box_max;
@@ -253,14 +254,12 @@ protected:
   Cell null_cell_;
 };
 
-#else   // HASH_LOOKUP
-
 template <class T>
-class Grid
+class ContiguousGrid
 {
 public:
-  Grid() {}
-  Grid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
+  ContiguousGrid() {}
+  ContiguousGrid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
   {
     init(box_min, box_max, voxel_width);
   }
@@ -321,7 +320,6 @@ protected:
   std::vector<Cell> cells;
   Cell null_cell_;
 };
-#endif  // HASH_LOOKUP
 
 }  // namespace ray
 

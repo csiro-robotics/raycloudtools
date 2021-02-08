@@ -427,6 +427,8 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
   }
 }
 #else
+#include "grid.h"
+
 Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose)
 {
   if (verbose)
@@ -436,7 +438,35 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
   Eigen::Vector3d max_bound = cloud.calcMaxBound();
   std::cout << "cloud from: " << min_bound.transpose() << " to: " << max_bound.transpose() << std::endl;
   
+  // Idea: grid up the world (z squash 2x)
+  // every point we find nearest within a 2x2x2 part of the grid. 
+  // every 2x2x2 get a mean and covariance
+  // then iterate by cutting out > 2 sigma and running again
+  // throw out if too fat, we're looking for long trunks. 
+
   const double voxel_width = midRadius * 2.0;
+  Grid<Eigen::Vector3d> grid(min_bound, max_bound, voxel_width);
+
+  // fill in grid:
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+  {
+    if (!cloud.rayBounded(i))
+      continue;
+    Eigen::Vector3d pos = cloud.ends[i];
+    const double vertical_scale = 0.25;
+    pos[2] *= vertical_scale;
+    grid.insert(grid.index(pos), pos);
+  }
+
+  // now get ellipsoid for each neighbourhood
+  auto each_cell = [&](const Grid<Eigen::Vector3d> &grid, const Cell &cell)
+  {
+    for (auto &pos: cell)
+    {
+
+    }
+  };
+  grid.walkCells(each_cell)
 
   Eigen::Vector2i minCell = Eigen::Vector2i(floor(min_bound[0] / voxel_width), floor(min_bound[1] / voxel_width));
   Eigen::Vector2i maxCell(floor(max_bound[0] / voxel_width), floor(max_bound[1] / voxel_width));
