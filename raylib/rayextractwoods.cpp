@@ -19,6 +19,7 @@ Eigen::Vector3d vector3d(const Eigen::Vector2d &v)
   return Eigen::Vector3d(v[0], v[1], 0.0);
 }
 
+#if OLD_WOODS
 Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose)
 {
   if (verbose)
@@ -420,6 +421,138 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
   std::cout << "num trunks after pruning: " << trunks.size() << std::endl;
   
   if (verbose)
+  {
     DebugDraw::instance()->drawTrunks(trunks);
+    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+  }
 }
+#else
+Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose)
+{
+  if (verbose)
+    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+
+  Eigen::Vector3d min_bound = cloud.calcMinBound();
+  Eigen::Vector3d max_bound = cloud.calcMaxBound();
+  std::cout << "cloud from: " << min_bound.transpose() << " to: " << max_bound.transpose() << std::endl;
+  
+  const double voxel_width = midRadius * 2.0;
+
+  Eigen::Vector2i minCell = Eigen::Vector2i(floor(min_bound[0] / voxel_width), floor(min_bound[1] / voxel_width));
+  Eigen::Vector2i maxCell(floor(max_bound[0] / voxel_width), floor(max_bound[1] / voxel_width));
+  Eigen::Vector2d minBound = Eigen::Vector2d(minCell[0], minCell[1]) * voxel_width; 
+  size = Eigen::Vector2i(maxCell[0] + 1 - minCell[0], maxCell[1] + 1 - minCell[1]);
+  grid.resize(size[0] * size[1]);
+  for (int x = 0; x < size[0]; x++)
+    for (int y = 0; y < size[1]; y++)
+      grid[x + size[0] * y].minBound = minBound + Eigen::Vector2d(x, y) * width;
+
+  // populate the cells
+  std::vector<int> occupied;
+
+  int num_added = 0;
+  for (int i = 0; i < (int)cloud.ends.size(); i++)
+  {
+    if (!cloud.rayBounded(i))
+      continue;
+    Eigen::Vector2i index(floor((cloud.ends[i][0] - minBound[0]) / voxel_width), floor((cloud.ends[i][1] - minBound[1]) / voxel_width));
+    int id = index[0] + size[0] * index[1];
+    Cell &cell = grid[id];
+    if (cell.rays.empty())
+    {
+      num_added++;
+      occupied.push_back(id);
+    }
+    cell.height += cloud.ends[i][2];
+    cell.rays.push_back(Ray(cloud.starts[i], cloud.ends[i]));
+  }
+  std::cout << "num cells added: " << num_added << std::endl;
+  for (auto &id: occupied)
+    grid[id].height /= (double)grid[id].rays.size();
+
+  const int attempts_per_cell = 5;
+  for (int attempt = 0; attempt < attempts_per_cell; attempt++)
+  {
+    std::vector<Trunk> trunks;
+    for (auto &id: occupied)
+    {
+      Cell &cell = grid[id];
+      // Ransac... pull out 3 points at random
+      int i = rand()%cell.rays.size();
+      int j = rand()%cell.rays.size(); 
+      int k = rand()%cell.rays.size();
+      if (i==j || i==k)
+        continue;
+      Eigen::Vector2d mid = cell.minBound + voxel_width*0.5*Eigen::Vector2d(1,1);
+      Eigen::Vector3d off(0,0,cell.height);
+      Eigen::Vector3d ps[3] = {cell.rays[i].pos-off, cell.rays[j].pos-off, cell.rays[k].pos-off};
+      // Now we want to find the leaning cylinder with minimum radius * gradient:
+      Eigen::Vector2d grad(0,0);
+      Eigen::Vector2d centre = mid;
+      Eigen::Vector2d best_grad;
+      Eigen::Vector2d best_centre;
+      double best_radius;
+      double best_score = 1e10;
+      // I don't like this, it isn't really getting a good angle, basically a random angle.
+      for (int it = 0; it<10; it++)
+      {
+        const double eps = 1e-6;
+        double rs[4];
+        int cnt = 0;
+        double mean_score = 0;
+        double gx[4] = {-eps, eps, 0, 0};
+        double gy[4] = {0, 0, -eps, eps};
+        for (int h = 0; h<4; h++)
+        {
+          Eigen::Vector2d g = grad + Eigen::Vector2d(gx[h],gy[h]);
+          Eigen::Vector2d vs[3];
+          for (int l = 0; l<2; l++)
+            vs[l] = Eigen::Vector2d(ps[l][0] - ps[l][2]*g[0], ps[l][1] - ps[l][2]*g[1]);
+
+          // just get circumradius....
+          Eigen::Vector2d m1 = (vs[0] + vs[1]) * 0.5;
+          Eigen::Vector2d m2 = (vs[0] + vs[2]) * 0.5;
+          Eigen::Vector2d toV1 = vs[1] - vs[0];
+          Eigen::Vector2d dir2(vs[0][1]-vs[2][1], vs[2][0]-vs[0][0]);
+          double d = (m1 - m2).dot(toV1) / dir2.dot(toV1);
+          Eigen::Vector2d circumcentre = m2 + dir2 * d;
+          double circumradius2 = (vs[0] - circumcentre).squaredNorm();
+          double score = circumradius2 * g.squaredNorm();
+          if (score < best_score)
+          {
+            best_score = score;
+            best_grad = g;
+            best_centre = circumcentre;
+            best_radius = std::sqrt(circumradius2);
+          }
+          rs[cnt++] = score;
+          mean_score += score * 0.25;
+          std::cout << "centre: " << circumcentre.transpose() << ", radius2: " << circumradius2 << ", lean: " << g.transpose() << ", score: " << score << std::endl;
+        }
+        Eigen::Vector2d gradient = -Eigen::Vector2d(rs[1]-rs[0], rs[3]-rs[2]) / (2.0 * eps);
+        std::cout << "score: " << mean_score << ", gradient: " << gradient << std::endl;
+        const double gamma = 0.5;
+        grad += gamma * gradient;
+      }
+      // OK so this is our guess: best_grad, best_centre.
+
+      Trunk trunk;
+      trunk.radius = best_radius;
+      trunk.score = 0;
+      trunk.lean = best_grad;
+      trunk.thickness = 0.0;
+      trunk.centre[0] = best_centre[0];
+      trunk.centre[1] = best_centre[1];
+      trunk.centre[2] = cell.height;
+      trunks.push_back(trunk);
+    }
+    if (verbose)
+    {
+      DebugDraw::instance()->drawTrunks(trunks);
+      DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+    }    
+  }
+}
+
+#endif
 } // namespace ray
