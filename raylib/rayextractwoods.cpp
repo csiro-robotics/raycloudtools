@@ -427,9 +427,59 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
   }
 }
 #else
-#include "grid.h"
+#include "raygrid.h"
+#include "raycuboid.h"
 
-Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose)
+static const double trunk_height_to_width = 4.0; // height extent relative to real radius of trunk
+static const double boundary_radius_scale = 3.0; // how much farther out is the expected boundary compared to real trunk radius? Larger requires more space to declare it a trunk
+
+void getOverlap(const Grid<Eigen::Vector3d> &grid, const Trunk &trunk, std::vector<Eigen::Vector3d> &points)
+{
+  Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
+  Eigen::Vector3d base = trunk.centre - 0.5*trunk.length*lean;
+  Eigen::Vector3d top = trunk.centre + 0.5*trunk.length*lean;
+  double outer_radius = trunk.radius * boundary_radius_scale;
+  Eigen::Vector3d rad(outer_radius, outer_radius, 0);
+  Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
+
+  Eigen::Vector3i mins = ((cuboid.min_bound_ - grid.box_min) / grid.voxel_width).cast<int>();
+  Eigen::Vector3i maxs = ((cuboid.max_bound_ - grid.box_min) / grid.voxel_width).cast<int>();
+//  std::cout << "radius: " << trunk.radius << ", min: " << cuboid.min_bound_.transpose() << ", max: " << cuboid.max_bound_.transpose() << std::endl;
+//  std::cout << "box min: " << grid.box_min.transpose() << std::endl;
+//  std::cout << "mins: " << mins.transpose() << ", maxs: " << maxs.transpose() << std::endl;
+  // just in case...
+  mins = maxVector(mins, Eigen::Vector3i(0,0,0));
+  Eigen::Vector3i min_dims = grid.dims - Eigen::Vector3i(1,1,1);
+  maxs = minVector(maxs, min_dims);
+
+  Eigen::Vector3i ind;
+  for (ind[0] = mins[0]; ind[0]<=maxs[0]; ind[0]++)
+  {
+    for (ind[1] = mins[1]; ind[1]<=maxs[1]; ind[1]++)
+    {
+      for (ind[2] = mins[2]; ind[2]<=maxs[2]; ind[2]++)
+      {
+        auto &cell = grid.cell(ind);
+        for (auto &pos: cell.data)
+        {
+          double h = pos[2] - trunk.centre[2];
+          if (std::abs(h) > trunk.length*0.5)
+          {
+            continue;
+          }
+          Eigen::Vector3d centre = trunk.centre + lean * h;
+          double dist2 = (centre - pos).squaredNorm();
+          if (dist2 <= outer_radius*outer_radius)
+          {
+            points.push_back(pos);
+          }
+        }
+      }
+    }
+  }
+}
+
+Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 {
   if (verbose)
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
@@ -437,151 +487,107 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
   Eigen::Vector3d min_bound = cloud.calcMinBound();
   Eigen::Vector3d max_bound = cloud.calcMaxBound();
   std::cout << "cloud from: " << min_bound.transpose() << " to: " << max_bound.transpose() << std::endl;
-  
-  // Idea: grid up the world (z squash 2x)
-  // every point we find nearest within a 2x2x2 part of the grid. 
-  // every 2x2x2 get a mean and covariance
-  // then iterate by cutting out > 2 sigma and running again
-  // throw out if too fat, we're looking for long trunks. 
 
+  // 1. voxel grid of points (an acceleration structure)
   const double voxel_width = midRadius * 2.0;
   Grid<Eigen::Vector3d> grid(min_bound, max_bound, voxel_width);
-
-  // fill in grid:
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
       continue;
     Eigen::Vector3d pos = cloud.ends[i];
-    const double vertical_scale = 0.25;
-    pos[2] *= vertical_scale;
     grid.insert(grid.index(pos), pos);
   }
+  const int min_num_points = 10;
 
-  // now get ellipsoid for each neighbourhood
-  auto each_cell = [&](const Grid<Eigen::Vector3d> &grid, const Cell &cell)
+  // 2. initialise one trunk candidate for each occupied voxel
+  std::vector<Trunk> trunks;
+  grid.walkCells([&](const Grid<Eigen::Vector3d> &grid, const Grid<Eigen::Vector3d>::Cell &cell)
   {
-    for (auto &pos: cell)
-    {
+    if (cell.data.size() < min_num_points) // not enough data to attempt
+      return;
+    Trunk trunk;
+    trunk.centre = (cell.index.cast<double>() + Eigen::Vector3d(0.5,0.5,0.5)) * voxel_width + grid.box_min;
+    trunk.radius = midRadius;
+    trunk.length = 2.0 * midRadius * trunk_height_to_width;
+    trunk.score = trunk.weight = 0;
+    trunk.lean.setZero();
+    trunks.push_back(trunk);
+  });
 
-    }
-  };
-  grid.walkCells(each_cell)
-
-  Eigen::Vector2i minCell = Eigen::Vector2i(floor(min_bound[0] / voxel_width), floor(min_bound[1] / voxel_width));
-  Eigen::Vector2i maxCell(floor(max_bound[0] / voxel_width), floor(max_bound[1] / voxel_width));
-  Eigen::Vector2d minBound = Eigen::Vector2d(minCell[0], minCell[1]) * voxel_width; 
-  size = Eigen::Vector2i(maxCell[0] + 1 - minCell[0], maxCell[1] + 1 - minCell[1]);
-  grid.resize(size[0] * size[1]);
-  for (int x = 0; x < size[0]; x++)
-    for (int y = 0; y < size[1]; y++)
-      grid[x + size[0] * y].minBound = minBound + Eigen::Vector2d(x, y) * width;
-
-  // populate the cells
-  std::vector<int> occupied;
-
-  int num_added = 0;
-  for (int i = 0; i < (int)cloud.ends.size(); i++)
+  // 3. iterate every candidate several times
+  const int num_iterations = 5;
+  for (int it = 0; it<num_iterations; it++)
   {
-    if (!cloud.rayBounded(i))
-      continue;
-    Eigen::Vector2i index(floor((cloud.ends[i][0] - minBound[0]) / voxel_width), floor((cloud.ends[i][1] - minBound[1]) / voxel_width));
-    int id = index[0] + size[0] * index[1];
-    Cell &cell = grid[id];
-    if (cell.rays.empty())
+//    Trunk &trunk = trunks[10];
+    for (auto &trunk: trunks)
     {
-      num_added++;
-      occupied.push_back(id);
-    }
-    cell.height += cloud.ends[i][2];
-    cell.rays.push_back(Ray(cloud.starts[i], cloud.ends[i]));
-  }
-  std::cout << "num cells added: " << num_added << std::endl;
-  for (auto &id: occupied)
-    grid[id].height /= (double)grid[id].rays.size();
-
-  const int attempts_per_cell = 5;
-  for (int attempt = 0; attempt < attempts_per_cell; attempt++)
-  {
-    std::vector<Trunk> trunks;
-    for (auto &id: occupied)
-    {
-      Cell &cell = grid[id];
-      // Ransac... pull out 3 points at random
-      int i = rand()%cell.rays.size();
-      int j = rand()%cell.rays.size(); 
-      int k = rand()%cell.rays.size();
-      if (i==j || i==k)
-        continue;
-      Eigen::Vector2d mid = cell.minBound + voxel_width*0.5*Eigen::Vector2d(1,1);
-      Eigen::Vector3d off(0,0,cell.height);
-      Eigen::Vector3d ps[3] = {cell.rays[i].pos-off, cell.rays[j].pos-off, cell.rays[k].pos-off};
-      // Now we want to find the leaning cylinder with minimum radius * gradient:
-      Eigen::Vector2d grad(0,0);
-      Eigen::Vector2d centre = mid;
-      Eigen::Vector2d best_grad;
-      Eigen::Vector2d best_centre;
-      double best_radius;
-      double best_score = 1e10;
-      // I don't like this, it isn't really getting a good angle, basically a random angle.
-      for (int it = 0; it<10; it++)
+      // get overlapping points to this trunk
+      std::vector<Eigen::Vector3d> points;
+      getOverlap(grid, trunk, points);
+      if (points.size() < min_num_points) // not enough data to attempt
       {
-        const double eps = 1e-6;
-        double rs[4];
-        int cnt = 0;
-        double mean_score = 0;
-        double gx[4] = {-eps, eps, 0, 0};
-        double gy[4] = {0, 0, -eps, eps};
-        for (int h = 0; h<4; h++)
-        {
-          Eigen::Vector2d g = grad + Eigen::Vector2d(gx[h],gy[h]);
-          Eigen::Vector2d vs[3];
-          for (int l = 0; l<2; l++)
-            vs[l] = Eigen::Vector2d(ps[l][0] - ps[l][2]*g[0], ps[l][1] - ps[l][2]*g[1]);
-
-          // just get circumradius....
-          Eigen::Vector2d m1 = (vs[0] + vs[1]) * 0.5;
-          Eigen::Vector2d m2 = (vs[0] + vs[2]) * 0.5;
-          Eigen::Vector2d toV1 = vs[1] - vs[0];
-          Eigen::Vector2d dir2(vs[0][1]-vs[2][1], vs[2][0]-vs[0][0]);
-          double d = (m1 - m2).dot(toV1) / dir2.dot(toV1);
-          Eigen::Vector2d circumcentre = m2 + dir2 * d;
-          double circumradius2 = (vs[0] - circumcentre).squaredNorm();
-          double score = circumradius2 * g.squaredNorm();
-          if (score < best_score)
-          {
-            best_score = score;
-            best_grad = g;
-            best_centre = circumcentre;
-            best_radius = std::sqrt(circumradius2);
-          }
-          rs[cnt++] = score;
-          mean_score += score * 0.25;
-          std::cout << "centre: " << circumcentre.transpose() << ", radius2: " << circumradius2 << ", lean: " << g.transpose() << ", score: " << score << std::endl;
-        }
-        Eigen::Vector2d gradient = -Eigen::Vector2d(rs[1]-rs[0], rs[3]-rs[2]) / (2.0 * eps);
-        std::cout << "score: " << mean_score << ", gradient: " << gradient << std::endl;
-        const double gamma = 0.5;
-        grad += gamma * gradient;
+        trunk.radius = trunk.length = 0; // later I'll actually remove this trunk
+        continue;
       }
-      // OK so this is our guess: best_grad, best_centre.
+      std::vector<Trunk> drawtrunks(2);
+      drawtrunks[0] = trunk;
 
-      Trunk trunk;
-      trunk.radius = best_radius;
-      trunk.score = 0;
-      trunk.lean = best_grad;
-      trunk.thickness = 0.0;
-      trunk.centre[0] = best_centre[0];
-      trunk.centre[1] = best_centre[1];
-      trunk.centre[2] = cell.height;
-      trunks.push_back(trunk);
+      // weight these points
+      Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
+      std::vector<double> weights(points.size());
+      Accumulator sum;
+      for (size_t i = 0; i<points.size(); i++)
+      {
+        double h = points[i][2] - trunk.centre[2];
+        Eigen::Vector2d offset = vector2d(points[i] - (trunk.centre + lean*h));
+        double dist = offset.norm();
+        double w = 1.0 - dist/(trunk.radius * boundary_radius_scale); // lateral fade off
+        weights[i] = w;
+
+        // lean, shift and change radius
+        sum.x += h*w;
+        sum.y += offset*w;
+        sum.xy += h*offset*w;
+        sum.x2 += h*h*w;
+        sum.radius += dist*w;
+        sum.radius2 += std::abs(h)*w;
+        sum.weight += w;      
+      }
+      double n = sum.weight;
+
+      // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
+      Eigen::Vector2d sXY = sum.xy - sum.x*sum.y/n;
+      double sXX = sum.x2 - sum.x*sum.x/n;
+
+      trunk.lean += sXY / sXX;
+      double l = trunk.lean.norm();
+      const double max_lean = 0.5;//25;
+      if (l > max_lean)
+        trunk.lean *= max_lean/l;          
+      
+      trunk.centre += vector3d(sum.y/n);
+      trunk.centre[2] += sum.x / n;
+      double radius_scale = (sum.radius/n) / trunk.radius;
+      double length_scale = (sum.radius2/n) / (trunk.length * 0.25);
+      std::cout << "radius scale: " << radius_scale << ", length scale: " << length_scale << std::endl;
+      std::cout << "rad: " << sum.radius / n << ", half length: " << sum.radius2/n << std::endl;
+      double scale = (radius_scale + length_scale)/2.0; // average, since we're not affecting the ratio of length to radius
+      trunk.radius *= scale;
+      trunk.length *= scale;
+
+  //    drawtrunks[1] = trunk;
+  //    DebugDraw::instance()->drawTrunks(drawtrunks);
+  //    DebugDraw::instance()->drawCloud(points, 0.5, 1);
+//      std::cout << points.size() << "shift of: " << (sum.y/n).transpose() << ", " << sum.x/n << " new lean: " << trunk.lean.transpose() << " and radius scale: " << scale << std::endl;
+//      std::cout << std::endl;
     }
     if (verbose)
     {
       DebugDraw::instance()->drawTrunks(trunks);
-      DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
-    }    
+    }  
   }
+ 
 }
 
 #endif

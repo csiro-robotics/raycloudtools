@@ -210,15 +210,16 @@ void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
     {
       for (int height = 0; height<2; height++)
       {
+        double h = (double)height - 0.5;
         for (double dir = -1; dir < 1.1; dir += 2.0)
         {
           for (int j = 0; j<2; j++)
           {
             double ang = angle + (double)j * kPi/6.0;
             geometry_msgs::Point p;
-            p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + dir*trunks[i].thickness) + (double)height*trunks[i].lean[0]*trunks[i].length;
-            p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + dir*trunks[i].thickness) + (double)height*trunks[i].lean[1]*trunks[i].length;
-            p.z = trunks[i].centre[2] + (-0.5 + (double)height)*trunks[i].length;
+            p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + dir*trunks[i].thickness) + h*trunks[i].lean[0]*trunks[i].length;
+            p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + dir*trunks[i].thickness) + h*trunks[i].lean[1]*trunks[i].length;
+            p.z = trunks[i].centre[2] + h*trunks[i].length;
             marker.points.push_back(p);
           }
         }
@@ -228,11 +229,12 @@ void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
     {
       for (int height = 0; height<2; height++)
       {
+        double h = (double)height - 0.5;
         double ang = angle;
         geometry_msgs::Point p;
-        p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + trunks[i].thickness) + (double)height*trunks[i].lean[0]*trunks[i].length;
-        p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + trunks[i].thickness) + (double)height*trunks[i].lean[1]*trunks[i].length;
-        p.z = trunks[i].centre[2] + (-0.5 + (double)height)*trunks[i].length;
+        p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + trunks[i].thickness) + h*trunks[i].lean[0]*trunks[i].length;
+        p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + trunks[i].thickness) + h*trunks[i].lean[1]*trunks[i].length;
+        p.z = trunks[i].centre[2] + h*trunks[i].length;
         marker.points.push_back(p);
       }
     }

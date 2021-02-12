@@ -259,37 +259,54 @@ class ContiguousGrid
 {
 public:
   ContiguousGrid() {}
-  ContiguousGrid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
+  ContiguousGrid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width, double voxel_height = 0)
   {
-    init(box_min, box_max, voxel_width);
+    init(box_min, box_max, voxel_width, voxel_height);
   }
-  void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width)
+  void init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width, double voxel_height = 0)
   {
     this->box_min = box_min;
-    this->box_max = box_max;
     this->voxel_width = voxel_width;
+    this->voxel_height = voxel_height ? voxel_height : voxel_width;
     Eigen::Vector3d diff = (box_max - box_min) / voxel_width;
-    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil(diff[2]));
+    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil((box_max[2]-box_min[2])/voxel_height));
     cells.resize(dims[0] * dims[1] * dims[2]);
   }
   struct Cell
   {
     std::vector<T> data;
   };
-  inline Cell &cell(int x, int y, int z)
+  Eigen::Vector3i index(const Eigen::Vector3d &spatial_pos) const
   {
+    Eigen::Vector3d coord = spatial_pos - box_min;
+    coord[0] /= voxel_width;
+    coord[1] /= voxel_width;
+    coord[2] /= voxel_height;
+    return coord.cast<int>();
+  }
+  inline Cell &cell(const Eigen::Vector3i &index)
+  {
+    const double &x = index[0];
+    const double &y = index[1];
+    const double &z = index[2];
     if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
       return null_cell_;
     return cells[x + dims[0] * y + dims[0] * dims[1] * z];
   }
-  inline const Cell &cell(int x, int y, int z) const
+  inline const Cell &cell(const Eigen::Vector3i &index) const
   {
+    const double &x = index[0];
+    const double &y = index[1];
+    const double &z = index[2];
     if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
       return null_cell_;
     return cells[x + dims[0] * y + dims[0] * dims[1] * z];
   }
-  inline void insert(int x, int y, int z, const T &value)
+  inline void insert(const Eigen::Vector3i &index, const T &value)
   {
+    const double &x = index[0];
+    const double &y = index[1];
+    const double &z = index[2];
     if (x < 0 || x >= dims[0] || y < 0 || y >= dims[1] || z < 0 || z >= dims[2])
       std::cout << "warning: bad input coordinates: " << x << ", " << y << ", " << z << std::endl;
     cell(x, y, z).data.emplace_back(value);
@@ -312,8 +329,8 @@ public:
     std::cout << "total data stored: " << totalCount << std::endl;
   }
 
-  Eigen::Vector3d box_min, box_max;
-  double voxel_width;
+  Eigen::Vector3d box_min;
+  double voxel_width, voxel_height;
   Eigen::Vector3i dims;
 
 protected:
