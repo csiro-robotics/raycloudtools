@@ -516,27 +516,32 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
   });
 
   // 3. iterate every candidate several times
-  const int num_iterations = 5;
+  const int num_iterations = 10;
   for (int it = 0; it<num_iterations; it++)
   {
-//    Trunk &trunk = trunks[10];
-    for (auto &trunk: trunks)
+    double avScore = 0;
+    double num = 0;
+    for (int trunk_id = 0; trunk_id < (int)trunks.size(); trunk_id++)
     {
+      auto &trunk = trunks[trunk_id];
       // get overlapping points to this trunk
       std::vector<Eigen::Vector3d> points;
       getOverlap(grid, trunk, points);
-      if (points.size() < min_num_points) // not enough data to attempt
+      if (points.size() < min_num_points) // not enough data to use
       {
-        trunk.radius = trunk.length = 0; // later I'll actually remove this trunk
+        trunks[trunk_id] = trunks.back(); // so remove the trunk
+        trunks.pop_back();
+        trunk_id--;
         continue;
       }
-      std::vector<Trunk> drawtrunks(2);
-      drawtrunks[0] = trunk;
+ //     std::vector<Trunk> drawtrunks(2);
+ //     drawtrunks[0] = trunk;
 
       // weight these points
       Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
       std::vector<double> weights(points.size());
       Accumulator sum;
+      trunk.score = 0;
       for (size_t i = 0; i<points.size(); i++)
       {
         double h = points[i][2] - trunk.centre[2];
@@ -553,8 +558,25 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.radius += dist*w;
         sum.radius2 += std::abs(h)*w;
         sum.weight += w;      
+
+        double weight = std::cos((dist - trunk.radius)*2.0*kPi / (8.0 * trunk.radius / 3.0));
+        trunk.score += weight;
       }
       double n = sum.weight;
+      trunk.score /= 2.0 * kPi * trunk.radius * trunk.length; // normalize
+      if (trunk.score > 0)
+      {
+        avScore += trunk.score;
+        num++;
+      }
+      const double minimum_score = 100.0;
+      if (it == num_iterations-1 && trunk.score < minimum_score) // then remove the trunk
+      {
+        trunks[trunk_id] = trunks.back(); 
+        trunks.pop_back();
+        trunk_id--;
+        continue;        
+      }
 
       // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
       Eigen::Vector2d sXY = sum.xy - sum.x*sum.y/n;
@@ -584,10 +606,14 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
     }
     if (verbose)
     {
+      std::cout << "average score: " << avScore / num << std::endl;
       DebugDraw::instance()->drawTrunks(trunks);
     }  
   }
- 
+  if (verbose)
+  {
+    DebugDraw::instance()->drawTrunks(trunks);
+  } 
 }
 
 #endif
