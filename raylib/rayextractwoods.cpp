@@ -534,8 +534,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         trunk_id--;
         continue;
       }
- //     std::vector<Trunk> drawtrunks(2);
- //     drawtrunks[0] = trunk;
 
       // weight these points
       Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
@@ -555,7 +553,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.y += offset*w;
         sum.xy += h*offset*w;
         sum.x2 += h*h*w;
-        sum.radius += dist*w;
+        sum.radius += dist;
         sum.radius2 += std::abs(h)*w;
         sum.weight += w;      
 
@@ -590,19 +588,13 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       
       trunk.centre += vector3d(sum.y/n);
       trunk.centre[2] += sum.x / n;
-      double radius_scale = (sum.radius/n) / trunk.radius;
+      double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
       double length_scale = (sum.radius2/n) / (trunk.length * 0.25);
-      std::cout << "radius scale: " << radius_scale << ", length scale: " << length_scale << std::endl;
-      std::cout << "rad: " << sum.radius / n << ", half length: " << sum.radius2/n << std::endl;
+ //     std::cout << "radius scale: " << radius_scale << ", length scale: " << length_scale << std::endl;
+ //     std::cout << "rad: " << sum.radius / n << ", half length: " << sum.radius2/n << std::endl;
       double scale = (radius_scale + length_scale)/2.0; // average, since we're not affecting the ratio of length to radius
       trunk.radius *= scale;
       trunk.length *= scale;
-
-  //    drawtrunks[1] = trunk;
-  //    DebugDraw::instance()->drawTrunks(drawtrunks);
-  //    DebugDraw::instance()->drawCloud(points, 0.5, 1);
-//      std::cout << points.size() << "shift of: " << (sum.y/n).transpose() << ", " << sum.x/n << " new lean: " << trunk.lean.transpose() << " and radius scale: " << scale << std::endl;
-//      std::cout << std::endl;
     }
     if (verbose)
     {
@@ -614,6 +606,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
   {
     DebugDraw::instance()->drawTrunks(trunks);
   } 
+  // now I need to connect all the trunks into tree shapes!
 }
 
 #endif
