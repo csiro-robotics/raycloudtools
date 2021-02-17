@@ -521,7 +521,9 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
   });
 
   // 3. iterate every candidate several times
-  const int num_iterations = 10;
+  const int num_iterations = 5;
+  std::vector<double> final_scores;
+  std::vector<Eigen::Vector3d> final_points;
   for (int it = 0; it<num_iterations; it++)
   {
     double avScore = 0;
@@ -543,8 +545,12 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       // weight these points
       Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
       std::vector<double> weights(points.size());
+
       Accumulator sum;
       trunk.score = 0;
+      double num_outside = 0;
+      double num_inside = 0;
+      std::vector<double> scores(points.size());
       for (size_t i = 0; i<points.size(); i++)
       {
         double h = points[i][2] - trunk.centre[2];
@@ -566,7 +572,26 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.radius2 += std::abs(h)*w;
         sum.weight += w;      
 
-        double weight = std::cos((dist - trunk.radius)*2.0*kPi / (8.0 * trunk.radius / 3.0));
+        if (dist > trunk.radius * 1.2)
+          num_outside++;
+        else
+          num_inside++;
+        double score_centre = 0.5;
+        double score_radius = 1.0;
+        double score_2radius = -2.0;
+        double score_3radius = -2.0;
+        double weight = 0.0;
+        if (dist < trunk.radius)
+          weight = score_centre + (score_radius - score_centre)*dist/trunk.radius;
+        else if (dist < 2.0*trunk.radius)
+          weight = score_radius + (score_2radius - score_radius)*(dist - trunk.radius)/trunk.radius;
+        else
+          weight = score_2radius + (score_3radius - score_2radius)*(dist - 2.0*trunk.radius)/trunk.radius;
+  //      double weight = std::cos((dist - trunk.radius)*2.0*kPi / (8.0 * trunk.radius / 3.0));
+        if (it == num_iterations-1)
+        {
+          scores[i] = weight;
+        }
         trunk.score += weight;
       }
       double n = sum.weight;
@@ -576,6 +601,19 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         avScore += trunk.score;
         num++;
       }
+      if (it == num_iterations-1 && trunk.score > minimum_score)
+      {
+        final_scores.insert(final_scores.end(), scores.begin(), scores.end());
+        final_points.insert(final_points.end(), points.begin(), points.end());        
+      }
+      /*
+        std::vector<Trunk> ts(1);
+        ts[0] = trunk;
+        DebugDraw::instance()->drawTrunks(ts);
+        DebugDraw::instance()->drawCloud(points, scores, 0);
+        std::cout << "score: " << trunk.score << ", num inside: " << num_inside << ", num outside: " << num_outside << ", inside: " << 100.0*num_inside / (num_inside+num_outside) << "\%" << std::endl;
+        std::cout << std::endl;
+      }*/
       if (it == num_iterations-1 && trunk.score < minimum_score) // then remove the trunk
       {
         trunks[trunk_id] = trunks.back(); 
@@ -612,9 +650,10 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
   }
   if (verbose)
   {
+    DebugDraw::instance()->drawCloud(final_points, final_scores, 1);
     DebugDraw::instance()->drawTrunks(trunks);
   } 
-  // now I need to connect all the trunks into tree shapes!
+  // now I need to connect all the trunks into tree shapes!s
 }
 
 #endif
