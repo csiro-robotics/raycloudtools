@@ -33,6 +33,7 @@ struct Trunk
   double weight;
   double thickness;
   double length; 
+  struct Trunk *next_down;
   Eigen::Vector2d lean;
 };
 

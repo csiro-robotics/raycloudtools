@@ -14,9 +14,9 @@ Eigen::Vector2d vector2d(const Eigen::Vector3d &v)
 {
   return Eigen::Vector2d(v[0], v[1]);
 }
-Eigen::Vector3d vector3d(const Eigen::Vector2d &v)
+Eigen::Vector3d vector3d(const Eigen::Vector2d &v, double z = 0)
 {
-  return Eigen::Vector3d(v[0], v[1], 0.0);
+  return Eigen::Vector3d(v[0], v[1], z);
 }
 
 #if OLD_WOODS
@@ -479,6 +479,64 @@ void getOverlap(const Grid<Eigen::Vector3d> &grid, const Trunk &trunk, std::vect
   }
 }
 
+
+void getOverlap(const Grid<Trunk> &grid, const Trunk &trunk, std::vector<Trunk*> &overlapping_trunks)
+{
+  Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
+  const double length_scale = 2.0; // make trunks longer when searching for overlapping trunks
+  Eigen::Vector3d base = trunk.centre - 0.5*trunk.length*length_scale*lean;
+  Eigen::Vector3d top = trunk.centre + 0.5*trunk.length*length_scale*lean;
+  double outer_radius = trunk.radius * boundary_radius_scale;
+  Eigen::Vector3d rad(outer_radius, outer_radius, 0);
+  Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
+
+  Eigen::Vector3i mins = ((cuboid.min_bound_ - grid.box_min) / grid.voxel_width).cast<int>();
+  Eigen::Vector3i maxs = ((cuboid.max_bound_ - grid.box_min) / grid.voxel_width).cast<int>();
+
+  mins = maxVector(mins, Eigen::Vector3i(0,0,0));
+  Eigen::Vector3i min_dims = grid.dims - Eigen::Vector3i(1,1,1);
+  maxs = minVector(maxs, min_dims);
+
+  Eigen::Vector3i ind;
+  for (ind[0] = mins[0]; ind[0]<=maxs[0]; ind[0]++)
+  {
+    for (ind[1] = mins[1]; ind[1]<=maxs[1]; ind[1]++)
+    {
+      for (ind[2] = mins[2]; ind[2]<=maxs[2]; ind[2]++)
+      {
+        auto &cell = grid.cell(ind);
+        for (auto &other_trunk: cell.data)
+        {
+          if (&other_trunk == &trunk)
+            continue;
+          // cylinder-cylinder overlap
+          double lowest = std::max(trunk.centre[2]-0.5*trunk.length*length_scale, other_trunk.centre[2]-0.5*other_trunk.length*length_scale);
+          double highest = std::min(trunk.centre[2]+0.5*trunk.length*length_scale, other_trunk.centre[2]+0.5*other_trunk.length*length_scale);
+          if (highest <= lowest)
+            continue;
+          #if 1 // better
+          Eigen::Vector3d oth = other_trunk.centre + vector3d(other_trunk.lean, 1)*(trunk.centre[2]-other_trunk.centre[2]) - trunk.centre;
+          Eigen::Vector3d oth_dir = vector3d(other_trunk.lean, 1) - vector3d(trunk.lean, 1);
+          oth_dir[2] = 0;
+          double d = std::max(lowest-trunk.centre[2], std::min(oth.dot(oth_dir)/oth_dir.dot(oth_dir), highest-trunk.centre[2]));
+          Eigen::Vector3d intersection = oth + oth_dir*d;
+          double dist = intersection.norm();
+          #else
+          double mid = (lowest + highest)/2.0;
+          Eigen::Vector3d p1 = trunk.centre + vector3d(trunk.lean, 1)*(mid - trunk.centre[2]);
+          Eigen::Vector3d p2 = other_trunk.centre + vector3d(other_trunk.lean, 1)*(mid - other_trunk.centre[2]);
+          Eigen::Vector3d p = (p2 - p1);
+          double dist = p.norm();
+          #endif
+          if (dist > 1.25*(trunk.radius + other_trunk.radius))
+            continue;
+          overlapping_trunks.push_back((Trunk *)&other_trunk);
+        }
+      }
+    }
+  }
+}
+
 Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 {
   double spacing = cloud.estimatePointSpacing();
@@ -650,10 +708,64 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
   }
   if (verbose)
   {
-    DebugDraw::instance()->drawCloud(final_points, final_scores, 1);
+ //   DebugDraw::instance()->drawCloud(final_points, final_scores, 1);
     DebugDraw::instance()->drawTrunks(trunks);
   } 
-  // now I need to connect all the trunks into tree shapes!s
+
+  // now I need to connect all the trunks into tree shapes!
+
+  Grid<Trunk> trunk_grid(min_bound, max_bound, voxel_width);
+  for (auto &trunk: trunks)
+  {
+    trunk.next_down = NULL;
+    trunk_grid.insert(trunk_grid.index(trunk.centre), trunk);
+  }
+  for (size_t i = 0; i<trunks.size(); i++)
+  {
+    std::vector<Trunk*> overlaps;
+    getOverlap(trunk_grid, trunks[i], overlaps);
+    for (auto &overlap: overlaps)
+    {
+      // no, not quite, we need an insertion sort type thing...
+      if (trunks[i].centre[2] > overlap->centre[2])
+      {
+        if (trunks[i].next_down == NULL || trunks[i].next_down->centre[2] < overlap->centre[2])
+          trunks[i].next_down = overlap;
+      }
+      else
+      {
+        if (overlap->next_down == NULL || overlap->next_down->centre[2] < trunks[i].centre[2])
+          overlap->next_down = &trunks[i];
+      }
+    }
+  }
+  std::vector<Trunk> trunk_bases;
+  for (auto &trunk: trunks) // TODO: we can also walk this and generate a tree of branches
+  {
+    Trunk *tr = &trunk;
+    while (tr->next_down != NULL)
+      tr = tr->next_down;
+    if (tr->radius != -1)
+      trunk_bases.push_back(*tr);
+    tr->radius = -1;
+  }
+  double mean_radius = 0;
+  double total_volume = 0;
+  const double volume_gain = 35.0; // this is the factor for the artificial trees in raycreate
+  for (auto &t: trunk_bases)
+  {
+    mean_radius += t.radius;
+    total_volume += volume_gain * t.radius * t.radius * t.radius;
+  }
+  mean_radius /= (double)trunk_bases.size();
+  std::cout << "number of trees found: " << trunk_bases.size() << " with mean diameter: " << 2.0*mean_radius << std::endl;
+  std::cout << "approximate volume of wood: " << total_volume << " cubic metres" << std::endl;
+  const double wood_density = 540; // for Red gum, see: https://www.engineeringtoolbox.com/wood-density-d_40.html
+  std::cout << "estimated mass of trees: " << total_volume * wood_density << " kg" << std::endl;
+  if (verbose)
+  {
+    DebugDraw::instance()->drawTrunks(trunk_bases);
+  } 
 }
 
 #endif
