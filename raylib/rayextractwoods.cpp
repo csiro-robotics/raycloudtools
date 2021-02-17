@@ -552,6 +552,10 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         double dist = offset.norm();
         double w = 1.0 - dist/(trunk.radius * boundary_radius_scale); // lateral fade off
         weights[i] = w;
+        // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated trunk centred on that edge
+        //                If radius_removal_factor=1 then v thin trunks may accidentally get a radius and it won't shrink down
+        const double radius_removal_factor = 0.5;
+        offset -= offset * std::min(1.0, radius_removal_factor * trunk.radius / offset.norm()); 
 
         // lean, shift and change radius
         sum.x += h*w;
