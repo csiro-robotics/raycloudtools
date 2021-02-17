@@ -481,8 +481,13 @@ void getOverlap(const Grid<Eigen::Vector3d> &grid, const Trunk &trunk, std::vect
 
 Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 {
+  double spacing = cloud.estimatePointSpacing();
+  const double minimum_score = 1.0/sqr(spacing);
   if (verbose)
+  {
+    std::cout << "estimated point spacig: " << spacing << ", minimum score: " << minimum_score << std::endl;
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+  }
 
   Eigen::Vector3d min_bound = cloud.calcMinBound();
   Eigen::Vector3d max_bound = cloud.calcMaxBound();
@@ -567,7 +572,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         avScore += trunk.score;
         num++;
       }
-      const double minimum_score = 100.0;
       if (it == num_iterations-1 && trunk.score < minimum_score) // then remove the trunk
       {
         trunks[trunk_id] = trunks.back(); 
