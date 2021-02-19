@@ -438,7 +438,7 @@ void getOverlap(const Grid<Eigen::Vector3d> &grid, const Trunk &trunk, std::vect
   Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
   Eigen::Vector3d base = trunk.centre - 0.5*trunk.length*lean;
   Eigen::Vector3d top = trunk.centre + 0.5*trunk.length*lean;
-  double outer_radius = trunk.radius * boundary_radius_scale;
+  double outer_radius = (trunk.radius + trunk.thickness) * boundary_radius_scale;
   Eigen::Vector3d rad(outer_radius, outer_radius, 0);
   Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
 
@@ -575,6 +575,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
     trunk.length = 2.0 * midRadius * trunk_height_to_width;
     trunk.score = trunk.weight = 0;
     trunk.lean.setZero();
+    trunk.thickness = 0; // spacing/2.0; // we might want to include a 'range noise' type fixed
     trunks.push_back(trunk);
   });
 
@@ -606,15 +607,13 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 
       Accumulator sum;
       trunk.score = 0;
-      double num_outside = 0;
-      double num_inside = 0;
       std::vector<double> scores(points.size());
       for (size_t i = 0; i<points.size(); i++)
       {
         double h = points[i][2] - trunk.centre[2];
         Eigen::Vector2d offset = vector2d(points[i] - (trunk.centre + lean*h));
         double dist = offset.norm();
-        double w = 1.0 - dist/(trunk.radius * boundary_radius_scale); // lateral fade off
+        double w = 1.0 - dist/((trunk.radius+trunk.thickness) * boundary_radius_scale); // lateral fade off
         weights[i] = w;
         // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated trunk centred on that edge
         //                If radius_removal_factor=1 then v thin trunks may accidentally get a radius and it won't shrink down
@@ -629,11 +628,12 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.radius += dist;
         sum.radius2 += std::abs(h)*w;
         sum.weight += w;      
-
-        if (dist > trunk.radius * 1.2)
-          num_outside++;
-        else
-          num_inside++;
+#if 0 // this is a fixed width based scoring method. 
+        const double false_point_penalty = 0.25; // remove this for each point outside of trunk thickness
+        double weight = 1.0;
+        if (std::abs(dist - trunk.radius) > trunk.thickness)
+          weight = -false_point_penalty;
+#else
         double score_centre = 0.5;
         double score_radius = 1.0;
         double score_2radius = -2.0;
@@ -645,7 +645,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
           weight = score_radius + (score_2radius - score_radius)*(dist - trunk.radius)/trunk.radius;
         else
           weight = score_2radius + (score_3radius - score_2radius)*(dist - 2.0*trunk.radius)/trunk.radius;
-  //      double weight = std::cos((dist - trunk.radius)*2.0*kPi / (8.0 * trunk.radius / 3.0));
+#endif
         if (it == num_iterations-1)
         {
           scores[i] = weight;
@@ -654,7 +654,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       }
       double n = sum.weight;
       trunk.score /= 2.0 * kPi * trunk.radius * trunk.length; // normalize
-      if (trunk.score > 0)
+   //   if (trunk.score > 0)
       {
         avScore += trunk.score;
         num++;
@@ -664,14 +664,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         final_scores.insert(final_scores.end(), scores.begin(), scores.end());
         final_points.insert(final_points.end(), points.begin(), points.end());        
       }
-      /*
-        std::vector<Trunk> ts(1);
-        ts[0] = trunk;
-        DebugDraw::instance()->drawTrunks(ts);
-        DebugDraw::instance()->drawCloud(points, scores, 0);
-        std::cout << "score: " << trunk.score << ", num inside: " << num_inside << ", num outside: " << num_outside << ", inside: " << 100.0*num_inside / (num_inside+num_outside) << "\%" << std::endl;
-        std::cout << std::endl;
-      }*/
       if (it == num_iterations-1 && trunk.score < minimum_score) // then remove the trunk
       {
         trunks[trunk_id] = trunks.back(); 
@@ -694,8 +686,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       trunk.centre[2] += sum.x / n;
       double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
       double length_scale = (sum.radius2/n) / (trunk.length * 0.25);
- //     std::cout << "radius scale: " << radius_scale << ", length scale: " << length_scale << std::endl;
- //     std::cout << "rad: " << sum.radius / n << ", half length: " << sum.radius2/n << std::endl;
       double scale = (radius_scale + length_scale)/2.0; // average, since we're not affecting the ratio of length to radius
       trunk.radius *= scale;
       trunk.length *= scale;
@@ -712,8 +702,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
     DebugDraw::instance()->drawTrunks(trunks);
   } 
 
-  // now I need to connect all the trunks into tree shapes!
-
+  // now I need to connect all the trunks into tree shapes
   Grid<Trunk> trunk_grid(min_bound, max_bound, voxel_width);
   for (auto &trunk: trunks)
   {
@@ -781,6 +770,7 @@ bool Wood::save(const std::string &filename)
     Eigen::Vector3d base = trunk.centre - vector3d(trunk.lean, 1)*trunk.length*0.5;
     ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << trunk.radius << std::endl;
   }
+  return true;
 }
 
 

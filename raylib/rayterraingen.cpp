@@ -40,7 +40,7 @@ void TerrainGen::generate(const TerrainParams &params)
   double rad_scale = random(0.05, 0.3);
   double traj_radius2 = traj_radius * rad_scale;
   double boundary_rad = traj_radius + params.ray_height; // the ray_height adds lateral radius due to diagonal rays 
-  double boundary_area = kPi*traj_radius*traj_radius;
+  double boundary_area = kPi * boundary_rad * boundary_rad;
   double num_rays = params.point_density * boundary_area;
   double phase_step = 2.0*kPi / num_rays;
   for (double phase = 0.0; phase < 2.0*kPi; phase += phase_step)
