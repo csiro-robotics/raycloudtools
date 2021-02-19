@@ -739,7 +739,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       }
     }
   }
-  std::vector<Trunk> trunk_bases;
   for (auto &trunk: trunks) // TODO: we can also walk this and generate a tree of branches
   {
     Trunk *tr = &trunk;
@@ -767,6 +766,23 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
     DebugDraw::instance()->drawTrunks(trunk_bases);
   } 
 }
+
+bool Wood::save(const std::string &filename)
+{
+  std::ofstream ofs(filename.c_str(), std::ios::out);
+  if (!ofs.is_open())
+  {
+    std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
+    return false;
+  }  
+  ofs << "Tree base location list: x, y, z, radius" << std::endl;
+  for (auto &trunk: trunk_bases)
+  {
+    Eigen::Vector3d base = trunk.centre - vector3d(trunk.lean, 1)*trunk.length*0.5;
+    ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << trunk.radius << std::endl;
+  }
+}
+
 
 #endif
 } // namespace ray

@@ -32,10 +32,8 @@ struct Cell
 struct Wood
 {
   Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose);
-  std::vector<Cell> grid;
-  std::vector<Trunk> trunks;
-  double width;
-  Eigen::Vector2i minBound, size;
+  bool save(const std::string &filename);
+  std::vector<Trunk> trunk_bases;
 };
 
 struct Accumulator

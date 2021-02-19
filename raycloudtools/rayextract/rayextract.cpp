@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     const double radius = 0.15;
     const double length = 1.0;
     ray::Wood woods(cloud, radius, length, verbose.isSet());
-    std::cout << "number of trunks found: " << woods.trunks.size() << std::endl;
+    woods.save(cloud_file.nameStub() + "_woods.txt");
   }
   return true;
 }
