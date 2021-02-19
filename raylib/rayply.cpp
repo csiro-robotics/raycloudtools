@@ -496,14 +496,14 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   fprintf(fid, "property uchar green\n");
   fprintf(fid, "property uchar blue\n");
   fprintf(fid, "property uchar alpha\n");
-  fprintf(fid, "element face %u\n", (unsigned)mesh.index_list().size());
+  fprintf(fid, "element face %u\n", (unsigned)mesh.indexList().size());
   fprintf(fid, "property list int int vertex_indices\n");
   fprintf(fid, "end_header\n");
 
   fwrite(&vertices[0], sizeof(Eigen::Vector4f), vertices.size(), fid);
 
-  std::vector<Eigen::Vector4i> triangles(mesh.index_list().size());
-  auto &list = mesh.index_list();
+  std::vector<Eigen::Vector4i> triangles(mesh.indexList().size());
+  auto &list = mesh.indexList();
   if (flip_normals)
     for (size_t i = 0; i < list.size(); i++)
       triangles[i] = Eigen::Vector4i(3, list[i][2], list[i][1], list[i][0]);
@@ -569,10 +569,10 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
   for (int i = 0; i < (int)vertices.size(); i++)
     mesh.vertices()[i] = Eigen::Vector3d(vertices[i][0], vertices[i][1], vertices[i][2]);
 
-  mesh.index_list().resize(triangles.size());
+  mesh.indexList().resize(triangles.size());
   for (int i = 0; i < (int)triangles.size(); i++)
-    mesh.index_list()[i] = Eigen::Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
-  std::cout << "reading from " << file << ", " << mesh.index_list().size() << " triangles." << std::endl;
+    mesh.indexList()[i] = Eigen::Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
+  std::cout << "reading from " << file << ", " << mesh.indexList().size() << " triangles." << std::endl;
   return true;
 }
 

@@ -19,6 +19,8 @@ class RAYLIB_EXPORT TerrainGen
 public:
   /// terrain generation function. The random seed can be specified with @c srand()
   void generate();
+  /// generate terrain from a mesh file, assuming the file is a ground mesh, with no vertical overlap
+  bool generateFromFile(const std::string &filename);
 
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }

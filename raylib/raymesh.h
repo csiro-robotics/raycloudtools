@@ -25,8 +25,8 @@ public:
   inline std::vector<Eigen::Vector3d> &vertices(){ return vertices_; }
   inline const std::vector<Eigen::Vector3d> &vertices() const { return vertices_; }
   /// access the mesh's index list
-  inline std::vector<Eigen::Vector3i> &index_list(){ return index_list_; }
-  inline const std::vector<Eigen::Vector3i> &index_list() const { return index_list_; }
+  inline std::vector<Eigen::Vector3i> &indexList(){ return index_list_; }
+  inline const std::vector<Eigen::Vector3i> &indexList() const { return index_list_; }
 
   /// Get first and second order moments of mesh. This can be used as a simple way to compare meshes
   /// numerically. Note that different stats guarantee different meshes, but same stats do not guarantee same meshes

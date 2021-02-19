@@ -4,6 +4,9 @@
 //
 // Author: Thomas Lowe
 #include "rayterraingen.h"
+#include "raymesh.h"
+#include "rayply.h"
+
 namespace ray
 {
 class PlanarWave
@@ -17,6 +20,8 @@ public:
   Eigen::Vector2d dir;  // includes wave frequency
   double amplitude;
 };
+
+static const double range_noise = 0.03;
 
 // Some outdoor hilly terrain
 void TerrainGen::generate()
@@ -63,7 +68,6 @@ void TerrainGen::generate()
       range += pos[2] - floor_y;
     }
 
-    const double range_noise = 0.03;
     Eigen::Vector3d end = start + (range + random(-range_noise, range_noise)) * dir;
     ray_starts_.push_back(start);
     ray_ends_.push_back(end);
@@ -72,4 +76,50 @@ void TerrainGen::generate()
     // it is a union)
   }
 }
+
+bool TerrainGen::generateFromFile(const std::string &filename)
+{
+  // simply rain down rays from a height, onto the mesh at a given density
+  const double ray_height = 1.0; 
+  const double ray_density = 400; // ray ends per square metre
+  Mesh mesh;
+  if (!readPlyMesh(filename, mesh))
+  {
+    return false;
+  }
+  std::vector<Eigen::Vector3i> &triangles = mesh.indexList();
+  std::vector<Eigen::Vector3d> &vertices = mesh.vertices();
+  // for each triangle, add rays in proportion to its horizontal area
+  double area_covered = 0;
+  double total_area = 0.0;
+  const double area_per_ray = 1.0 / ray_density; 
+  for (auto &triangle: triangles)
+  {
+    Eigen::Vector3d vs[3] = {vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]};
+    vs[0][2] = vs[1][2] = vs[2][2] = 0.0; // flatten
+    double area = std::abs(((vs[1] - vs[0]).cross(vs[2] - vs[0]))[2]) / 2.0;
+    total_area += area;
+    while (area_covered < total_area)
+    {
+      double ws[2] = {random(0,1), random(0,1)}; // weights give a random location
+      if (ws[0] + ws[1] > 1.0)
+      { 
+        ws[0] = 1.0 - ws[0];
+        ws[1] = 1.0 - ws[1];
+      } 
+      Eigen::Vector3d v0 = vertices[triangle[0]];
+      Eigen::Vector3d v1 = vertices[triangle[1]];
+      Eigen::Vector3d v2 = vertices[triangle[2]];
+      Eigen::Vector3d ray_end = v0 + (v1-v0)*ws[0] + (v2-v0)*ws[1];
+
+      ray_end[2] += random(-range_noise, range_noise);
+      Eigen::Vector3d ray_syart = ray_end + Eigen::Vector3d(0,0,ray_height);
+      ray_starts_.push_back(ray_syart);
+      ray_ends_.push_back(ray_end);
+      area_covered += area_per_ray;
+    }
+  }
+  return true;
+}
+
 } // ray
