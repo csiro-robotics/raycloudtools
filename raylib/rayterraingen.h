@@ -12,15 +12,24 @@
 
 namespace ray
 {
+struct TerrainParams
+{
+  TerrainParams() : point_density(400), ray_height(2.0), range_noise(0.03), walk_radius(4.0) {}
+  double point_density; // in points per square metre
+  double ray_height;
+  double range_noise;
+  double walk_radius; // radius of path of trajectory
+};
+
 /// Terrain raycloud generation class. Generates the ray cloud attributes for a a random section of hilly terrain, 
 /// as though scanned from a circular path over the terrain
 class RAYLIB_EXPORT TerrainGen
 {
 public:
   /// terrain generation function. The random seed can be specified with @c srand()
-  void generate();
+  void generate(const TerrainParams &params = TerrainParams());
   /// generate terrain from a mesh file, assuming the file is a ground mesh, with no vertical overlap
-  bool generateFromFile(const std::string &filename);
+  bool generateFromFile(const std::string &filename, const TerrainParams &params = TerrainParams());
 
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
