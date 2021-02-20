@@ -635,8 +635,8 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         weights[i] = w;
         // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated trunk centred on that edge
         //                If radius_removal_factor=1 then v thin trunks may accidentally get a radius and it won't shrink down
-        const double radius_removal_factor = 0.0;//0.5;
-        offset -= offset * std::min(1.0, radius_removal_factor * trunk.radius / offset.norm()); 
+        const double radius_removal_factor = 0.5;
+        offset -= offset * radius_removal_factor * trunk.radius / offset.norm(); 
 
 
 
@@ -730,9 +730,18 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 #endif
       trunk.centre[2] += sum.x / n;
       double length_scale = (sum.radius2/n) / (trunk.length * 0.25);
-      double scale = (radius_scale + length_scale)/2.0; // average, since we're not affecting the ratio of length to radius
-      trunk.radius *= scale;
-      trunk.length *= scale;
+//      double scale = (radius_scale + length_scale)/2.0; // average, since we're not affecting the ratio of length to radius
+//      trunk.radius *= scale;
+//      trunk.length *= scale;
+      trunk.radius *= radius_scale;
+      trunk.length *= length_scale;
+      if (trunk.radius > 0.5*trunk.length) // not enough data to use
+      {
+        trunks[trunk_id] = trunks.back(); // so remove the trunk
+        trunks.pop_back();
+        trunk_id--;
+        continue;
+      }
     }
     if (verbose)
     {
