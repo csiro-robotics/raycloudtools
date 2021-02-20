@@ -438,7 +438,7 @@ void getOverlap(const Grid<Eigen::Vector3d> &grid, const Trunk &trunk, std::vect
   Eigen::Vector3d lean(trunk.lean[0], trunk.lean[1], 1);
   Eigen::Vector3d base = trunk.centre - 0.5*trunk.length*lean;
   Eigen::Vector3d top = trunk.centre + 0.5*trunk.length*lean;
-  double outer_radius = (trunk.radius + trunk.thickness) * boundary_radius_scale;
+  double outer_radius = trunk.radius * boundary_radius_scale;
   Eigen::Vector3d rad(outer_radius, outer_radius, 0);
   Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
 
@@ -575,7 +575,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
     trunk.length = 2.0 * midRadius * trunk_height_to_width;
     trunk.score = trunk.weight = 0;
     trunk.lean.setZero();
-    trunk.thickness = 0; // spacing/2.0; // we might want to include a 'range noise' type fixed
     trunks.push_back(trunk);
   });
 
@@ -608,17 +607,41 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       Accumulator sum;
       trunk.score = 0;
       std::vector<double> scores(points.size());
+      std::vector<Eigen::Vector3d> ps(points.size());
+      struct Acc
+      {
+        Acc(){ x2 = y2 = xy = xz = yz = 0; }
+        double x2, y2, xy, xz, yz;
+      };
+      Acc plane;
+
+      Eigen::Vector3d mean_p(0,0,0);
       for (size_t i = 0; i<points.size(); i++)
       {
         double h = points[i][2] - trunk.centre[2];
         Eigen::Vector2d offset = vector2d(points[i] - (trunk.centre + lean*h));
+#define RIEMANN_METHOD
+#if defined RIEMANN_METHOD
+   //     double ang = random(0, 2.0*kPi);
+   //     offset = Eigen::Vector2d(0.07 + 0.1*std::cos(ang), 0.0 + 0.1*std::sin(ang));
+        Eigen::Vector2d xy = offset/trunk.radius;
+        double l2 = xy.squaredNorm();
+        // we're transforming around a Riemann sphere at trunk.centre with 90 degrees at trunk.radius
+        Eigen::Vector3d point(2.0*xy[0] / (1.0 + l2), 2.0*xy[1] / (1.0 + l2), (1.0 - l2) / (1.0 + l2));
+        ps[i] = point;
+        mean_p += point;
+#endif
+
+
         double dist = offset.norm();
-        double w = 1.0 - dist/((trunk.radius+trunk.thickness) * boundary_radius_scale); // lateral fade off
+        double w = 1.0 - dist/(trunk.radius * boundary_radius_scale); // lateral fade off
         weights[i] = w;
         // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated trunk centred on that edge
         //                If radius_removal_factor=1 then v thin trunks may accidentally get a radius and it won't shrink down
         const double radius_removal_factor = 0.5;
         offset -= offset * std::min(1.0, radius_removal_factor * trunk.radius / offset.norm()); 
+
+
 
         // lean, shift and change radius
         sum.x += h*w;
@@ -628,12 +651,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.radius += dist;
         sum.radius2 += std::abs(h)*w;
         sum.weight += w;      
-#if 0 // this is a fixed width based scoring method. 
-        const double false_point_penalty = 0.25; // remove this for each point outside of trunk thickness
-        double weight = 1.0;
-        if (std::abs(dist - trunk.radius) > trunk.thickness)
-          weight = -false_point_penalty;
-#else
+
         double score_centre = 0.5;
         double score_radius = 1.0;
         double score_2radius = -2.0;
@@ -645,12 +663,22 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
           weight = score_radius + (score_2radius - score_radius)*(dist - trunk.radius)/trunk.radius;
         else
           weight = score_2radius + (score_3radius - score_2radius)*(dist - 2.0*trunk.radius)/trunk.radius;
-#endif
+
         if (it == num_iterations-1)
         {
           scores[i] = weight;
         }
         trunk.score += weight;
+      }
+      mean_p /= (double)points.size();
+      for (auto &p: ps)
+      {
+        Eigen::Vector3d q = p - mean_p;
+        plane.x2 += q[0]*q[0];
+        plane.y2 += q[1]*q[1];
+        plane.xy += q[0]*q[1];        
+        plane.xz += q[0]*q[2];        
+        plane.yz += q[1]*q[2];        
       }
       double n = sum.weight;
       trunk.score /= 2.0 * kPi * trunk.radius * trunk.length; // normalize
@@ -682,9 +710,44 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       if (l > max_lean)
         trunk.lean *= max_lean/l;          
       
-      trunk.centre += vector3d(sum.y/n);
-      trunk.centre[2] += sum.x / n;
+#if defined RIEMANN_METHOD
+      double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
+      double B = (plane.yz - A * plane.xy) / plane.y2;
+   //   std::cout << "a: " << A << ", b: " << B << std::endl;
+
+      Eigen::Vector3d normal = Eigen::Vector3d(-A, -B, 1.0).normalized();
+      Eigen::Vector2d flatNormal = vector2d(normal);
+
+      // now work out centre and radius from projected stats
+ //     double phi = std::atan2(std::sqrt(a*a + b*b), 1.0);
+      double phi = std::atan2(flatNormal.norm(), normal[2]);
+      double h = mean_p.dot(normal);
+      double angle = std::acos(h);
+  //    std::cout << "phi: " << phi << ", h: " << h << ", angle: " << angle << std::endl;
+      
+      // make sure circle doesn't cross infinity (-z) line.
+      double a = phi - angle;
+      if (a < -kPi)
+        a += 2.0*kPi;
+      double b = phi + angle;
+      if (b > kPi)
+        b -= 2.0*kPi;
+      
+      double lMin = std::tan(std::min(a, b)/2.0) * trunk.radius;
+      double lMax = std::tan(std::max(a, b)/2.0) * trunk.radius;
+      double length = (lMax + lMin) / 2.0;
+      flatNormal.normalize();
+      double new_radius = (lMax - lMin) / 2.0;
+   //   std::cout << "length: " << length << ", radius: " << new_radius << std::endl;
+      trunk.centre += vector3d(flatNormal*length);    
+
+//      double radius_scale = new_radius / trunk.radius;
       double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
+#else
+      double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
+      trunk.centre += vector3d(sum.y/n);
+#endif
+      trunk.centre[2] += sum.x / n;
       double length_scale = (sum.radius2/n) / (trunk.length * 0.25);
       double scale = (radius_scale + length_scale)/2.0; // average, since we're not affecting the ratio of length to radius
       trunk.radius *= scale;
