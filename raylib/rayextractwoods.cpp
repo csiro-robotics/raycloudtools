@@ -620,10 +620,8 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       {
         double h = points[i][2] - trunk.centre[2];
         Eigen::Vector2d offset = vector2d(points[i] - (trunk.centre + lean*h));
-#define RIEMANN_METHOD
-#if defined RIEMANN_METHOD
- //       double ang = random(0, 2.0*kPi);
- //       offset = Eigen::Vector2d(0.07 + 0.1*std::cos(ang), 0.0 + 0.1*std::sin(ang));
+#define PARABOLOID_METHOD
+#if defined PARABOLOID_METHOD
         Eigen::Vector2d xy = offset/trunk.radius;
         double l2 = xy.squaredNorm();
         Eigen::Vector3d point(xy[0], xy[1], 0.5*l2); // a paraboloid that has gradient 1 at 1
@@ -681,11 +679,10 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       }
       double n = sum.weight;
       trunk.score /= 2.0 * kPi * trunk.radius * trunk.length; // normalize
-   //   if (trunk.score > 0)
-      {
-        avScore += trunk.score;
-        num++;
-      }
+
+      avScore += trunk.score;
+      num++;
+
       if (it == num_iterations-1 && trunk.score > minimum_score)
       {
         final_scores.insert(final_scores.end(), scores.begin(), scores.end());
@@ -709,7 +706,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
       if (l > max_lean)
         trunk.lean *= max_lean/l;          
       
-#if defined RIEMANN_METHOD
+#if defined PARABOLOID_METHOD
       double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
       double B = (plane.yz - A * plane.xy) / plane.y2;
 
