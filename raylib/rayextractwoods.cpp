@@ -430,7 +430,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
 #include "raygrid.h"
 #include "raycuboid.h"
 
-static const double trunk_height_to_width = 4.0; // height extent relative to real radius of trunk
+static const double trunk_height_to_width = 3.0; // height extent relative to real radius of trunk
 static const double boundary_radius_scale = 3.0; // how much farther out is the expected boundary compared to real trunk radius? Larger requires more space to declare it a trunk
 
 void getOverlap(const Grid<Eigen::Vector3d> &grid, const Trunk &trunk, std::vector<Eigen::Vector3d> &points)
@@ -622,12 +622,11 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         Eigen::Vector2d offset = vector2d(points[i] - (trunk.centre + lean*h));
 #define RIEMANN_METHOD
 #if defined RIEMANN_METHOD
-   //     double ang = random(0, 2.0*kPi);
-   //     offset = Eigen::Vector2d(0.07 + 0.1*std::cos(ang), 0.0 + 0.1*std::sin(ang));
+ //       double ang = random(0, 2.0*kPi);
+ //       offset = Eigen::Vector2d(0.07 + 0.1*std::cos(ang), 0.0 + 0.1*std::sin(ang));
         Eigen::Vector2d xy = offset/trunk.radius;
         double l2 = xy.squaredNorm();
-        // we're transforming around a Riemann sphere at trunk.centre with 90 degrees at trunk.radius
-        Eigen::Vector3d point(2.0*xy[0] / (1.0 + l2), 2.0*xy[1] / (1.0 + l2), (1.0 - l2) / (1.0 + l2));
+        Eigen::Vector3d point(xy[0], xy[1], 0.5*l2); // a paraboloid that has gradient 1 at 1
         ps[i] = point;
         mean_p += point;
 #endif
@@ -638,7 +637,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         weights[i] = w;
         // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated trunk centred on that edge
         //                If radius_removal_factor=1 then v thin trunks may accidentally get a radius and it won't shrink down
-        const double radius_removal_factor = 0.5;
+        const double radius_removal_factor = 0.0;//0.5;
         offset -= offset * std::min(1.0, radius_removal_factor * trunk.radius / offset.norm()); 
 
 
@@ -713,36 +712,21 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 #if defined RIEMANN_METHOD
       double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
       double B = (plane.yz - A * plane.xy) / plane.y2;
-   //   std::cout << "a: " << A << ", b: " << B << std::endl;
 
-      Eigen::Vector3d normal = Eigen::Vector3d(-A, -B, 1.0).normalized();
-      Eigen::Vector2d flatNormal = vector2d(normal);
+      Eigen::Vector2d shift(A,B);
+      double height = mean_p[2] + (shift[0]-mean_p[0])*A + (shift[1]-mean_p[1])*B;
+      double paraboloid_height = 0.5*(A*A + B*B);
+      double new_radius = std::sqrt(2.0*(height - paraboloid_height)) * trunk.radius;
 
-      // now work out centre and radius from projected stats
- //     double phi = std::atan2(std::sqrt(a*a + b*b), 1.0);
-      double phi = std::atan2(flatNormal.norm(), normal[2]);
-      double h = mean_p.dot(normal);
-      double angle = std::acos(h);
-  //    std::cout << "phi: " << phi << ", h: " << h << ", angle: " << angle << std::endl;
-      
-      // make sure circle doesn't cross infinity (-z) line.
-      double a = phi - angle;
-      if (a < -kPi)
-        a += 2.0*kPi;
-      double b = phi + angle;
-      if (b > kPi)
-        b -= 2.0*kPi;
-      
-      double lMin = std::tan(std::min(a, b)/2.0) * trunk.radius;
-      double lMax = std::tan(std::max(a, b)/2.0) * trunk.radius;
-      double length = (lMax + lMin) / 2.0;
-      flatNormal.normalize();
-      double new_radius = (lMax - lMin) / 2.0;
-   //   std::cout << "length: " << length << ", radius: " << new_radius << std::endl;
-      trunk.centre += vector3d(flatNormal*length);    
+      new_radius = std::min(new_radius, trunk.radius * 2.0); // don't grow by more than a factor of 2 per iteration.
+      double shift2 = shift.squaredNorm();
+      if (shift2 > 1.0) // don't shift more than one radius each iteration
+        shift /= std::sqrt(shift2);
 
-//      double radius_scale = new_radius / trunk.radius;
-      double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
+      trunk.centre += vector3d(shift * trunk.radius);   
+
+      double radius_scale = new_radius / trunk.radius;
+ //     double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
 #else
       double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
       trunk.centre += vector3d(sum.y/n);
