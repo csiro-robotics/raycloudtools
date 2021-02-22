@@ -431,7 +431,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbos
 #include "raycuboid.h"
 
 static const double trunk_height_to_width = 3.0; // height extent relative to real radius of trunk
-static const double boundary_radius_scale = 3.0; // how much farther out is the expected boundary compared to real trunk radius? Larger requires more space to declare it a trunk
+static const double boundary_radius_scale = 2.0; // how much farther out is the expected boundary compared to real trunk radius? Larger requires more space to declare it a trunk
 
 void getOverlap(const Grid<Eigen::Vector3d> &grid, const Trunk &trunk, std::vector<Eigen::Vector3d> &points)
 {
@@ -540,7 +540,7 @@ void getOverlap(const Grid<Trunk> &grid, const Trunk &trunk, std::vector<Trunk*>
 Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 {
   double spacing = cloud.estimatePointSpacing();
-  const double minimum_score = 1.0/sqr(spacing);
+  const double minimum_score = 0.7/sqr(spacing);
   if (verbose)
   {
     std::cout << "estimated point spacig: " << spacing << ", minimum score: " << minimum_score << std::endl;
@@ -649,10 +649,10 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.radius2 += std::abs(h)*w;
         sum.weight += w;      
 
-        double score_centre = 0.5;
+        double score_centre = 1.0 - trunk.radius/spacing;
         double score_radius = 1.0;
-        double score_2radius = -2.0;
-        double score_3radius = -2.0;
+        double score_2radius = 1.0 - trunk.radius/spacing;
+        double score_3radius = 1.0 - trunk.radius/spacing;
         double weight = 0.0;
         if (dist < trunk.radius)
           weight = score_centre + (score_radius - score_centre)*dist/trunk.radius;
@@ -801,8 +801,8 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
   mean_radius /= (double)trunk_bases.size();
   std::cout << "number of trees found: " << trunk_bases.size() << " with mean diameter: " << 2.0*mean_radius << std::endl;
   std::cout << "approximate volume of wood: " << total_volume << " cubic metres" << std::endl;
-  const double wood_density = 540; // for Red gum, see: https://www.engineeringtoolbox.com/wood-density-d_40.html
-  std::cout << "estimated mass of trees: " << total_volume * wood_density << " kg" << std::endl;
+  const double wood_density = 500; // for Red gum, see: https://www.engineeringtoolbox.com/wood-density-d_40.html
+  std::cout << "estimated mass of trees (at 500kg/m^3): " << total_volume * wood_density / 1000.0 << " tonnes" << std::endl;
   if (verbose)
   {
     DebugDraw::instance()->drawTrunks(trunk_bases);
