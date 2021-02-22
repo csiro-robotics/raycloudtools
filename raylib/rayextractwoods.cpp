@@ -540,7 +540,7 @@ void getOverlap(const Grid<Trunk> &grid, const Trunk &trunk, std::vector<Trunk*>
 Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 {
   double spacing = cloud.estimatePointSpacing();
-  const double minimum_score = 0.7/sqr(spacing);
+  const double minimum_score = 0.65/sqr(spacing);
   if (verbose)
   {
     std::cout << "estimated point spacig: " << spacing << ", minimum score: " << minimum_score << std::endl;
@@ -649,10 +649,12 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.radius2 += std::abs(h)*w;
         sum.weight += w;      
 
-        double score_centre = 1.0 - trunk.radius/spacing;
+        // hard coding for now. Representing the expected error from circular in metres for real trees
+        const double trunk_thickness = 0.05; 
+        double score_centre = 1.0 - trunk.radius/trunk_thickness;
         double score_radius = 1.0;
-        double score_2radius = 1.0 - trunk.radius/spacing;
-        double score_3radius = 1.0 - trunk.radius/spacing;
+        double score_2radius = 1.0 - trunk.radius/trunk_thickness;
+        double score_3radius = 1.0 - trunk.radius/trunk_thickness;
         double weight = 0.0;
         if (dist < trunk.radius)
           weight = score_centre + (score_radius - score_centre)*dist/trunk.radius;
