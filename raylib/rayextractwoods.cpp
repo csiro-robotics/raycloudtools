@@ -540,7 +540,14 @@ void getOverlap(const Grid<Trunk> &grid, const Trunk &trunk, std::vector<Trunk*>
 Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 {
   double spacing = cloud.estimatePointSpacing();
-  const double minimum_score = 0.65/sqr(spacing);
+  
+  // Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
+  // trunk thickness affects how strictly it adheres to a cylinder.
+  // lower trunk_thickness (stricter) will require a lower minimum_score to find the same number of trees.
+  // at the point where minimum score is 0, it is invariant to the number of points
+  const double minimum_score = 0.2/sqr(spacing);
+  const double trunk_thickness = 0.025; 
+  
   if (verbose)
   {
     std::cout << "estimated point spacig: " << spacing << ", minimum score: " << minimum_score << std::endl;
@@ -650,7 +657,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
         sum.weight += w;      
 
         // hard coding for now. Representing the expected error from circular in metres for real trees
-        const double trunk_thickness = 0.05; 
         double score_centre = 1.0 - trunk.radius/trunk_thickness;
         double score_radius = 1.0;
         double score_2radius = 1.0 - trunk.radius/trunk_thickness;
@@ -737,7 +743,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, double, bool verbose)
 //      trunk.length *= scale;
       trunk.radius *= radius_scale;
       trunk.length *= length_scale;
-      if (trunk.radius > 0.5*trunk.length) // not enough data to use
+      if (trunk.radius > 0.5*trunk.length || trunk.length < midRadius) // not enough data to use
       {
         trunks[trunk_id] = trunks.back(); // so remove the trunk
         trunks.pop_back();
