@@ -30,6 +30,7 @@ struct Trunk
   Eigen::Vector3d centre; // height is midway up trunk
   double radius;
   double score;
+  double combined_score;
   double weight;
   double thickness;
   double length; 

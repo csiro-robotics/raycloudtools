@@ -244,7 +244,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
     trunk.centre = centre;
     trunk.radius = diameter / 2.0;
     trunk.length = diameter * trunk_height_to_width;
-    trunk.score = trunk.weight = 0;
+    trunk.score = trunk.weight = trunk.combined_score = 0;
     trunk.lean.setZero();
     trunks.push_back(trunk);    
   };
@@ -261,7 +261,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
     trunk.centre = (cell.index.cast<double>() + Eigen::Vector3d(0.5,0.5,0.5)) * voxel_width + grid.box_min;
     trunk.radius = midRadius;
     trunk.length = 2.0 * midRadius * trunk_height_to_width;
-    trunk.score = trunk.weight = 0;
+    trunk.score = trunk.weight = trunk.combined_score = 0;
     trunk.lean.setZero();
     trunks.push_back(trunk);
   });
@@ -457,14 +457,24 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
       }
     }
   }
+  std::vector<Trunk *> trunk_pointers;
   for (auto &trunk: trunks) // TODO: we can also walk this and generate a tree of branches
   {
     Trunk *tr = &trunk;
     while (tr->next_down != NULL)
       tr = tr->next_down;
-    if (tr->radius != -1)
-      trunk_bases.push_back(*tr);
-    tr->radius = -1;
+    if (tr->combined_score == 0)
+      trunk_pointers.push_back(tr);
+    tr->combined_score += trunk.score;
+  }
+  std::vector<Trunk> trunk_bases;
+  const double consensus_scale = 2.0; // requires this many minimum scores to pass. Higher requires longer tree shapes
+  for (auto &trunk: trunk_pointers)
+  {
+    if (trunk->combined_score > minimum_score * consensus_scale)
+    {
+      trunk_bases.push_back(*trunk);
+    }
   }
   double mean_radius = 0;
   double total_volume = 0;
