@@ -38,36 +38,11 @@ struct Wood
 
 struct Accumulator
 {
-  Accumulator(): weight(0), x(0), y(0,0), xy(0,0), x2(0), radius(0), radius2(0), z(0,0), xz(0,0) {}
-  Accumulator &operator =(const Accumulator &a)
-  {
-    weight = a.weight;
-    x = a.x;
-    y = a.y;
-    xy = a.xy;
-    x2 = a.x2;
-    radius = a.radius;
-    radius2 = a.radius2;
-    z = a.z;
-    xz = a.xz;
-    return *this;
-  }
-  Accumulator operator -(const Accumulator &a)
-  {
-    Accumulator res;
-    res.weight = weight - a.weight;
-    res.x = x - a.x;
-    res.y = y - a.y;
-    res.xy = xy - a.xy;
-    res.x2 = x2 - a.x2;
-    res.radius = radius - a.radius;
-    res.radius2 = radius2 - a.radius2;
-    res.z = z - a.z;
-    res.xz = xz - a.xz;
-    return res;
-  }
+  Accumulator(): weight(0), x(0), abs_x(0), y(0,0), xy(0,0), x2(0), radius(0), radius2(0), z(0,0), xz(0,0) {}
+
   double weight;
   double x;
+  double abs_x;
   Eigen::Vector2d y;
   Eigen::Vector2d xy;
   double x2;

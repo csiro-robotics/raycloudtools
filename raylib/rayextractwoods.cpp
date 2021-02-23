@@ -183,7 +183,12 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
   // trunk thickness affects how strictly it adheres to a cylinder.
   // lower trunk_thickness (stricter) will require a lower minimum_score to find the same number of trees.
   // at the point where minimum score is 0, it is invariant to the number of points
-  const double minimum_score = 0.2/sqr(spacing);
+  #define SIGMA_SCORE
+  #if defined SIGMA_SCORE
+    const double minimum_score = 50.0; 
+  #else
+    const double minimum_score = 0.3/sqr(spacing);
+  #endif
  // const double minimum_score = 2000.0;
   const double trunk_thickness = 0.025; 
   
@@ -297,22 +302,17 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
         Acc(){ x2 = y2 = xy = xz = yz = 0; }
         double x2, y2, xy, xz, yz;
       };
-      Acc plane;
 
       Eigen::Vector3d mean_p(0,0,0);
       for (size_t i = 0; i<points.size(); i++)
       {
         double h = points[i][2] - trunk.centre[2];
         Eigen::Vector2d offset = vector2d(points[i] - (trunk.centre + lean*h));
-#define PARABOLOID_METHOD
-#if defined PARABOLOID_METHOD
         Eigen::Vector2d xy = offset/trunk.radius;
         double l2 = xy.squaredNorm();
         Eigen::Vector3d point(xy[0], xy[1], 0.5*l2); // a paraboloid that has gradient 1 at 1
         ps[i] = point;
         mean_p += point;
-#endif
-
 
         double dist = offset.norm();
         double w = 1.0 - dist/(trunk.radius * boundary_radius_scale); // lateral fade off
@@ -322,17 +322,17 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
         const double radius_removal_factor = 0.5;
         offset -= offset * radius_removal_factor * trunk.radius / offset.norm(); 
 
-
-
         // lean, shift and change radius
         sum.x += h*w;
         sum.y += offset*w;
         sum.xy += h*offset*w;
         sum.x2 += h*h*w;
         sum.radius += dist;
-        sum.radius2 += std::abs(h)*w;
+        sum.radius2 += dist*dist;
+        sum.abs_x += std::abs(h)*w;
         sum.weight += w;      
 
+#if !defined SIGMA_SCORE
         // hard coding for now. Representing the expected error from circular in metres for real trees
         double score_centre = 1.0 - trunk.radius/trunk_thickness;
         double score_radius = 1.0;
@@ -350,9 +350,18 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
         {
           scores[i] = weight;
         }
-        trunk.score += weight;
+        trunk.score += weight / (2.0 * kPi * trunk.radius * trunk.length);
+#endif
       }
-      mean_p /= (double)points.size();
+      double N = (double)points.size();
+      mean_p /= N;
+#if defined SIGMA_SCORE
+      double num_points = (double)points.size() - 4.0; // (double)min_num_points;
+      double variance = (sum.radius2/N - sqr(sum.radius / N)) * N/num_points; // end part gives sample variance
+      double density = num_points * sqr(spacing) / (2.0 * kPi * trunk.radius * trunk.length);
+      trunk.score = std::sqrt(density / variance);
+#endif    
+      Acc plane;
       for (auto &p: ps)
       {
         Eigen::Vector3d q = p - mean_p;
@@ -363,10 +372,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
         plane.yz += q[1]*q[2];        
       }
       double n = sum.weight;
-      trunk.score /= 2.0 * kPi * trunk.radius * trunk.length; // normalize
 
-//#define SIGMA_SCORE
-#if !defined SIGMA_SCORE
       if (it == num_iterations-1 && trunk.score < minimum_score) // then remove the trunk
       {
         trunks[trunk_id] = trunks.back(); 
@@ -374,7 +380,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
         trunk_id--;
         continue;        
       }
-#endif
 
       // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
       Eigen::Vector2d sXY = sum.xy - sum.x*sum.y/n;
@@ -386,7 +391,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
       if (l > max_lean)
         trunk.lean *= max_lean/l;          
       
-#if defined PARABOLOID_METHOD
       double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
       double B = (plane.yz - A * plane.xy) / plane.y2;
 
@@ -394,34 +398,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
       double height = mean_p[2] + (shift[0]-mean_p[0])*A + (shift[1]-mean_p[1])*B;
       double paraboloid_height = 0.5*(A*A + B*B);
       double new_radius = std::sqrt(2.0*(height - paraboloid_height)) * trunk.radius;
-#if defined SIGMA_SCORE
-      double rad = 0;
-      std::vector<double> rs;
-      for (auto &p: ps)
-      {
-        Eigen::Vector2d q = vector2d(p - mean_p) - shift;
-        rs.push_back(q.norm());
-        rad += rs.back();
-      }
-      rad /= (double)ps.size();
-      double variance = 0;
-      for (auto &r: rs)
-      {
-        variance += sqr(r - rad);
-      }      
-      variance /= (double) ps.size();
-      trunk.score = ((double)ps.size() - (double)min_num_points) / std::sqrt(variance);
-
-      if (it == num_iterations-1 && trunk.score < minimum_score) // then remove the trunk
-      {
-        trunks[trunk_id] = trunks.back(); 
-        trunks.pop_back();
-        trunk_id--;
-        continue;        
-      }
-
-    //  new_radius = rad * trunk.radius;
-#endif
 
       new_radius = std::min(new_radius, trunk.radius * 2.0); // don't grow by more than a factor of 2 per iteration.
       double shift2 = shift.squaredNorm();
@@ -431,17 +407,10 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
       trunk.centre += vector3d(shift * trunk.radius);   
 
       double radius_scale = new_radius / trunk.radius;
-
  //     double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
-#else
-      double radius_scale = (sum.radius/(double)points.size()) / trunk.radius;
-      trunk.centre += vector3d(sum.y/n);
-#endif
+
       trunk.centre[2] += sum.x / n;
-      double length_scale = (sum.radius2/n) / (trunk.length * 0.25);
-//      double scale = (radius_scale + length_scale)/2.0; // average, since we're not affecting the ratio of length to radius
-//      trunk.radius *= scale;
-//      trunk.length *= scale;
+      double length_scale = (sum.abs_x/n) / (trunk.length * 0.25);
       trunk.radius *= radius_scale;
       trunk.length *= length_scale;
       if (trunk.radius > 0.5*trunk.length || trunk.length < midRadius) // not enough data to use
