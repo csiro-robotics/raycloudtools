@@ -40,9 +40,8 @@ int main(int argc, char *argv[])
 
   if (extract_type.selectedKey() == "woods")
   {
-    const double radius = 0.15;
-    const double length = 1.0;
-    ray::Wood woods(cloud, radius, length, verbose.isSet());
+    const double radius = 0.15; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
+    ray::Wood woods(cloud, radius, verbose.isSet());
     woods.save(cloud_file.nameStub() + "_woods.txt");
   }
   return true;

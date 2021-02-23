@@ -31,7 +31,7 @@ struct Cell
 
 struct Wood
 {
-  Wood(const Cloud &cloud, double midRadius, double heightRange, bool verbose);
+  Wood(const Cloud &cloud, double midRadius, bool verbose);
   bool save(const std::string &filename);
   std::vector<Trunk> trunk_bases;
 };

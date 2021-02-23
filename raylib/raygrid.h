@@ -105,7 +105,7 @@ public:
         coord(i) = box_max(i);
       }
 
-      coord(i) = (coord(i) - box_min(i)) / voxel_width + 0.5;
+      coord(i) = (coord(i) - box_min(i)) / voxel_width;
     }
 
     return coord.cast<int>();
