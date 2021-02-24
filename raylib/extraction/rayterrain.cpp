@@ -14,6 +14,8 @@
 #include <tbb/parallel_for.h>
 #include <tbb/enumerable_thread_specific.h>
 #endif  // RAYLIB_WITH_TBB
+    static int num_visits = 0;
+    static int num_cone_tests = 0;
 
 
 namespace ray
@@ -37,6 +39,7 @@ struct Node
  
   bool somethingSmaller(std::vector<Node> &nodes, const Vector4d &corner)
   {
+    num_visits++;
     #define CONE_CHECK
     Vector4d dif = corner - pos;
     if (dif == Vector4d(0,0,0,0))
@@ -62,6 +65,7 @@ struct Node
     if (i==0 && j==0 && k==0) // corner is smaller, so deactivate current node
     {
       #if defined CONE_CHECK
+      num_cone_tests++;
       Eigen::Vector3d dir = -Eigen::Vector3d(dif[0],dif[1], dif[2]).normalized();
       if (dir.dot(diagonal) > cos_ang)
         found = 1;
@@ -72,6 +76,7 @@ struct Node
     else if (i==1 && j==1 && k==1) // corner is larger, so this node is indeed smaller
     {
       #if defined CONE_CHECK
+      num_cone_tests++;
       Eigen::Vector3d dir = Eigen::Vector3d(dif[0],dif[1], dif[2]).normalized();
       if (dir.dot(diagonal) > cos_ang)
       {
@@ -164,10 +169,35 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
   progress.end();
   progress_thread.requestQuit();
   progress_thread.join();  
+  std::cout << "number of rays: " << points.size() << ", number of visits: " << num_visits << ", number of cone tests: " << num_cone_tests << std::endl;
 }
 
 void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
 {
+  #define PRE_PROCESS 
+  #if defined PRE_PROCESS
+  // preprocessing to make the cloud smaller.
+  Eigen::Vector3d min_bound, max_bound;
+  cloud.calcBounds(&min_bound, &max_bound);
+  double spacing = cloud.estimatePointSpacing();
+  double pixel_width = 2.0 * spacing;
+  Eigen::Vector3d extent = max_bound - min_bound;
+  Eigen::Vector2i dims((int)std::ceil(extent[0]/pixel_width), (int)std::ceil(extent[1]/pixel_width));
+  std::vector<Eigen::Vector3d> lowests(dims[0]*dims[1]);
+  for (int i = 0; i<dims[0]; i++)
+    for (int j = 0; j<dims[1]; j++)
+      lowests[i + dims[0]*j] = Eigen::Vector3d(0,0,1e10);
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+  {
+    if (!cloud.rayBounded(i))
+      continue;
+    Eigen::Vector3d pos = (cloud.ends[i] - min_bound) / (double)pixel_width;
+    int index = (int)pos[0] + dims[0] * (int)pos[1];
+    if (cloud.ends[i][2] < lowests[index][2])
+      lowests[index] = cloud.ends[i];
+  }
+#endif
+
   // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
   // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
   const double root_half = sqrt(0.5);
@@ -187,13 +217,42 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
     if (!cloud.rayBounded(i))
       continue;
     Eigen::Vector3d p = cloud.ends[i];
+    #if defined PRE_PROCESS
+    Eigen::Vector3d point = (p - min_bound) / (double)pixel_width;
+    int I = (int)point[0];
+    int J = (int)point[1];
+    int Imin = std::max(0, I-1);
+    int Jmin = std::max(0, J-1);
+    int Imax = std::min(I+1, dims[0]-1);
+    int Jmax = std::min(J+1, dims[1]-1);
+    bool remove = false;
+    for (int x = Imin; x<=Imax; x++)
+    {
+      for (int y = Jmin; y<=Jmax; y++)
+      {
+        int index = x + dims[0] * y;
+        Eigen::Vector3d d = p - lowests[index];
+        double dist2 = (d[0]*d[0] + d[1]*d[1]);
+        if (d[2] > 0.0 && d[2]*d[2] > dist2)
+        {
+          remove = true;
+          break;
+        }
+      }
+      if (remove)
+        break;
+    }
+    if (remove)
+      continue;
+    #endif
     p[2] /= grad_scale;
     Eigen::Vector3d pos = mat * p;
     points.push_back(Vector4d(pos[0], pos[1], pos[2], count));
     count++;
   }
-
-
+#if defined PRE_PROCESS
+  std::cout << "size before: " << cloud.ends.size() << ", size after: " << points.size() << std::endl;
+#endif
   std::vector<Eigen::Vector3d> median_surface;
   std::vector<Vector4d> neg;
 

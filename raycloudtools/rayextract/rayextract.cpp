@@ -50,15 +50,15 @@ int main(int argc, char *argv[])
   if (!extract_forest && !extract_terrain)
     usage();
   ray::Cloud cloud;
-  // #define TEST_TERRAIN
+ // #define TEST_TERRAIN
   #if defined TEST_TERRAIN
-  for (int i = 0; i<4000; i++)
+  for (int i = 0; i<800000; i++)
   {
-    Eigen::Vector3d pos(ray::random(-2,2), ray::random(-2,2), 0);
+    Eigen::Vector3d pos(ray::random(-4,4), ray::random(-4,4), 0);
     if (i == 0)
       pos.setZero();
     double dist = std::sqrt(pos[0]*pos[0] + pos[1]*pos[1]);
-    pos[2] = dist * 0.9;
+    pos[2] = dist * 0.0;// 0.9;
     cloud.ends.push_back(pos);
     cloud.starts.push_back(pos - Eigen::Vector3d(0,0,1));
     cloud.times.push_back(0);
