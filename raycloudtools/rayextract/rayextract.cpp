@@ -28,7 +28,7 @@ void usage(bool error=false)
   std::cout << "                            --average_height 10  - tree length, if known. -1 to use lowest point as ground instead." << std::endl;
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
-  std::cout << "rayextract terrain cloud.ply                     - extract rough terrain undersurface, to mesh. Slow, best < 2 million rays" << std::endl;
+  std::cout << "rayextract terrain cloud.ply - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
   std::cout << std::endl;
   std::cout << "                            --verbose  - extra debug output." << std::endl;
   exit(error);
