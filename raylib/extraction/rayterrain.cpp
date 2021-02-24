@@ -7,6 +7,14 @@
 #include "../raymesh.h"
 #include "../rayply.h"
 #include "../rayconvexhull.h"
+#include "../rayprogress.h"
+#include "../rayprogressthread.h"
+
+#if RAYLIB_WITH_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/enumerable_thread_specific.h>
+#endif  // RAYLIB_WITH_TBB
+
 
 namespace ray
 {
@@ -16,54 +24,63 @@ struct Node
   { 
     pos.setZero();
     found = 0;
+    is_set = 0;
     for (int i = 0; i<2; i++)
       for (int j = 0; j<2; j++)
         for (int k = 0; k<2; k++)
           dir_ids[i][j][k] = -1;
-    min_bounds = Eigen::Vector3d(-1e10,-1e10,-1e10);
-    max_bounds = Eigen::Vector3d(1e10,1e10,1e10);
   }
   Vector4d pos;
-  Eigen::Vector3d min_bounds, max_bounds;
   int found;
+  int is_set;
   int dir_ids[2][2][2];
-
-  bool somethingLarger(std::vector<Node> &nodes, const Vector4d &corner)
-  {
-    Vector4d dif = corner - pos;
-    if (dif == Vector4d(0,0,0,0))
-      return dir_ids[1][1][1] != -1;
-    int i = (int)(dif[0] > 0.0);
-    int j = (int)(dif[1] > 0.0);
-    int k = (int)(dif[2] > 0.0);
-    if (i==1 && j==1 && k==1) // corner is larger, so deactivate current node
-      found = 1; 
-    else if (i==0 && j==0 && k==0) // corner is smaller, so this node is indeed larger
-      return true;
-    if (corner[0] >= max_bounds[0] || corner[1] >= max_bounds[1] || corner[2] >= max_bounds[2])
-      return false; // corner is out of bounds, so we have not found something larger
-    for (int I = i; I<2; I++)
-      for (int J = j; J<2; J++)
-        for (int K = k; K<2; K++)
-          if (dir_ids[I][J][K] != -1)
-            if (nodes[dir_ids[I][J][K]].somethingLarger(nodes, corner))
-              return true;
-    return false;
-  }
+ 
   bool somethingSmaller(std::vector<Node> &nodes, const Vector4d &corner)
   {
+    #define CONE_CHECK
     Vector4d dif = corner - pos;
     if (dif == Vector4d(0,0,0,0))
+    {
+    #if defined CONE_CHECK
+      if (dir_ids[0][0][0] == -1)
+      {
+        return false;
+      }
+      return nodes[dir_ids[0][0][0]].somethingSmaller(nodes, corner);
+    #else
       return dir_ids[0][0][0] != -1;
+    #endif
+    }
     int i = (int)(dif[0] > 0.0);
     int j = (int)(dif[1] > 0.0);
     int k = (int)(dif[2] > 0.0);
-    if (i==0 && j==0 && k==0) // corner is larger, so deactivate current node
+    #if defined CONE_CHECK
+    static const double root_third = std::sqrt(1.0/3.0); 
+    static const double cos_ang = std::sqrt(2.0/3.0);
+    static const Eigen::Vector3d diagonal(root_third, root_third, root_third);
+    #endif
+    if (i==0 && j==0 && k==0) // corner is smaller, so deactivate current node
+    {
+      #if defined CONE_CHECK
+      Eigen::Vector3d dir = -Eigen::Vector3d(dif[0],dif[1], dif[2]).normalized();
+      if (dir.dot(diagonal) > cos_ang)
+        found = 1;
+      #else
       found = 1; 
-    else if (i==1 && j==1 && k==1) // corner is smaller, so this node is indeed larger
-      return true;
-    if (corner[0] <= min_bounds[0] || corner[1] <= min_bounds[1] || corner[2] <= min_bounds[2])
-      return false; // corner is out of bounds, so we have not found something larger
+      #endif
+    }
+    else if (i==1 && j==1 && k==1) // corner is larger, so this node is indeed smaller
+    {
+      #if defined CONE_CHECK
+      Eigen::Vector3d dir = Eigen::Vector3d(dif[0],dif[1], dif[2]).normalized();
+      if (dir.dot(diagonal) > cos_ang)
+      {
+        return true;
+      }
+      #else
+      return true; // needs a cone check
+      #endif
+    }
     for (int I = 0; I<=i; I++)
       for (int J = 0; J<=j; J++)
         for (int K = 0; K<=k; K++)
@@ -99,14 +116,6 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
       if (new_head == -1)
       {
         nodes[head].dir_ids[i][j][k] = (int)n;
-        nodes[n].min_bounds = nodes[head].min_bounds;
-        nodes[n].max_bounds = nodes[head].max_bounds;
-        int inds[3] = {i,j,k};
-        for (int l = 0; l<3; l++)
-        {
-          double &bound = inds[l]==1 ? nodes[n].min_bounds[l] : nodes[n].max_bounds[l];
-          bound = nodes[head].pos[l];
-        }
         break;
       }
       head = new_head;
@@ -114,71 +123,53 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
   }
 }
 
-void Terrain::cropPointsAbove(std::vector<Vector4d> &points, std::vector<Vector4d> &neg, double width)
-{
-  std::vector<Vector4d> front = neg;
-  double offset = width / std::sqrt(3.0);
-  for (auto &v: front)
-  {
-    v[0] += offset; v[1] += offset; v[2] += offset;
-  }
-  std::vector<Node> nodes;
-  constructOctalSpacePartition(nodes, front);
-  Node &root = nodes[0];
-  std::vector<int> new_index(points.size());
-  std::vector<int> indices;
-  indices.reserve(points.size());
-  for (size_t i = 0; i<points.size(); i++)
-  {
-    if (root.somethingLarger(nodes, points[i]))
-    {
-      new_index[i] = (int)indices.size();
-      indices.push_back((int)i);
-    }
-    else
-      new_index[i] = -1;
-  }
-  for (auto &v: neg)
-  {
-    int ind = new_index[(int)(v[3])];
-    if (ind == -1)
-      std::cout << "error, old points should always be visible from higher ones" << std::endl;
-    else
-      v[3] = (double)ind + 0.5;
-  }
-  std::vector<Vector4d> new_points;
-  new_points.reserve(indices.size());
-  for (auto &i: indices)
-  {
-    new_points.push_back(points[i]);
-    new_points.back()[3] = (double)(new_points.size()-1) + 0.5;
-  }
-  points = new_points;
-}
-
-
-void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front, bool positive)
+void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front)
 {
   std::vector<Node> nodes;
   constructOctalSpacePartition(nodes, points);
   Node &root = nodes[0];
-  for (size_t n = 0; n<nodes.size(); n++)
+
+  Progress progress;
+  ProgressThread progress_thread(progress);
+  progress.begin("rays processed:", nodes.size());
+  
+  const auto process_rays = [&nodes, &root, &front, &progress](size_t n)
   {
+    progress.increment();
     if (nodes[n].found == 1)
-      continue;
-    bool dominated = positive ? root.somethingLarger(nodes, nodes[n].pos) : root.somethingSmaller(nodes, nodes[n].pos);
+    {
+      return;
+    }
+    bool dominated = root.somethingSmaller(nodes, nodes[n].pos);
     if (dominated)
       nodes[n].found = 1;
     else
-      front.push_back(nodes[n].pos);
+      nodes[n].is_set = 1;
+  };
+#if RAYLIB_WITH_TBB
+  tbb::parallel_for<size_t>(0, nodes.size(), process_rays);
+#else  
+  for (size_t n = 0; n<nodes.size(); n++)
+  {
+    process_rays(n);
   }
+#endif
+  for (auto &node: nodes)
+  {
+    if (node.is_set)
+    {
+      front.push_back(node.pos);    
+    }
+  }
+  progress.end();
+  progress_thread.requestQuit();
+  progress_thread.join();  
 }
 
-void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double width, bool verbose)
+void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
 {
   // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
   // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
-
   const double root_half = sqrt(0.5);
   const double root_3 = sqrt(3.0);
   const double root_2 = sqrt(2.0);
@@ -189,143 +180,51 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
 
   Eigen::Matrix3d imat = mat.inverse();
   std::vector<Vector4d> points;
+  double count = 0.5;
+  double grad_scale = gradient / std::sqrt(2.0);
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
-//    if (!cloud.rayBounded(i))
-//      continue;
-    Eigen::Vector3d pos = mat * cloud.ends[i];
-    points.push_back(Vector4d(pos[0], pos[1], pos[2], (double)points.size() + 0.5));
+    if (!cloud.rayBounded(i))
+      continue;
+    Eigen::Vector3d p = cloud.ends[i];
+    p[2] /= grad_scale;
+    Eigen::Vector3d pos = mat * p;
+    points.push_back(Vector4d(pos[0], pos[1], pos[2], count));
+    count++;
   }
 
-  RGBA white;
-  white.red = white.green = white.blue = white.alpha = 255;  
 
   std::vector<Eigen::Vector3d> median_surface;
-  std::vector<Vector4d> pos, neg;
+  std::vector<Vector4d> neg;
 
   // first find the lower bound
-  getParetoFront(points, neg, false);
+  getParetoFront(points, neg);
+  std::cout << "number of wrap points: " << neg.size() << std::endl;
 
   // if there is no width then we are already finished...
-  if (width == 0.0)
+  // then convert it into a mesh
+  std::vector<Eigen::Vector3d> vecs(neg.size());
+  std::vector<Eigen::Vector3d> vecs_flat(neg.size());
+  for (size_t i = 0; i<neg.size(); i++)
   {
-    // then convert it into a mesh
-    std::vector<Eigen::Vector3d> vecs(neg.size());
-    std::vector<Eigen::Vector3d> vecs_flat(neg.size());
-    for (size_t i = 0; i<neg.size(); i++)
-    {
-      vecs[i] = imat * Eigen::Vector3d(neg[i][0], neg[i][1], neg[i][2]);
-      vecs_flat[i] = vecs[i];
-      vecs_flat[i][2] = 0.0;
-    }
-    ConvexHull hull(vecs_flat);
-    hull.growUpwards(0.01); // same as a Delauney triangulation
-    hull.mesh().vertices() = vecs;
-    writePlyMesh(file_prefix + "_terrain_mesh.ply", hull.mesh(), true);
-    if (verbose)
-    {
-      Cloud local_cloud;
-      double t = 0.0;
-      for (auto &p: vecs)
-        local_cloud.addRay(p, p, t++, white);
-      local_cloud.save(file_prefix + "_terrain.ply");
-    }
-    return;
+    vecs[i] = imat * Eigen::Vector3d(neg[i][0], neg[i][1], neg[i][2]);
+    vecs[i][2] *= grad_scale;
+    vecs_flat[i] = vecs[i];
+    vecs_flat[i][2] = 0.0;
   }
-
-  cropPointsAbove(points, neg, width);
-
-  int iteration = 0;
-  while ((points.size() + pos.size() + neg.size()) > 0) // hopefully only do this O(n^1/3) times
+  ConvexHull hull(vecs_flat);
+  hull.growUpwards(0.01); // same as a Delauney triangulation
+  hull.mesh().vertices() = vecs;
+  writePlyMesh(file_prefix + "_mesh.ply", hull.mesh(), true);
+  if (verbose)
   {
-    std::vector<Vector4d> points_pos = points; 
-    for (auto &p: neg)
-      points_pos.push_back(Vector4d(p[0], p[1], p[2], (double)points_pos.size() + 0.5));
-    pos.clear();
-    if (iteration > 0)
-    {
-      std::vector<Vector4d> points_neg = points; 
-      for (auto &p: pos)
-        points_neg.push_back(Vector4d(p[0], p[1], p[2], (double)points_neg.size() + 0.5));
-      neg.clear();
-      getParetoFront(points_neg, neg, false);
-    }
-    getParetoFront(points_pos, pos, true); 
-    std::vector<int> filled(points.size());
-    memset(&filled[0], 0, sizeof(int)*filled.size());
-    for (int i = (int)pos.size()-1; i>=0; i--) // auto &p: pos)
-    {
-      Vector4d p = pos[i];
-      int index = (int)p[3];
-      if (index >= (int)points.size()) // upwards has picked a downwards layer
-      {
-        median_surface.push_back(Eigen::Vector3d(p[0], p[1], p[2]));
-        pos[i] = pos.back(); pos.pop_back();
-      }
-      else 
-        filled[(int)p[3]] = 1;
-    }
-    for (int i = (int)neg.size()-1; i>=0; i--) // auto &n: neg)
-    {
-      Vector4d n = neg[i];
-      int index = (int)n[3];
-      if (index >= (int)points.size()) // downwards has picked an upwards layer
-      {
-   //     median_surface.push_back(Eigen::Vector3d(n[0], n[1], n[2]));
-        neg[i] = neg.back(); neg.pop_back();
-      }
-      else
-      {
-        if (filled[index])
-        {
-          median_surface.push_back(Eigen::Vector3d(n[0], n[1], n[2]));
-          neg[i] = neg.back(); neg.pop_back();        
-        }
-        filled[index] = 2;
-      }
-    }
-    for (int i = (int)pos.size()-1; i>=0; i--) // auto &p: pos)
-    {
-      int index = (int)pos[i][3];
-      if (filled[index] == 2)
-      {
-        pos[i] = pos.back(); pos.pop_back();
-      }
-    }
-    std::cout << " points size: " << points.size() << " pos size: " << pos.size() << ", neg size: " << neg.size() << ", output size: " << median_surface.size() << std::endl;
-    // now remove all the filled points
-    for (int i = (int)points.size()-1; i>=0; i--) // could do this a little quicker
-    {
-      if (filled[i])
-      {
-        points[i] = points.back(); points.pop_back();
-        points[i][3] = (double)i + 0.5; // readjust the indexing
-      }
-    }
-    iteration++;
-  }
-  {
-    std::vector<Eigen::Vector3d> vecs(median_surface.size());
-    std::vector<Eigen::Vector3d> vecs_flat(median_surface.size());
-    for (size_t i = 0; i<median_surface.size(); i++)
-    {
-      vecs[i] = imat * median_surface[i];
-      vecs_flat[i] = vecs[i];
-      vecs_flat[i][2] = 0.0;
-    }
-    ConvexHull hull(vecs_flat);
-    hull.growUpwards(0.01); // same as a Delauney triangulation
-    hull.mesh().vertices() = vecs;
-    writePlyMesh(file_prefix + "_terrain_mesh.ply", hull.mesh(), true);
-    if (verbose)
-    {
-      Cloud local_cloud;
-      double t = 0.0;
-      for (auto &p: vecs)
-        local_cloud.addRay(p, p, t++, white);
-      local_cloud.save(file_prefix + "_terrain.ply");
-    }
+    RGBA white;
+    white.red = white.green = white.blue = white.alpha = 255;  
+    Cloud local_cloud;
+    double t = 0.0;
+    for (auto &p: vecs)
+      local_cloud.addRay(p, p, t++, white);
+    local_cloud.save(file_prefix + "_terrain.ply");
   }
 }
-
 } // ray

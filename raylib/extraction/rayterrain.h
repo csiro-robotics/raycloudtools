@@ -20,16 +20,9 @@ class RAYLIB_EXPORT Terrain
 {
 public:
   /// Extracts a robust smooth surface from the ray cloud, into the state
-  void extract(const Cloud &cloud, const std::string &file_prefix, double width, bool verbose);
+  void extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose);
 private:
-  inline bool greaterThan(const Eigen::Vector4d &a, const Eigen::Vector4d &b, bool positive)
-  {
-    if (positive)
-      return a[0] >= b[0] && a[1] >= b[1] && a[2] >= b[2];
-    return a[0] <= b[0] && a[1] <= b[1] && a[2] <= b[2];
-  }
-  void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front, bool pos);
-  void cropPointsAbove(std::vector<Vector4d> &points, std::vector<Vector4d> &neg, double width);
+  void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front);
 };
 
 

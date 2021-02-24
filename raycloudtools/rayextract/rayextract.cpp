@@ -28,8 +28,7 @@ void usage(bool error=false)
   std::cout << "                            --average_height 10  - tree length, if known. -1 to use lowest point as ground instead." << std::endl;
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
-  std::cout << "rayextract terrain cloud.ply             - extract rough terrain undersurface, to mesh." << std::endl;
-  std::cout << "                             --width 0.5 - ground width to get average of. Default 0." << std::endl;
+  std::cout << "rayextract terrain cloud.ply                     - extract rough terrain undersurface, to mesh. Slow, best < 2 million rays" << std::endl;
   std::cout << std::endl;
   std::cout << "                            --verbose  - extra debug output." << std::endl;
   exit(error);
@@ -42,28 +41,43 @@ int main(int argc, char *argv[])
   ray::TextArgument forest("forest"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
   ray::DoubleArgument average_height(0.5, 500.0);
-  ray::DoubleArgument width(0.0, 10.0);
   ray::OptionalKeyValueArgument roundness_option("tree_roundness", &tree_roundness);
   ray::OptionalKeyValueArgument height_option("average_height", &average_height);
-  ray::OptionalKeyValueArgument width_option("width", &width);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &file}, {&roundness_option, &height_option, &verbose});
-  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &file}, {&width_option, &verbose});
+  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &file}, {&verbose});
   if (!extract_forest && !extract_terrain)
     usage();
   ray::Cloud cloud;
+  // #define TEST_TERRAIN
+  #if defined TEST_TERRAIN
+  for (int i = 0; i<4000; i++)
+  {
+    Eigen::Vector3d pos(ray::random(-2,2), ray::random(-2,2), 0);
+    if (i == 0)
+      pos.setZero();
+    double dist = std::sqrt(pos[0]*pos[0] + pos[1]*pos[1]);
+    pos[2] = dist * 0.9;
+    cloud.ends.push_back(pos);
+    cloud.starts.push_back(pos - Eigen::Vector3d(0,0,1));
+    cloud.times.push_back(0);
+    ray::RGBA col;
+    col.red = col.green = col.blue = col.alpha = 255;
+    cloud.colours.push_back(col);
+  }
+  #else
   if (!cloud.load(file.name()))
     usage(true);
-
+  #endif
   if (extract_forest)
   {
     ray::Forest forest;
-    forest.tree_roundness = tree_roundness.value();
-    forest.average_height = average_height.value();
+    forest.tree_roundness = roundness_option.isSet() ? tree_roundness.value() : 0.0;
+    forest.average_height = height_option.isSet() ? average_height.value() : 0.0;
     forest.verbose = verbose.isSet();
 
-#define TEST
+//#define TEST
 #if defined TEST
     const int res = 256;
     const double max_tree_height = (double)res / 8.0;
@@ -176,7 +190,8 @@ int main(int argc, char *argv[])
   else if (extract_terrain)
   {
     ray::Terrain terrain;
-    terrain.extract(cloud, file.name(), width.value(), verbose.isSet());
+    const double gradient = 1.0; // a half-way divide between ground and wall
+    terrain.extract(cloud, file.nameStub(), gradient, verbose.isSet());
   }
   else
     usage(true);
