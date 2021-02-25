@@ -240,6 +240,7 @@ public:
     name_(name), value_(value), is_set_(false) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
+  inline bool isSet() const { return is_set_; }
 private:
   std::string name_;
   ValueArgument *value_;

@@ -114,11 +114,12 @@ void Forest::drawSegmentation(const std::string &filename, const std::vector<Tre
         col.r = (uint8_t)(rand()%256);
         col.g = (uint8_t)(rand()%256);
         col.b = (uint8_t)(rand()%256);
-  //      if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
-  //      {
-  //        col.r = col.b = 255;
-  //        col.g = 0.0;
-  //      }
+        if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
+        {
+          col.r /= 2;
+          col.g /= 2;
+          col.b /= 2;
+        }
         pixels(x, y) = col;
       }
     }
@@ -176,8 +177,9 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
   {
     for (int j = 0; j<heightfield.cols(); j++)
     {
-      min_height = std::min(min_height, heightfield(i,j));
-      if (heightfield(i,j) < 1000.0)
+      if (heightfield(i,j) > -10000.0)
+        min_height = std::min(min_height, heightfield(i,j));
+      if (heightfield(i,j) < 10000.0)
         max_height = std::max(max_height, heightfield(i,j));
     }
   }

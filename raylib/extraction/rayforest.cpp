@@ -73,6 +73,9 @@ void Forest::extract(const Cloud &cloud)
     l = std::min(l, p[2]);
   }
 
+  drawHeightField("highfield.png", highs);
+  drawHeightField("lowfield.png", lows);
+
   extract(highs, lows, voxel_width);
 }
 
@@ -126,7 +129,6 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
 
 double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
 {
-  const double radius_to_height = 1.0;
   // Now collate weighted height vs crown radius data
   std::vector<Vector4d> data;
   // draw scatter plot
@@ -229,7 +231,7 @@ double Forest::estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees)
       b = (average_height - mean[0]) * a;
     }
   }
-  drawGraph("graph_curv.png", data, min_tree_height, max_tree_height, 20.0 * ray::sqr(radius_to_height), max_strength, a, b);
+//  drawGraph("graph_curv.png", data, min_tree_height, max_tree_height, 20.0 * ray::sqr(radius_to_height), max_strength, a, b);
   std::cout << "a: " << a << ", b: " << b << std::endl;
   a = 0.32; // actual value
   tree_roundness = a;
@@ -345,13 +347,12 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       {
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
-        cnt++;
-//        if (verbose && !(cnt%50)) // I need a way to visualise the hierarchy here!
-//          drawSegmentation("segmenting.png", trees);
         Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
         bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
+//        double mz = std::max(p_tree.peak[2], q_tree.peak[2]);
+//        bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width && (mz - p.height)<maximum_drop_within_tree;
         if (merge)
         {
           const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
@@ -361,6 +362,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           double q_sqr = (Eigen::Vector2d(q_tree.peak[0], q_tree.peak[1]) - mid).squaredNorm();
           double blend = p_sqr / (p_sqr + q_sqr);
           double flood_base = p_tree.peak[2]*(1.0-blend) + q_tree.peak[2]*blend;
+//          double flood_base = std::max(p_tree.peak[2], q_tree.peak[2]); // p_tree.peak[2]*(1.0-blend) + q_tree.peak[2]*blend;
           double low_flood_height = flood_base - p.height;
 
           Point q;
@@ -376,7 +378,14 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         q.x = xx; q.y = yy; q.index = p.index;
         q.height = heightfield_(xx, yy);
         if ((p.height - q.height) < maximum_drop_within_tree)
+//        if (std::abs(p.height - q.height) < maximum_drop_within_tree)
         {
+    /*      if (verbose && !(cnt%50)) // I need a way to visualise the hierarchy here!
+          {
+            drawSegmentation("segmenting.png", trees);
+            std::cout << "done" << std::endl;
+          }
+          cnt++;*/
           ind = p.index;
           basins.insert(q);
           trees[p_head].addSample(xx*voxel_width_, yy*voxel_width_, q.height);

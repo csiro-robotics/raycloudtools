@@ -24,7 +24,7 @@ public:
   {
     // define the physical constants:
     max_tree_canopy_width = 22.0; // we end segmentation for 'basins' wider than this
-    maximum_drop_within_tree = 3.0; // we don't extend segmentation to pixels with a larger drop than this  
+    maximum_drop_within_tree = 2.0; // we don't extend segmentation to pixels with a larger drop than this  
     min_ground_to_canopy_distance = 1.5; // we treat low points as ground if more than this distance below high point
   }
   void extract(const Cloud &cloud);
