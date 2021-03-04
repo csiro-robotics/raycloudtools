@@ -9,6 +9,7 @@
 #include "raylib/raylibconfig.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
+#include "../raymesh.h"
 typedef Eigen::Matrix<double, 4, 4> Matrix4d;
 typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
@@ -20,49 +21,42 @@ struct RAYLIB_EXPORT TreeNode;
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : tree_roundness(0), average_height(0)
+  Forest() : max_tree_canopy_width(25), maximum_drop_within_tree(2.5e10), undercroft_height(1.5)
   {
-    // define the physical constants:
-    max_tree_canopy_width = 22.0; // we end segmentation for 'basins' wider than this
-    maximum_drop_within_tree = 2.0; // we don't extend segmentation to pixels with a larger drop than this  
-    min_ground_to_canopy_distance = 1.5; // we treat low points as ground if more than this distance below high point
   }
-  void extract(const Cloud &cloud);
-  void extract(const Eigen::ArrayXXd &heights, const Eigen::ArrayXXd &lows, double voxel_width);
+  void extract(const Cloud &cloud, Mesh &mesh);
+  void extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, double voxel_width);
   struct Result
   {
-    std::vector<Eigen::Vector3d> tree_tips;
+    Eigen::Vector3d tree_tip;
     double ground_height;
-    double treelength_per_crownradius;
   };
 
   // in rayforest_draw.cpp
   void drawLowfield(const std::string &filename, const std::vector<TreeNode> &trees);
-  void drawSegmentation(const std::string &filename, const std::vector<TreeNode> &trees);
+  void drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
   void drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_min, double x_max, double y_max, double strength_max, double a, double b);
-  void drawTrees(const std::string &filename, const Forest::Result &result);
+  void drawTrees(const std::string &filename, const std::vector<Forest::Result> &results);
 
   // parameters
-  double tree_roundness;
-  double average_height;
   bool verbose;
-  // constants
-  double max_tree_canopy_width; 
-  double min_ground_to_canopy_distance;
+  double tree_roundness;
+  double max_tree_canopy_width;  
   double maximum_drop_within_tree;
+  double undercroft_height;
+
 private:
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   void calculateTreeParaboloids(std::vector<TreeNode> &trees);
   double estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees);
-  void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, double ground_height, std::vector<int> &indices);
+  void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, std::vector<int> &indices);
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
   Eigen::ArrayXXd lowfield_;
   Eigen::ArrayXXi indexfield_;
-  Result result_;
+  std::vector<Result> results_;
   Eigen::Vector3d min_bounds_, max_bounds_;
-  double lowest_point_;
 };
 
 // A 2D field structure, like a scalar field or vector field
@@ -96,6 +90,7 @@ struct RAYLIB_EXPORT TreeNode
     sum_square_total = 0.0;
     children[0] = children[1] = -1;
     peak.setZero();
+    ground_height = 0;
   }
   TreeNode(int i, int j, double height_, double voxel_width) // TODO: should this be x,y or a distance in metres? probably x,y
   {
@@ -119,6 +114,7 @@ struct RAYLIB_EXPORT TreeNode
   double sum_square_total;
   Eigen::Vector2i min_bound, max_bound;
   Eigen::Vector3d peak;
+  double ground_height;
   int attaches_to;
   int children[2];
 

@@ -21,6 +21,9 @@ public:
   /// The two resulting clouds are @c inside and @c outside
   void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);
 
+  /// Convert the mesh into a height field (2D array of heights) based on the supplied bounding box and cell width
+  void toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max, double width);
+
   /// access the mesh's vertices
   inline std::vector<Eigen::Vector3d> &vertices(){ return vertices_; }
   inline const std::vector<Eigen::Vector3d> &vertices() const { return vertices_; }

@@ -8,6 +8,8 @@
 #include "raylib/extraction/rayforest.h"
 #include "raylib/rayutils.h"
 #include "raylib/rayparse.h"
+#include "raylib/raymesh.h"
+#include "raylib/rayply.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,9 +25,8 @@ void usage(bool error=false)
 {
   std::cout << "Extract feature into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayextract forest cloud.ply                      - extracts tree locations to file" << std::endl;
+  std::cout << "rayextract forest cloud.ply ground_mesh.ply - extracts tree locations to file, using a supplied ground mesh" << std::endl;
   std::cout << "                            --tree_roundness 2   - 1: willow, 0.5: birch, 0.2: pine (length per crown radius)." << std::endl;
-  std::cout << "                            --average_height 10  - tree length, if known. -1 to use lowest point as ground instead." << std::endl;
   //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
   std::cout << std::endl;
   std::cout << "rayextract terrain cloud.ply - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
@@ -37,15 +38,13 @@ void usage(bool error=false)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  ray::FileArgument file;
+  ray::FileArgument file, mesh_file;
   ray::TextArgument forest("forest"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
-  ray::DoubleArgument average_height(0.5, 500.0);
   ray::OptionalKeyValueArgument roundness_option("tree_roundness", &tree_roundness);
-  ray::OptionalKeyValueArgument height_option("average_height", &average_height);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
-  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &file}, {&roundness_option, &height_option, &verbose});
+  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &file, &mesh_file}, {&roundness_option, &verbose});
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &file}, {&verbose});
   if (!extract_forest && !extract_terrain)
     usage();
@@ -73,8 +72,7 @@ int main(int argc, char *argv[])
   if (extract_forest)
   {
     ray::Forest forest;
-    forest.tree_roundness = roundness_option.isSet() ? tree_roundness.value() : 0.0;
-    forest.average_height = height_option.isSet() ? average_height.value() : 0.0;
+    forest.tree_roundness = roundness_option.isSet() ? tree_roundness.value() : 0.5;
     forest.verbose = verbose.isSet();
 
 //#define TEST
@@ -83,7 +81,6 @@ int main(int argc, char *argv[])
     const double max_tree_height = (double)res / 8.0;
     
     Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant(res, res, -1e10);
-    Eigen::ArrayXXd lowfield = Eigen::ArrayXXd::Constant(res, res, 1e10);
     // now lets give it a base hilly floor
     for (int i = 0; i<res; i++)
     {
@@ -91,7 +88,6 @@ int main(int argc, char *argv[])
       {
         double h = std::sin(0.1 * ((double)i + 2.0*double(j)));
         heightfield(i,j) = h + ray::random(-0.25, 0.25);
-        lowfield(i,j) = heightfield(i,j);
       }
     }
 
@@ -181,10 +177,11 @@ int main(int argc, char *argv[])
     }
     // now render it 
     forest.drawHeightField("highfield.png", heightfield);
-    forest.drawHeightField("lowfield.png", lowfield);
-    forest.extract(heightfield, lowfield, 1.0);
+    forest.extract(heightfield, mesh, 1.0);
 #else
-    forest.extract(cloud);
+    ray::Mesh mesh;
+    ray::readPlyMesh(mesh_file.name(), mesh);
+    forest.extract(cloud, mesh);
 #endif
   }
   else if (extract_terrain)

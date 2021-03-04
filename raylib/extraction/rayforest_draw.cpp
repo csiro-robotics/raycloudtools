@@ -30,69 +30,7 @@ struct Col
   uint8_t r, g, b, a;
 };
 
-void Forest::drawLowfield(const std::string &filename, const std::vector<TreeNode> &trees)
-{
-  if (!verbose)
-    return;
-  Field2D<Col> pixels((int)lowfield_.rows(), (int)lowfield_.cols());
-//  double max_h = 3.0;
-//  double min_h = -3.0;
-
-  for (int x = 0; x < pixels.dims[0]; x++)
-  {
-    for (int y = 0; y < pixels.dims[1]; y++)
-    {
-      int ind = indexfield_(x, y);
-      double height = heightfield_(x, y);
-      Col col;
-      col.g = 0;
-      col.a = 255;
-      if (lowfield_(x,y) < (heightfield_(x,y)-min_ground_to_canopy_distance)) // underneath vegetation
-      {
-  //      double z = (lowfield_(x,y) - min_h) / (max_h - min_h);
-        col.r = 127;
-        col.b = 255;
-   //     col.g = (uint8_t)(255.0 * z);
-        pixels(x, y) = col;
-      }
-      else if (height <= -1e10) // no data available
-      {
-        col.r = col.g = col.b = 0;
-        pixels(x, y) = col;
-      }
-      else if (ind == -1) // unclassed points
-      {
-        col.r = 255;
-        col.b = 127;
- //       double z = (lowfield_(x,y) - min_h) / (max_h - min_h);
- //       col.g = (uint8_t)(255.0 * z);        
-        pixels(x, y) = col;
-      }
-      else
-      {
-        while (trees[ind].attaches_to != -1)
-          ind = trees[ind].attaches_to;
-        if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_)) // invalid tree shape, so assume it is ground
-        {
-          col.r = 255;
-          col.g = 255;
-          col.b = 255;
-        }
-        else // boundary points, so no reliable height available
-        {
-          col.r = col.g = col.b = 127; 
-        }
-     //   double z = (lowfield_(x,y) - min_h) / (max_h - min_h);
-     //   col.g = (uint8_t)(255.0 * z);        
-        pixels(x, y) = col;
-      }
-    }
-  }
-
-  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
-}
-
-void Forest::drawSegmentation(const std::string &filename, const std::vector<TreeNode> &trees)
+void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees)
 {
   if (!verbose)
     return;
@@ -114,6 +52,7 @@ void Forest::drawSegmentation(const std::string &filename, const std::vector<Tre
         col.r = (uint8_t)(rand()%256);
         col.g = (uint8_t)(rand()%256);
         col.b = (uint8_t)(rand()%256);
+        trees[ind].abcd = trees[ind].curv_mat.ldlt().solve(trees[ind].curv_vec);
         if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
         {
           col.r /= 2;
@@ -147,7 +86,7 @@ void Forest::drawSegmentation(const std::string &filename, const std::vector<Tre
       pixels[(max_bound[0]%res) + res * (y%res)] = Col(255);
     }
   }*/
-  for (int i = 0; i<(int)trees.size(); i++)
+ /* for (int i = 0; i<(int)trees.size(); i++)
   {
     int ind = i;
     while (trees[ind].attaches_to != -1)
@@ -162,7 +101,7 @@ void Forest::drawSegmentation(const std::string &filename, const std::vector<Tre
     int Y = (int)(y/voxel_width_); 
     if (X>=0 && X<pixels.dims[0] && Y >= 0.0 && Y<pixels.dims[1])
       pixels(X, Y) = Col(255);
-  }
+  }*/
 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
@@ -224,11 +163,11 @@ void Forest::drawGraph(const std::string &filename, const std::vector<Vector4d> 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawTrees(const std::string &filename, const Forest::Result &result)
+void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results)
 {
   double max_height = 0.0;
-  for (auto &tip: result.tree_tips)
-    max_height = std::max(max_height, tip[2]);
+  for (auto &res: results)
+    max_height = std::max(max_height, res.tree_tip[2]);
 
   // I should probably draw the result
   if (!verbose)
@@ -237,13 +176,13 @@ void Forest::drawTrees(const std::string &filename, const Forest::Result &result
   Field2D<Col> pixels(res, res);
   for (auto &c: pixels.data)
     c = Col(0); 
-  for (auto &tip: result.tree_tips)
+  for (auto &result: results)
   {
-    Eigen::Vector3d pos = tip;
+    Eigen::Vector3d pos = result.tree_tip;
     pos[0] /= voxel_width_;
     pos[1] /= voxel_width_;
     double length = pos[2] - result.ground_height;
-    double crown_radius = length/result.treelength_per_crownradius;
+    double crown_radius = length * tree_roundness;
     double curvature = 1.0 / crown_radius;
     double draw_radius = std::min(1.25 * crown_radius, 50.0); 
     for (int x = (int)(pos[0] - draw_radius); x<= (int)(pos[0]+draw_radius); x++)
