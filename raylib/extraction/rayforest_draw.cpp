@@ -163,7 +163,7 @@ void Forest::drawGraph(const std::string &filename, const std::vector<Vector4d> 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results)
+void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height)
 {
   double max_height = 0.0;
   for (auto &res: results)
@@ -172,8 +172,7 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
   // I should probably draw the result
   if (!verbose)
     return;
-  const int res = 256; // need to get actual bounds
-  Field2D<Col> pixels(res, res);
+  Field2D<Col> pixels(width, height);
   for (auto &c: pixels.data)
     c = Col(0); 
   for (auto &result: results)
@@ -189,7 +188,7 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
     {
       for (int y = (int)(pos[1] - draw_radius); y<= (int)(pos[1]+draw_radius); y++)
       {
-        if (x < 0 || x >= res || y<0 || y>=res)
+        if (x < 0 || x >= width || y<0 || y>=height)
           continue;
         double X = (double)x - pos[0];
         double Y = (double)y - pos[1];

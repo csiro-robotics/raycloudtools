@@ -37,7 +37,7 @@ public:
   void drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
   void drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_min, double x_max, double y_max, double strength_max, double a, double b);
-  void drawTrees(const std::string &filename, const std::vector<Forest::Result> &results);
+  void drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height);
 
   // parameters
   bool verbose;
@@ -86,8 +86,6 @@ struct RAYLIB_EXPORT TreeNode
   {
     curv_mat.setZero();
     curv_vec.setZero();
-    sum_square_residual = 0.0;
-    sum_square_total = 0.0;
     children[0] = children[1] = -1;
     peak.setZero();
     ground_height = 0;
@@ -101,17 +99,14 @@ struct RAYLIB_EXPORT TreeNode
     double x = (double)i * voxel_width;
     double y = (double)j * voxel_width;
     addSample(x,y,height_);
-    sum_square_residual = 0.0;
-    sum_square_total = 0.0;
     children[0] = children[1] = -1;
+    ground_height = 0;
     peak = Eigen::Vector3d(x, y, height_); // in which case peak should probably be in metres horizontally
   }
   // for calculating paraboloid of best fit:
   Eigen::Matrix4d curv_mat;
   Eigen::Vector4d curv_vec;
   Eigen::Vector4d abcd; // the solved paraboloid
-  double sum_square_residual;
-  double sum_square_total;
   Eigen::Vector2i min_bound, max_bound;
   Eigen::Vector3d peak;
   double ground_height;

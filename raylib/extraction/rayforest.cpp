@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <queue>
 
 namespace ray
 {
@@ -46,7 +47,7 @@ struct PointCmp
 {
   bool operator()(const Point& lhs, const Point& rhs) const 
   { 
-    return lhs.height > rhs.height; 
+    return lhs.height < rhs.height; 
   }
 };
 
@@ -98,9 +99,9 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
         heightfield_(x, y) = -1e10;
         count++;
       }
-      int k = 200; // any larger and the bug appears
-      if (x < 208-k || x > 224+k || y < 64-k || y > 81+k)
-        heightfield_(x, y) = -1e10;
+      int k = 0; // any larger and the bug appears
+  //    if (x < 208-k || x > 224+k || y < 64-k || y > 81+k)
+  //      heightfield_(x, y) = -1e10;
     }
   }
   std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
@@ -131,12 +132,12 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
     results_.push_back(result);
   }
 
-  drawTrees("result_trees.png", results_);
+  drawTrees("result_trees.png", results_, heightfield_.rows(), heightfield_.cols());
 }
 
 void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads)
 {
-  std::set<Point, PointCmp> basins;
+  std::priority_queue<Point, std::vector<Point>, PointCmp> basins;
   // 1. find highest points
   for (int x = 0; x < heightfield_.rows(); x++)
   {
@@ -154,7 +155,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Point p;
         p.x = x; p.y = y; p.height = height;
         p.index = (int)basins.size();
-        basins.insert(p);
+        basins.push(p);
         heads.insert((int)trees.size());
         trees.push_back(TreeNode(x, y, height, voxel_width_));
       }
@@ -167,10 +168,10 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
   int max_tree_pixel_width = (int)(max_tree_canopy_width / (double)voxel_width_); 
   while (!basins.empty())
   {
-    Point p = *basins.begin();
+    Point p = basins.top();
+    basins.pop(); // removes it from basins. p still exists
     int x = p.x;
     int y = p.y;
-    basins.erase(p); // removes it from basins. p still exists
 
     if (p.index == -2) // a merge request
     {
@@ -200,7 +201,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           node.children[1] = q_head;
           node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
 
-   //       if (node.validParaboloid(max_tree_canopy_width, voxel_width_)) 
+ //         if (node.validParaboloid(max_tree_canopy_width, voxel_width_)) 
           {
             heads.erase(p_head);
             heads.erase(q_head);
@@ -264,7 +265,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           q.x = p_head; q.y = q_head; 
           q.index = -2;
           q.height = flood_base - low_flood_height * flood_merge_scale;
-          basins.insert(q);
+          basins.push(q);
         }
       }
       if (ind == -1 && heightfield_(xx, yy) > -1e10) 
@@ -273,19 +274,17 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         q.x = xx; q.y = yy; q.index = p.index;
         q.height = heightfield_(xx, yy);
         if ((p.height - q.height) < maximum_drop_within_tree)
-//        if (std::abs(p.height - q.height) < maximum_drop_within_tree)
         {
           if (verbose && !(cnt%500)) // I need a way to visualise the hierarchy here!
           {
             drawSegmentation("segmenting.png", trees);
-            std::cout << "done" << std::endl;
           }
           cnt++;
           ind = p.index;
-          basins.insert(q);
+          basins.push(q);
           trees[p_head].addSample(xx*voxel_width_, yy*voxel_width_, q.height);
           trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
-        }
+        } 
       }
     }
   }
