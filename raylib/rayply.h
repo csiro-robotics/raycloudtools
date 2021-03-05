@@ -49,6 +49,10 @@ bool RAYLIB_EXPORT writePlyChunkStart(const std::string &file_name, std::ofstrea
 bool RAYLIB_EXPORT writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours);
 unsigned long RAYLIB_EXPORT writePlyChunkEnd(std::ofstream &out);
+
+/// Simple function for converting a ray cloud according to the per-ray function @c apply
+bool convertCloud(const std::string &in_name, const std::string &out_name, 
+  std::function<void(Eigen::Vector3d &start, Eigen::Vector3d &ends, double &time, RGBA &colour)> apply);
 }  // namespace ray
 
 #endif  // RAYLIB_RAYPLY_H
