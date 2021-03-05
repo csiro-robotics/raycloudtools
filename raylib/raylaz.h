@@ -11,7 +11,6 @@
 
 #if RAYLIB_WITH_LAS
 #include <liblas/reader.hpp>
-#include <liblas/factory.hpp>
 #endif  // RAYLIB_WITH_LAS
 
 
@@ -32,13 +31,18 @@ bool RAYLIB_EXPORT readLas(const std::string &file_name,
 bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
                             const std::vector<RGBA> &colours);
 
+/// Class for chunked writing of las/laz files.
 class RAYLIB_EXPORT LasWriter 
 {
 public:
+  /// construct the class with a file name, which is stored
   LasWriter(const std::string &file_name);
+  /// the destructor 
   ~LasWriter();
+  /// write a chunk of points to the file, described by the vector arguments
   bool writeChunk(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
                   const std::vector<RGBA> &colours);
+                  
 private:
   const std::string &file_name_;
   std::ofstream out_;

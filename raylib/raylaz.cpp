@@ -9,6 +9,7 @@
 #include "rayunused.h"
 
 #if RAYLIB_WITH_LAS
+#include <liblas/factory.hpp>
 #include <liblas/point.hpp>
 #endif  // RAYLIB_WITH_LAS
 
@@ -25,7 +26,7 @@ bool readLas(const std::string &file_name,
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
 
-  if (!ifs.is_open())
+  if (ifs.fail())
   {
     std::cerr << "readLas: failed to open stream" << std::endl;
     return false;
@@ -169,7 +170,7 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
 
   std::ofstream ofs;
   ofs.open(file_name.c_str(), std::ios::out | std::ios::binary);
-  if (!ofs.is_open())
+  if (ofs.fail())
   {
     std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
     return false;
@@ -209,7 +210,7 @@ LasWriter::LasWriter(const std::string &file_name) : file_name_(file_name)
  
   std::cout << "Saving points to " << file_name_ << std::endl;
   out_.open(file_name_.c_str(), std::ios::out | std::ios::binary);
-  if (!out_.is_open())
+  if (out_.fail())
   {
     std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
     return;
@@ -243,7 +244,7 @@ bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points,
   {
     return true; // this is acceptable behaviour. It avoids calling function checking for emptiness each time
   }
-  if (!out_.is_open())
+  if (out_.fail())
   {
     std::cerr << "Error: cannot open " << file_name_ << " for writing." << std::endl;
     return false;

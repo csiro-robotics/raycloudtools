@@ -21,7 +21,7 @@ bool Trajectory::save(const std::string &file_name)
 {
   std::cout << "saving trajectory " << file_name << std::endl;
   std::ofstream ofs(file_name.c_str(), std::ios::out);
-  if (!ofs.is_open())
+  if (ofs.fail())
   {
     std::cerr << "error: cannot open file " << file_name << " for writing" << std::endl;
     return false;
@@ -41,7 +41,7 @@ bool saveTrajectory(const std::vector<TrajectoryNode> &nodes, const std::string 
 {
   std::cout << "saving trajectory " << file_name << std::endl;
   std::ofstream ofs(file_name.c_str(), std::ios::out);
-  if (!ofs.is_open())
+  if (ofs.fail())
   {
     std::cerr << "error: cannot open file " << file_name << " for writing" << std::endl;
     return false;
@@ -70,7 +70,7 @@ bool Trajectory::load(const std::string &file_name)
       std::cerr << "Failed to open trajectory file: " << file_name << std::endl;
       return false;
     }
-    ASSERT(ifs.is_open());
+    ASSERT(!ifs.fail());
     getline(ifs, line);
 
     while (!ifs.eof())

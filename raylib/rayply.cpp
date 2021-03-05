@@ -26,7 +26,7 @@ bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
 {
   int num_zeros = std::numeric_limits<unsigned long>::digits10;
   out.open(file_name, std::ios::binary | std::ios::out);
-  if (!out.is_open())
+  if (out.fail())
   {
     std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
     return false;
@@ -153,7 +153,7 @@ bool writePointCloudChunkStart(const std::string &file_name, std::ofstream &out)
   int num_zeros = std::numeric_limits<unsigned long>::digits10;
   std::cout << "saving to " << file_name << " ..." << std::endl;
   out.open(file_name, std::ios::binary | std::ios::out);
-  if (!out.is_open())
+  if (out.fail())
   {
     std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
     return false;
@@ -267,7 +267,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
 {
   std::cout << "reading: " << file_name << std::endl;
   std::ifstream input(file_name.c_str());
-  if (!input.is_open())
+  if (input.fail())
   {
     std::cerr << "Couldn't open file: " << file_name << std::endl;
     return false;
@@ -581,7 +581,7 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
 bool readPlyMesh(const std::string &file, Mesh &mesh)
 {
   std::ifstream input(file.c_str());
-  if (!input.is_open())
+  if (input.fail())
   {
     std::cerr << "Couldn't open file: " << file << std::endl;
     return false;

@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
   if (pointcloud_file.nameExt() == "laz")
   {
     ray::LasWriter las_writer(pointcloud_file.name());
-    auto add_chunk = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+    auto add_chunk = [&las_writer](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
     {
       las_writer.writeChunk(ends, times, colours);
     };
