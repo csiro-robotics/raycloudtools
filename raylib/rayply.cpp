@@ -625,4 +625,28 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
   return true;
 }
 
+bool convertCloud(const std::string &in_name, const std::string &out_name, 
+  std::function<void(Eigen::Vector3d &start, Eigen::Vector3d &ends, double &time, RGBA &colour)> apply)
+{
+  std::ofstream ofs;
+  if (!writeRayCloudChunkStart(out_name, ofs))
+    return false;
+  ray::RayPlyBuffer buffer;
+
+  // run the function 'apply' on each ray as it is read in, and write it out, one chunk at a time
+  auto applyToChunk = [&apply, &buffer, &ofs](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      // We can adjust the applyToChunk arguments directly as they are non-const and their modification doesn't have side effects
+      apply(starts[i], ends[i], times[i], colours[i]);
+    }
+    ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours);
+  };
+  if (!ray::readPly(in_name, true, applyToChunk, 0))
+    return false;
+  ray::writeRayCloudChunkEnd(ofs);
+  return true;
+}
+
 } // ray
