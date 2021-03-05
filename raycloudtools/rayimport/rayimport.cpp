@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
   std::string name_end = point_cloud.substr(point_cloud.size() - 4);
   std::ofstream ofs;
   ray::RayPlyBuffer buffer;
-  if (!ray::writePlyChunkStart(save_file + ".ply", ofs))
+  if (!ray::writeRayCloudChunkStart(save_file + ".ply", ofs))
     usage();
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
       for (auto &c: colours)
         c.alpha = 255;
     }
-    ray::writePlyChunk(ofs, buffer, starts, ends, times, colours);
+    ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours);
   };
   if (name_end == ".ply")
   {
@@ -99,6 +99,6 @@ int main(int argc, char *argv[])
     std::cout << "If your sensor lacks intensity information, set them to full using:" << std::endl;
     std::cout << "rayimport <point cloud> <trajectory file> --max_intensity 0" << std::endl;
   }  
-  ray::writePlyChunkEnd(ofs);
+  ray::writeRayCloudChunkEnd(ofs);
   return 0;
 }

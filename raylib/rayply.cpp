@@ -22,7 +22,7 @@ unsigned long vertex_size_pos = 0;
 unsigned long point_cloud_vertex_size_pos = 0;  
 }  
 
-bool writePlyChunkStart(const std::string &file_name, std::ofstream &out)
+bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
 {
   int num_zeros = std::numeric_limits<unsigned long>::digits10;
   out.open(file_name, std::ios::binary | std::ios::out);
@@ -55,17 +55,17 @@ bool writePlyChunkStart(const std::string &file_name, std::ofstream &out)
   return true;
 }
 
-bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
+bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours)
 {
   if (ends.size() == 0)
   {
-    // this is not an error. Allowing empty chunks avoids wrapping every call to writePlyChunk in a condition
+    // this is not an error. Allowing empty chunks avoids wrapping every call to writeRayCloudChunk in a condition
     return true;   
   }
   if (out.tellp() < (long)chunk_header_length) 
   {
-    std::cerr << "Error: file header has not been written, use writePlyChunkStart" << std::endl;
+    std::cerr << "Error: file header has not been written, use writeRayCloudChunkStart" << std::endl;
     return false;
   }
   vertices.resize(ends.size());
@@ -112,7 +112,7 @@ bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector
   return true;
 }
 
-unsigned long writePlyChunkEnd(std::ofstream &out)
+unsigned long writeRayCloudChunkEnd(std::ofstream &out)
 {
   const unsigned long size = static_cast<unsigned long>(out.tellp()) - chunk_header_length;
   const unsigned long number_of_rays = size / sizeof(RayPlyEntry);
@@ -135,13 +135,13 @@ bool writePlyRayCloud(const std::string &file_name, const std::vector<Eigen::Vec
     colourByTime(times, rgb);
 
   std::ofstream ofs;
-  if (!writePlyChunkStart(file_name, ofs))
+  if (!writeRayCloudChunkStart(file_name, ofs))
     return false;
   RayPlyBuffer buffer;
   // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
-  if (!writePlyChunk(ofs, buffer, starts, ends, times, rgb))
+  if (!writeRayCloudChunk(ofs, buffer, starts, ends, times, rgb))
     return false; 
-  const unsigned long num_rays = ray::writePlyChunkEnd(ofs);
+  const unsigned long num_rays = ray::writeRayCloudChunkEnd(ofs);
   std::cout << num_rays << " rays saved to " << file_name << std::endl;
   return true;
 }
@@ -189,7 +189,7 @@ bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const st
   }
   if (out.tellp() < (long)point_cloud_chunk_header_length) 
   {
-    std::cerr << "Error: file header has not been written, use writePlyChunkStart" << std::endl;
+    std::cerr << "Error: file header has not been written, use writeRayCloudChunkStart" << std::endl;
     return false;
   }
   vertices.resize(points.size()); // allocates the chunk size the first time, and nullop on subsequent chunks

@@ -46,10 +46,10 @@ bool RAYLIB_EXPORT writePlyRayCloud(const std::string &file_name, const std::vec
                                     const std::vector<RGBA> &colours);
 
 /// Chunked version of writePlyRayCloud
-bool RAYLIB_EXPORT writePlyChunkStart(const std::string &file_name, std::ofstream &out);
-bool RAYLIB_EXPORT writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
+bool RAYLIB_EXPORT writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out);
+bool RAYLIB_EXPORT writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours);
-unsigned long RAYLIB_EXPORT writePlyChunkEnd(std::ofstream &out);
+unsigned long RAYLIB_EXPORT writeRayCloudChunkEnd(std::ofstream &out);
 
 /// Chunked version of writePlyPointCloud
 bool RAYLIB_EXPORT writePointCloudChunkStart(const std::string &file_name, std::ofstream &out);

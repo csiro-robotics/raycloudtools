@@ -17,7 +17,7 @@ bool CloudWriter::begin(const std::string &file_name)
     return false;
   }
   file_name_ = file_name;
-  if (!writePlyChunkStart(file_name_, ofs_))
+  if (!writeRayCloudChunkStart(file_name_, ofs_))
   {
     std::cerr << "cannot write to file: " << file_name_ << std::endl;
     return false;    
@@ -29,14 +29,14 @@ void CloudWriter::end()
 {
   if (file_name_.empty()) // no effect if begin has not been called
     return;
-  const unsigned long num_rays = ray::writePlyChunkEnd(ofs_);
+  const unsigned long num_rays = ray::writeRayCloudChunkEnd(ofs_);
   std::cout << num_rays << " rays saved to " << file_name_ << std::endl;
   ofs_.close();
 }
 
 bool CloudWriter::writeChunk(const Cloud &chunk)
 {
-  return writePlyChunk(ofs_, buffer_, chunk.starts, chunk.ends, chunk.times, chunk.colours);
+  return writeRayCloudChunk(ofs_, buffer_, chunk.starts, chunk.ends, chunk.times, chunk.colours);
 }
 
 

@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
     std::ofstream ofs;
     if (!ray::writePointCloudChunkStart(pointcloud_file.name(), ofs))
       usage();
-    auto add_chunk = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+    auto add_chunk = [&ofs, &buffer](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
     {
       ray::writePointCloudChunk(ofs, buffer, ends, times, colours);
     };
@@ -65,9 +65,9 @@ int main(int argc, char *argv[])
 
   // saving the trajectory is more difficult. Firstly because we need to temporally decimate,
   // secondly because we need to sort the times, when saving to the txt file
-  double time_step = delta_option.isSet() ? traj_delta.value() : 0.1;
-  std::set<int> time_slots; 
-  int last_time_slot = std::numeric_limits<int>::min();
+  const double time_step = delta_option.isSet() ? traj_delta.value() : 0.1;
+  std::set<int64_t> time_slots; 
+  int64_t last_time_slot = std::numeric_limits<int64_t>::min();
 
   // if we are outputting to ply then we aren't sorting the times, just temporally decimating
   // that means we can still chunk-write the ply file, and the maximum memory is dictated by time_slots
@@ -79,12 +79,13 @@ int main(int argc, char *argv[])
       usage();
     ray::Cloud chunk;
 
-    auto decimate_time = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+    auto decimate_time = [&time_slots, &ofs, &buffer, &chunk, &last_time_slot, time_step]
+      (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
     {
       chunk.clear();
       for (size_t i = 0; i<ends.size(); i++)
       {
-        int time_slot = static_cast<int>(std::floor(times[i] / time_step));
+        const int64_t time_slot = static_cast<int64_t>(std::floor(times[i] / time_step));
         if (time_slot == last_time_slot)
           continue;   
         if (time_slots.find(time_slot) == time_slots.end())
@@ -104,21 +105,27 @@ int main(int argc, char *argv[])
   }
   else if (trajectory_file.nameExt() == "txt") // for text files we decimate and then sort
   {
+    std::cout << "traj: " << trajectory_file.name() << std::endl;
     std::vector<ray::TrajectoryNode> traj_nodes;
     bool sorted = true;
 
-    auto decimate_time = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &)
+    auto decimate_time = [&time_slots, &traj_nodes, &sorted, &last_time_slot, time_step]
+      (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &)
     {
       for (size_t i = 0; i<ends.size(); i++)
       {
-        int time_slot = static_cast<int>(std::floor(times[i] / time_step));
+        const int64_t time_slot = static_cast<int64_t>(std::floor(times[i] / time_step));
         if (time_slot == last_time_slot)
-          continue;        
+        {
+          continue;
+        }        
         if (time_slots.find(time_slot) == time_slots.end())
         {
           time_slots.insert(time_slot);
           if (!traj_nodes.empty() && times[i] < traj_nodes.back().time)
+          {
             sorted = false;
+          }
           ray::TrajectoryNode traj_node;
           traj_node.time = times[i];
           traj_node.point = starts[i];
@@ -128,10 +135,14 @@ int main(int argc, char *argv[])
       }
     };
     if (!ray::readPly(raycloud_file.name(), true, decimate_time, 0)) 
+    {
       usage(); 
+    }
 
     if (!sorted)
+    {
       std::sort(traj_nodes.begin(), traj_nodes.end(), [](const ray::TrajectoryNode &a, const ray::TrajectoryNode &b){ return a.time < b.time; });
+    }
 
     ray::saveTrajectory(traj_nodes, trajectory_file.name());
   }
