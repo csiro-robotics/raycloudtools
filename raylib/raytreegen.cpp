@@ -117,6 +117,7 @@ void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double 
 {
   com.setZero();
   total_mass = 0.0;
+  root_ = root_pos;
 
   Pose base(root_pos, Eigen::Quaterniond(Eigen::AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
   Branch branch;

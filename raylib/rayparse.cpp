@@ -10,6 +10,22 @@
 
 namespace ray
 {
+std::string getFileNameStub(const std::string &name) 
+{ 
+  const size_t last_dot = name.find_last_of('.');
+  if (last_dot != std::string::npos)
+    return name.substr(0, last_dot);
+  return name;
+}
+
+std::string getFileNameExtension(const std::string &name) 
+{ 
+  const size_t last_dot = name.find_last_of('.');
+  if (last_dot != std::string::npos)
+    return name.substr(last_dot + 1);
+  return "";
+}
+
 // Process the command line according to the specified format.
 // fixed_arguments are always in order and don't have a "-" prefix. optional_arguments appear in any order after the fixed arguments, and have a "-" or "--" prefix.
 bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments, std::vector<OptionalArgument *> optional_arguments, bool set_values_)
@@ -56,13 +72,21 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
   std::string file = std::string(argv[index]);
   if (file.length() <= 4)
     return false;
+
   // we don't check file existence, that is up to whatever uses the file.
-  // but we do check that it has a 3-letter file extension. This lets us disambiguate files_ from other arguments
+  // but we do check that the string contains a '.' and (if set)
+  // that it has a valid 3-letter file extension 
+  // This lets us disambiguate files_ from other arguments
   // and isn't too restrictive, we would rather users use extensions on their file names.
-  std::string ext = file.substr(file.length() - 4);
-  bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1)) && std::isalnum(ext.at(2)) && std::isalnum(ext.at(3));
-  if (!valid_ext) 
+  if (file.find('.') == std::string::npos) // no '.' in file name
     return false;
+  if (check_extension_)
+  {
+    std::string ext = file.substr(file.length() - 4);
+    bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1)) && std::isalnum(ext.at(2)) && std::isalnum(ext.at(3));
+    if (!valid_ext) 
+      return false;
+  }
   if (set_value)
     name_ = file;
   index++;

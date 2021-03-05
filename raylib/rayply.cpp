@@ -60,14 +60,15 @@ bool writePlyChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector
 {
   if (ends.size() == 0)
   {
-    return true;
+    // this is not an error. Allowing empty chunks avoids wrapping every call to writePlyChunk in a condition
+    return true;   
   }
   if (out.tellp() < (long)chunk_header_length) 
   {
     std::cerr << "Error: file header has not been written, use writePlyChunkStart" << std::endl;
     return false;
   }
-  vertices.resize(ends.size()); // allocates the chunk size the first time, and nullop on subsequent chunks
+  vertices.resize(ends.size());
 
   bool warned = false;
   for (size_t i = 0; i < ends.size(); i++)
@@ -140,7 +141,8 @@ bool writePlyRayCloud(const std::string &file_name, const std::vector<Eigen::Vec
   // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
   if (!writePlyChunk(ofs, buffer, starts, ends, times, rgb))
     return false; 
-  writePlyChunkEnd(ofs);
+  const unsigned long num_rays = ray::writePlyChunkEnd(ofs);
+  std::cout << num_rays << " rays saved to " << file_name << std::endl;
   return true;
 }
 
@@ -461,7 +463,9 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           intensity = (double)((float &)vertices[intensity_offset]);
         else
           intensity = (double &)vertices[intensity_offset];
-        intensities.push_back(static_cast<uint8_t>(255.0 * clamped(intensity / max_intensity, 0.0, 1.0)));
+        // ceil is so very small positive intensities remain positive as a uint8_t, as 0 is reserved to non-returns
+        intensity = std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0)); 
+        intensities.push_back(static_cast<uint8_t>(intensity));
       }
     }
     if (ends.size() == chunk_size || i==size-1)
@@ -620,4 +624,5 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
   std::cout << "reading from " << file << ", " << mesh.index_list().size() << " triangles." << std::endl;
   return true;
 }
+
 } // ray

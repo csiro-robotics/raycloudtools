@@ -5,6 +5,8 @@ A set of command line tools for processing ray clouds, together with an associat
 Ray clouds are point clouds with the sensor origin stored per point (currently encoded in the 'normal' field of .ply files).
 Ray clouds represent free space as well as surfaces. This allows processing that cannot be done on point cloud data alone. 
 
+This is an open-source research library, a place to release new techniques in ray cloud analysis and manipulation. So if you would like to contribute with a new or improved method, do suggest it in our discussions page: https://github.com/csiro-robotics/raycloudtools/discussions.
+
 ## Build:
 ```console
 mkdir build
@@ -68,6 +70,12 @@ To run the rayXXXX tools from anywhere, place in your ~/bashrc:
 <p align="center">
 <img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_smooth1.png?at=refs%2Fheads%2Fmaster"/>
 <img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_smooth2.png?at=refs%2Fheads%2Fmaster"/>
+</p>
+
+**rayrender room.ply top density_rgb** &nbsp;&nbsp;&nbsp; Render the cloud from the top, as a surface area density.
+
+<p align="center">
+<img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayrender_room_top_density_rgb.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 
 **raytransients min room.ply 2 rays** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when matter has been re-observed as missing by 2 or more rays. 
@@ -150,6 +158,7 @@ Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops 
 }
 ```
  
+Associated field data examples are available on CSIRO's Data Access Portal (https://data.csiro.au/collections) under "AcScan3D Vineyard Data Examples". 
 
 ## Notes
 

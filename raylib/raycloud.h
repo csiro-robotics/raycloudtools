@@ -7,6 +7,7 @@
 #define RAYLIB_RAYCLOUD_H
 
 #include "raylib/raylibconfig.h"
+#include "raylib/raycuboid.h"
 
 #include "rayutils.h"
 #include "raypose.h"
@@ -54,9 +55,12 @@ public:
   inline size_t rayCount() const { return ends.size(); }
 
   void save(const std::string &file_name) const;
-  bool load(const std::string &file_name);
+  /// load a ray cloud file. @c check_extension checks the file extension before proceeding
+  bool load(const std::string &file_name, bool check_extension = true);
 
+  /// minimum bounds of all bounded rays
   Eigen::Vector3d calcMinBound() const;
+  /// maximum bounds of all bounded rays
   Eigen::Vector3d calcMaxBound() const;
 
   /// apply a Euclidean transform and time shift to the ray cloud
@@ -74,9 +78,10 @@ public:
   /// are optional attributes of this covariance matrix, which can be returned. Each covariance matrix represents a 
   /// SURFace ELement (surfel) with a centroid, normal, matrix and dimensions (of the ellipsoid that it represents)
   /// The list of neighbours can also be returned, to allow further analysis.
+  /// The last argument excludes back-facing rays from the surfel, this produces flatter surfels on thin double walls
   void getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                   std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats,
-                  Eigen::MatrixXi *neighbour_indices);
+                  Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays = true);
   /// Get first and second order moments of cloud. This can be used as a simple way to compare clouds
   /// numerically. Note that different stats guarantee different clouds, but same stats do not guarantee same clouds
   /// These stats are arranged as: start mean, start sigma, end mean, end sigma, colour mean, time mean, time sigma, 
@@ -105,7 +110,28 @@ public:
   bool calcBounds(Eigen::Vector3d *min_bounds, Eigen::Vector3d *max_bounds, unsigned flags = kBFEnd,
                   Progress *progress = nullptr) const;
 
-  /// static member functions
+  /// Static functions. These operate on the cloud file, and so do not require the full file to fit in memory
+
+  /// Version for estimating the spacing between points for raycloud files. 
+  static double estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points);
+
+  /// Calculate the key information of a ray cloud, such as its bounds
+  /// @c ends are only the bounded ones. @c starts are for all rays
+  /// @c rays is all rays, so using the minimum known length for unbounded rays
+  struct Info
+  {
+    // Axis-aligned bounding boxes
+    Cuboid ends_bound;   // just the end points (not including for unbounded rays)
+    Cuboid starts_bound; // all start points
+    Cuboid rays_bound;   // all ray extents
+
+    int num_bounded;
+    int num_unbounded;
+    double min_time;
+    double max_time;
+    Eigen::Vector3d centroid;
+  };
+  static bool RAYLIB_EXPORT getInfo(const std::string &file_name, Info &info);
 
   /// Reads a ray cloud from file, and calls the function for each ray
   /// This forwards the call to a function appropriate to the ray cloud file format
@@ -115,6 +141,9 @@ public:
 
 private:
   bool loadPLY(const std::string &file);
+  // Convert the set of neighbouring indices into a eigen solution, which is an ellipsoid of best fit. 
+  inline void eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, 
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid);
 };
 
 }  // namespace ray

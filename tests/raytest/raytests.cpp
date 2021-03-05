@@ -98,7 +98,7 @@ namespace raytest
     EXPECT_TRUE(cloud.load("forest_decimated.ply"));
     // Below does not compare the time values (or the colour values, which are based on time here)
     // because spatial decimation does not constraint which time it picks points from.
-    compareMoments(cloud.getMoments(), {0.0999941, -0.0399831, 1.53571, 3.19998, 3.00533, 1.43086, 0.124131, -0.0325141, 1.46963, 3.09061, 2.97752, 1.49306});
+    compareMoments(cloud.getMoments(), {-0.0738177, 0.222853, 3.71745, 7.10229, 6.12213, 2.87909, 0.0130996, 0.246609, 3.29735, 6.78257, 6.01936, 3.28887, 179.673, 90.1992, 0.465102, 0.511002, 0.455111, 1, 0.368073, 0.381371, 0.386776, 0});
   }
 
   /// Creates a room, and calls denoise using a fixed distance threshols, and compares to expected result
@@ -133,7 +133,7 @@ namespace raytest
     EXPECT_EQ(command("rayrotate forest.ply 10,20,30"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("forest.ply"));
-    compareMoments(cloud.getMoments(), {0.788477, -0.0771538, 1.5727, 2.45926, 3.68173, 1.62275, 0.836384, -0.0622552, 1.61549, 2.35391, 3.61942, 1.5494, 31.2445, 18.0393, 0.51611, 0.501146, 0.414814, 1, 0.375121, 0.365447, 0.391637, 0});
+    compareMoments(cloud.getMoments(), {1.26753, -0.123897, 3.98361, 7.04921, 6.07138, 4.18782, 1.32853, -0.037777, 3.9394, 6.68438, 5.87295, 4.20771, 148.554, 85.768, 0.493815, 0.499403, 0.436111, 1, 0.371176, 0.374394, 0.389949, 0});
   }  
 
   /// Creates a room and smooths this ray cloud, comparing to the expected result
@@ -173,7 +173,7 @@ namespace raytest
     EXPECT_EQ(command("raytranslate forest.ply 10,20,30"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("forest.ply"));
-    compareMoments(cloud.getMoments(), {10.1565, 19.9673, 31.7537, 3.30478, 3.04304, 1.43343, 10.191, 19.9688, 31.8099, 3.1749, 3.00455, 1.39085, 31.2445, 18.0393, 0.51611, 0.501146, 0.414814, 1, 0.375121, 0.365447, 0.391637, 0});
+    compareMoments(cloud.getMoments(), {9.8432, 20.3123, 34.1676, 7.50948, 6.22758, 2.98594, 9.94944, 20.3467, 34.1428, 7.10014, 6.08883, 3.06454, 148.554, 85.768, 0.493815, 0.499403, 0.436111, 1, 0.371176, 0.374394, 0.389949, 0});
   }
 
 #if RAYLIB_WITH_QHULL
