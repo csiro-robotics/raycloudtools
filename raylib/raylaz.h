@@ -7,8 +7,12 @@
 #define RAYLIB_RAYLAZ_H
 
 #include "raylib/raylibconfig.h"
-
 #include "rayutils.h"
+
+#if RAYLIB_WITH_LAS
+#include <liblas/reader.hpp>
+#endif  // RAYLIB_WITH_LAS
+
 
 namespace ray
 {
@@ -26,6 +30,27 @@ bool RAYLIB_EXPORT readLas(const std::string &file_name,
 /// Write to a laz or las file. The intensity is the only part that is extracted from the @c colours argument.
 bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
                             const std::vector<RGBA> &colours);
+
+/// Class for chunked writing of las/laz files.
+class RAYLIB_EXPORT LasWriter 
+{
+public:
+  /// construct the class with a file name, which is stored
+  LasWriter(const std::string &file_name);
+  /// the destructor 
+  ~LasWriter();
+  /// write a chunk of points to the file, described by the vector arguments
+  bool writeChunk(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
+                  const std::vector<RGBA> &colours);
+                  
+private:
+  const std::string &file_name_;
+  std::ofstream out_;
+#if RAYLIB_WITH_LAS
+  liblas::Header header_;
+  liblas::Writer *writer_;
+#endif  // RAYLIB_WITH_LAS
+};                          
 }
 
 #endif  // RAYLIB_RAYLAZ_H

@@ -9,7 +9,6 @@
 #include "rayunused.h"
 
 #if RAYLIB_WITH_LAS
-#include <liblas/reader.hpp>
 #include <liblas/factory.hpp>
 #include <liblas/point.hpp>
 #endif  // RAYLIB_WITH_LAS
@@ -27,7 +26,7 @@ bool readLas(const std::string &file_name,
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
 
-  if (!ifs.is_open())
+  if (ifs.fail())
   {
     std::cerr << "readLas: failed to open stream" << std::endl;
     return false;
@@ -124,6 +123,7 @@ bool readLas(const std::string &file_name,
   RAYLIB_UNUSED(apply);
   RAYLIB_UNUSED(num_bounded);
   RAYLIB_UNUSED(chunk_size);
+  RAYLIB_UNUSED(max_intensity);
   std::cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
@@ -170,7 +170,7 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
 
   std::ofstream ofs;
   ofs.open(file_name.c_str(), std::ios::out | std::ios::binary);
-  if (!ofs.is_open())
+  if (ofs.fail())
   {
     std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
     return false;
@@ -180,7 +180,6 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
   header.SetScale(scale, scale, scale);
 
   liblas::Writer writer(ofs, header);
-
   liblas::Point point(&header);
   point.SetHeader(&header);//TODO HACK Version 1.7.0 does not correctly resize the data. Commit 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
   for (unsigned int i = 0; i < points.size(); i++)
@@ -194,6 +193,74 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
   return true;
 #else // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
+  RAYLIB_UNUSED(points);
+  RAYLIB_UNUSED(times);
+  RAYLIB_UNUSED(colours);
+  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+  return false;
+#endif // RAYLIB_WITH_LAS
+}
+
+#if RAYLIB_WITH_LAS
+LasWriter::LasWriter(const std::string &file_name) : file_name_(file_name)
+{
+  header_.SetDataFormatId(liblas::ePointFormat1); // Time only
+  if (file_name_.find(".laz") != std::string::npos)
+    header_.SetCompressed(true);
+ 
+  std::cout << "Saving points to " << file_name_ << std::endl;
+  out_.open(file_name_.c_str(), std::ios::out | std::ios::binary);
+  if (out_.fail())
+  {
+    std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
+    return;
+  }
+  const double scale = 1e-4;
+  header_.SetScale(scale, scale, scale);
+  writer_ = new liblas::Writer(out_, header_);
+}
+#else // RAYLIB_WITH_LAS
+LasWriter::LasWriter(const std::string &file_name) : file_name_(file_name)
+{
+  RAYLIB_UNUSED(file_name);
+  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+}
+#endif // RAYLIB_WITH_LAS
+
+LasWriter::~LasWriter()
+{
+#if RAYLIB_WITH_LAS
+  delete writer_;
+#else
+  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+#endif
+}
+
+bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, 
+                          const std::vector<double> &times, const std::vector<RGBA> &colours)
+{
+#if RAYLIB_WITH_LAS
+  if (points.size() == 0)
+  {
+    return true; // this is acceptable behaviour. It avoids calling function checking for emptiness each time
+  }
+  if (out_.fail())
+  {
+    std::cerr << "Error: cannot open " << file_name_ << " for writing." << std::endl;
+    return false;
+  }  
+  liblas::Point point(&header_);
+  point.SetHeader(&header_);//TODO HACK Version 1.7.0 does not correctly resize the data. Commit 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
+  for (unsigned int i = 0; i < points.size(); i++)
+  {
+    point.SetCoordinates(points[i][0], points[i][1], points[i][2]);
+    point.SetIntensity(colours[i].alpha);
+    if (!times.empty())
+      point.SetTime(times[i]);
+    writer_->WritePoint(point);
+  }
+  return true;
+#else // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(points);
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
