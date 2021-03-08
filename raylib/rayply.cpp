@@ -349,8 +349,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     return false;
   }
   if (time_offset == -1)
-    std::cout << "warning: no time information found in " << file_name << ", setting times at 1 second intervals per ray"
-        << std::endl;
+  {
+    std::cerr << "error: no time information found in " << file_name << std::endl;
+    return false;
+  }
   if (colour_offset == -1)
     std::cout << "warning: no colour information found in " << file_name
         << ", setting colours red->green->blue based on time" << std::endl;
