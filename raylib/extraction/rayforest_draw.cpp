@@ -166,8 +166,12 @@ void Forest::drawGraph(const std::string &filename, const std::vector<Vector4d> 
 void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height)
 {
   double max_height = 0.0;
+  double min_height = 1e10;
   for (auto &res: results)
+  {
     max_height = std::max(max_height, res.tree_tip[2]);
+    min_height = std::min(min_height, res.ground_height);
+  }
 
   // I should probably draw the result
   if (!verbose)
@@ -180,10 +184,9 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
     Eigen::Vector3d pos = result.tree_tip;
     pos[0] /= voxel_width_;
     pos[1] /= voxel_width_;
-    double length = pos[2] - result.ground_height;
-    double crown_radius = length * tree_roundness;
-    double curvature = 1.0 / crown_radius;
-    double draw_radius = std::min(1.25 * crown_radius, 50.0); 
+ //   double length = pos[2] - result.ground_height;
+    double curvature = result.curvature;
+    double draw_radius = result.radius; // std::min(0.9 * crown_radius, 50.0); 
     for (int x = (int)(pos[0] - draw_radius); x<= (int)(pos[0]+draw_radius); x++)
     {
       for (int y = (int)(pos[1] - draw_radius); y<= (int)(pos[1]+draw_radius); y++)
@@ -196,7 +199,9 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
         if (mag2 <= draw_radius*draw_radius)
         {
           double height = pos[2] - mag2 * curvature;
-          double shade = (height - result.ground_height)/(max_height - result.ground_height);
+          double shade = (height - min_height)/(max_height - min_height);
+          if (shade > 1.0001)
+            std::cout << "weird ass, h: " << height << " pos[2]: " << pos[2] << ", curv: " << curvature << ", mag2: " << mag2 << ", max: " << max_height << std::endl;
           Col col(uint8_t(255.0*shade));
           if (pixels(x, y).r < col.r)
             pixels(x, y) = col;

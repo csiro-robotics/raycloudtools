@@ -92,16 +92,11 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   {
     for (int y = 0; y < heightfield_.cols(); y++)
     {
- //     if (heightfield_(x, y) > -1e10)
- //       std::cout << "low: " << lowfield_(x, y) << ", high: " << heightfield_(x, y) << std::endl;
       if (heightfield_(x, y) < lowfield_(x, y)+undercroft_height)
       {
         heightfield_(x, y) = -1e10;
         count++;
       }
-      int k = 0; // any larger and the bug appears
-  //    if (x < 208-k || x > 224+k || y < 64-k || y > 81+k)
-  //      heightfield_(x, y) = -1e10;
     }
   }
   std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
@@ -127,12 +122,17 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   for (auto &ind: indices)
   {
     Result result;
-    result.tree_tip = trees[ind].tip();
-    result.ground_height = trees[ind].ground_height;
+    result.tree_tip = trees[ind].mean(); // peak;//tip();
+    result.tree_tip[2] = trees[ind].peak[2];
+    int x = (int) result.tree_tip[0];
+    int y = (int) result.tree_tip[1];
+    result.ground_height = lowfield_(x, y);
+    result.radius = std::sqrt(trees[ind].area() / kPi);
+    result.curvature = 1.0 / trees[ind].crownRadius();
     results_.push_back(result);
   }
 
-  drawTrees("result_trees.png", results_, heightfield_.rows(), heightfield_.cols());
+  drawTrees("result_trees.png", results_, (int)heightfield_.rows(), (int)heightfield_.cols());
 }
 
 void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads)
@@ -200,6 +200,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           node.children[0] = p_head;  
           node.children[1] = q_head;
           node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
+          node.peak = p_tree.peak[2] > q_tree.peak[2] ? p_tree.peak : q_tree.peak;
 
  //         if (node.validParaboloid(max_tree_canopy_width, voxel_width_)) 
           {
@@ -296,9 +297,8 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
   for (auto &tree: trees)
   {
     tree.abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
-    Eigen::Vector3d tip = tree.tip();
-    int x = (int)((tip[0] - min_bounds_[0])/voxel_width_);
-    int y = (int)((tip[1] - min_bounds_[1])/voxel_width_);   
+    int x = (int)(tree.peak[0]/voxel_width_);
+    int y = (int)(tree.peak[1]/voxel_width_);   
     x = std::max(0, std::min(x, (int)lowfield_.rows()-1));
     y = std::max(0, std::min(y, (int)lowfield_.cols()-1));
     tree.ground_height = lowfield_(x, y); 

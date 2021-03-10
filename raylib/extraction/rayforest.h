@@ -30,6 +30,7 @@ public:
   {
     Eigen::Vector3d tree_tip;
     double ground_height;
+    double radius, curvature;
   };
 
   // in rayforest_draw.cpp
@@ -120,6 +121,9 @@ struct RAYLIB_EXPORT TreeNode
   inline Eigen::Vector3d tip() const { return Eigen::Vector3d(-abcd[1]/(2*abcd[0]), -abcd[2]/(2*abcd[0]), height()); }
   inline double heightAt(double x, double y) const { return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3]; }
   inline double crownRadius() const { return 1.0 / -abcd[0]; }
+  inline double area() const { return curv_mat(3, 3); }
+  inline Eigen::Vector3d mean() const { return Eigen::Vector3d(curv_mat(1,3), curv_mat(2,3), curv_vec[3]) / area(); }
+ // inline Eigen::Vector3d weightedMean() const { return Eigen::Vector3d(curv_vec[1] / curv_vec[3], curv_vec[2] / curv_vec[3], peak[2]); }
   inline bool validParaboloid(double max_tree_width, double voxel_width) const 
   {
     // Add voxel_width*voxel_width* to below two lines, to verify voxel_width independence
