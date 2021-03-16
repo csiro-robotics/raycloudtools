@@ -23,10 +23,10 @@ void Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double err
     return;
   }
   int ind0 = trees[ind].children[0];
-  double base0 = trees[ind0].height() - length_per_radius * trees[ind0].crownRadius();
+  double base0 = trees[ind0].node.height() - length_per_radius * trees[ind0].node.crownRadius();
   double error0 = abs(base0 - trees[ind0].ground_height);
   int ind1 = trees[ind].children[1];
-  double base1 = trees[ind1].height() - length_per_radius * trees[ind1].crownRadius();
+  double base1 = trees[ind1].node.height() - length_per_radius * trees[ind1].node.crownRadius();
   double error1 = abs(base1 - trees[ind1].ground_height);
       
   if (error < std::min(error0, error1) && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_)) // we've found the closest, so end loop
@@ -115,24 +115,34 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   for (auto &head: heads)
   {
     int ind = head;
-    double base = trees[ind].height() - (1.0/tree_roundness) * trees[ind].crownRadius();
+    double base = trees[ind].node.height() - (1.0/tree_roundness) * trees[ind].node.crownRadius();
     double error = abs(base - trees[ind].ground_height);
     searchTrees(trees, head, error, 1.0/tree_roundness, indices);
   }
   for (auto &ind: indices)
   {
     Result result;
-    result.tree_tip = trees[ind].mean(); // peak;//tip();
+    result.tree_tip = trees[ind].node.mean(); // peak;//tip();
     result.tree_tip[2] = trees[ind].peak[2];
     int x = (int) result.tree_tip[0];
     int y = (int) result.tree_tip[1];
+    if (x < 0 || x >= lowfield_.rows())
+      continue;
+    if (y < 0 || y >= lowfield_.cols())
+      continue;
     result.ground_height = lowfield_(x, y);
-    result.radius = std::sqrt(trees[ind].area() / kPi);
-    result.curvature = 1.0 / trees[ind].crownRadius();
+    result.radius = trees[ind].approx_radius;
+    result.curvature = trees[ind].node.curvature();
     results_.push_back(result);
   }
 
   drawTrees("result_trees.png", results_, (int)heightfield_.rows(), (int)heightfield_.cols());
+
+  std::vector<TreeNode> selected;
+  for (auto &ind: indices)
+    selected.push_back(trees[ind]);
+    
+  drawFinalSegmentation("result_tree_shapes.png", trees, indices);
 }
 
 void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads)
@@ -157,6 +167,9 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         p.index = (int)basins.size();
         basins.push(p);
         heads.insert((int)trees.size());
+        indexfield_(x, y) = p.index;
+        if (trees.size() == 0)
+          std::cout << "x: " << x << ",  y: " << y << ", index field: " << indexfield_(x, y) << std::endl;      
         trees.push_back(TreeNode(x, y, height, voxel_width_));
       }
     }
@@ -192,14 +205,11 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         {
           int new_index = (int)trees.size();
           TreeNode node;
-          node.curv_mat = p_tree.curv_mat + q_tree.curv_mat;
-          node.curv_vec = p_tree.curv_vec + q_tree.curv_vec;
           node.min_bound = p_tree.min_bound;
           node.max_bound = p_tree.max_bound;
           node.updateBound(q_tree.min_bound, q_tree.max_bound);
           node.children[0] = p_head;  
           node.children[1] = q_head;
-          node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
           node.peak = p_tree.peak[2] > q_tree.peak[2] ? p_tree.peak : q_tree.peak;
 
  //         if (node.validParaboloid(max_tree_canopy_width, voxel_width_)) 
@@ -215,7 +225,6 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       }
       continue;
     }    
-    indexfield_(x, y) = p.index;
 
     int xs[4] = {x-1, x, x, x+1};
     int ys[4] = {y, y+1, y-1, y};
@@ -276,15 +285,14 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         q.height = heightfield_(xx, yy);
         if ((p.height - q.height) < maximum_drop_within_tree)
         {
-          if (verbose && !(cnt%500)) // I need a way to visualise the hierarchy here!
+  /*        if (verbose && !(cnt%500)) // I need a way to visualise the hierarchy here!
           {
             drawSegmentation("segmenting.png", trees);
-          }
+          }*/
           cnt++;
           ind = p.index;
           basins.push(q);
-          trees[p_head].addSample(xx*voxel_width_, yy*voxel_width_, q.height);
-          trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));
+          trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));        
         } 
       }
     }
@@ -293,15 +301,49 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 
 void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
 {
-  // first I'll have to solve each tree parabola and store it in a vector:
-  for (auto &tree: trees)
+  std::vector<std::vector<Eigen::Vector3d> > point_lists(trees.size());
+  for (int x = 0; x<indexfield_.rows(); x++)
   {
-    tree.abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
+    for (int y = 0; y<indexfield_.cols(); y++)
+    {
+      int ind = indexfield_(x, y);
+      if (ind < 0)
+        continue;
+      while (ind >= 0)
+      {
+        point_lists[ind].push_back(Eigen::Vector3d((double)x + 0.5, (double)y + 0.5, heightfield_(x, y)));
+        ind = trees[ind].attaches_to;
+      }
+    }
+  }
+  for (size_t i = 0; i<trees.size(); i++)
+  {
+    auto &tree = trees[i];
+    tree.approx_radius = std::sqrt((double)point_lists[i].size() / kPi);
     int x = (int)(tree.peak[0]/voxel_width_);
     int y = (int)(tree.peak[1]/voxel_width_);   
     x = std::max(0, std::min(x, (int)lowfield_.rows()-1));
     y = std::max(0, std::min(y, (int)lowfield_.cols()-1));
     tree.ground_height = lowfield_(x, y); 
+    TreeNode::Node node;
+    for (auto &pt: point_lists[i])
+      node.add(pt[0], pt[1], pt[2], 1);
+    const int num_iterations = 10;
+    for (int it = 1; it<num_iterations; it++)
+    {
+      node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
+      node.curv_mat.setZero(); 
+      node.curv_vec.setZero();
+      for (auto &pt: point_lists[i])
+      {
+        double h = node.heightAt(pt[0], pt[1]);
+        double error = h - pt[2];
+        const double eps = 1e-2;
+        node.add(pt[0], pt[1], pt[2], 1.0/std::max(eps, std::abs(error))); // 1/e reweighting gives a median paraboloid
+      }
+    }
+    node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
+    tree.node = node;
   }
 }
 }

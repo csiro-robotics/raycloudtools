@@ -30,6 +30,42 @@ struct Col
   uint8_t r, g, b, a;
 };
 
+void Forest::drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees, std::vector<int> &indices)
+{
+  if (!verbose)
+    return;
+  Field2D<Col> pixels((int)indexfield_.rows(), (int)indexfield_.cols());
+  for (int x = 0; x < pixels.dims[0]; x++)
+  {
+    for (int y = 0; y < pixels.dims[1]; y++)
+    {
+      int ind = indexfield_(x, y);
+      Col col;
+      if (ind == -1)
+        pixels(x, y) = Col(0);
+      else
+      {
+        while (trees[ind].attaches_to != -1)
+        {
+          if (std::find(indices.begin(), indices.end(), ind) != indices.end())
+            break;
+          ind = trees[ind].attaches_to;
+        }
+        if (std::find(indices.begin(), indices.end(), ind) == indices.end())
+          continue;
+        srand(1 + ind);
+        col.a = 255;
+        col.r = (uint8_t)(rand()%256);
+        col.g = (uint8_t)(rand()%256);
+        col.b = (uint8_t)(rand()%256);
+        pixels(x, y) = col;
+      }
+    }
+  }
+  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
+}
+
+
 void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees)
 {
   if (!verbose)
@@ -52,56 +88,10 @@ void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode>
         col.r = (uint8_t)(rand()%256);
         col.g = (uint8_t)(rand()%256);
         col.b = (uint8_t)(rand()%256);
-        trees[ind].abcd = trees[ind].curv_mat.ldlt().solve(trees[ind].curv_vec);
-        if (!trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
-        {
-          col.r /= 2;
-          col.g /= 2;
-          col.b /= 2;
-        }
         pixels(x, y) = col;
       }
     }
   }
- /* for (int i = 0; i<(int)trees.size(); i++)
-  {
-    int ind = i;
-    while (trees[ind].attaches_to != -1)
-      ind = trees[ind].attaches_to;
-    const TreeNode &tree = trees[ind];
-    Eigen::Vector2i max_bound = tree.max_bound;
-    Eigen::Vector2i d = tree.max_bound - tree.min_bound;
-    if (d[0] < 0)
-      max_bound[0] += res;
-    if (d[1] < 0)
-      max_bound[1] += res;
-    for (int x = tree.min_bound[0]; x <= max_bound[0]; x++)
-    {
-      pixels[(x%res) + res * tree.min_bound[1]] = Col(255);
-      pixels[(x%res) + res * (max_bound[1]%res)] = Col(255);
-    }
-    for (int y = tree.min_bound[1]; y <= max_bound[1]; y++)
-    {
-      pixels[tree.min_bound[0] + res * (y%res)] = Col(255);
-      pixels[(max_bound[0]%res) + res * (y%res)] = Col(255);
-    }
-  }*/
- /* for (int i = 0; i<(int)trees.size(); i++)
-  {
-    int ind = i;
-    while (trees[ind].attaches_to != -1)
-      ind = trees[ind].attaches_to;
-    const TreeNode &tree = trees[ind];
-
-    Vector4d abcd = tree.curv_mat.ldlt().solve(tree.curv_vec);
-    double a = abcd[0], b = abcd[1], c = abcd[2];
-    double x = -b/(2*a);
-    double y = -c/(2*a);
-    int X = (int)(x/voxel_width_); 
-    int Y = (int)(y/voxel_width_); 
-    if (X>=0 && X<pixels.dims[0] && Y >= 0.0 && Y<pixels.dims[1])
-      pixels(X, Y) = Col(255);
-  }*/
 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
@@ -198,7 +188,7 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
         double mag2 = (double)(X*X + Y*Y);
         if (mag2 <= draw_radius*draw_radius)
         {
-          double height = pos[2] - mag2 * curvature;
+          double height = pos[2] + mag2 * curvature;
           double shade = (height - min_height)/(max_height - min_height);
           if (shade > 1.0001)
             std::cout << "weird ass, h: " << height << " pos[2]: " << pos[2] << ", curv: " << curvature << ", mag2: " << mag2 << ", max: " << max_height << std::endl;
