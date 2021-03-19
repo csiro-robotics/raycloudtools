@@ -257,18 +257,15 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
         bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
-//        double mz = std::max(p_tree.peak[2], q_tree.peak[2]);
-//        bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width && (mz - p.height)<maximum_drop_within_tree;
         if (merge)
         {
           const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
           // add a merge task:
           Eigen::Vector2d mid = Eigen::Vector2d(xx, yy) * voxel_width_;
-          double p_sqr = (Eigen::Vector2d(p_tree.peak[0], p_tree.peak[1]) - mid).squaredNorm();
-          double q_sqr = (Eigen::Vector2d(q_tree.peak[0], q_tree.peak[1]) - mid).squaredNorm();
-          double blend = p_sqr / (p_sqr + q_sqr);
+          Eigen::Vector2d ptree(p_tree.peak[0], p_tree.peak[1]);
+          Eigen::Vector2d qtree(q_tree.peak[0], q_tree.peak[1]);
+          double blend = (mid - ptree).dot(qtree-ptree) / (qtree-ptree).squaredNorm();
           double flood_base = p_tree.peak[2]*(1.0-blend) + q_tree.peak[2]*blend;
-//          double flood_base = std::max(p_tree.peak[2], q_tree.peak[2]); // p_tree.peak[2]*(1.0-blend) + q_tree.peak[2]*blend;
           double low_flood_height = flood_base - p.height;
 
           Point q;
