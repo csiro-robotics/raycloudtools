@@ -25,9 +25,13 @@ void Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double err
   int ind0 = trees[ind].children[0];
   double base0 = trees[ind0].node.height() - length_per_radius * trees[ind0].node.crownRadius();
   double error0 = abs(base0 - trees[ind0].ground_height);
+  double error1 = 1e20;
   int ind1 = trees[ind].children[1];
-  double base1 = trees[ind1].node.height() - length_per_radius * trees[ind1].node.crownRadius();
-  double error1 = abs(base1 - trees[ind1].ground_height);
+  if (ind1 != -1)
+  {
+    double base1 = trees[ind1].node.height() - length_per_radius * trees[ind1].node.crownRadius();
+    error1 = abs(base1 - trees[ind1].ground_height);
+  }
       
   if (error < std::min(error0, error1) && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_)) // we've found the closest, so end loop
   {
@@ -35,7 +39,8 @@ void Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double err
     return;
   }
   searchTrees(trees, ind0, error0, length_per_radius, indices);
-  searchTrees(trees, ind1, error1, length_per_radius, indices);
+  if (ind1 != -1)
+    searchTrees(trees, ind1, error1, length_per_radius, indices);
 }
 
 struct Point 
@@ -220,7 +225,19 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
             p_tree.attaches_to = new_index;
             q_tree.attaches_to = new_index;
             trees.push_back(node); // danger, this can invalidate the p_tree reference
+
+            // Below: no noticeable difference in quality, so leaving out
+            #if 0 // adds in a node just at the merge point, for more fidelity
+            trees.back().attaches_to = (int)trees.size();
+            TreeNode node2 = node;
+            node.children[0] = trees.size()-1;
+            node.children[1] = -1;
+            heads.erase(new_index);
+            heads.insert(trees.size());
+            trees.push_back(node2);
+            #endif
           }
+
         }
       }
       continue;

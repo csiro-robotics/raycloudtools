@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
   {
     ray::Forest forest;
     forest.tree_roundness = roundness_option.isSet() ? tree_roundness.value() : 0.5;
+    std::cout << "tree roundness: " << forest.tree_roundness << std::endl;
     forest.verbose = verbose.isSet();
 
 //#define TEST
