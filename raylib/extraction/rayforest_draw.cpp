@@ -75,21 +75,41 @@ void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode>
   {
     for (int y = 0; y < pixels.dims[1]; y++)
     {
+      Eigen::Vector3d diag(0.5,0.5,0.5);
+      diag.normalize();
+      Eigen::Vector3d cols(0.1,0.1,0.1);
       int ind = indexfield_(x, y);
-      Col col;
       if (ind == -1)
-        pixels(x, y) = Col(0);
-      else
       {
-        while (trees[ind].attaches_to != -1)
-          ind = trees[ind].attaches_to;
-        srand(1 + ind);
-        col.a = 255;
-        col.r = (uint8_t)(rand()%256);
-        col.g = (uint8_t)(rand()%256);
-        col.b = (uint8_t)(rand()%256);
-        pixels(x, y) = col;
+        pixels(x, y) = Col(0);
+        continue;
       }
+      std::vector<int> inds;
+      while (ind != -1)
+      {
+        inds.push_back(ind);
+        ind = trees[ind].attaches_to;
+      }
+      double scale = 0.7;
+      for (int i = (int)inds.size()-1; i>=0; i--)
+      {
+        srand(1 + inds[i]);
+        Eigen::Vector3d hue(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, 1.0));
+        hue -= diag * hue.dot(diag);
+        hue.normalize();
+        cols += hue * scale;
+        cols += diag * 0.09;
+        scale /= 2.0;
+      }
+      cols[0] = std::max(0.0, std::min(cols[0], 1.0));
+      cols[1] = std::max(0.0, std::min(cols[1], 1.0));
+      cols[2] = std::max(0.0, std::min(cols[2], 1.0));
+      Col col;
+      col.a = 255;
+      col.r = (uint8_t)(cols[0]*255.0);
+      col.g = (uint8_t)(cols[1]*255.0);
+      col.b = (uint8_t)(cols[2]*255.0);
+      pixels(x, y) = col;
     }
   }
 

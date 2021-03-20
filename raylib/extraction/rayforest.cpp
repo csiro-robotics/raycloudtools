@@ -199,7 +199,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       int q_head = y;
       while (trees[q_head].attaches_to != -1)
         q_head = trees[q_head].attaches_to;
-      if (p_head != q_head)
+      if (p_head != q_head) // already merged
       {
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
