@@ -14,33 +14,37 @@
 namespace ray
 {
 
-void Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, std::vector<int> &indices)
+double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices)
 {
+  double base = trees[ind].node.height() - length_per_radius * trees[ind].node.crownRadius();
+  double error = abs(base - trees[ind].ground_height);
   if (trees[ind].children[0] == -1)
   {
     if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
+    {
       indices.push_back(ind);
-    return;
+      return error;
+    }
+    return 1e20;
   }
+  std::vector<int> child_indices[2];
   int ind0 = trees[ind].children[0];
-  double base0 = trees[ind0].node.height() - length_per_radius * trees[ind0].node.crownRadius();
-  double error0 = abs(base0 - trees[ind0].ground_height);
-  double error1 = 1e20;
   int ind1 = trees[ind].children[1];
+  double child_error = searchTrees2(trees, ind0, length_per_radius, child_indices[0]);
   if (ind1 != -1)
   {
-    double base1 = trees[ind1].node.height() - length_per_radius * trees[ind1].node.crownRadius();
-    error1 = abs(base1 - trees[ind1].ground_height);
+    child_error = (child_error + searchTrees2(trees, ind1, length_per_radius, child_indices[1])) / 2.0; // mean error
   }
-      
-  if (error < std::min(error0, error1) && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_)) // we've found the closest, so end loop
+
+  if (error < child_error && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
   {
     indices.push_back(ind);
-    return;
+    return error;
   }
-  searchTrees(trees, ind0, error0, length_per_radius, indices);
-  if (ind1 != -1)
-    searchTrees(trees, ind1, error1, length_per_radius, indices);
+
+  indices.insert(indices.end(), child_indices[0].begin(), child_indices[0].end());
+  indices.insert(indices.end(), child_indices[1].begin(), child_indices[1].end());
+  return child_error;
 }
 
 struct Point 
@@ -119,10 +123,7 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   std::vector<int> indices;
   for (auto &head: heads)
   {
-    int ind = head;
-    double base = trees[ind].node.height() - (1.0/tree_roundness) * trees[ind].node.crownRadius();
-    double error = abs(base - trees[ind].ground_height);
-    searchTrees(trees, head, error, 1.0/tree_roundness, indices);
+    searchTrees(trees, head, 1.0/tree_roundness, indices);
   }
   for (auto &ind: indices)
   {

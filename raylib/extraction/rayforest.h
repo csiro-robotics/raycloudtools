@@ -53,7 +53,7 @@ private:
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   void calculateTreeParaboloids(std::vector<TreeNode> &trees);
   double estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees);
-  void searchTrees(const std::vector<TreeNode> &trees, int ind, double error, double length_per_radius, std::vector<int> &indices);
+  double searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices);
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
   Eigen::ArrayXXd lowfield_;
