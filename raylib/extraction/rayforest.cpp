@@ -30,12 +30,11 @@ double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double l
   std::vector<int> child_indices[2];
   int ind0 = trees[ind].children[0];
   int ind1 = trees[ind].children[1];
-  double child_error = searchTrees2(trees, ind0, length_per_radius, child_indices[0]);
+  double child_error = searchTrees(trees, ind0, length_per_radius, child_indices[0]);
   if (ind1 != -1)
   {
-    child_error = (child_error + searchTrees2(trees, ind1, length_per_radius, child_indices[1])) / 2.0; // mean error
+    child_error = (child_error + searchTrees(trees, ind1, length_per_radius, child_indices[1])) / 2.0; // mean error
   }
-
   if (error < child_error && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
   {
     indices.push_back(ind);
@@ -116,6 +115,8 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   hierarchicalWatershed(trees, heads);
 
   std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
+  int ind = indexfield_(183,170);
+  std::cout << "ind: " << ind << std::endl;
 
   calculateTreeParaboloids(trees);
   drawSegmentation("segmented.png", trees);
@@ -172,7 +173,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         p.x = x; p.y = y; p.height = height;
         p.index = (int)basins.size();
         basins.push(p);
-        heads.insert((int)trees.size());
+        heads.insert(p.index);
         indexfield_(x, y) = p.index;
         if (trees.size() == 0)
           std::cout << "x: " << x << ",  y: " << y << ", index field: " << indexfield_(x, y) << std::endl;      
@@ -226,19 +227,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
             p_tree.attaches_to = new_index;
             q_tree.attaches_to = new_index;
             trees.push_back(node); // danger, this can invalidate the p_tree reference
-
-            // Below: no noticeable difference in quality, so leaving out
-            #if 0 // adds in a node just at the merge point, for more fidelity
-            trees.back().attaches_to = (int)trees.size();
-            TreeNode node2 = node;
-            node.children[0] = trees.size()-1;
-            node.children[1] = -1;
-            heads.erase(new_index);
-            heads.insert(trees.size());
-            trees.push_back(node2);
-            #endif
           }
-
         }
       }
       continue;
@@ -296,16 +285,34 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       if (ind == -1 && heightfield_(xx, yy) > -1e10) 
       {
         Point q;
-        q.x = xx; q.y = yy; q.index = p.index;
+        q.x = xx; q.y = yy; 
         q.height = heightfield_(xx, yy);
-        if ((p.height - q.height) < maximum_drop_within_tree)
+        double big_drop_within_tree = 2.0;
+
+        // there's a problem with this block below, it deletes data somehow, indirectly...
+        if (0) // (p.height - q.height) > big_drop_within_tree) // insert a node here, it may be a good cutting point
+        {
+          TreeNode node = trees[p_head];
+          node.children[0] = p_head;  
+          node.children[1] = -1;
+
+          heads.erase(p_head);
+          int new_index = (int)trees.size();          
+          heads.insert(new_index);
+          trees[p_head].attaches_to = new_index;
+          trees.push_back(node);        
+          p_head = new_index;
+        }      
+        q.index = p_head;
+
+     //   if ((p.height - q.height) < maximum_drop_within_tree)
         {
   /*        if (verbose && !(cnt%500)) // I need a way to visualise the hierarchy here!
           {
             drawSegmentation("segmenting.png", trees);
           }*/
           cnt++;
-          ind = p.index;
+          ind = p_head;
           basins.push(q);
           trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));        
         } 

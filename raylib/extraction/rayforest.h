@@ -139,7 +139,7 @@ struct RAYLIB_EXPORT TreeNode
   inline bool validParaboloid(double max_tree_width, double voxel_width) const 
   {
     // Add voxel_width*voxel_width* to below two lines, to verify voxel_width independence
-    const double minimum_crown_radius = 0.5;
+/*    const double minimum_crown_radius = 0.5;
     const double maximum_crown_radius = max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is an outer bound
     double r = node.crownRadius();
     if (r<minimum_crown_radius || r > maximum_crown_radius)
@@ -147,7 +147,7 @@ struct RAYLIB_EXPORT TreeNode
     Eigen::Vector3d top = node.tip();
     for (int i = 0; i<2; i++)
       if (top[i] < (double)min_bound[i]*voxel_width || top[i] > (double)max_bound[i]*voxel_width)
-        return false;
+        return false;  */
     return true;
   }
   void updateBound(const Eigen::Vector2i &bmin, const Eigen::Vector2i &bmax)

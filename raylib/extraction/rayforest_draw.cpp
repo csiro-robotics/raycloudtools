@@ -42,7 +42,7 @@ void Forest::drawFinalSegmentation(const std::string &filename, std::vector<Tree
       int ind = indexfield_(x, y);
       Col col;
       if (ind == -1)
-        pixels(x, y) = Col(0);
+        pixels(x, y) = Col(30);
       else
       {
         while (trees[ind].attaches_to != -1)
@@ -52,7 +52,14 @@ void Forest::drawFinalSegmentation(const std::string &filename, std::vector<Tree
           ind = trees[ind].attaches_to;
         }
         if (std::find(indices.begin(), indices.end(), ind) == indices.end())
+        {
+          col.a = 255;
+          col.r = 255;
+          col.g = 0;
+          col.b = 255;
+          pixels(x, y) = col;
           continue;
+        }
         srand(1 + ind);
         col.a = 255;
         col.r = (uint8_t)(rand()%256);
