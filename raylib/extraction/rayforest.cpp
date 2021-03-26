@@ -24,6 +24,12 @@ double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double l
   double baseA = trees[ind].node.height() - length_per_radius * trees[ind].node.crownRadius();
   double baseB = trees[ind].node.height() - length_per_radius * trees[ind].approx_radius;
   
+  // double error = 0.5 * (abs(baseA - trees[ind].ground_height) + abs(baseB - trees[ind].ground_height));  // this makes more sense than below, but also not as good
+  // double error = 0.5 * (sqr(baseA - trees[ind].ground_height) + sqr(baseB - trees[ind].ground_height));  // this makes more sense than below, but also not as good
+
+  // we can justify the below condition working best as:
+  // sometimes the pixel area or curvature are just plain bad, so if at least one is good, then this tells us that it is a good place to split.
+  // i.e. is it works well with a fat tailed error distribution for each (baseA and baseB)
   double error = std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
   if (trees[ind].children[0] == -1)
   {
