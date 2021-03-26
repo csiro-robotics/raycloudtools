@@ -16,8 +16,15 @@ namespace ray
 
 double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices)
 {
-  double base = trees[ind].node.height() - length_per_radius * trees[ind].node.crownRadius();
-  double error = abs(base - trees[ind].ground_height);
+  // length estimated from both the pixel coverage and the paraboloid curvature
+//  double length = length_per_radius * std::sqrt(trees[ind].node.crownRadius() * trees[ind].approx_radius);
+//  double base = trees[ind].node.height() - length;
+//  double error = abs(base - trees[ind].ground_height);
+
+  double baseA = trees[ind].node.height() - length_per_radius * trees[ind].node.crownRadius();
+  double baseB = trees[ind].node.height() - length_per_radius * trees[ind].approx_radius;
+  
+  double error = std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
   if (trees[ind].children[0] == -1)
   {
     if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
@@ -287,9 +294,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Point q;
         q.x = xx; q.y = yy; 
         q.height = heightfield_(xx, yy);
-        double big_drop_within_tree = 2.0;
+        double big_drop_within_tree = 6.0;
 
-        // there's a problem with this block below, it deletes data somehow, indirectly...
         if (0) // (p.height - q.height) > big_drop_within_tree) // insert a node here, it may be a good cutting point
         {
           TreeNode node = trees[p_head];
@@ -365,6 +371,7 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
       }
     }
     node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
+
     tree.node = node;
   }
 }
