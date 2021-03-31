@@ -23,6 +23,9 @@ double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double l
 
   double baseA = trees[ind].node.height() - length_per_radius * trees[ind].node.crownRadius();
   double baseB = trees[ind].node.height() - length_per_radius * trees[ind].approx_radius;
+
+//  std::cout << "ind: " << ind << " crown rad: " << trees[ind].node.crownRadius() << ", approx rad: " << trees[ind].approx_radius << std::endl;
+//  std::cout << "node height: " << trees[ind].node.height() << " length_per_radius: " << length_per_radius << std::endl;
   
   // double error = 0.5 * (abs(baseA - trees[ind].ground_height) + abs(baseB - trees[ind].ground_height));  // this makes more sense than below, but also not as good
   // double error = 0.5 * (sqr(baseA - trees[ind].ground_height) + sqr(baseB - trees[ind].ground_height));  // this makes more sense than below, but also not as good
@@ -73,22 +76,21 @@ struct PointCmp
 };
 
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
-void Forest::extract(const Cloud &cloud, Mesh &mesh)
+void Forest::extract(const Cloud &cloud, Mesh &mesh, double voxel_width) // = 4.0 * cloud.estimatePointSpacing();
 {
   cloud.calcBounds(&min_bounds_, &max_bounds_);
-  double voxel_width = 1.0; // 4.0 * cloud.estimatePointSpacing();
 
   double width = (max_bounds_[0] - min_bounds_[0])/voxel_width;
   double length = (max_bounds_[1] - min_bounds_[1])/voxel_width;
   Eigen::Vector2i grid_dims(ceil(width), ceil(length));
-  std::cout << "dimes for heigh: " << grid_dims.transpose() << std::endl;
+  std::cout << "dims for heightfield: " << grid_dims.transpose() << std::endl;
   Eigen::ArrayXXd highs = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], -1e10);
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
       continue;
     const Eigen::Vector3d &p = cloud.ends[i];
-    Eigen::Vector3d pos = (p- min_bounds_)/voxel_width;
+    Eigen::Vector3d pos = (p - min_bounds_)/voxel_width;
     double &h = highs((int)pos[0], (int)pos[1]);
     h = std::max(h, p[2]);
   }
@@ -128,9 +130,6 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   hierarchicalWatershed(trees, heads);
 
   std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
-  int ind = indexfield_(183,170);
-  std::cout << "ind: " << ind << std::endl;
-
   calculateTreeParaboloids(trees);
   drawSegmentation("segmented.png", trees);
 
@@ -142,7 +141,7 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   for (auto &ind: indices)
   {
     Result result;
-    result.tree_tip = trees[ind].node.mean(); // peak;//tip();
+    result.tree_tip = trees[ind].node.pixelMean(); // peak;//tip();
     result.tree_tip[2] = trees[ind].peak[2];
     int x = (int) result.tree_tip[0];
     int y = (int) result.tree_tip[1];
@@ -187,9 +186,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         p.index = (int)basins.size();
         basins.push(p);
         heads.insert(p.index);
-        indexfield_(x, y) = p.index;
-        if (trees.size() == 0)
-          std::cout << "x: " << x << ",  y: " << y << ", index field: " << indexfield_(x, y) << std::endl;      
+        indexfield_(x, y) = p.index;     
         trees.push_back(TreeNode(x, y, height, voxel_width_));
       }
     }
@@ -302,6 +299,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         q.height = heightfield_(xx, yy);
         double big_drop_within_tree = 6.0;
 
+        // this doesn't make a lot of difference, but will sometimes find smaller segments, with less bleed out from trees
         if (0) // (p.height - q.height) > big_drop_within_tree) // insert a node here, it may be a good cutting point
         {
           TreeNode node = trees[p_head];
@@ -335,7 +333,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 
 void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
 {
-  std::vector<std::vector<Eigen::Vector3d> > point_lists(trees.size());
+  std::vector<std::vector<Eigen::Vector3d> > point_lists(trees.size()); // in metres
   for (int x = 0; x<indexfield_.rows(); x++)
   {
     for (int y = 0; y<indexfield_.cols(); y++)
@@ -345,7 +343,7 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
         continue;
       while (ind >= 0)
       {
-        point_lists[ind].push_back(Eigen::Vector3d((double)x + 0.5, (double)y + 0.5, heightfield_(x, y)));
+        point_lists[ind].push_back(Eigen::Vector3d(voxel_width_*((double)x + 0.5), voxel_width_*((double)y + 0.5), heightfield_(x, y)));
         ind = trees[ind].attaches_to;
       }
     }
@@ -353,7 +351,7 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
   for (size_t i = 0; i<trees.size(); i++)
   {
     auto &tree = trees[i];
-    tree.approx_radius = std::sqrt((double)point_lists[i].size() / kPi);
+    tree.approx_radius = voxel_width_ * std::sqrt((double)point_lists[i].size() / kPi);
     int x = (int)(tree.peak[0]/voxel_width_);
     int y = (int)(tree.peak[1]/voxel_width_);   
     x = std::max(0, std::min(x, (int)lowfield_.rows()-1));
@@ -361,7 +359,7 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
     tree.ground_height = lowfield_(x, y); 
     TreeNode::Node node;
     for (auto &pt: point_lists[i])
-      node.add(pt[0], pt[1], pt[2], 1);
+      node.add(pt[0], pt[1], pt[2], 1, voxel_width_);
     const int num_iterations = 10;
     for (int it = 1; it<num_iterations; it++)
     {
@@ -373,7 +371,7 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
         double h = node.heightAt(pt[0], pt[1]);
         double error = h - pt[2];
         const double eps = 1e-2;
-        node.add(pt[0], pt[1], pt[2], 1.0/std::max(eps, std::abs(error))); // 1/e reweighting gives a median paraboloid
+        node.add(pt[0], pt[1], pt[2], 1.0/std::max(eps, std::abs(error)), voxel_width_); // 1/e reweighting gives a median paraboloid
       }
     }
     node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);

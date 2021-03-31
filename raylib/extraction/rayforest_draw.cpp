@@ -147,39 +147,6 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawGraph(const std::string &filename, const std::vector<Vector4d> &data, double x_min, double x_max, double y_max, double strength_max, double a, double b)
-{
-  if (!verbose)
-    return;
-  int res = 256;
-  Field2D<Col> pixels(res, res);
-  for (auto &c: pixels.data)
-    c = Col(0);
-  Eigen::Vector3d cols[] = {Eigen::Vector3d(0,0,0), Eigen::Vector3d(1,1,1), Eigen::Vector3d(1,1,0), Eigen::Vector3d(1,0,1), Eigen::Vector3d(0,1,1)};
-  for (auto &item: data)
-  {
-    double x = (double)(res - 1) * (item[0] - x_min) / (x_max - x_min);
-    double y = (double)(res - 1) * item[1] / y_max;
-    double val = 255.0 * item[2]/strength_max;
-    if ((int)item[3] > 1)
-      val = 255;
-    Eigen::Vector3d c = cols[(int)item[3]];
-    if (x >= 0.0 && x<(double)res-1.0 && y >= 0.0 && y<(double)res-1.0)
-      pixels((int)x, (int)y) = Col(uint8_t(val*c[0]), uint8_t(val*c[1]), uint8_t(val*c[2]), 255);
-  }
-  // now draw the line of best fit
-  for (int i = 0; i<pixels.dims[0]; i++)
-  {
-    double x = ((double)i / (double)(res-1)) * (x_max - x_min) + x_min;
-    double y = a * (double)x + b;
-    int j = (int)((double)(res-1) * y / y_max);
-    if (j >= 0 && j < res-1)
-      pixels(i, j) += Col(0,127,0,255);
-  }
-
-  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
-}
-
 void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height)
 {
   double max_height = 0.0;
@@ -199,26 +166,22 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
   for (auto &result: results)
   {
     Eigen::Vector3d pos = result.tree_tip;
-    pos[0] /= voxel_width_;
-    pos[1] /= voxel_width_;
  //   double length = pos[2] - result.ground_height;
     double curvature = result.curvature;
-    double draw_radius = result.radius; // std::min(0.9 * crown_radius, 50.0); 
-    for (int x = (int)(pos[0] - draw_radius); x<= (int)(pos[0]+draw_radius); x++)
+    double radius_pixels = result.radius / voxel_width_;
+    for (int x = (int)(pos[0] - radius_pixels); x<= (int)(pos[0]+radius_pixels); x++)
     {
-      for (int y = (int)(pos[1] - draw_radius); y<= (int)(pos[1]+draw_radius); y++)
+      for (int y = (int)(pos[1] - radius_pixels); y<= (int)(pos[1]+radius_pixels); y++)
       {
         if (x < 0 || x >= width || y<0 || y>=height)
           continue;
-        double X = (double)x - pos[0];
-        double Y = (double)y - pos[1];
+        double X = ((double)x - pos[0]) * voxel_width_;
+        double Y = ((double)y - pos[1]) * voxel_width_;
         double mag2 = (double)(X*X + Y*Y);
-        if (mag2 <= draw_radius*draw_radius)
+        if (mag2 <= result.radius*result.radius)
         {
           double height = pos[2] + mag2 * curvature;
-          double shade = (height - min_height)/(max_height - min_height);
-          if (shade > 1.0001)
-            std::cout << "weird ass, h: " << height << " pos[2]: " << pos[2] << ", curv: " << curvature << ", mag2: " << mag2 << ", max: " << max_height << std::endl;
+          double shade = std::min((height - min_height)/(max_height - min_height), 1.0); // clamp because curvature can conceivably negative sometimes
           Col col(uint8_t(255.0*shade));
           if (pixels(x, y).r < col.r)
             pixels(x, y) = col;
