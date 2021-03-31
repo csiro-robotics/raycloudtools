@@ -182,9 +182,9 @@ int main(int argc, char *argv[])
 #else
     ray::Mesh mesh;
     ray::readPlyMesh(mesh_file.name(), mesh);
-    double voxel_width = 1.0; // 4.0 * cloud.estimatePointSpacing();
+    double voxel_width = 0.25; // 4.0 * cloud.estimatePointSpacing();
 
-    double scale = TEST_SCALE;
+/*    double scale = TEST_SCALE;
     for (size_t i = 0; i<cloud.ends.size(); i++)
     {
       cloud.ends[i] *= scale;
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
     std::vector<Eigen::Vector3d> &verts = mesh.vertices();
     for (auto &vert: verts)
       vert *= scale;
-    voxel_width *= scale;
+    voxel_width *= scale;*/
 
     forest.extract(cloud, mesh, voxel_width);
 #endif

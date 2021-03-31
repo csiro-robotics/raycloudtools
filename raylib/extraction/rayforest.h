@@ -23,7 +23,9 @@ struct RAYLIB_EXPORT TreeNode;
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : max_tree_canopy_width(25*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
+// forest  Forest() : max_tree_canopy_width(25*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
+// avocadoes:
+  Forest() : max_tree_canopy_width(5.0*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
   {
   }
   void extract(const Cloud &cloud, Mesh &mesh, double voxel_width);

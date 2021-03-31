@@ -33,7 +33,7 @@ double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double l
   // we can justify the below condition working best as:
   // sometimes the pixel area or curvature are just plain bad, so if at least one is good, then this tells us that it is a good place to split.
   // i.e. is it works well with a fat tailed error distribution for each (baseA and baseB)
-  double error = std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
+  double error = abs(baseB - trees[ind].ground_height);//std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
   if (trees[ind].children[0] == -1)
   {
     if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
