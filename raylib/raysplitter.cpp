@@ -177,10 +177,10 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
   const Eigen::Vector3i maxIndex = maxID.cast<int>();
   const Eigen::Vector3i dimensions = maxIndex - minIndex;
   const int length = dimensions[0] * dimensions[1] * dimensions[2];
-  const int max_allowable_cells = 1000000; // this is a safety net, in case the cell size is too small
+  const int max_allowable_cells = 20; // operating systems will fail with too many open file pointers.
   if (length > max_allowable_cells)
   {
-    std::cout << "Error: grid is too many cells" << std::endl;
+    std::cout << "Error: grid has " << length << " cells, which is more than the current maximum supported: " << max_allowable_cells << std::endl;
     return false;
   }
 
