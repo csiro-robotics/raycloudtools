@@ -25,6 +25,19 @@
 
 namespace ray
 {
+struct Trunk
+{
+  Eigen::Vector3d centre; // height is midway up trunk
+  double radius;
+  double score;
+  double combined_score;
+  double weight;
+  double thickness;
+  double length; 
+  struct Trunk *next_down;
+  Eigen::Vector2d lean;
+};
+
 const double kPi = M_PI;
 // while this is an absolute value, it has little effect on results unless point spacing is signficantly less
 // than this small value in metres. However, the computation time is better for having a value greater than 0..

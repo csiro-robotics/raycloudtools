@@ -4,9 +4,10 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
+#include "raylib/rayextractwoods.h"
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/rayforest.h"
-#include "raylib/rayutils.h"
+#include "raylib/raydebugdraw.h"
 #include "raylib/rayparse.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
@@ -16,60 +17,49 @@
 #include <string.h>
 #include <iostream>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "raylib/imagewrite.h"
-
-#define _TEST // run multiple times
-
 void usage(bool error=false)
 {
   std::cout << "Extract feature into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
+  std::cout << "rayextract trunks cloud.ply                 - estimate tree trunks and save to text file" << std::endl;
   std::cout << "rayextract forest cloud.ply ground_mesh.ply - extracts tree locations to file, using a supplied ground mesh" << std::endl;
-  std::cout << "                            --tree_roundness 2   - 1: willow, 0.5: birch, 0.2: pine (length per crown radius)." << std::endl;
-  //  cout << "                             --extrapolate  - estimates tree distribution and adds trees where there is no evidence to the contrary" << endl;
+  std::cout << "                         --tree_roundness 2 - 1: willow, 0.5: birch, 0.2: pine (length per crown radius)." << std::endl;
   std::cout << std::endl;
-  std::cout << "rayextract terrain cloud.ply - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
+  std::cout << "rayextract terrain cloud.ply                - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
   std::cout << std::endl;
-  std::cout << "                            --verbose  - extra debug output." << std::endl;
+  std::cout << "                                 --verbose  - extra debug output." << std::endl;
+
   exit(error);
 }
 
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  ray::FileArgument file, mesh_file;
-  ray::TextArgument forest("forest"), terrain("terrain");
+  ray::DebugDraw::init(argc, argv, "rayextract");
+
+  ray::FileArgument cloud_file, mesh_file;
+  ray::TextArgument forest("forest"), trunks("trunks"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
   ray::OptionalKeyValueArgument roundness_option("tree_roundness", 't', &tree_roundness);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
-  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &file, &mesh_file}, {&roundness_option, &verbose});
-  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &file}, {&verbose});
-  if (!extract_forest && !extract_terrain)
-    usage();
+  bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&verbose});
+  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file, &mesh_file}, {&roundness_option, &verbose});
+  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
+  if (!extract_trunks && !extract_forest && !extract_terrain)
+    usage();  
+
   ray::Cloud cloud;
- // #define TEST_TERRAIN
-  #if defined TEST_TERRAIN
-  for (int i = 0; i<800000; i++)
-  {
-    Eigen::Vector3d pos(ray::random(-4,4), ray::random(-4,4), 0);
-    if (i == 0)
-      pos.setZero();
-    double dist = std::sqrt(pos[0]*pos[0] + pos[1]*pos[1]);
-    pos[2] = dist * 0.0;// 0.9;
-    cloud.ends.push_back(pos);
-    cloud.starts.push_back(pos - Eigen::Vector3d(0,0,1));
-    cloud.times.push_back(0);
-    ray::RGBA col;
-    col.red = col.green = col.blue = col.alpha = 255;
-    cloud.colours.push_back(col);
-  }
-  #else
-  if (!cloud.load(file.name()))
+  if (!cloud.load(cloud_file.name()))
     usage(true);
-  #endif
-  if (extract_forest)
+
+  if (extract_trunks)
+  {
+    const double radius = 0.15; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
+    ray::Wood woods(cloud, radius, verbose.isSet());
+    woods.save(cloud_file.nameStub() + "_trunks.txt");
+  }
+  else if (extract_forest)
   {
     ray::Forest forest;
     forest.tree_roundness = roundness_option.isSet() ? tree_roundness.value() : 0.5;
@@ -183,18 +173,6 @@ int main(int argc, char *argv[])
     ray::Mesh mesh;
     ray::readPlyMesh(mesh_file.name(), mesh);
     double voxel_width = 0.25; // 4.0 * cloud.estimatePointSpacing();
-
-/*    double scale = TEST_SCALE;
-    for (size_t i = 0; i<cloud.ends.size(); i++)
-    {
-      cloud.ends[i] *= scale;
-      cloud.starts[i] *= scale;
-    }
-    std::vector<Eigen::Vector3d> &verts = mesh.vertices();
-    for (auto &vert: verts)
-      vert *= scale;
-    voxel_width *= scale;*/
-
     forest.extract(cloud, mesh, voxel_width);
 #endif
   }
@@ -202,8 +180,9 @@ int main(int argc, char *argv[])
   {
     ray::Terrain terrain;
     const double gradient = 1.0; // a half-way divide between ground and wall
-    terrain.extract(cloud, file.nameStub(), gradient, verbose.isSet());
+    terrain.extract(cloud, cloud_file.nameStub(), gradient, verbose.isSet());
   }
   else
     usage(true);
 }
+

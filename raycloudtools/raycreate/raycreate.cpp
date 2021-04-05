@@ -25,6 +25,9 @@ void usage(int exit_code = 1)
   std::cout << "          tree" << std::endl;
   std::cout << "          forest" << std::endl;
   std::cout << "          terrain" << std::endl;
+  std::cout << std::endl;
+  std::cout << "          forest tree_bases.txt - generate from a comma-separated list of x,y,z,radius trunks" << std::endl;
+  std::cout << "          terrain mesh.ply      - generate from a ground mesh" << std::endl;
   exit(exit_code);
 }
 
@@ -32,10 +35,16 @@ int main(int argc, char *argv[])
 {
   ray::KeyChoice cloud_type({"room", "building", "tree", "forest", "terrain"});
   ray::IntArgument seed(1,1000000);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_type, &seed}))
+  ray::FileArgument input_file;
+  bool from_seed = ray::parseCommandLine(argc, argv, {&cloud_type, &seed});
+  bool from_file = ray::parseCommandLine(argc, argv, {&cloud_type, &input_file});
+  if (!from_seed && !from_file)
     usage();
 
-  ray::srand(seed.value());
+  if (from_seed)
+  {
+    ray::srand(seed.value());
+  }
 
   ray::Cloud cloud;
   const double time_delta = 0.001; // between rays
@@ -90,7 +99,6 @@ int main(int argc, char *argv[])
     const double ground_ray_vertical_height = 1.5; // height above ground for ray start
 
     ray::fillBranchAngleLookup();
-
     Eigen::Vector3d box_min(-tree_ground_extent, -tree_ground_extent, -ground_noise_extent); 
     Eigen::Vector3d box_max(tree_ground_extent, tree_ground_extent, ground_noise_extent);
     double time = 0.0;
@@ -114,7 +122,17 @@ int main(int argc, char *argv[])
       ray::ForestParams params;
       params.random_factor = 0.25;
       ray::ForestGen forest_gen;
-      forest_gen.make(params);
+      if (from_file)
+      {
+        if (!forest_gen.makeFromFile(input_file.name(), params))
+        {
+          usage();
+        }
+      }
+      else
+      {
+        forest_gen.make(params);
+      }
       forest_gen.generateRays(density);
       for (auto &tree : forest_gen.trees())
       {  
@@ -132,26 +150,35 @@ int main(int argc, char *argv[])
       box_min *= forest_ground_multiplier; // for a forest, we need a larger ground 
       box_max *= forest_ground_multiplier;
     }
-    int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
-    for (int i = 0; i < num; i++)
+    if (!from_file)
     {
-      Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), 
-                          ray::random(box_min[1], box_max[1]), 
-                          ray::random(box_min[2], box_max[2]));
-      cloud.ends.push_back(pos);
-      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-ground_ray_deviation, ground_ray_deviation), 
-                                                   ray::random(-ground_ray_deviation, ground_ray_deviation), 
-                                                   ground_ray_vertical_height));
-      cloud.times.push_back(time);
-      time += time_delta;
+      int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
+      for (int i = 0; i < num; i++)
+      {
+        Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), 
+                            ray::random(box_min[1], box_max[1]), 
+                            ray::random(box_min[2], box_max[2]));
+        cloud.ends.push_back(pos);
+        cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-ground_ray_deviation, ground_ray_deviation), 
+                                                    ray::random(-ground_ray_deviation, ground_ray_deviation), 
+                                                    ground_ray_vertical_height));
+        cloud.times.push_back(time);
+        time += time_delta;
+      }
     }
     colourByTime(cloud.times, cloud.colours);
   }
   else if (type == "terrain")
   {
     ray::TerrainGen terrain;
-    terrain.generateRoughGround(10.0, 0.2); 
-    terrain.generate();
+    if (from_file)
+    {    
+      terrain.generateFromFile(input_file.name());
+    }
+    else
+    {
+      terrain.generate();
+    }
     cloud.starts = terrain.rayStarts();
     cloud.ends = terrain.rayEnds();
     cloud.times.resize(cloud.starts.size());

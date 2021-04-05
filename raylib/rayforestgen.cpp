@@ -42,6 +42,53 @@ void ForestGen::make(const ForestParams &params)
   }
 }
 
+bool ForestGen::makeFromFile(const std::string &filename, const ForestParams &params)
+{
+  std::ifstream ifs(filename.c_str(), std::ios::out);
+  if (!ifs.is_open())
+  {
+    std::cerr << "Error: cannot open " << filename << std::endl;
+    return false;
+  }  
+  std::vector<Eigen::Vector3d> bases;
+  std::vector<double> radii;
+  while (!ifs.eof())
+  {
+    Eigen::Vector3d base;
+    double radius;
+    std::string line;
+    std::getline(ifs, line);
+    if (line.length() == 0 || line[0] == '#')
+      continue;
+    std::istringstream ss(line);
+    for (int i = 0; i<4; i++)
+    {
+      std::string token;
+      std::getline(ss, token, ',');
+      if (i<3)
+        base[i] = std::stod(token.c_str());
+      else
+        radius = std::stod(token.c_str());
+    }
+    bases.push_back(base);
+    radii.push_back(radius);
+  }
+  make(bases, radii, params);
+  return true;
+}
+
+void ForestGen::make(const std::vector<Eigen::Vector3d> &roots, const std::vector<double> &radii, 
+                     const ForestParams &params)
+{
+  ASSERT(roots.size() == radii.size());
+  for (size_t i = 0; i<roots.size(); i++)
+  {
+    TreeGen tree;
+    trees().push_back(tree);
+    trees().back().make(roots[i], radii[i], params.random_factor);
+  }
+}
+
 void ForestGen::generateRays(double ray_density)
 {
   for (auto &tree : trees()) 
