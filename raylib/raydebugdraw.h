@@ -47,7 +47,6 @@ public:
   void drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
                       const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id);
   void drawTrunks(const std::vector<Trunk> &points);
-  void drawRings(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Vector3d> &normals, const std::vector<double> &radii, int ID);
 
 private:
   std::unique_ptr<DebugDrawDetail> imp_;
