@@ -4,7 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
-#include "raylib/rayextractwoods.h"
+#include "raylib/extraction/raytrunks.h"
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/rayforest.h"
 #include "raylib/raydebugdraw.h"
@@ -174,6 +174,7 @@ int main(int argc, char *argv[])
     ray::readPlyMesh(mesh_file.name(), mesh);
     double voxel_width = 0.25; // 4.0 * cloud.estimatePointSpacing();
     forest.extract(cloud, mesh, voxel_width);
+    forest.save(cloud_file.nameStub() + "_trunks.txt");
 #endif
   }
   else if (extract_terrain)

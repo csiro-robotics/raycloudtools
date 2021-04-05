@@ -21,7 +21,6 @@ set(PUBLIC_HEADERS
   rayconvexhull.h
   raydebugdraw.h
   rayellipsoid.h
-  rayextractwoods.h
   rayfinealignment.h
   rayforestgen.h
   raygrid.h
@@ -45,6 +44,7 @@ set(PUBLIC_HEADERS
   rayparse.h
   rayrandom.h
   rayrenderer.h
+  extraction/raytrunks.h
   extraction/rayterrain.h 
   extraction/rayforest.h
 )
@@ -63,7 +63,6 @@ set(SOURCES
   rayconcavehull.cpp
   rayconvexhull.cpp
   rayellipsoid.cpp
-  rayextractwoods.cpp
   rayfinealignment.cpp
   rayforestgen.cpp
   raylaz.cpp
@@ -82,6 +81,7 @@ set(SOURCES
   rayparse.cpp
   rayrandom.cpp
   rayrenderer.cpp
+  extraction/raytrunks.cpp
   extraction/rayterrain.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp

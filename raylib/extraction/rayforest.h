@@ -43,6 +43,7 @@ public:
   void drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height);
   void drawTreeShapes(const std::string &filename, const std::vector<TreeNode> &results, int width, int height);
   void drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees, std::vector<int> &indices);
+  bool save(const std::string &filename);
 
   // parameters
   bool verbose;

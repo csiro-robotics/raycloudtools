@@ -157,10 +157,6 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   }
 
   drawTrees("result_trees.png", results_, (int)heightfield_.rows(), (int)heightfield_.cols());
-
-  std::vector<TreeNode> selected;
-  for (auto &ind: indices)
-    selected.push_back(trees[ind]);
     
   drawFinalSegmentation("result_tree_shapes.png", trees, indices);
 }
@@ -379,5 +375,24 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
 
     tree.node = node;
   }
+}
+
+bool Forest::save(const std::string &filename)
+{
+  std::ofstream ofs(filename.c_str(), std::ios::out);
+  if (!ofs.is_open())
+  {
+    std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
+    return false;
+  }  
+  ofs << "# Forest extraction, tree base location list: x, y, z, radius" << std::endl;
+  for (auto &result: results_)
+  {
+    Eigen::Vector3d base = result.tree_tip * voxel_width_;
+    base[2] = result.ground_height;
+    const double tree_radius_to_trunk_radius = 1.0/20.0; // TODO: temporary until we have a better parameter choice
+    ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << result.radius*tree_radius_to_trunk_radius << std::endl;
+  }
+  return true;
 }
 }

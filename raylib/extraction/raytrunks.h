@@ -7,9 +7,8 @@
 #define RAYLIB_RAYEXTRACT_WOODS_H
 
 #include "raylib/raylibconfig.h"
-
-#include "rayutils.h"
-#include "raycloud.h"
+#include "../rayutils.h"
+#include "../raycloud.h"
 
 
 namespace ray
