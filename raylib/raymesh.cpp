@@ -3,11 +3,10 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raycloud.h"
+#include "raymesh.h"
 
 #include "raylaz.h"
 #include "rayply.h"
-#include "raytrajectory.h"
 #include "rayunused.h"
 
 #include <set>
@@ -314,4 +313,20 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     out.addRay(cloud, i);
   }
 }
+
+Eigen::Array<double, 6, 1> Mesh::getMoments() const
+{
+  Eigen::Array3d mean(0,0,0);
+  for (auto &v: vertices_)
+    mean += v.array();
+  mean /= (double)vertices_.size();
+  Eigen::Array3d sigma(0,0,0);
+  for (auto &v: vertices_)
+    sigma += (v.array()-mean)*(v.array()-mean);
+  sigma = (sigma / (double)vertices_.size()).sqrt();
+  Eigen::Array<double, 6, 1> result;
+  result << mean, sigma;
+  return result;
+}
+
 } // ray

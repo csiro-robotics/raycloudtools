@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
   ray::FileArgument file, mesh_file;
   ray::TextArgument forest("forest"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
-  ray::OptionalKeyValueArgument roundness_option("tree_roundness", &tree_roundness);
+  ray::OptionalKeyValueArgument roundness_option("tree_roundness", 't', &tree_roundness);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &file, &mesh_file}, {&roundness_option, &verbose});

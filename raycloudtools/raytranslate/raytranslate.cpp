@@ -5,13 +5,14 @@
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
 #include "raylib/rayparse.h"
+#include "raylib/rayply.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Translate a raycloud" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -19,6 +20,7 @@ void usage(int exit_code = 0)
   std::cout << "                      0,0,1,24.3 - optional 4th component translates time" << std::endl;
   exit(exit_code);
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -31,28 +33,28 @@ int main(int argc, char *argv[])
   if (!vec3 && !vec4)
     usage();
 
-  ray::Pose pose;
+  Eigen::Vector3d translation(0,0,0);
   double time_delta = 0.0;
   if (vec3)
-    pose.position = translation3.value();
+    translation = translation3.value();
   else
   {
-    pose.position = translation4.value().head<3>();
+    translation = translation4.value().head<3>();
     time_delta = translation4.value()[3];
   }
-  pose.rotation = Eigen::Quaterniond(1.0, 0.0, 0.0, 0.0);
 
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
+  const std::string temp_name = cloud_file.nameStub() + "~.ply"; // tilde is a common suffix for temporary files
+
+  auto translate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &)
+  {
+    start += translation;
+    end += translation;
+    time += time_delta;
+  };
+  if (!ray::convertCloud(cloud_file.name(), temp_name, translate))
     usage();
-#if 0  // test bending
-  Eigen::Vector3d bend(pose.position[0], pose.position[1], 0.0);
-  Eigen::Vector3d side = Eigen::Vector3d(bend[1], -bend[0], 0).normalized();
-  for (auto &end: cloud.ends)
-    end += bend*sqr(end.dot(side));
-#else
-  cloud.transform(pose, time_delta);
-#endif
-  cloud.save(cloud_file.name());
-  return true;
+
+  std::rename(temp_name.c_str(), cloud_file.name().c_str());
+
+  return 0;
 }

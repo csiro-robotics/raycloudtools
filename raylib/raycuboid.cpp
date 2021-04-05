@@ -13,7 +13,34 @@ Cuboid::Cuboid(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_boun
   max_bound_ = max_bound;
 }
 
-bool Cuboid::rayIntersects(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth, bool positive_box) const
+bool Cuboid::clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const
+{
+  double max_near_d = 0;
+  double min_far_d = 1.0;
+  Eigen::Vector3d centre = (min_bound_ + max_bound_) / 2.0;
+  Eigen::Vector3d extent = (max_bound_ - min_bound_) / 2.0;
+  Eigen::Vector3d to_centre = centre - start;
+  Eigen::Vector3d dir = end - start;
+  for (int ax = 0; ax < 3; ax++)
+  {
+    double s = dir[ax] > 0.0 ? 1.0 : -1.0; 
+    if (dir[ax] != 0.0)
+    {
+      double near_d = (to_centre[ax] - s * extent[ax]) / dir[ax];
+      double far_d = (to_centre[ax] + s * extent[ax]) / dir[ax];
+      max_near_d = std::max(max_near_d, near_d);
+      min_far_d = std::min(min_far_d, far_d);
+    }
+  }
+  if (min_far_d <= max_near_d)
+    return false; // ray is fully outside cuboid
+    
+  start += dir * max_near_d;
+  end -= dir * (1.0 - min_far_d);
+  return true;
+}
+
+bool Cuboid::intersectsRay(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth, bool positive_box) const
 {
   double max_near_d = 0;
   double min_far_d = std::numeric_limits<double>::max();

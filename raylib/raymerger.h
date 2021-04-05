@@ -29,6 +29,7 @@ enum class RAYLIB_EXPORT MergeType : int
   Newest,
   Mininum,
   Maximum,
+  Order, // in file priority order, first to last
   All
 };
 
@@ -89,9 +90,13 @@ public:
 private:
   double voxelSizeForCloud(const Cloud &cloud) const;
 
+  /// For all ellipsoids_ intersect with rays in @c cloud (accelerated using @c ray_grid)
+  /// depending on config.merge_type, either mark the ellipsoid object as removed, or
+  /// mark the ray (through @c transient_ray_marks) as removed.
+  /// @c ellipsoid_cloud_first is used only for the 'order' merge type, to choose which to mark
   void markIntersectedEllipsoids(const Cloud &cloud, const Grid<unsigned> &ray_grid,
-                                 std::vector<Bool> *transient_ray_marks, bool self_transient,
-                                 Progress *progress);
+                                 std::vector<Bool> *transient_ray_marks, double num_rays, 
+                                 bool self_transient, Progress *progress, bool ellipsoid_cloud_first = false);
 
   /// Finalise the cloud filter and populate @c transientResults() and @c fixedResults() .
   void finaliseFilter(const Cloud &cloud, const std::vector<Bool> &transient_ray_marks);

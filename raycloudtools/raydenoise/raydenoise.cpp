@@ -12,7 +12,7 @@
 #include <iostream>
 #include <nabo/nabo.h>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << std::endl;
   std::cout << "usage:" << std::endl;
@@ -144,5 +144,5 @@ int main(int argc, char *argv[])
   }
 
   new_cloud.save(cloud_file.nameStub() + "_denoised.ply");
-  return true;
+  return 0;
 }

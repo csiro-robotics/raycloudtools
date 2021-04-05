@@ -5,10 +5,9 @@
 # Author: Kazys Stepanas
 cmake_minimum_required(VERSION 3.10)
 
-if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
-  if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
-  endif()
+if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+  message(STATUS "Build type empty, so defaulting to Release.")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
 # Setup project details.
@@ -136,6 +135,7 @@ if(RAYCLOUD_BUILD_TESTS)
   #   --output-on-failure
   # The full test output is always available in:
   #   <build>/Testing/Temporary/LastTest.log
+  enable_testing()
   add_subdirectory(tests)
 endif(RAYCLOUD_BUILD_TESTS)
 
@@ -148,7 +148,7 @@ if(RAYCLOUD_BUILD_DOXYGEN)
     # Create a target to build the documentation.
     # Here we also setup various documentation variables passed through to the doxyfile configuration.
     # Each named argument below describes the Doxygen variable it sets.
-    ray_doxygen_create(
+    ras_doxygen_create(
       # DOXYFILE cmake/doxyfile.in  # Doxyfile to configure.
       PROJECT ${CMAKE_PROJECT_NAME} # PROJECT_NAME
       VERSION ${raycloudtools_VERSION}   # PROJECT_NUMBER
@@ -168,7 +168,7 @@ if(RAYCLOUD_BUILD_DOXYGEN)
     )
 
     # Setup installation of the generated documentation: source, destination.
-    ray_doxygen_install(${CMAKE_CURRENT_BINARY_DIR}/html ras)
+    ras_doxygen_install(${CMAKE_CURRENT_BINARY_DIR}/html ras)
   else(DOXYGEN_FOUND)
     message(FATAL_ERROR "Told to build Doxygen Documentation, but failed to find Doxygen")
   endif(DOXYGEN_FOUND)

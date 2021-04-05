@@ -4,10 +4,9 @@
 #
 # Author: Kazys Stepanas
 
-if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
-  if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
-  endif()
+if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+  message(STATUS "Build type empty, so defaulting to Release.")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
 # Setup configuration header
@@ -15,11 +14,14 @@ configure_file(raylibconfig.in.h "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h")
 
 set(PUBLIC_HEADERS
   rayalignment.h
+  rayaxisalign.h
   raycloud.h
+  raycloudwriter.h
   rayconcavehull.h
   rayconvexhull.h
   raydebugdraw.h
   rayellipsoid.h
+  rayfinealignment.h
   rayforestgen.h
   raygrid.h
   raylaz.h
@@ -30,6 +32,7 @@ set(PUBLIC_HEADERS
   rayprogress.h
   rayprogressthread.h
   rayroomgen.h
+  raysplitter.h
   raybuildinggen.h
   raycuboid.h
   rayterraingen.h
@@ -39,6 +42,8 @@ set(PUBLIC_HEADERS
   rayunused.h
   rayutils.h
   rayparse.h
+  rayrandom.h
+  rayrenderer.h
   extraction/rayterrain.h 
   extraction/rayforest.h
 )
@@ -51,10 +56,13 @@ set(SOURCES
   ${PUBLIC_HEADERS}
   ${PRIVATE_HEADERS}
   rayalignment.cpp
+  rayaxisalign.cpp
   raycloud.cpp
+  raycloudwriter.cpp
   rayconcavehull.cpp
   rayconvexhull.cpp
   rayellipsoid.cpp
+  rayfinealignment.cpp
   rayforestgen.cpp
   raylaz.cpp
   raymerger.cpp
@@ -62,6 +70,7 @@ set(SOURCES
   rayply.cpp
   rayprogressthread.cpp
   rayroomgen.cpp
+  raysplitter.cpp
   raybuildinggen.cpp
   raycuboid.cpp
   rayterraingen.cpp
@@ -69,6 +78,8 @@ set(SOURCES
   raytrajectory.cpp
   raytreegen.cpp
   rayparse.cpp
+  rayrandom.cpp
+  rayrenderer.cpp
   extraction/rayterrain.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp

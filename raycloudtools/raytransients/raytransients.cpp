@@ -20,7 +20,7 @@
 #include <iostream>
 #include <thread>
 
-void usage(int exit_code = 0)
+void usage(int exit_code = 1)
 {
   std::cout << "Splits a raycloud into the transient rays and the fixed part" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -41,8 +41,6 @@ void usage(int exit_code = 0)
 
 int main(int argc, char *argv[])
 {
-  ray::DebugDraw::init(argc, argv, "raytransients");
-
   ray::KeyChoice merge_type({"min", "max", "oldest", "newest"});
   ray::FileArgument cloud_file;
   ray::DoubleArgument num_rays(0.1, 100.0);

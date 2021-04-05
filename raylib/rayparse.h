@@ -12,6 +12,12 @@
 
 namespace ray
 {
+/// Helper function: get the part of the filename before the .  
+std::string RAYLIB_EXPORT getFileNameStub(const std::string &name);
+
+/// Helper function: get the part of the filename after the . 
+std::string RAYLIB_EXPORT getFileNameExtension(const std::string &name);
+
 /// Parses a command line according to a given format which can include fixed arguments and then a set of optional arguments
 /// Values in the passed-in lists are only set when it returns true. This allows the function to be called multiple times for different formats
 /// Only make @param set_values false if you only need to know if the format matches the arguments @param argv.
@@ -69,26 +75,20 @@ private:
 class RAYLIB_EXPORT FileArgument : public FixedArgument 
 {
 public:
+  /// @c check_extension determines whether a file's extension is checked (3 letters and alphanumeric)
+  /// False is used for example for auto-merging of temporary files, which don't have standard extensions.
+  FileArgument(bool check_extension = true) : check_extension_(check_extension) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   /// Stub is the part of the file before the '.'
-  std::string nameStub() const 
-  { 
-    const size_t last_dot = name_.find_last_of('.');
-    if (last_dot != std::string::npos)
-      return name_.substr(0, last_dot);
-    return name_;
-  }
+  std::string nameStub() const { return getFileNameStub(name_); }
   /// The extension (excluding the dot)
-  std::string nameExt() const 
-  { 
-    const size_t last_dot = name_.find_last_of('.');
-    if (last_dot != std::string::npos)
-      return name_.substr(last_dot + 1);
-    return "";
-  }
+  std::string nameExt() const { return getFileNameExtension(name_); }
+
   inline const std::string &name() const { return name_; }
+  inline std::string &name() { return name_; }
 private:
   std::string name_;
+  bool check_extension_;
 };
 
 /// Numerical values
@@ -179,16 +179,16 @@ private:
 class RAYLIB_EXPORT KeyValueChoice : public FixedArgument 
 {
 public:
-  KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<ValueArgument *> &values) : 
+  KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<FixedArgument *> &values) : 
     keys_(keys), values_(values), selected_id_(-1) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
-  inline const std::vector<ValueArgument *> &values() const { return values_; }
+  inline const std::vector<FixedArgument *> &values() const { return values_; }
   inline int selectedID() const { return selected_id_; }
   inline const std::string &selectedKey() const { return selected_key_; }
 private:
   std::vector<std::string> keys_;
-  std::vector<ValueArgument *> values_; 
+  std::vector<FixedArgument *> values_; 
   int selected_id_;
   std::string selected_key_;
 };
@@ -236,14 +236,15 @@ private:
 struct RAYLIB_EXPORT OptionalKeyValueArgument : OptionalArgument 
 {
 public:
-  OptionalKeyValueArgument(const std::string &name, ValueArgument *value) : 
-    name_(name), value_(value), is_set_(false) {}
+  OptionalKeyValueArgument(const std::string &name, char character, FixedArgument *value) : 
+    name_(name), character_(character), value_(value), is_set_(false) {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
   inline bool isSet() const { return is_set_; }
 private:
   std::string name_;
-  ValueArgument *value_;
+  char character_;
+  FixedArgument *value_;
   bool is_set_;
 };
 

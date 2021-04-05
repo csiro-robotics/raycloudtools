@@ -23,9 +23,8 @@ struct RAYLIB_EXPORT TreeNode;
 class RAYLIB_EXPORT Forest
 {
 public:
-// forest  Forest() : max_tree_canopy_width(25*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
-// avocadoes:
-  Forest() : max_tree_canopy_width(5.0*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
+  Forest() : max_tree_canopy_width(25*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
+// avocadoes: Forest() : max_tree_canopy_width(5.0*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
   {
   }
   void extract(const Cloud &cloud, Mesh &mesh, double voxel_width);
@@ -143,7 +142,7 @@ struct RAYLIB_EXPORT TreeNode
 
 //  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
  // inline Eigen::Vector3d weightedMean() const { return Eigen::Vector3d(curv_vec[1] / curv_vec[3], curv_vec[2] / curv_vec[3], peak[2]); }
-  inline bool validParaboloid(double max_tree_width, double voxel_width) const 
+  inline bool validParaboloid(double /*max_tree_width*/, double /*voxel_width*/) const 
   {
     // Add voxel_width*voxel_width* to below two lines, to verify voxel_width independence
 /*    const double minimum_crown_radius = 0.5;

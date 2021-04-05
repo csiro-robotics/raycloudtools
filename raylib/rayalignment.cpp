@@ -4,7 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "rayalignment.h"
-
+#include "rayunused.h"
+#include "rayply.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "imagewrite.h"
 

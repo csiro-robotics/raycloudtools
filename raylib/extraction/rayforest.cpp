@@ -33,7 +33,8 @@ double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double l
   // we can justify the below condition working best as:
   // sometimes the pixel area or curvature are just plain bad, so if at least one is good, then this tells us that it is a good place to split.
   // i.e. is it works well with a fat tailed error distribution for each (baseA and baseB)
-  double error = abs(baseB - trees[ind].ground_height);//std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
+//  double error = abs(baseB - trees[ind].ground_height);//std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
+  double error = std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
   if (trees[ind].children[0] == -1)
   {
     if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
@@ -297,7 +298,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Point q;
         q.x = xx; q.y = yy; 
         q.height = heightfield_(xx, yy);
-        double big_drop_within_tree = 6.0;
+ //       double big_drop_within_tree = 6.0;
 
         // this doesn't make a lot of difference, but will sometimes find smaller segments, with less bleed out from trees
         if (0) // (p.height - q.height) > big_drop_within_tree) // insert a node here, it may be a good cutting point
