@@ -24,7 +24,7 @@ public:
   
   /// write a set of rays to the file, direct arguments
   bool writeChunk(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-     std::vector<double> &times, std::vector<RGBA> &colours){ return writePlyChunk(ofs_, buffer_, starts, ends, times, colours); }
+     std::vector<double> &times, std::vector<RGBA> &colours){ return writeRayCloudChunk(ofs_, buffer_, starts, ends, times, colours); }
 
   /// finish writing, and adjust the vertex count at the start.
   void end();

@@ -24,7 +24,7 @@ public:
   inline const std::vector<double> &times() const { return times_; }
 
   /// Save trajectory to a text file. One line per Node
-  void save(const std::string &file_name);
+  bool save(const std::string &file_name);
 
   /// Load trajectory from file. The file is expected to be a text file, with one Node entry per line
   bool load(const std::string &file_name);
@@ -55,6 +55,14 @@ private:
   std::vector<double> times_;
 };
 
+/// Basic structure to represent a single node in a trajectory
+struct RAYLIB_EXPORT TrajectoryNode
+{
+  Eigen::Vector3d point;
+  double time;
+};
+/// Save a trajectory, using the alternate, node representation
+bool RAYLIB_EXPORT saveTrajectory(const std::vector<TrajectoryNode> &nodes, const std::string &file_name);
 }
 
 #endif // RAYLIB_RAYTRAJECTORY_H
