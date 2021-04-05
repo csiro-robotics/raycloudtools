@@ -60,6 +60,7 @@ bool ForestGen::makeFromFile(const std::string &filename, const ForestParams &pa
     std::getline(ifs, line);
     if (line.length() == 0 || line[0] == '#')
       continue;
+    std::cout << "line: " << line << std::endl;
     std::istringstream ss(line);
     for (int i = 0; i<4; i++)
     {

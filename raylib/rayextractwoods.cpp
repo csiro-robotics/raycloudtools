@@ -467,7 +467,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
       trunk_pointers.push_back(tr);
     tr->combined_score += trunk.score;
   }
-  std::vector<Trunk> trunk_bases;
   const double consensus_scale = 2.0; // requires this many minimum scores to pass. Higher requires longer tree shapes
   for (auto &trunk: trunk_pointers)
   {
@@ -503,7 +502,7 @@ bool Wood::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "Tree base location list: x, y, z, radius" << std::endl;
+  ofs << "# Tree base location list: x, y, z, radius" << std::endl;
   for (auto &trunk: trunk_bases)
   {
     Eigen::Vector3d base = trunk.centre - vector3d(trunk.lean, 1)*trunk.length*0.5;
