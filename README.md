@@ -146,16 +146,24 @@ This research was supported by funding from CSIRO's Data61, Land and Water, Wine
 
 If you find this tool set useful for your research, please cite:  
 ```
-Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." arXiv preprint arXiv:2007.15652 (2020).
+Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
 ```
 ### Paper (bibtex)
 ```
 @article{lowe2020canopy,
-  title={Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM},
-  author={Lowe, Thomas and Moghadam, Peyman and Edwards, Everard and Williams, Jason},
-  journal={arXiv preprint arXiv:2007.15652},
-  year={2020}
+	author = {Lowe, Thomas and Moghadam, Peyman and Edwards, Everard and Williams, Jason},
+	title = {Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM},
+	journal = {Journal of Field Robotics},
+	volume = {n/a},
+	number = {n/a},
+	pages = {},
+	keywords = {agriculture, LiDAR mapping, perception, SLAM},
+	doi = {https://doi.org/10.1002/rob.22006},
+	url = {https://onlinelibrary.wiley.com/doi/abs/10.1002/rob.22006},
+	eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1002/rob.22006},
+	year={2020}
 }
+
 ```
  
 Associated field data examples are available on CSIRO's Data Access Portal (https://data.csiro.au/collections) under "AcScan3D Vineyard Data Examples". 
