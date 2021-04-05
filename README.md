@@ -34,6 +34,8 @@ To run the rayXXXX tools from anywhere, place in your ~/bashrc:
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
 ```
 
+## Current Known Issues:
+The WITH_TBB option defaults to OFF because there is an occasional fault with raytransients/raycombine when it is ON. This will be rectified in upcoming releases.
 
 ## Examples:
 
