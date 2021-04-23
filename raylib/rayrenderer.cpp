@@ -7,12 +7,257 @@
 #include "raycloud.h"
 #include "rayparse.h"
 #include "imagewrite.h"
+#include <fstream>
 
 #define DENSITY_MIN_RAYS 10 // larger is more accurate but more blurred. 0 for no adaptive blending
 
 namespace ray
 {
   
+#include "xtiffio.h"  /* for TIFF */
+#include "geotiffio.h" /* for GeoTIFF */
+
+bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file)
+{ 
+  /* Open TIFF descriptor to write GeoTIFF tags */
+  TIFF *tif = XTIFFOpen(filename.c_str(), "w");  
+  if (!tif) 
+    return false;
+  
+  /* Open GTIF Key parser */
+  GTIF *gtif = GTIFNew(tif);
+  if (!gtif) 
+    return false;
+  
+  uint32_t w = (uint32_t) x;
+  uint32_t h = (uint32_t) y;
+  int channels = scalar ? 1 : 3;
+  double pixels_per_cm = 0.01/pixel_width;
+
+  /* Set up standard TIFF file */
+  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
+  /* set other TIFF tags and write out image ... */
+  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+  TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
+  TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE); 
+  TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, scalar ? PHOTOMETRIC_MINISBLACK : PHOTOMETRIC_RGB);
+  TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+  TIFFSetField(tif, TIFFTAG_FILLORDER, FILLORDER_MSB2LSB);
+  TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, channels);
+  TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, 1);
+  TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+  TIFFSetField(tif, TIFFTAG_XRESOLUTION, pixels_per_cm);
+  TIFFSetField(tif, TIFFTAG_YRESOLUTION, pixels_per_cm);
+  TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER); // RESUNIT_NONE);
+  TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);  
+
+  // now go line by line to write out the image data
+  for (uint32_t row = 0; row < h; row++)
+  {
+    std::vector<float> pdst(channels*w);
+
+    // moving the data from the dib to a row structure that
+    // can be used by the tiff library
+    for (uint32_t col = 0; col < w; col++)
+    {
+      uint32_t index = 3*((h - 1 - row)*w + col);
+      if (scalar)
+      {
+        pdst[col] = (data[index + 0] + data[index + 1] + data[index + 2])/3.0f;
+      }
+      else
+      {
+        pdst[3*col + 0] = data[index + 0];
+        pdst[3*col + 1] = data[index + 1];
+        pdst[3*col + 2] = data[index + 2];
+      }
+    }
+
+    // now actually write the row data
+    TIFFWriteScanline(tif, &pdst[0], row, 0);
+  }
+
+  if (projection_file != "")
+  {
+    std::ifstream ifs(projection_file.c_str(), std::ios::in);
+    if (ifs.fail())
+    {
+      std::cerr << "cannot open file " << projection_file << std::endl;
+      return false;
+    }
+    std::string line;
+    getline(ifs, line);
+    std::vector<std::string> keys = {"+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0"};
+    std::vector<std::string> values;
+    for (auto &key: keys)
+    {
+      std::string::size_type found = line.find(key);
+      if (found==std::string::npos)
+      {
+        std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
+        return false;
+      }
+      found += key.length() + 1;
+      std::string::size_type space = line.find(" ", found);
+      if (space==std::string::npos)
+        space = line.length() - 1;
+      values.push_back(line.substr(found, space - found));
+    }
+
+    double coord_long = std::stod(values[5]);
+    double coord_lat = std::stod(values[4]);
+
+    // Set GeoTIFF information 
+    GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelProjected); 
+    GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
+
+    if (values[1] == "WGS84")
+      GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, GCS_WGS_84);
+    else
+    {
+      std::cout << "unknown geographic projection type: " << values[1] << std::endl;
+      return false;
+    }
+    if (values[2] == "WGS84")
+      GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
+    else
+    {
+      std::cout << "unknown geodetic datum: " << values[2] << std::endl;
+      return false;      
+    }
+    GTIFKeySet(gtif, GeogLinearUnitSizeGeoKey, TYPE_DOUBLE, 1, pixel_width);
+  /*  GTIFKeySet(gtif, GeogPrimeMeridianGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogLinearUnitsGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogAngularUnitsGeoKey, TYPE_SHORT, 1, ModelGeographic); */
+  // GTIFKeySet(gtif, GeogAngularUnitSizeGeoKey, TYPE_DOUBLE, 1, degree_in_radius); // default units (above) is degrees
+  /*  GTIFKeySet(gtif, GeogEllipsoidGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogSemiMajorAxisGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogSemiMinorAxisGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogInvFlatteningGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogAzimuthUnitsGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogPrimeMeridianLongGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, GeogTOWGS84GeoKey, TYPE_SHORT, 1, ModelGeographic);  */
+
+    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, 32767);
+    GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, 32767);
+    if (values[0] == "ortho")
+      GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
+    else
+    {
+      std::cout << "unknown projection type: " << values[0] << std::endl;
+      return false;      
+    }
+    if (values[3] == "m")
+      GTIFKeySet(gtif, ProjLinearUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
+    else
+    {
+      std::cout << "unknown unit type: " << values[3] << std::endl;
+      return false;      
+    }
+    GTIFKeySet(gtif, ProjLinearUnitSizeGeoKey, TYPE_DOUBLE, 1, pixel_width);
+
+  //  GTIFKeySet(gtif, ProjStdParallelGeoKey, TYPE_DOUBLE, 1, coord_lat);
+  //  GTIFKeySet(gtif, ProjOriginLongGeoKey, TYPE_DOUBLE, 1, ModelGeographic);
+  // GTIFKeySet(gtif, ProjNatOriginLatGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    //GTIFKeySet(gtif, ProjOriginLatGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  // GTIFKeySet(gtif, ProjFalseEastingGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjFalseOriginLongGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjFalseOriginLatGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjFalseOriginEastingGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjFalseOriginNorthingGeoKey, TYPE_SHORT, 1, ModelGeographic);
+    GTIFKeySet(gtif, ProjCenterLongGeoKey, TYPE_DOUBLE, 1, coord_long);
+    GTIFKeySet(gtif, ProjCenterLatGeoKey, TYPE_DOUBLE, 1, coord_lat);
+  //  GTIFKeySet(gtif, ProjCenterEastingGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjCenterEastingGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjScaleAtNatOriginGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjScaleAtOriginGeoKey, TYPE_SHORT, 1, ModelGeographic);
+       GTIFKeySet(gtif, ProjScaleAtCenterGeoKey, TYPE_DOUBLE, 1, pixel_width);
+      // GTIFKeySet(gtif, ProjAzimuthAngleGeoKey, TYPE_DOUBLE, 1, 0.0);
+  //  GTIFKeySet(gtif, ProjStraightVertPoleLongGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  //  GTIFKeySet(gtif, ProjRectifiedGridAngleGeoKey, TYPE_DOUBLE, 1, ModelGeographic);  */
+
+    // Store the keys into the TIFF Tags 
+    GTIFWriteKeys(gtif); 
+  }
+  
+  // get rid of the key parser 
+  GTIFFree(gtif);  
+  
+  // save and close the TIFF file descriptor 
+  XTIFFClose(tif);
+
+  return true;
+}
+
+
+bool writeGeoTiffRGB(const std::string &filename, int x, int y, const unsigned char *data, double max)
+{ 
+  /* Open TIFF descriptor to write GeoTIFF tags */
+  TIFF *tif = XTIFFOpen(filename.c_str(), "w");  
+  if (!tif) 
+    return false;
+  
+  /* Open GTIF Key parser */
+  GTIF *gtif = GTIFNew(tif);
+  if (!gtif) 
+    return false;
+  
+  uint32_t w = (uint32_t) x;
+  uint32_t h = (uint32_t) y;
+
+  /* Set up standard TIFF file */
+  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
+  /* set other TIFF tags and write out image ... */
+  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+  TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
+  TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE); 
+  TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+  TIFFSetField(tif, TIFFTAG_FILLORDER, FILLORDER_MSB2LSB);
+  TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
+  TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, 1);
+  TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+  TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, RESUNIT_NONE);
+  TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);  
+  double zero = 0;
+  TIFFSetField(tif, TIFFTAG_MINSAMPLEVALUE, zero);
+  TIFFSetField(tif, TIFFTAG_MAXSAMPLEVALUE, max);
+
+  // now go line by line to write out the image data
+  for (uint32_t row = 0; row < h; row++)
+  {
+    std::vector<unsigned char> pdst(w * 3);
+
+    // moving the data from the dib to a row structure that
+    // can be used by the tiff library
+    for (uint32_t col = 0; col < w; col++)
+    {
+      pdst[3*col + 0] = data[4*((h - 1 - row)*w + col)+0];
+      pdst[3*col + 1] = data[4*((h - 1 - row)*w + col)+1];
+      pdst[3*col + 2] = data[4*((h - 1 - row)*w + col)+2];
+    }
+
+    // now actually write the row data
+    TIFFWriteScanline(tif, &pdst[0], row, 0);
+  }
+
+   /*   
+  // Set GeoTIFF information 
+  GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelGeographic);
+  // set other GeoTIFF keys ... 
+  
+  // Store the keys into the TIFF Tags 
+  GTIFWriteKeys(gtif); */
+  
+  // get rid of the key parser 
+  GTIFFree(gtif);  
+  
+  // save and close the TIFF file descriptor 
+  XTIFFClose(tif);
+
+  return true;
+}
+
 /// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
 /// of surface angles.
 void DensityGrid::calculateDensities(const std::string &file_name)
@@ -182,7 +427,7 @@ void DensityGrid::addNeighbourPriors()
 }
 
 bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, 
-                 RenderStyle style, double pix_width, const std::string &image_file)                 
+                 RenderStyle style, double pix_width, const std::string &image_file, const std::string &projection_file)                 
 {
   // convert the view direction into useable parameters
   int axis = 0;
@@ -319,7 +564,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 
   double max_val = 1.0;
   const std::string image_ext = getFileNameExtension(image_file);
-  const bool is_hdr = image_ext == "hdr";
+  const bool is_hdr = image_ext == "hdr" || image_ext == "tif";
   if (!is_hdr) // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
   {
     double sum = 0.0;
@@ -414,6 +659,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // 100 is maximal quality
   else if (image_ext == "hdr")
     stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
+  else if (image_ext == "tif")
+    writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file); // true does scalar / monochrome float
+//    writeGeoTiffRGB(image_file, width, height, (unsigned char *)&pixel_colours[0], max_val);
   else
   {
     std::cerr << "Error: image format " << image_ext << " not known" << std::endl;
@@ -422,5 +670,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 
   return true;
 }
+
+
 
 } // ray

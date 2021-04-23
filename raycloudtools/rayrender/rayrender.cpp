@@ -33,6 +33,7 @@ void usage(int exit_code = 1)
   std::cout << "                     --pixel_width 0.1     - optional pixel width in m" << std::endl;
   std::cout << "                     --output name.png     - optional output file name. " << std::endl;
   std::cout << "                                             Supports .png, .tga, .hdr, .jpg, .bmp" << std::endl;
+  std::cout << "                     --georeference name.proj- projection file name when output is .tif. " << std::endl;
   std::cout << "Default output is raycloudfile.png" << std::endl;
   exit(exit_code);
 }
@@ -42,16 +43,22 @@ int main(int argc, char *argv[])
   ray::KeyChoice viewpoint({"top", "left", "right", "front", "back"});
   ray::KeyChoice style({"ends", "mean", "sum", "starts", "rays", "density", "density_rgb"});
   ray::DoubleArgument pixel_width(0.0001, 1000.0);
-  ray::FileArgument cloud_file, image_file;
+  ray::FileArgument cloud_file, image_file, projection_file(false);
   ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
   ray::OptionalKeyValueArgument output_file_option("output", 'o', &image_file);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style}, {&pixel_width_option, &output_file_option}))
+  ray::OptionalKeyValueArgument projection_file_option("georeference", 'g', &projection_file);
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style}, {&pixel_width_option, &output_file_option, &projection_file_option}))
   {
     usage();
   }
   if (!output_file_option.isSet())
   {
     image_file.name() = cloud_file.nameStub() + ".png";
+  }
+  if (projection_file_option.isSet() && image_file.nameExt() != "tif")
+  {
+    std::cerr << "Error: projection files can only be used when outputting a .tif file" << std::endl;
+    usage();
   }
 
   ray::Cloud::Info info;
@@ -75,7 +82,7 @@ int main(int argc, char *argv[])
   const ray::ViewDirection view_dir = static_cast<ray::ViewDirection>(viewpoint.selectedID());
   const ray::RenderStyle render_style = static_cast<ray::RenderStyle>(style.selectedID());
 
-  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name()))
+  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(), projection_file.name()))
   {
     usage();
   }
