@@ -17,6 +17,18 @@ namespace ray
 #include "xtiffio.h"  /* for TIFF */
 #include "geotiffio.h" /* for GeoTIFF */
 
+/*
+public void TagExtender(Tiff tiff)
+{
+  TiffFieldInfo[] tiffFieldInfo = 
+  {
+    new TiffFieldInfo(TIFFTAG_GEOPIXELSCALE, 3, 3, TiffType.DOUBLE, FieldBit.Custom, false, true, "MODELPIXELSCALETAG")
+  };
+
+  TIFFMergeFieldInfo(tif, tiffFieldInfo, tiffFieldInfo.Length);
+}
+*/
+
 bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file)
 { 
   /* Open TIFF descriptor to write GeoTIFF tags */
@@ -49,7 +61,6 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   TIFFSetField(tif, TIFFTAG_XRESOLUTION, pixels_per_cm);
   TIFFSetField(tif, TIFFTAG_YRESOLUTION, pixels_per_cm);
   TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER); // RESUNIT_NONE);
-  TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);  
 
   // now go line by line to write out the image data
   for (uint32_t row = 0; row < h; row++)
@@ -79,6 +90,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
 
   if (projection_file != "")
   {
+    double scales[3] = {pixel_width, pixel_width, pixel_width};
+    TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  
+
+    double tiepoints[6]={0,0,0,130.0,32.0,0.0};
+	  TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
+
     std::ifstream ifs(projection_file.c_str(), std::ios::in);
     if (ifs.fail())
     {
@@ -106,6 +123,9 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
 
     double coord_long = std::stod(values[5]);
     double coord_lat = std::stod(values[4]);
+
+    std::cout << "name: " << GTIFTagName(33550) << std::endl;
+
 
     // Set GeoTIFF information 
     GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelProjected); 
@@ -138,8 +158,8 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     GTIFKeySet(gtif, GeogPrimeMeridianLongGeoKey, TYPE_SHORT, 1, ModelGeographic);
     GTIFKeySet(gtif, GeogTOWGS84GeoKey, TYPE_SHORT, 1, ModelGeographic);  */
 
-    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, 32767);
-    GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, 32767);
+    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, KvUserDefined);
+    GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
     if (values[0] == "ortho")
       GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
     else
@@ -172,7 +192,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   //  GTIFKeySet(gtif, ProjCenterEastingGeoKey, TYPE_SHORT, 1, ModelGeographic);
   //  GTIFKeySet(gtif, ProjScaleAtNatOriginGeoKey, TYPE_SHORT, 1, ModelGeographic);
   //  GTIFKeySet(gtif, ProjScaleAtOriginGeoKey, TYPE_SHORT, 1, ModelGeographic);
-       GTIFKeySet(gtif, ProjScaleAtCenterGeoKey, TYPE_DOUBLE, 1, pixel_width);
+//       GTIFKeySet(gtif, ProjScaleAtCenterGeoKey, TYPE_DOUBLE, 1, pixel_width);
       // GTIFKeySet(gtif, ProjAzimuthAngleGeoKey, TYPE_DOUBLE, 1, 0.0);
   //  GTIFKeySet(gtif, ProjStraightVertPoleLongGeoKey, TYPE_SHORT, 1, ModelGeographic);
   //  GTIFKeySet(gtif, ProjRectifiedGridAngleGeoKey, TYPE_DOUBLE, 1, ModelGeographic);  */
