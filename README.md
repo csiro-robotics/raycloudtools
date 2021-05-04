@@ -119,6 +119,12 @@ For raywrap:
 * In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install. 
 * in raycloudtools/build: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
 
+To render clouds to geotif (.tif) images:
+
+* git clone https://github.com/OSGeo/libgeotiff.git
+* follow the build instructions in its README.md, note that the "DCMAKE_C_FLAGS" parameter needs a preceeding "-"
+* in raycloudtools/build: cmake .. -DWITH_TIFF=ON (or ccmake .. to turn on/off WITH_TIFF)
+
 ## Unit Tests
 
 Unit tests must be enabled at build time before running. To build with unit tests, the CMake variable `RAYCLOUD_BUILD_TESTS` must be `ON`. This can be done in the initial project configuration by running the following command from the `build` directory: `cmake  -DRAYCLOUD_BUILD_TESTS=ON ..`
@@ -172,7 +178,7 @@ Associated field data examples are available on CSIRO's Data Access Portal (http
 
 ## Notes
 
-### Dependencies
+### Additional Dependencies
 
 > To be converted into instructions.
 
