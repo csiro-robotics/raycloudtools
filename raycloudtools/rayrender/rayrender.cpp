@@ -11,6 +11,7 @@
 #include "raylib/raycuboid.h"
 #include "raylib/raycloud.h"
 #include "raylib/rayrenderer.h"
+#include "raylib/raylibconfig.h"
 
 void usage(int exit_code = 1)
 {
@@ -57,6 +58,10 @@ int main(int argc, char *argv[])
   }
   if (projection_file_option.isSet())
   {
+    #if !RAYLIB_WITH_TIFF
+    std::cerr << "Error: georeferencing requires the WITH_TIFF build flag enabled. See README.md." << std::endl;
+    usage();
+    #endif
     if (image_file.nameExt() != "tif")
     {
       std::cerr << "Error: projection files can only be used when outputting a .tif file" << std::endl;

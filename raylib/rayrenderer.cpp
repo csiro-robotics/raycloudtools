@@ -3,18 +3,23 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include "raylib/raylibconfig.h"
 #include "rayrenderer.h"
 #include "raycloud.h"
 #include "rayparse.h"
 #include "imagewrite.h"
+#if RAYLIB_WITH_TIFF
 #include "xtiffio.h"  /* for TIFF */
 #include "geotiffio.h" /* for GeoTIFF */
+#endif
+#include "rayunused.h"
 #include <fstream>
 
 #define DENSITY_MIN_RAYS 10 // larger is more accurate but more blurred. 0 for no adaptive blending
 
 namespace ray
 {
+#if RAYLIB_WITH_TIFF
 bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file, double origin_x, double origin_y)
 { 
   /* Open TIFF descriptor to write GeoTIFF tags */
@@ -161,6 +166,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
 
   return true;
 }
+#endif
 
 /// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
 /// of surface angles.
@@ -563,6 +569,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // 100 is maximal quality
   else if (image_ext == "hdr")
     stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
+#if RAYLIB_WITH_TIFF
   else if (image_ext == "tif")
   {
     const Eigen::Vector3d origin(0,0,0);
@@ -570,12 +577,15 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     const double x = pos[ax1], y = pos[ax2];
     writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); // true does scalar / monochrome float
   }
+#endif
   else
   {
     std::cerr << "Error: image format " << image_ext << " not supported" << std::endl;
     return false;
   }
-
+#if !RAYLIB_WITH_TIFF
+  RAYLIB_UNUSED(projection_file);
+#endif
   return true;
 }
 
