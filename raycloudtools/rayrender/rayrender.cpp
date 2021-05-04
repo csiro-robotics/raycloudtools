@@ -32,8 +32,8 @@ void usage(int exit_code = 1)
     << std::endl;
   std::cout << "                     --pixel_width 0.1     - optional pixel width in m" << std::endl;
   std::cout << "                     --output name.png     - optional output file name. " << std::endl;
-  std::cout << "                                             Supports .png, .tga, .hdr, .jpg, .bmp" << std::endl;
-  std::cout << "                     --georeference name.proj- projection file name when output is .tif. " << std::endl;
+  std::cout << "                                             Supports .png, .tga, .hdr, .jpg, .bmp, .tif" << std::endl;
+  std::cout << "                     --georeference name.proj- projection file name, to output (geo)tif file. " << std::endl;
   std::cout << "Default output is raycloudfile.png" << std::endl;
   exit(exit_code);
 }
@@ -53,12 +53,20 @@ int main(int argc, char *argv[])
   }
   if (!output_file_option.isSet())
   {
-    image_file.name() = cloud_file.nameStub() + ".png";
+    image_file.name() = cloud_file.nameStub() + (projection_file_option.isSet() ? ".tif" : ".png");
   }
-  if (projection_file_option.isSet() && image_file.nameExt() != "tif")
+  if (projection_file_option.isSet())
   {
-    std::cerr << "Error: projection files can only be used when outputting a .tif file" << std::endl;
-    usage();
+    if (image_file.nameExt() != "tif")
+    {
+      std::cerr << "Error: projection files can only be used when outputting a .tif file" << std::endl;
+      usage();
+    }
+    if (viewpoint.selectedKey() != "top")
+    {
+      std::cerr << "Error: can only geolocate a top-down render" << std::endl;
+      usage();
+    }
   }
 
   ray::Cloud::Info info;
