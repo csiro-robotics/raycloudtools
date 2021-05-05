@@ -410,7 +410,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     stbi_write_bmp(image_name, width, height, 4, (void *)&pixel_colours[0]);
   else if (image_ext == "tga")
     stbi_write_tga(image_name, width, height, 4, (void *)&pixel_colours[0]);
-  else if (image_ext == "png")
+  else if (image_ext == "jpg")
     stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // 100 is maximal quality
   else if (image_ext == "hdr")
     stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
