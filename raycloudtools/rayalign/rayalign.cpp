@@ -10,6 +10,7 @@
 #include "raylib/rayfinealignment.h"
 #include "raylib/raydebugdraw.h"
 #include "raylib/rayparse.h"
+#include "raylib/raypose.h"
 
 #include <nabo/nabo.h>
 
@@ -52,17 +53,31 @@ int main(int argc, char *argv[])
   }
   else // cross_align
   {
+    ray::Pose transform;
     ray::Cloud clouds[2];
     if (!clouds[0].load(cloud_a.name()))
       usage();
     if (!clouds[1].load(cloud_b.name()))
       usage();
 
+    // Here we pick two distant points in the cloud as an independent method of determining the total transformation applied
+    size_t min_i = 0, max_i = 0;
+    for (size_t i = 0; i<clouds[0].ends.size(); i++)
+    {
+      if (clouds[0].ends[i][0] < clouds[0].ends[min_i][0])
+        min_i = i;
+      if (clouds[0].ends[i][0] > clouds[0].ends[max_i][0])
+        max_i = i;
+    }
+    Eigen::Vector3d pos1 = clouds[0].ends[min_i];
+    Eigen::Vector3d dir1 = Eigen::Vector3d(clouds[0].ends[max_i][0] - pos1[0], clouds[0].ends[max_i][1] - pos1[1], 0).normalized();
+  
     bool local_only = local.isSet();
     bool non_rigid = nonrigid.isSet();
     bool verbose = is_verbose.isSet();
     if (verbose)
       ray::DebugDraw::init(argc, argv, "rayalign");
+    
     if (!local_only)
     {
       alignCloud0ToCloud1(clouds, 0.5, verbose);
@@ -72,6 +87,21 @@ int main(int argc, char *argv[])
 
     ray::FineAlignment fineAlign(clouds, non_rigid, verbose);
     fineAlign.align();
+
+    // Now we calculate the rigid transformation from the change in the position of the two points:
+    Eigen::Vector3d pos2 = clouds[0].ends[min_i];
+    Eigen::Vector3d dir2 = Eigen::Vector3d(clouds[0].ends[max_i][0] - pos2[0], clouds[0].ends[max_i][1] - pos2[1], 0).normalized();
+    double angle = std::atan2((dir1.cross(dir2))[2], dir1.dot(dir2));
+    Eigen::Vector3d rotated_pos1(pos1[0]*std::cos(angle) - pos1[1]*std::sin(angle), pos1[0]*std::sin(angle) + pos1[1]*std::cos(angle), pos1[2]);
+    Eigen::Vector3d dif = pos2 - rotated_pos1;
+    std::cout << "Transformation of " << cloud_a.nameStub() << ":" << std::endl;
+    std::cout << "          rotation: (0, 0, " << angle * 180.0/ray::kPi << ") degrees " << std::endl;
+    std::cout << "  then translation: (" << dif.transpose() << ")" << std::endl;
+    if (non_rigid)
+    {
+      std::cout << "This rigid transformation is approximate as a non-rigid transformation was applied" << std::endl;
+    }
+    
     clouds[0].save(aligned_name);
   }
   return 0;
