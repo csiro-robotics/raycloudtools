@@ -421,6 +421,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         {
           case RenderStyle::Ends: 
           case RenderStyle::Starts: 
+          case RenderStyle::Height: 
             // TODO: fix the == 0.0 part in future, it can cause incorrect occlusion on points with z=0 precisely
             if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0) 
               pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
@@ -473,6 +474,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   }
 
   double max_val = 1.0;
+  double min_val = 0.0;
   const std::string image_ext = getFileNameExtension(image_file);
   const bool is_hdr = image_ext == "hdr" || image_ext == "tif";
   if (!is_hdr) // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
@@ -494,6 +496,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     }
     const double standard_deviation = std::sqrt(sum_sqr / num);
     max_val = mean + 2.0*standard_deviation;
+    min_val = mean - 2.0*standard_deviation;
   }
 
   // The final pixel buffer
@@ -518,6 +521,12 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         case RenderStyle::Rays: 
           col3d /= colour[3]; // simple mean
           break;
+        case RenderStyle::Height:
+        {
+          double shade = dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
+          col3d = Eigen::Vector3d(shade, shade, shade);
+          break;
+        }
         case RenderStyle::Sum: 
         case RenderStyle::Density: 
           col3d /= max_val; // rescale to within limited colour range
@@ -548,9 +557,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       else 
       {
         RGBA col;
-        col.red   = uint8_t(std::min(255.0*col3d[0], 255.0));
-        col.green = uint8_t(std::min(255.0*col3d[1], 255.0));
-        col.blue  = uint8_t(std::min(255.0*col3d[2], 255.0));
+        col.red   = uint8_t(std::max(0.0, std::min(255.0*col3d[0], 255.0)));
+        col.green = uint8_t(std::max(0.0, std::min(255.0*col3d[1], 255.0)));
+        col.blue  = uint8_t(std::max(0.0, std::min(255.0*col3d[2], 255.0)));
         col.alpha = alpha;
         pixel_colours[ind] = col;
       }

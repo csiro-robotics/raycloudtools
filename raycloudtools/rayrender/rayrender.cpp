@@ -27,6 +27,7 @@ void usage(int exit_code = 1)
     << std::endl;
   std::cout << "                               starts      - render the ray start points" << std::endl;
   std::cout << "                               rays        - render the full set of rays" << std::endl;
+  std::cout << "                               height      - render the maximum heights in the view axis" << std::endl;
   std::cout << "                               density     - shade according to estimated density within pixel"
     << std::endl;
   std::cout << "                               density_rgb - r->g->b colour by estimated density"
@@ -42,7 +43,7 @@ void usage(int exit_code = 1)
 int main(int argc, char *argv[])
 {
   ray::KeyChoice viewpoint({"top", "left", "right", "front", "back"});
-  ray::KeyChoice style({"ends", "mean", "sum", "starts", "rays", "density", "density_rgb"});
+  ray::KeyChoice style({"ends", "mean", "sum", "starts", "rays", "height", "density", "density_rgb"});
   ray::DoubleArgument pixel_width(0.0001, 1000.0);
   ray::FileArgument cloud_file, image_file, projection_file(false);
   ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);

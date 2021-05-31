@@ -31,6 +31,7 @@ enum class RAYLIB_EXPORT RenderStyle
   Sum, 
   Starts, 
   Rays, 
+  Height,
   Density, 
   Density_rgb
 };
