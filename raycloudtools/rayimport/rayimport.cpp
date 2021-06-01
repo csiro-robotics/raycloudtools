@@ -19,7 +19,7 @@ void usage(int exit_code = 1)
   std::cout << "Import a point cloud and trajectory file into a ray cloud" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las or .ply file" << std::endl;
-  std::cout << "                                           trajectoryfile is a text file in time,x,y,z format"
+  std::cout << "                                           trajectoryfile is a text file using 'time x y z' format per line"
        << std::endl;
   std::cout << "                                        --max_intensity 100 - specify maximum intensity value (default 100)." << std::endl;
   std::cout << "                                                              0 sets all to full intensity (bounded rays)." << std::endl;
