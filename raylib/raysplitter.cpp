@@ -164,19 +164,37 @@ bool splitBox(const std::string &file_name, const std::string &in_name, const st
 /// Special case for splitting based on a grid. 
 bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector3d &cell_width)
 {
+  return splitGrid(file_name, cloud_name_stub, Eigen::Vector4d(cell_width[0], cell_width[1], cell_width[2], 0));
+}
+
+/// Special case for splitting based on a grid. 
+bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector4d &cell_width)
+{
   Cloud::Info info;
   Cloud::getInfo(cloud_name_stub + ".ply", info);
   const Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
   const Eigen::Vector3d &max_bound = info.rays_bound.max_bound_;
   
-  const Eigen::Vector3d minID(std::floor(0.5 + min_bound[0]/cell_width[0]), 
-    std::floor(0.5 + min_bound[1]/cell_width[1]), std::floor(0.5 + min_bound[2]/cell_width[2]));
-  const Eigen::Vector3d maxID(std::ceil(0.5 + max_bound[0]/cell_width[0]), 
-    std::ceil(0.5 + max_bound[1]/cell_width[1]), std::ceil(0.5 + max_bound[2]/cell_width[2]));
-  const Eigen::Vector3i minIndex = minID.cast<int>();
-  const Eigen::Vector3i maxIndex = maxID.cast<int>();
-  const Eigen::Vector3i dimensions = maxIndex - minIndex;
-  const int length = dimensions[0] * dimensions[1] * dimensions[2];
+  Eigen::Vector4d width = cell_width;
+  for (int i = 0; i<4; i++) 
+  {
+    if (width[i] == 0.0) // '0' is a convenience for the highest possible cell width, meaning that this axis isn't split
+      width[i] = std::numeric_limits<double>::max();
+  }
+
+  const Eigen::Vector3d minID(std::floor(0.5 + min_bound[0]/width[0]), std::floor(0.5 + min_bound[1]/width[1]), std::floor(0.5 + min_bound[2]/width[2]));
+  const Eigen::Vector3d maxID(std::ceil(0.5 + max_bound[0]/width[0]), std::ceil(0.5 + max_bound[1]/width[1]), std::ceil(0.5 + max_bound[2]/width[2]));
+  const Eigen::Vector3i min_index = minID.cast<int>();
+  const Eigen::Vector3i max_index = maxID.cast<int>();
+  const Eigen::Vector3i dimensions = max_index - min_index;
+
+  // I do something different for time, because the absolute values are so large that integer overflow is possible (e.g. gridding every 10th of a second on a v short scan)
+  // A double can store consecutive integers up to 9e15, compared to an int which is 2e9, so I cast to a long int to get the larger range
+  const long int min_time = static_cast<long int>(std::floor(0.5 + info.min_time/width[3]));
+  const long int max_time = static_cast<long int>(std::ceil(0.5 + info.max_time/width[3]));
+  const int time_dimension = static_cast<int>(max_time - min_time); // the difference won't overflow integers. We don't scan for 20 years straight.
+
+  const int length = dimensions[0] * dimensions[1] * dimensions[2] * time_dimension;
   const int max_allowable_cells = 1024; // operating systems will fail with too many open file pointers.
   std::cout << "splitting into maximum of: " << length << " files" << std::endl;
   if (length > 256)
@@ -194,33 +212,36 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
   std::vector<Cloud> chunks(length);
 
   // splitting performed per chunk
-  auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
+  auto per_chunk = [&min_index, &max_index, &width, min_time, &dimensions, &cells, &chunks, length, &cell_width, &cloud_name_stub]
+    (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
   {
     for (size_t i = 0; i < ends.size(); i++)
     {
       // get set of cells that the ray may intersect
-      const Eigen::Vector3d from = Eigen::Vector3d(0.5, 0.5, 0.5) + starts[i].cwiseQuotient(cell_width);
-      const Eigen::Vector3d to = Eigen::Vector3d(0.5, 0.5, 0.5) + ends[i].cwiseQuotient(cell_width);
+      const Eigen::Vector3d from(0.5 + starts[i][0]/width[0], 0.5 + starts[i][1]/width[1], 0.5 + starts[i][2]/width[2]);
+      const Eigen::Vector3d to(0.5 + ends[i][0]/width[0], 0.5 + ends[i][1]/width[1], 0.5 + ends[i][2]/width[2]);
       const Eigen::Vector3d pos0 = minVector(from, to);
       const Eigen::Vector3d pos1 = maxVector(from, to);
       const Eigen::Vector3i minI = Eigen::Vector3d(std::floor(pos0[0]), std::floor(pos0[1]), std::floor(pos0[2])).cast<int>();
       const Eigen::Vector3i maxI = Eigen::Vector3d(std::ceil(pos1[0]), std::ceil(pos1[1]), std::ceil(pos1[2])).cast<int>();
+      const long int t = static_cast<long int>(std::floor(0.5 + times[i]/width[3]));
       for (int x = minI[0]; x<maxI[0]; x++)
       {
         for (int y = minI[1]; y<maxI[1]; y++)
         {
           for (int z = minI[2]; z<maxI[2]; z++)
           {
-            const int index = (x-minIndex[0]) + dimensions[0]*(y-minIndex[1]) + dimensions[0]*dimensions[1]*(z-minIndex[2]);
+            const int time_dif = static_cast<int>(t-min_time);
+            const int index = (x-min_index[0]) + dimensions[0]*(y-min_index[1]) + dimensions[0]*dimensions[1]*(z-min_index[2]) + dimensions[0]*dimensions[1]*dimensions[2]*time_dif;
             if (index < 0 || index >= length)
             {
               std::cout << "Error: bad index: " << index << std::endl; // this should not happen
               return;
             }
             // do actual clipping here.... 
-            const Eigen::Vector3d box_min(((double)x-0.5)*cell_width[0], ((double)y-0.5)*cell_width[1], 
-              ((double)z-0.5)*cell_width[2]);
-            const Cuboid cuboid(box_min, box_min + cell_width);
+            const Eigen::Vector3d box_min(((double)x-0.5)*width[0], ((double)y-0.5)*width[1], ((double)z-0.5)*width[2]);
+            const Eigen::Vector3d box_max(((double)x+0.5)*width[0], ((double)y+0.5)*width[1], ((double)z+0.5)*width[2]);
+            const Cuboid cuboid(box_min, box_max);
             Eigen::Vector3d start = starts[i];
             Eigen::Vector3d end = ends[i];
 
@@ -230,7 +251,16 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
               if (cells[index].fileName() == "") // first time in this cell, so start writing to a new file
               {
                 std::stringstream name;
-                name << cloud_name_stub << "_" << x << "_" << y << "_" << z << ".ply"; 
+                name << cloud_name_stub;
+                if (cell_width[0] > 0.0)
+                  name << "_" << x;
+                if (cell_width[1] > 0.0)
+                  name << "_" << y;
+                if (cell_width[2] > 0.0)
+                  name << "_" << z;
+                if (cell_width[3] > 0.0)
+                  name << "_" << t;
+                name << ".ply"; 
                 cells[index].begin(name.str());
               } 
               if (!cuboid.intersects(ends[i])) // end point is outside, so mark an unbounded ray

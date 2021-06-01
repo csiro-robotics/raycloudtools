@@ -27,7 +27,8 @@ void usage(int exit_code = 1)
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
   std::cout << "                  box rx,ry,rz           - splits around a centred axis-aligned box of the given radii" << std::endl;
-  std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz" << std::endl;
+  std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
+  std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
   exit(exit_code);
 }
 
@@ -36,7 +37,8 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
-  ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(1.0, max_val);
+  ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val);
+  ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0);
   ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "raydir", "range"}, 
                              {&plane,  &time,  &colour,  &alpha,  &raydir,  &range});
@@ -48,8 +50,9 @@ int main(int argc, char *argv[])
   bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
   bool box_format = ray::parseCommandLine(argc, argv, {&cloud_file, &box_text, &box_radius});
   bool grid_format = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width});
+  bool grid_format2 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width2});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
-  if (!standard_format && !box_format && !grid_format && !mesh_split && !time_percent)
+  if (!standard_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent)
   {
     usage();
   }
@@ -106,10 +109,11 @@ int main(int argc, char *argv[])
   }
   else if (grid_format)
   {
-    // Can't use cloud::split as sets are not mutually exclusive here.
-    // we need to include rays that pass through the box. The intensity of these rays needs to be set to 0
-    // so that they are treated as unbounded.
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value());
+  }   
+  else if (grid_format2)
+  {
+    res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width2.value());
   }    
   else
   {
