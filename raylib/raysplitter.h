@@ -33,6 +33,11 @@ bool RAYLIB_EXPORT splitBox(const std::string &file_name, const std::string &in_
 bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
   const Eigen::Vector3d &cell_width);
 
+/// Split a ray cloud into a grid of files, named with suffix _X_Y_Z_T.ply, for each grid coordinate X,Y,Z,T. 
+/// Aligned so that cell 0,0,0,0 is centred at 0,0,0,0 and has dimensions @c cell_width
+bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
+  const Eigen::Vector4d &cell_width);
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYSPLITTER_H
