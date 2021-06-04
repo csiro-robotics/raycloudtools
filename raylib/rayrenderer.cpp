@@ -85,7 +85,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     const double scales[3] = {pixel_width, pixel_width, pixel_width};
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  
 
-    const double tiepoints[6]={0, 0, 0, origin_x, origin_y, 0};
+    const double tiepoints[6]={0, 0, 0, origin_x, -origin_y, 0};
 	  TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
 
     std::ifstream ifs(projection_file.c_str(), std::ios::in);
@@ -103,6 +103,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       std::string::size_type found = line.find(key);
       if (found==std::string::npos)
       {
+        if (key == "+ellps")
+        {
+          std::cout << "No ellps field found in proj file, setting it equal to the datum." << std::endl;
+          values.push_back("");
+          continue;
+        }
         std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
         return false;
       }
@@ -112,7 +118,10 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         space = line.length() - 1;
       values.push_back(line.substr(found, space - found));
     }
-
+    if (values[1] == "") // if ellipsoid type not specified, we take it to be the same as the datum
+    {
+      values[1] = values[2];
+    }
     const double coord_long = std::stod(values[5]);
     const double coord_lat = std::stod(values[4]);
 
