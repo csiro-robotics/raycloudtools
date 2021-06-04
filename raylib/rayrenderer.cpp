@@ -85,7 +85,6 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     const double scales[3] = {pixel_width, pixel_width, pixel_width};
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  
 
-    std::cout << "y origin: " << origin_y << ", pixel width: " << pixel_width << std::endl;
     const double tiepoints[6]={0, 0, 0, origin_x, origin_y, 0};
 	  TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
 
