@@ -85,7 +85,8 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     const double scales[3] = {pixel_width, pixel_width, pixel_width};
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  
 
-    const double tiepoints[6]={0, 0, 0, origin_x, -origin_y, 0};
+    std::cout << "y origin: " << origin_y << ", pixel width: " << pixel_width << std::endl;
+    const double tiepoints[6]={0, 0, 0, origin_x, origin_y, 0};
 	  TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
 
     std::ifstream ifs(projection_file.c_str(), std::ios::in);
@@ -592,7 +593,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   {
     const Eigen::Vector3d origin(0,0,0);
     const Eigen::Vector3d pos = -(origin - bounds.min_bound_);// / pix_width; // TODO: do we divide by pixel width here?
-    const double x = pos[ax1], y = pos[ax2];
+    const double x = pos[ax1], y = pos[ax2] + (double)height * pix_width;
     writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); // true does scalar / monochrome float
   }
 #endif
