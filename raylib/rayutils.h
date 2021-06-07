@@ -273,7 +273,7 @@ inline std::ostream &logDuration(std::ostream &out, const D &duration)
 
   if (s)
   {
-    out << sign << s << "." << std::setw(3) << std::setfill('0') << ms << "s";
+    out << sign << s << "." << ms << "s";
   }
   else
   {
@@ -282,7 +282,7 @@ inline std::ostream &logDuration(std::ostream &out, const D &duration)
 
     if (ms)
     {
-      out << sign << ms << "." << std::setw(3) << std::setfill('0') << us << "ms";
+      out << sign << ms << "." << us << "ms";
     }
     else
     {
@@ -291,7 +291,7 @@ inline std::ostream &logDuration(std::ostream &out, const D &duration)
 
       if (us)
       {
-        out << sign << us << "." << std::setw(3) << std::setfill('0') << ns << "us";
+        out << sign << us << "." << ns << "us";
       }
       else
       {

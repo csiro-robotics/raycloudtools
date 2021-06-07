@@ -39,7 +39,7 @@ The WITH_TBB option defaults to OFF because there is an occasional fault with ra
 
 ## Examples:
 
-**rayimport forest.laz forest_traj.ply** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file: forest.ply
+**rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line.
 
 **raycreate room 1** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 1.
 <p align="center">

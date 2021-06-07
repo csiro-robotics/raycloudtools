@@ -71,11 +71,12 @@ bool Trajectory::load(const std::string &file_name)
       return false;
     }
     ASSERT(!ifs.fail());
-    getline(ifs, line);
-
+    
     while (!ifs.eof())
     {
       getline(ifs, line);
+      if (line.length() == 0 || line[0] == '%')
+        continue;
       size++;
     }
   }
@@ -85,25 +86,31 @@ bool Trajectory::load(const std::string &file_name)
     std::cerr << "Failed to open trajectory file: " << file_name << std::endl;
     return false;
   }
-  getline(ifs, line);
   points_.resize(size);
   times_.resize(size);
   bool ordered = true;
   for (int i = 0; i < size; i++)
   {
-    if (!ifs)
+    if (ifs.fail())
     {
       std::cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
       return false;
     }
-
     getline(ifs, line);
+    if (line.length() == 0 || line[0] == '%')
+      continue;
+
     std::istringstream iss(line);
     iss >> times_[i] >> points_[i][0] >> points_[i][1] >> points_[i][2];
+    if (iss.fail())
+    {
+      std::cerr << "Invalid fields at line " << i << " of " << file_name << std::endl;
+      return false;
+    }
     if (i > 0 && times_[i] < times_[i-1])
       ordered = false;
   }
-  if (!ifs)
+  if (ifs.fail())
   {
     std::cerr << "Invalid stream when loading trajectory file: " << file_name << std::endl;
     return false;

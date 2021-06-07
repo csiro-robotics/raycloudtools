@@ -372,241 +372,247 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   const int depth  = 1 + static_cast<int>(extent[axis] / pix_width);
   std::cout << "outputting " << width << "x" << height << " image" << std::endl;
 
-  // accumulated colour buffer
-  std::vector<Eigen::Vector4d> pixels(width * height); 
-  std::fill(pixels.begin(), pixels.end(), Eigen::Vector4d(0,0,0,0));
-  // density calculation is a special case
-  if (style == RenderStyle::Density || style == RenderStyle::Density_rgb) 
+  try // there is a possibility of running out of memory here. So provide a helpful message rather than just asserting
   {
-    Eigen::Vector3i dims = (extent/pix_width).cast<int>() + Eigen::Vector3i(1,1,1);
-    #if DENSITY_MIN_RAYS > 0
-    dims += Eigen::Vector3i(1,1,1); // so that we have extra space to convolve
-    #endif
-    Cuboid grid_bounds = bounds;
-    grid_bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
-    DensityGrid grid(grid_bounds, pix_width, dims);
+    // accumulated colour buffer
+    std::vector<Eigen::Vector4d> pixels(width * height); 
+    std::fill(pixels.begin(), pixels.end(), Eigen::Vector4d(0,0,0,0));
+    // density calculation is a special case
+    if (style == RenderStyle::Density || style == RenderStyle::Density_rgb) 
+    {
+      Eigen::Vector3i dims = (extent/pix_width).cast<int>() + Eigen::Vector3i(1,1,1);
+      #if DENSITY_MIN_RAYS > 0
+      dims += Eigen::Vector3i(1,1,1); // so that we have extra space to convolve
+      #endif
+      Cuboid grid_bounds = bounds;
+      grid_bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
+      DensityGrid grid(grid_bounds, pix_width, dims);
 
-    grid.calculateDensities(cloud_file);
+      grid.calculateDensities(cloud_file);
 
-    #if DENSITY_MIN_RAYS > 0
-    grid.addNeighbourPriors();
-    #endif
+      #if DENSITY_MIN_RAYS > 0
+      grid.addNeighbourPriors();
+      #endif
+
+      for (int x = 0; x < width; x++)
+      {
+        for (int y = 0; y < height; y++)
+        {
+          double total_density = 0.0;
+          for (int z = 0; z< depth; z++)
+          {
+            Eigen::Vector3i ind;
+            ind[axis] = z;
+            ind[ax1] = x;
+            ind[ax2] = y;
+            total_density += grid.voxels()[grid.getIndex(ind)].density();
+          }
+          pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
+        }
+      }
+    }
+    else // otherwise we use a common algorithm, specialising on render style only per-ray
+    {
+      // this lambda expression lets us chunk load the ray cloud file, so we don't run out of RAM
+      auto render = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<RGBA> &colours)
+      {
+        for (size_t i = 0; i<ends.size(); i++)
+        {
+          const RGBA &colour = colours[i];
+          if (colour.alpha == 0)
+            continue;
+          const Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
+          const Eigen::Vector3d point = style == RenderStyle::Starts ? starts[i] : ends[i];
+          const Eigen::Vector3d pos = (point - bounds.min_bound_) / pix_width;
+          const Eigen::Vector3i p = (pos).cast<int>();
+          const int x = p[ax1], y = p[ax2];
+          // using 4 dimensions helps us to accumulate colours in a greater variety of ways
+          Eigen::Vector4d &pix = pixels[x + width*y]; 
+          switch (style)
+          {
+            case RenderStyle::Ends: 
+            case RenderStyle::Starts: 
+            case RenderStyle::Height: 
+              // TODO: fix the == 0.0 part in future, it can cause incorrect occlusion on points with z=0 precisely
+              if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0) 
+                pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
+              break;
+            case RenderStyle::Mean: 
+              pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+              break;
+            case RenderStyle::Sum: 
+              pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+              break;
+            case RenderStyle::Rays: 
+            {
+              Eigen::Vector3d cloud_start = starts[i];
+              Eigen::Vector3d cloud_end = ends[i];
+              // clip to within the image (since we exclude unbounded rays from the image bounds)
+              bounds.clipRay(cloud_start, cloud_end); 
+              Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
+              Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
+              const Eigen::Vector3d dir = cloud_end - cloud_start;
+
+              // fast approximate 2D line rendering requires picking the long axis to iterate along
+              const bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
+              const int axis_long   = x_long ? ax1 : ax2;
+              const int axis_short  = x_long ? ax2 : ax1;
+              const int width_long  = x_long ? 1 : width;
+              const int width_short = x_long ? width : 1;
+
+              const double gradient = dir[axis_short] / dir[axis_long]; 
+              if (dir[axis_long] < 0.0)
+                std::swap(start, end); // this lets us iterate from low up to high values
+              const int start_long = static_cast<int>(start[axis_long]);
+              const int end_long = static_cast<int>(end[axis_long]);
+              // place a pixel at the height of each midpoint (of the pixel) in the long axis
+              const double start_mid_point = 0.5 + static_cast<double>(start_long);
+              double height = start[axis_short] + (start_mid_point - start[axis_long])*gradient;
+              for (int l = start_long; l <= end_long; l++, height += gradient)
+              {
+                const int s = static_cast<int>(height);
+                pixels[width_long*l + width_short*s] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+              }
+              break;
+            }
+            default:
+              break;
+          }
+        }
+      };
+      if (!Cloud::read(cloud_file, render))
+        return false;
+    }
+
+    double max_val = 1.0;
+    double min_val = 0.0;
+    const std::string image_ext = getFileNameExtension(image_file);
+    const bool is_hdr = image_ext == "hdr" || image_ext == "tif";
+    if (!is_hdr) // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
+    {
+      double sum = 0.0;
+      double num = 0.0;
+      for (auto &pixel: pixels)
+      {
+        sum += pixel[3];
+        if (pixel[3] > 0.0)
+          num++;
+      }
+      double mean = sum / num;
+      double sum_sqr = 0.0;
+      for (auto &pixel: pixels)
+      {
+        if (pixel[3] > 0.0)
+          sum_sqr += sqr(pixel[3] - mean);
+      }
+      const double standard_deviation = std::sqrt(sum_sqr / num);
+      max_val = mean + 2.0*standard_deviation;
+      min_val = mean - 2.0*standard_deviation;
+    }
+
+    // The final pixel buffer
+    std::vector<RGBA> pixel_colours;
+    std::vector<float> float_pixel_colours;
+    if (is_hdr)
+      float_pixel_colours.resize(3 * width * height);
+    else
+      pixel_colours.resize(width*height);
 
     for (int x = 0; x < width; x++)
     {
+      const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction
       for (int y = 0; y < height; y++)
       {
-        double total_density = 0.0;
-        for (int z = 0; z< depth; z++)
-        {
-          Eigen::Vector3i ind;
-          ind[axis] = z;
-          ind[ax1] = x;
-          ind[ax2] = y;
-          total_density += grid.voxels()[grid.getIndex(ind)].density();
-        }
-        pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
-      }
-    }
-  }
-  else // otherwise we use a common algorithm, specialising on render style only per-ray
-  {
-    // this lambda expression lets us chunk load the ray cloud file, so we don't run out of RAM
-    auto render = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<RGBA> &colours)
-    {
-      for (size_t i = 0; i<ends.size(); i++)
-      {
-        const RGBA &colour = colours[i];
-        if (colour.alpha == 0)
-          continue;
-        const Eigen::Vector3d col = Eigen::Vector3d(colour.red, colour.green, colour.blue)/255.0;
-        const Eigen::Vector3d point = style == RenderStyle::Starts ? starts[i] : ends[i];
-        const Eigen::Vector3d pos = (point - bounds.min_bound_) / pix_width;
-        const Eigen::Vector3i p = (pos).cast<int>();
-        const int x = p[ax1], y = p[ax2];
-        // using 4 dimensions helps us to accumulate colours in a greater variety of ways
-        Eigen::Vector4d &pix = pixels[x + width*y]; 
+        const Eigen::Vector4d colour = pixels[x + width*y];
+        Eigen::Vector3d col3d(colour[0], colour[1], colour[2]);
+        const uint8_t alpha = colour[3] == 0.0 ? 0 : 255; // 'punch-through' alpha
         switch (style)
         {
-          case RenderStyle::Ends: 
-          case RenderStyle::Starts: 
-          case RenderStyle::Height: 
-            // TODO: fix the == 0.0 part in future, it can cause incorrect occlusion on points with z=0 precisely
-            if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0) 
-              pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
-            break;
-          case RenderStyle::Mean: 
-            pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-            break;
-          case RenderStyle::Sum: 
-            pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-            break;
+          case RenderStyle::Mean:
           case RenderStyle::Rays: 
+            col3d /= colour[3]; // simple mean
+            break;
+          case RenderStyle::Height:
           {
-            Eigen::Vector3d cloud_start = starts[i];
-            Eigen::Vector3d cloud_end = ends[i];
-            // clip to within the image (since we exclude unbounded rays from the image bounds)
-            bounds.clipRay(cloud_start, cloud_end); 
-            Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
-            Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
-            const Eigen::Vector3d dir = cloud_end - cloud_start;
-
-            // fast approximate 2D line rendering requires picking the long axis to iterate along
-            const bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
-            const int axis_long   = x_long ? ax1 : ax2;
-            const int axis_short  = x_long ? ax2 : ax1;
-            const int width_long  = x_long ? 1 : width;
-            const int width_short = x_long ? width : 1;
-
-            const double gradient = dir[axis_short] / dir[axis_long]; 
-            if (dir[axis_long] < 0.0)
-              std::swap(start, end); // this lets us iterate from low up to high values
-            const int start_long = static_cast<int>(start[axis_long]);
-            const int end_long = static_cast<int>(end[axis_long]);
-            // place a pixel at the height of each midpoint (of the pixel) in the long axis
-            const double start_mid_point = 0.5 + static_cast<double>(start_long);
-            double height = start[axis_short] + (start_mid_point - start[axis_long])*gradient;
-            for (int l = start_long; l <= end_long; l++, height += gradient)
+            double shade = dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
+            col3d = Eigen::Vector3d(shade, shade, shade);
+            break;
+          }
+          case RenderStyle::Sum: 
+          case RenderStyle::Density: 
+            col3d /= max_val; // rescale to within limited colour range
+            break;
+          case RenderStyle::Density_rgb: 
+          {
+            if (is_hdr)
+              col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+            else 
             {
-              const int s = static_cast<int>(height);
-              pixels[width_long*l + width_short*s] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+              double shade = colour[0] / max_val;
+              col3d = redGreenBlueGradient(shade);
+              if (shade < 0.05)
+                col3d *= 20.0*shade; // this blends the lowest densities down to black
             }
             break;
           }
           default:
             break;
         }
+        const int ind = indx + width *y;
+        if (is_hdr)
+        {
+          float_pixel_colours[3*ind + 0] = (float)col3d[0];
+          float_pixel_colours[3*ind + 1] = (float)col3d[1];
+          float_pixel_colours[3*ind + 2] = (float)col3d[2];
+        }
+        else 
+        {
+          RGBA col;
+          col.red   = uint8_t(std::max(0.0, std::min(255.0*col3d[0], 255.0)));
+          col.green = uint8_t(std::max(0.0, std::min(255.0*col3d[1], 255.0)));
+          col.blue  = uint8_t(std::max(0.0, std::min(255.0*col3d[2], 255.0)));
+          col.alpha = alpha;
+          pixel_colours[ind] = col;
+        }
       }
-    };
-    if (!Cloud::read(cloud_file, render))
+    }
+    std::cout << "outputting image: " << image_file << std::endl;
+    const char *image_name = image_file.c_str();
+    stbi_flip_vertically_on_write(1);
+    if (image_ext == "png")
+      stbi_write_png(image_name, width, height, 4, (void *)&pixel_colours[0], 4 * width);
+    else if (image_ext == "bmp")
+      stbi_write_bmp(image_name, width, height, 4, (void *)&pixel_colours[0]);
+    else if (image_ext == "tga")
+      stbi_write_tga(image_name, width, height, 4, (void *)&pixel_colours[0]);
+    else if (image_ext == "jpg")
+      stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // 100 is maximal quality
+    else if (image_ext == "hdr")
+      stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
+  #if RAYLIB_WITH_TIFF
+    else if (image_ext == "tif")
+    {
+      const Eigen::Vector3d origin(0,0,0);
+      const Eigen::Vector3d pos = -(origin - bounds.min_bound_);// / pix_width; // TODO: do we divide by pixel width here?
+      const double x = pos[ax1], y = pos[ax2] + (double)height * pix_width;
+      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); // true does scalar / monochrome float
+    }
+  #endif
+    else
+    {
+      std::cerr << "Error: image format " << image_ext << " not supported" << std::endl;
       return false;
-  }
-
-  double max_val = 1.0;
-  double min_val = 0.0;
-  const std::string image_ext = getFileNameExtension(image_file);
-  const bool is_hdr = image_ext == "hdr" || image_ext == "tif";
-  if (!is_hdr) // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
-  {
-    double sum = 0.0;
-    double num = 0.0;
-    for (auto &pixel: pixels)
-    {
-      sum += pixel[3];
-      if (pixel[3] > 0.0)
-        num++;
-    }
-    double mean = sum / num;
-    double sum_sqr = 0.0;
-    for (auto &pixel: pixels)
-    {
-      if (pixel[3] > 0.0)
-        sum_sqr += sqr(pixel[3] - mean);
-    }
-    const double standard_deviation = std::sqrt(sum_sqr / num);
-    max_val = mean + 2.0*standard_deviation;
-    min_val = mean - 2.0*standard_deviation;
-  }
-
-  // The final pixel buffer
-  std::vector<RGBA> pixel_colours;
-  std::vector<float> float_pixel_colours;
-  if (is_hdr)
-    float_pixel_colours.resize(3 * width * height);
-  else
-    pixel_colours.resize(width*height);
-
-  for (int x = 0; x < width; x++)
-  {
-    const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction
-    for (int y = 0; y < height; y++)
-    {
-      const Eigen::Vector4d colour = pixels[x + width*y];
-      Eigen::Vector3d col3d(colour[0], colour[1], colour[2]);
-      const uint8_t alpha = colour[3] == 0.0 ? 0 : 255; // 'punch-through' alpha
-      switch (style)
-      {
-        case RenderStyle::Mean:
-        case RenderStyle::Rays: 
-          col3d /= colour[3]; // simple mean
-          break;
-        case RenderStyle::Height:
-        {
-          double shade = dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
-          col3d = Eigen::Vector3d(shade, shade, shade);
-          break;
-        }
-        case RenderStyle::Sum: 
-        case RenderStyle::Density: 
-          col3d /= max_val; // rescale to within limited colour range
-          break;
-        case RenderStyle::Density_rgb: 
-        {
-          if (is_hdr)
-            col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
-          else 
-          {
-            double shade = colour[0] / max_val;
-            col3d = redGreenBlueGradient(shade);
-            if (shade < 0.05)
-              col3d *= 20.0*shade; // this blends the lowest densities down to black
-          }
-          break;
-        }
-        default:
-          break;
-      }
-      const int ind = indx + width *y;
-      if (is_hdr)
-      {
-        float_pixel_colours[3*ind + 0] = (float)col3d[0];
-        float_pixel_colours[3*ind + 1] = (float)col3d[1];
-        float_pixel_colours[3*ind + 2] = (float)col3d[2];
-      }
-      else 
-      {
-        RGBA col;
-        col.red   = uint8_t(std::max(0.0, std::min(255.0*col3d[0], 255.0)));
-        col.green = uint8_t(std::max(0.0, std::min(255.0*col3d[1], 255.0)));
-        col.blue  = uint8_t(std::max(0.0, std::min(255.0*col3d[2], 255.0)));
-        col.alpha = alpha;
-        pixel_colours[ind] = col;
-      }
     }
   }
-  std::cout << "outputting image: " << image_file << std::endl;
-  const char *image_name = image_file.c_str();
-  stbi_flip_vertically_on_write(1);
-  if (image_ext == "png")
-    stbi_write_png(image_name, width, height, 4, (void *)&pixel_colours[0], 4 * width);
-  else if (image_ext == "bmp")
-    stbi_write_bmp(image_name, width, height, 4, (void *)&pixel_colours[0]);
-  else if (image_ext == "tga")
-    stbi_write_tga(image_name, width, height, 4, (void *)&pixel_colours[0]);
-  else if (image_ext == "jpg")
-    stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // 100 is maximal quality
-  else if (image_ext == "hdr")
-    stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
-#if RAYLIB_WITH_TIFF
-  else if (image_ext == "tif")
+  catch (std::bad_alloc const&) 
   {
-    const Eigen::Vector3d origin(0,0,0);
-    const Eigen::Vector3d pos = -(origin - bounds.min_bound_);// / pix_width; // TODO: do we divide by pixel width here?
-    const double x = pos[ax1], y = pos[ax2] + (double)height * pix_width;
-    writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); // true does scalar / monochrome float
-  }
-#endif
-  else
-  {
-    std::cerr << "Error: image format " << image_ext << " not supported" << std::endl;
-    return false;
+    std::cout << "Not enough memory to process the " << width << "x" << height << " image." << std::endl;
+    std::cout << "The --pixel_width option can be used to reduce the resolution." << std::endl;
   }
 #if !RAYLIB_WITH_TIFF
   RAYLIB_UNUSED(projection_file);
 #endif
   return true;
 }
-
-
 
 } // ray
