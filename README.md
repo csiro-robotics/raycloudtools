@@ -20,6 +20,7 @@ make
 sudo make install
 cd ../..
 git clone https://github.com/csiro-robotics/raycloudtools.git
+cd raycloudtools
 mkdir build
 cd build
 cmake ..
