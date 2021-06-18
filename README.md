@@ -151,11 +151,6 @@ Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analys
 Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
 ```
 
-
-```
- 
-Associated field data examples are available on CSIRO's Data Access Portal (https://data.csiro.au/collections) under "AcScan3D Vineyard Data Examples". 
-
 ## Notes
 
 ### Dependencies
