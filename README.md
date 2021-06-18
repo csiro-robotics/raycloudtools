@@ -9,25 +9,21 @@ This is an open-source research library, a place to release new techniques in ra
 
 ## Build:
 ```console
+sudo apt-get install libeigen3-dev
+git clone https://github.com/ethz-asl/libnabo.git
+cd libnabo
+git checkout tags/1.0.7
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
+make
+sudo make install
+cd ../..
+git clone https://github.com/csiro-robotics/raycloudtools.git
 mkdir build
 cd build
 cmake ..
 ```
-
-*Dependencies:*
-
-Eigen: 
-```console
-sudo apt-get install libeigen3-dev
-``` 
-
-LibNabo: 
-```console
-git clone https://github.com/ethz-asl/libnabo.git
-git checkout tags/1.0.7
-``` 
-then follow build and install instructions in its README.md.
-
 
 To run the rayXXXX tools from anywhere, place in your ~/bashrc:
 ```console
@@ -146,25 +142,14 @@ When directly invoking the unit tests, is important that the tests are run from 
 This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible. 
 
 
-If you find this tool set useful for your research, please cite:  
+The paper describing this software is available here: https://ieeexplore.ieee.org/abstract/document/9444433
+
+Citations:  
 ```
+Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
 Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
 ```
-### Paper (bibtex)
-```
-@article{lowe2020canopy,
-	author = {Lowe, Thomas and Moghadam, Peyman and Edwards, Everard and Williams, Jason},
-	title = {Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM},
-	journal = {Journal of Field Robotics},
-	volume = {n/a},
-	number = {n/a},
-	pages = {},
-	keywords = {agriculture, LiDAR mapping, perception, SLAM},
-	doi = {https://doi.org/10.1002/rob.22006},
-	url = {https://onlinelibrary.wiley.com/doi/abs/10.1002/rob.22006},
-	eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1002/rob.22006},
-	year={2020}
-}
+
 
 ```
  
