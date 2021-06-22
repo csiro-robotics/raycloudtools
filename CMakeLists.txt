@@ -36,7 +36,7 @@ option(WITH_QHULL "With libqhull support?" OFF)
 if(UNIX)
   option(WITH_ROS "With ROS rviz support for debug visualisation?" OFF)
 endif(UNIX)
-option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" ON)
+option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
 
 # Convert WITH_ options to 1/0 so we can use them in configuration headers.
 ras_bool_to_int(WITH_3ES)

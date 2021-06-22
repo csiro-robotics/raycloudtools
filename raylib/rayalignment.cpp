@@ -418,7 +418,8 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
     if (angle > dim / 2)
       angle -= dim;
     angle *= 2.0 * kPi / (double)polar.numCells();
-    std::cout << "estimated yaw rotation: " << angle << std::endl;
+    if (verbose)
+      std::cout << "Coarse align: estimated yaw rotation: " << angle << std::endl;
 
     // ok, so let's rotate A towards B, and re-run the translation FFT
     Pose pose(Eigen::Vector3d(0, 0, 0), Eigen::Quaterniond(Eigen::AngleAxisd(angle, Eigen::Vector3d(0, 0, 1))));
@@ -490,7 +491,8 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   }
   pos *= -array.voxelWidth();
   pos += box_mins[1] - box_mins[0];
-  std::cout << "estimated translation: " << pos.transpose() << std::endl;
+  if (verbose)
+    std::cout << "Coarse align: estimated translation: " << pos.transpose() << std::endl;
 
   Pose transform(pos, Eigen::Quaterniond::Identity());
   clouds[0].transform(transform, 0.0);

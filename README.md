@@ -9,35 +9,34 @@ This is an open-source research library, a place to release new techniques in ra
 
 ## Build:
 ```console
+sudo apt-get install libeigen3-dev
+git clone https://github.com/ethz-asl/libnabo.git
+cd libnabo
+git checkout tags/1.0.7
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
+make
+sudo make install
+cd ../..
+git clone https://github.com/csiro-robotics/raycloudtools.git
+cd raycloudtools
 mkdir build
 cd build
 cmake ..
 ```
-
-*Dependencies:*
-
-Eigen: 
-```console
-sudo apt-get install libeigen3-dev
-``` 
-
-LibNabo: 
-```console
-git clone https://github.com/ethz-asl/libnabo.git
-git checkout tags/1.0.7
-``` 
-then follow build and install instructions in its README.md.
-
 
 To run the rayXXXX tools from anywhere, place in your ~/bashrc:
 ```console
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
 ```
 
+## Current Known Issues:
+The WITH_TBB option defaults to OFF because there is an occasional fault with raytransients/raycombine when it is ON. This will be rectified in upcoming releases.
 
 ## Examples:
 
-**rayimport forest.laz forest_traj.ply** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file: forest.ply
+**rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line.
 
 **raycreate room 1** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 1.
 <p align="center">
@@ -144,21 +143,13 @@ When directly invoking the unit tests, is important that the tests are run from 
 This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible. 
 
 
-If you find this tool set useful for your research, please cite:  
+The paper describing this software is available here: https://ieeexplore.ieee.org/abstract/document/9444433
+
+Citations:  
 ```
-Lowe, Thomas, et al. "Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM." arXiv preprint arXiv:2007.15652 (2020).
+Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
+Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
 ```
-### Paper (bibtex)
-```
-@article{lowe2020canopy,
-  title={Canopy Density Estimation in Perennial Horticulture Crops Using 3D Spinning LiDAR SLAM},
-  author={Lowe, Thomas and Moghadam, Peyman and Edwards, Everard and Williams, Jason},
-  journal={arXiv preprint arXiv:2007.15652},
-  year={2020}
-}
-```
- 
-Associated field data examples are available on CSIRO's Data Access Portal (https://data.csiro.au/collections) under "AcScan3D Vineyard Data Examples". 
 
 ## Notes
 
