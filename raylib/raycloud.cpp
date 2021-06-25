@@ -165,7 +165,7 @@ void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess>
   times.resize(subsample.size());
 }
 
-void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid)
+void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid) const
 {
   int ray_id = ray_ids[index];
   centroid = ends[ray_id];
@@ -184,7 +184,7 @@ void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &i
 
 void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                        std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats, 
-                       Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays)
+                       Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays) const
 {
   // simplest scheme... find 3 nearest neighbours and do cross product
   if (centroids)

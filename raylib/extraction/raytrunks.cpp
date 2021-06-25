@@ -190,7 +190,6 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
     const double minimum_score = 0.3/sqr(spacing);
   #endif
  // const double minimum_score = 2000.0;
-  const double trunk_thickness = 0.025; 
   
   if (verbose)
   {
@@ -333,6 +332,7 @@ Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)
         sum.weight += w;      
 
 #if !defined SIGMA_SCORE
+        const double trunk_thickness = 0.025; 
         // hard coding for now. Representing the expected error from circular in metres for real trees
         double score_centre = 1.0 - trunk.radius/trunk_thickness;
         double score_radius = 1.0;

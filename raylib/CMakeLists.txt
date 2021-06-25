@@ -83,6 +83,7 @@ set(SOURCES
   rayrenderer.cpp
   extraction/raytrunks.cpp
   extraction/rayterrain.cpp
+  extraction/raytrees.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp
 )
