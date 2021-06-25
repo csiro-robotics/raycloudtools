@@ -45,10 +45,12 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
   RAYLIB_UNUSED(id);
 }
 
-void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
+void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                 const std::vector<Eigen::Vector3d> &colours)
 {
   RAYLIB_UNUSED(starts);
   RAYLIB_UNUSED(ends);
+  RAYLIB_UNUSED(colours);
 }
 
 void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,

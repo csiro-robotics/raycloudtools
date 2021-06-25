@@ -193,7 +193,8 @@ void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
   imp_->cylinderPublisher.publish(marker);
 }
 
-void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
+void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                 const std::vector<Eigen::Vector3d> &colours)
 {
   visualization_msgs::Marker points;
   points.header.frame_id = imp_->fixed_frame_id;
@@ -218,19 +219,32 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
   points.color.b = 0.3f;
   points.color.a = 1.0f;
 
+  std_msgs::ColorRGBA colour;
+  colour.a = 1.0;
   for (unsigned int i = 0; i < starts.size(); i++)
   {
+    if (colours.size() > 0)
+    {
+      colour.r = (float)colours[i][0];
+      colour.g = (float)colours[i][1];
+      colour.b = (float)colours[i][2];
+    }
+
     geometry_msgs::Point p;
     p.x = starts[i][0];
     p.y = starts[i][1];
     p.z = starts[i][2];
     points.points.push_back(p);
+    if (colours.size() > 0)
+      points.colors.push_back(colour);
 
     geometry_msgs::Point n;
     n.x = ends[i][0];
     n.y = ends[i][1];
     n.z = ends[i][2];
     points.points.push_back(n);
+    if (colours.size() > 0)
+      points.colors.push_back(colour);
   }
 
   // Publish the marker

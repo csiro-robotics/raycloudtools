@@ -27,6 +27,7 @@ namespace ray
 {
 struct Trunk
 {
+  Trunk() : centre(0,0,0), radius(0), score(0), combined_score(0), weight(0), thickness(0), length(0), next_down(nullptr), lean(0,0) {}
   Eigen::Vector3d centre; // height is midway up trunk
   double radius;
   double score;
