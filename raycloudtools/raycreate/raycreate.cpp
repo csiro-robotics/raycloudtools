@@ -26,7 +26,7 @@ void usage(int exit_code = 1)
   std::cout << "          forest" << std::endl;
   std::cout << "          terrain" << std::endl;
   std::cout << std::endl;
-  std::cout << "          forest tree_bases.txt - generate from a comma-separated list of x,y,z,radius trunks" << std::endl;
+  std::cout << "          forest trees.txt - generate from a comma-separated list of x,y,z,radius trees" << std::endl;
   std::cout << "          terrain mesh.ply      - generate from a ground mesh" << std::endl;
   exit(exit_code);
 }

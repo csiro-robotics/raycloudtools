@@ -123,7 +123,7 @@ void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double 
   Branch branch;
   branch.tip = root_pos;
   branch.parent_index = -1;
-  branch.radius = 2.0 * trunk_radius;
+  branch.radius = trunk_radius;
   branches_.push_back(branch);
   addBranch(0, base, trunk_radius, random_factor);
 
@@ -137,7 +137,44 @@ void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double 
   for (auto &end : ray_ends_) 
     end = root_pos + (end - root_pos) * scale;
   for (auto &branch : branches_) 
+  {
     branch.tip = root_pos + (branch.tip - root_pos) * scale;
+    branch.radius *= scale;
+  }
+}
+
+bool TreeGen::makeFromString(const std::string &line)
+{
+  int num_commas = (int)std::count(line.begin(), line.end(), ',');
+  if ((num_commas % 5) != 4) // badly formatted
+    return false; 
+  int num_sections = (num_commas + 1)/5;
+  std::istringstream ss(line);
+  for (int s = 0; s<num_sections; s++)
+  {
+    Branch section;
+    std::string token;
+    for (int i = 0; i<3; i++)
+    {
+      std::getline(ss, token, ',');
+      section.tip[i] = std::stod(token.c_str());
+    }
+    if (s == 0)
+    {
+      root_ = section.tip - Eigen::Vector3d(0,0,0.1);
+    }
+    std::getline(ss, token, ',');
+    section.radius = std::stod(token.c_str());
+    std::getline(ss, token, ',');
+    section.parent_index = std::stoi(token.c_str());
+    if (branches_.size() > 0 && branches_.back().tip == section.tip)
+    {
+      std::cout << "Error: zero length branch at " << s << std::endl;
+      return false;
+    }
+    branches_.push_back(section);
+  }
+  return true;
 }
 
 // create a set of rays covering the tree at a roughly uniform distribution
@@ -175,10 +212,8 @@ void TreeGen::generateRays(double ray_density)
     Branch &parent_branch = branches_[branch.parent_index];
 
     // simplest is to randomise a point on a cone.... it will have overlap and gaps, but it is a starting point...
-    double r1 = branch.radius;
-    double r2 = branch.radius + 0.1 * (parent_branch.radius - branch.radius);
-    double r = sqrt(random(sqr(r1), sqr(r2)));
-    double t = (r - r1) / (r2 - r1);
+    double t = random(0.0, 1.0);
+    double r = branch.radius + (parent_branch.radius - branch.radius) * t;
     Eigen::Vector3d online = branch.tip + (parent_branch.tip - branch.tip) * t;
     double angle = random(0.0, 2.0 * kPi);
     Eigen::Vector3d up = (branch.tip - parent_branch.tip).normalized();
@@ -187,8 +222,6 @@ void TreeGen::generateRays(double ray_density)
     side = fwd.cross(up);
     Eigen::Vector3d offset = side * sin(angle) + fwd * cos(angle);
     Eigen::Vector3d pos = online + offset * r;
-    if (!(pos[0] == pos[0]))
-      std::cout << "bad pos" << pos.transpose() << std::endl;
     ray_ends_.push_back(pos);
     Eigen::Vector3d from = Eigen::Vector3d(random(-1, 1), random(-1, 1), random(-1, 1));
     if (from.dot(offset) < 0.0)

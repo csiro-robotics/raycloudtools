@@ -28,7 +28,7 @@ class RAYLIB_EXPORT TreeGen
 public:
   /// create the tree structure, and list of leaf points
   void make(const Eigen::Vector3d &root_pos, double trunk_radius, double random_factor = 0.0);  // 0 to 1
-  /// create a set of rays covering the tree at a roughly uniform distribution
+  bool makeFromString(const std::string &line);
   void generateRays(double ray_density);
 
   /// the ray cloud attributes

@@ -52,6 +52,7 @@ bool ForestGen::makeFromFile(const std::string &filename, const ForestParams &pa
   }  
   std::vector<Eigen::Vector3d> bases;
   std::vector<double> radii;
+  bool trunks_only = false;
   while (!ifs.eof())
   {
     Eigen::Vector3d base;
@@ -60,20 +61,37 @@ bool ForestGen::makeFromFile(const std::string &filename, const ForestParams &pa
     std::getline(ifs, line);
     if (line.length() == 0 || line[0] == '#')
       continue;
-    std::istringstream ss(line);
-    for (int i = 0; i<4; i++)
+    int num_commas = (int)std::count(line.begin(), line.end(), ',');
+    if (num_commas == 3) // just the base
     {
-      std::string token;
-      std::getline(ss, token, ',');
-      if (i<3)
-        base[i] = std::stod(token.c_str());
-      else
-        radius = std::stod(token.c_str());
+      trunks_only = true;
+      std::istringstream ss(line);
+      for (int i = 0; i<4; i++)
+      {
+        std::string token;
+        std::getline(ss, token, ',');
+        if (i<3)
+          base[i] = std::stod(token.c_str());
+        else
+          radius = std::stod(token.c_str());
+      }
+      bases.push_back(base);
+      radii.push_back(radius);
     }
-    bases.push_back(base);
-    radii.push_back(radius);
+    else
+    {
+      if (trunks_only)
+      {
+        std::cerr << "bad input, some rows are just trunks and others aren't. Will not process correctly." << std::endl;
+        return false;
+      }
+      TreeGen tree;
+      trees().push_back(tree);
+      trees().back().makeFromString(line);
+    }
   }
-  make(bases, radii, params);
+  if (trunks_only)
+    make(bases, radii, params);
   return true;
 }
 
