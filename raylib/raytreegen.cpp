@@ -159,10 +159,6 @@ bool TreeGen::makeFromString(const std::string &line)
       std::getline(ss, token, ',');
       section.tip[i] = std::stod(token.c_str());
     }
-    if (s == 0)
-    {
-      root_ = section.tip - Eigen::Vector3d(0,0,0.1);
-    }
     std::getline(ss, token, ',');
     section.radius = std::stod(token.c_str());
     std::getline(ss, token, ',');
@@ -174,6 +170,7 @@ bool TreeGen::makeFromString(const std::string &line)
     }
     branches_.push_back(section);
   }
+  root_ = branches_[0].tip;
   return true;
 }
 
