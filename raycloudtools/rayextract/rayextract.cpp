@@ -37,8 +37,6 @@ void usage(bool error=false)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  ray::DebugDraw::init(argc, argv, "rayextract");
-
   ray::FileArgument cloud_file, mesh_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
@@ -51,6 +49,10 @@ int main(int argc, char *argv[])
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
     usage();  
+  if (verbose.isSet())
+  {
+    ray::DebugDraw::init(argc, argv, "rayextract");
+  }
 
   ray::Cloud cloud;
   if (!cloud.load(cloud_file.name()))
