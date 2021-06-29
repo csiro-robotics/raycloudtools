@@ -11,19 +11,19 @@
 
 namespace ray
 {
-struct Node
+struct QueueNode
 {
-  Node(){}
-  Node(double distance_to_ground, int index) : distance_to_ground(distance_to_ground), id(index) {}
+  QueueNode(){}
+  QueueNode(double distance_to_ground, int index) : distance_to_ground(distance_to_ground), id(index) {}
 
   double distance_to_ground;
   int id;
 };
 
-class myComparator 
+class QueueNodeComparator 
 { 
 public: 
-    bool operator() (const Node &p1, const Node &p2) 
+    bool operator() (const QueueNode &p1, const QueueNode &p2) 
     { 
         return p1.distance_to_ground > p2.distance_to_ground; 
     } 
@@ -101,7 +101,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   const int vertices = (int)points.size();
   const double inf = 1e10;
 
-	std::priority_queue<Node, std::vector<Node>, myComparator> closest_node;
+	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
 	std::vector<bool> visited(vertices);
 	std::vector<double> distances_to_ground(vertices);
@@ -119,12 +119,12 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   //  int ground_id = ground_points[i];
     distances_to_ground[ground_id] = 0;
     parent_id[ground_id] = -1;
-    closest_node.push(Node(0, ground_id));
+    closest_node.push(QueueNode(0, ground_id));
   }
 
 	while(!closest_node.empty())
   {
-		Node node = closest_node.top(); closest_node.pop();
+		QueueNode node = closest_node.top(); closest_node.pop();
 		if(!visited[node.id])
     {
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
@@ -134,7 +134,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         {
 					distances_to_ground[child] = node.distance_to_ground + dists(i, node.id);
           parent_id[child] = node.id;
-					closest_node.push(Node(distances_to_ground[child], child));
+					closest_node.push(QueueNode(distances_to_ground[child], child));
 				}
 			}
 		  visited[node.id] = true;
