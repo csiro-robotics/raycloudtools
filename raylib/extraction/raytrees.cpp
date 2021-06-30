@@ -29,16 +29,30 @@ public:
     } 
 }; 
 
+static const double inf = 1e10;
+
+struct Vertex
+{
+  Vertex(){}
+  Vertex(const Eigen::Vector3d &pos) : pos(pos), parent(-1), branch(-1), distance_to_ground(inf), pilot_id(-1), visited(false) {}
+  Eigen::Vector3d pos;
+  int parent;
+  int branch;
+  double distance_to_ground;
+  int pilot_id; // if this is a piilot point, then give its id, else it is -1
+  bool visited;
+};
+
 Trees::Trees(const Cloud &cloud, bool verbose)
 {
-  std::vector<Eigen::Vector3d> points;  
+  std::vector<Vertex> points;  
   points.reserve(cloud.ends.size());
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
     if (cloud.rayBounded(i))
-      points.push_back(cloud.ends[i]);
+      points.push_back(Vertex(cloud.ends[i]));
   if (verbose)
   {
-    DebugDraw::instance()->drawCloud(points, 0.5, 0);
+    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
   // OK, the planned algorithm is as follows:
@@ -54,7 +68,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   const int search_size = 20;
   Eigen::MatrixXd points_p(3, points.size());
   for (unsigned int i = 0; i < points.size(); i++) 
-    points_p.col(i) = points[i];
+    points_p.col(i) = points[i].pos;
   Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
   // Run the search
   Eigen::MatrixXi indices;
@@ -72,74 +86,55 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   // 2. walk the lowest points upwards....
   // 2a. get the lowest points
   std::vector<int> ground_points;
- // std::vector<int> visited(points.size());
- // for (auto &b: visited)
- //   b = 0;
   for (unsigned int i = 0; i<points.size(); i++)
   {
     int num_neighbours;
     for (num_neighbours = 0; num_neighbours < search_size && indices(num_neighbours, i) > -1; num_neighbours++);
-    Eigen::Vector3d &point = points[i];
+    Eigen::Vector3d &point = points[i].pos;
     bool any_below = false;
     for (int j = 0; j<num_neighbours && !any_below; j++)
     {
       int id = indices(j, i);
-      if (points[id][2] < point[2])
+      if (points[id].pos[2] < point[2])
         any_below = true;
     }
     if (!any_below)
     {
-      if (points[i][2] < 0.05)
+      if (points[i].pos[2] < 0.05)
         ground_points.push_back(i);
- //     if (points[i][2] > 0.05)
- //       std::cout << "spurious: " << points[i].transpose() << std::endl;
-  //    visited[i] = 1;
     }
   }
   
   // 2b. climb up from lowest points...
-  const int vertices = (int)points.size();
-  const double inf = 1e10;
-
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
-	std::vector<bool> visited(vertices);
-	std::vector<double> distances_to_ground(vertices);
-	std::vector<int> parent_id(vertices);
-	for (int i = 0; i < vertices; i++)
-	{
-		visited[i] = 0;
-		distances_to_ground[i] = inf;
-    parent_id[i] = -1;
-	}
-
   for (auto &ground_id: ground_points)
- // for (int i = 0; i<1; i++) // int ground_id = 0;
   {
-  //  int ground_id = ground_points[i];
-    distances_to_ground[ground_id] = 0;
-    parent_id[ground_id] = -1;
+    points[ground_id].distance_to_ground = 0;
     closest_node.push(QueueNode(0, ground_id));
   }
 
 	while(!closest_node.empty())
   {
 		QueueNode node = closest_node.top(); closest_node.pop();
-		if(!visited[node.id])
+		if(!points[node.id].visited)
     {
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
-        if (node.distance_to_ground + dists(i, node.id) < distances_to_ground[child])
+        if (node.distance_to_ground + dists(i, node.id) < points[child].distance_to_ground)
         {
-					distances_to_ground[child] = node.distance_to_ground + dists(i, node.id);
-          parent_id[child] = node.id;
-					closest_node.push(QueueNode(distances_to_ground[child], child));
+					points[child].distance_to_ground = node.distance_to_ground + dists(i, node.id);
+          points[child].parent = node.id;
+          points[child].branch = points[node.id].branch;
+          points[child].pilot_id = points[node.id].pilot_id;
+					closest_node.push(QueueNode(points[child].distance_to_ground, child));
 				}
 			}
-		  visited[node.id] = true;
+		  points[node.id].visited = true;
 		}
 	}
+/*
   const double node_separation = 0.16;
   if (verbose)
   {
@@ -310,7 +305,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       for (auto i: tree_nodes[children[c]].children)
         children.push_back(i);
     }
-  }
+  }*/
 }
 
 bool Trees::save(const std::string &filename)
