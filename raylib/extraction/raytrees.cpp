@@ -34,12 +34,11 @@ static const double inf = 1e10;
 struct Vertex
 {
   Vertex(){}
-  Vertex(const Eigen::Vector3d &pos) : pos(pos), parent(-1), branch(-1), distance_to_ground(inf), pilot_id(-1), visited(false) {}
+  Vertex(const Eigen::Vector3d &pos) : pos(pos), parent(-1), distance_to_ground(inf), radius(0.0), visited(false) {}
   Eigen::Vector3d pos;
   int parent;
-  int branch;
   double distance_to_ground;
-  int pilot_id; // if this is a piilot point, then give its id, else it is -1
+  double radius;
   bool visited;
 };
 
@@ -52,7 +51,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       points.push_back(Vertex(cloud.ends[i]));
   if (verbose)
   {
-    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+ //   DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
   // OK, the planned algorithm is as follows:
@@ -107,10 +106,11 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   
   // 2b. climb up from lowest points...
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
-
+  double start_radius = 0.16;
   for (auto &ground_id: ground_points)
   {
     points[ground_id].distance_to_ground = 0;
+    points[ground_id].radius = start_radius;
     closest_node.push(QueueNode(0, ground_id));
   }
 
@@ -119,6 +119,34 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 		QueueNode node = closest_node.top(); closest_node.pop();
 		if(!points[node.id].visited)
     {
+      // just estimate radius here, based on parent's radius estimate
+      double min_dist = 2.0*points[node.id].radius;
+      double min_dist_sqr = sqr(min_dist);
+      Eigen::Vector3d sum = points[node.id].pos;
+      Eigen::Matrix3d sum_sqr = points[node.id].pos * points[node.id].pos.transpose();
+      double num = 1;
+      for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
+      {
+        int neighbour = indices(i, node.id);
+        if (points[neighbour].distance_to_ground > points[node.id].distance_to_ground - min_dist)
+        {
+          if ((points[node.id].pos - points[neighbour].pos).squaredNorm() < min_dist_sqr)
+          {
+            sum += points[neighbour].pos;
+            sum_sqr += points[neighbour].pos * points[neighbour].pos.transpose();
+            num++;
+          }
+        }
+      }
+      sum /= num;
+      Eigen::Matrix3d scatter = (sum_sqr/num) - sum*sum.transpose(); // TODO: fix, this can't be right
+      double radius = pow(std::abs(scatter.determinant()), 1.0/6.0);
+
+      if (num > 3 && points[node.id].radius > radius)
+      {
+        points[node.id].radius += (radius - points[node.id].radius) * 0.5;
+      }
+
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
@@ -126,28 +154,38 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         {
 					points[child].distance_to_ground = node.distance_to_ground + dists(i, node.id);
           points[child].parent = node.id;
-          points[child].branch = points[node.id].branch;
-          points[child].pilot_id = points[node.id].pilot_id;
+          points[child].radius = points[node.id].radius;
 					closest_node.push(QueueNode(points[child].distance_to_ground, child));
 				}
 			}
 		  points[node.id].visited = true;
 		}
 	}
-/*
+  if (verbose)
+  {
+    std::vector<Eigen::Vector3d> ps(points.size());
+    std::vector<double> vs(points.size());
+    for (size_t i = 0; i<points.size(); i++)
+    {
+      ps[i] = points[i].pos;
+      vs[i] = points[i].radius / start_radius;
+    }
+    DebugDraw::instance()->drawCloud(ps, vs, 0);
+  }  
+
   const double node_separation = 0.16;
   if (verbose)
   {
     std::vector<Eigen::Vector3d> starts;
     std::vector<Eigen::Vector3d> ends;
     std::vector<Eigen::Vector3d> colours;
-    for (int i = 0; i<vertices; i++)
+    for (int i = 0; i<points.size(); i++)
     {
-      if (parent_id[i] != -1)
+      if (points[i].parent != -1)
       {
-        starts.push_back(points[parent_id[i]]);
-        ends.push_back(points[i]);
-        int slot = (int)(distances_to_ground[i] / node_separation);
+        starts.push_back(points[points[i].parent].pos);
+        ends.push_back(points[i].pos);
+        int slot = (int)(points[i].distance_to_ground / node_separation);
         srand(slot);
         Eigen::Vector3d col;
         col[0] = (double)(rand()%1000)/1000.0;
@@ -161,15 +199,15 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 
   // 2c. generate skeletons. 
   // First generate children
-  std::vector< std::vector<int> > children(vertices);
-  for (int i = 0; i<vertices; i++)
+  std::vector< std::vector<int> > children(points.size());
+  for (int i = 0; i<points.size(); i++)
   {
-    if (parent_id[i] != -1)
-      children[parent_id[i]].push_back(i);
+    if (points[i].parent != -1)
+      children[points[i].parent].push_back(i);
   }
   // now generate initial sections
-  for (int i = 0; i<vertices; i++)
-    visited[i] = false;
+  for (int i = 0; i<points.size(); i++)
+    points[i].visited = false;
 
   TreesNode root;
   root.roots = ground_points;
@@ -178,8 +216,8 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   // now trace from root tree nodes upwards, getting node centroids
   for (unsigned int tn = 0; tn < tree_nodes.size(); tn++)
   {
-    for (int i = 0; i<vertices; i++)
-      visited[i] = false;   
+    for (int i = 0; i<points.size(); i++)
+      points[i].visited = false;   
     double thickness = node_separation;
     if (tree_nodes[tn].parent >= 0)
       thickness = 2.0*tree_nodes[tree_nodes[tn].parent].radius;
@@ -190,25 +228,25 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
     {
       int i = nodes[ijk];
-      if (visited[i])
+      if (points[i].visited)
         continue;
-      visited[i] = true;
-      tree_nodes[tn].centroid += points[i];
-      centroid_sqr += Eigen::Vector3d(sqr(points[i][0]), sqr(points[i][1]), sqr(points[i][2]));
+      points[i].visited = true;
+      tree_nodes[tn].centroid += points[i].pos;
+      centroid_sqr += Eigen::Vector3d(sqr(points[i].pos[0]), sqr(points[i].pos[1]), sqr(points[i].pos[2]));
       tree_nodes[tn].num_points++;
       int id = i;
       for (auto &child: children[id])
       {
-        if (visited[child])
+        if (points[child].visited)
           continue;
-        if (distances_to_ground[child] < max_dist_from_ground) // in same slot, so accumulate
+        if (points[child].distance_to_ground < max_dist_from_ground) // in same slot, so accumulate
         {
           nodes.push_back(child); // so we recurse on this child too
         }
         else // not same slot, so add to child roots 
         {
           child_roots.push_back(child);
-          visited[child] = true;
+          points[child].visited = true;
         }
       }
     }
@@ -226,12 +264,11 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   //  std::cout << "cent: " << centroid_sqr.transpose() << ", cen2: " << centroid2.transpose() << " = rad: " << tree_nodes[tn].radius << std::endl;
     
     // floodfill graph to find separate cliques
-    for (int i = 0; i<vertices; i++)
-      visited[i] = false;   
-    int num_added = 0;
+    for (int i = 0; i<points.size(); i++)
+      points[i].visited = false;   
     for (auto &root: child_roots)
     {
-      if (visited[root])
+      if (points[root].visited)
         continue;
       TreesNode new_node;
       new_node.parent = tn;
@@ -240,20 +277,19 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       for (size_t ijk = 0; ijk<new_node.roots.size(); ijk++)
       {
         int i = new_node.roots[ijk];
-        visited[i] = true;
+        points[i].visited = true;
         for (auto &j: child_roots)
         {
-          if (visited[j])
+          if (points[j].visited)
             continue;
-          if ((points[i] - points[j]).norm() < tree_nodes[tn].radius)
+          if ((points[i].pos - points[j].pos).norm() < tree_nodes[tn].radius)
           {
             new_node.roots.push_back(j);
-            visited[j] = true;
+            points[j].visited = true;
           }
         }        
       }
       tree_nodes.push_back(new_node);
-      num_added++;
     }
   }
   // remove node 0
@@ -305,7 +341,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       for (auto i: tree_nodes[children[c]].children)
         children.push_back(i);
     }
-  }*/
+  }
 }
 
 bool Trees::save(const std::string &filename)
