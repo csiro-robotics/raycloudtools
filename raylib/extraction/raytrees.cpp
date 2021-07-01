@@ -179,7 +179,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     std::vector<Eigen::Vector3d> starts;
     std::vector<Eigen::Vector3d> ends;
     std::vector<Eigen::Vector3d> colours;
-    for (int i = 0; i<points.size(); i++)
+    for (size_t i = 0; i<points.size(); i++)
     {
       if (points[i].parent != -1)
       {
@@ -200,13 +200,13 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   // 2c. generate skeletons. 
   // First generate children
   std::vector< std::vector<int> > children(points.size());
-  for (int i = 0; i<points.size(); i++)
+  for (size_t i = 0; i<points.size(); i++)
   {
     if (points[i].parent != -1)
-      children[points[i].parent].push_back(i);
+      children[points[i].parent].push_back((int)i);
   }
   // now generate initial sections
-  for (int i = 0; i<points.size(); i++)
+  for (size_t i = 0; i<points.size(); i++)
     points[i].visited = false;
 
   TreesNode root;
@@ -214,17 +214,18 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   tree_nodes.push_back(root);
 
   // now trace from root tree nodes upwards, getting node centroids
-  for (unsigned int tn = 0; tn < tree_nodes.size(); tn++)
+  for (size_t tn = 0; tn < tree_nodes.size(); tn++)
   {
-    for (int i = 0; i<points.size(); i++)
+    for (size_t i = 0; i<points.size(); i++)
       points[i].visited = false;   
     double thickness = node_separation;
     if (tree_nodes[tn].parent >= 0)
-      thickness = 2.0*tree_nodes[tree_nodes[tn].parent].radius;
+      thickness = 4.0*tree_nodes[tree_nodes[tn].parent].radius;
     double max_dist_from_ground = tree_nodes[tn].min_dist_from_ground + thickness;
     Eigen::Vector3d centroid_sqr(0,0,0);
     std::vector<int> child_roots;
     std::vector<int> nodes = tree_nodes[tn].roots;
+    std::vector<Eigen::Vector3d> radius_points;
     for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
     {
       int i = nodes[ijk];
@@ -232,8 +233,8 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         continue;
       points[i].visited = true;
       tree_nodes[tn].centroid += points[i].pos;
-      centroid_sqr += Eigen::Vector3d(sqr(points[i].pos[0]), sqr(points[i].pos[1]), sqr(points[i].pos[2]));
       tree_nodes[tn].num_points++;
+      radius_points.push_back(points[i].pos);
       int id = i;
       for (auto &child: children[id])
       {
@@ -250,28 +251,56 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         }
       }
     }
+    if (tree_nodes[tn].num_points != (int)nodes.size())
+      std::cout << "node size isn't a proxy for num points" << std::endl;
     if (tree_nodes[tn].num_points > 0)
-    {
       tree_nodes[tn].centroid /= (double)tree_nodes[tn].num_points;
-      centroid_sqr /= (double)tree_nodes[tn].num_points;
+    
+    Eigen::Vector3d dir(0,0,1);
+    if (tree_nodes[tn].parent != -1)
+      dir = (tree_nodes[tn].centroid - tree_nodes[tree_nodes[tn].parent].centroid).normalized();
+    double rad_sqr = 0.0;
+    for (auto &node: nodes)
+    {
+      Eigen::Vector3d offset = points[node].pos - tree_nodes[tn].centroid;
+      Eigen::Vector3d p = offset - dir*offset.dot(dir);
+      rad_sqr += p.squaredNorm();
     }
-    Eigen::Vector3d centroid2(sqr(tree_nodes[tn].centroid[0]), sqr(tree_nodes[tn].centroid[1]), sqr(tree_nodes[tn].centroid[2]));
-    Eigen::Vector3d variance = centroid_sqr - centroid2;
-    tree_nodes[tn].radius = std::pow(variance[0] * variance[1] * variance[2], 1.0/6.0);
-    if (tree_nodes[tn].radius > 1.2)
-      tree_nodes[tn].radius = node_separation;
+    if (tree_nodes[tn].num_points > 4 || tree_nodes[tn].parent == -1)
+    {
+      rad_sqr /= (double)tree_nodes[tn].num_points;
+      tree_nodes[tn].radius = std::sqrt(rad_sqr);
+    }
+    else
+    {
+      tree_nodes[tn].radius = 1.2*tree_nodes[tree_nodes[tn].parent].radius;
+    }
+
+    {
+ //     DebugDraw::instance()->drawCloud(radius_points, 0.5, 0); 
+ //     std::cout << "dir: " << dir.transpose() << " radius: " << tree_nodes[tn].radius << " of " << tree_nodes[tn].num_points << " points" << std::endl;
+    }
+
+    if (tree_nodes[tn].radius > 1.0)
+      tree_nodes[tn].radius = 0.2;//node_separation;
+
+
+
     tree_nodes[tn].radius = std::max(tree_nodes[tn].radius, 0.0125);
+    if (tree_nodes[tn].parent != -1)
+      tree_nodes[tn].radius = std::min(tree_nodes[tn].radius, 1.1*tree_nodes[tree_nodes[tn].parent].radius);
+      
   //  std::cout << "cent: " << centroid_sqr.transpose() << ", cen2: " << centroid2.transpose() << " = rad: " << tree_nodes[tn].radius << std::endl;
     
     // floodfill graph to find separate cliques
-    for (int i = 0; i<points.size(); i++)
+    for (size_t i = 0; i<points.size(); i++)
       points[i].visited = false;   
     for (auto &root: child_roots)
     {
       if (points[root].visited)
         continue;
       TreesNode new_node;
-      new_node.parent = tn;
+      new_node.parent = (int)tn;
       new_node.roots.push_back(root);
       new_node.min_dist_from_ground = max_dist_from_ground;
       for (size_t ijk = 0; ijk<new_node.roots.size(); ijk++)
@@ -282,7 +311,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         {
           if (points[j].visited)
             continue;
-          if ((points[i].pos - points[j].pos).norm() < tree_nodes[tn].radius)
+          if ((points[i].pos - points[j].pos).norm() < 1.5*tree_nodes[tn].radius)
           {
             new_node.roots.push_back(j);
             points[j].visited = true;
@@ -303,7 +332,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   {
     std::vector<Eigen::Vector3d> starts;
     std::vector<Eigen::Vector3d> ends;
- //   std::vector<double> radii;
+    std::vector<double> radii;
     for (auto &tree_node: tree_nodes)
     {
       if (tree_node.parent >= 0)
@@ -312,11 +341,11 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           continue;
         starts.push_back(tree_nodes[tree_node.parent].centroid);
         ends.push_back(tree_node.centroid);
-  //      radii.push_back(tree_node.radius);
+        radii.push_back(tree_node.radius);
       }
     }
     DebugDraw::instance()->drawLines(starts, ends);
-//    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
+    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
   }
 
   // generate children links
