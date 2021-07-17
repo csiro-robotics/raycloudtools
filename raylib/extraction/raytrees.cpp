@@ -213,7 +213,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 
   TreesNode root;
   root.roots = ground_points;
-  root.radius = 0.05;
+  root.radius = 0.1;
   tree_nodes.push_back(root);
 
   // now trace from root tree nodes upwards, getting node centroids
@@ -371,8 +371,32 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 
     tree_nodes[tn].radius = std::max(tree_nodes[tn].radius, 0.02);
     if (tree_nodes[tn].parent != -1)
-      tree_nodes[tn].radius = std::min(tree_nodes[tn].radius, 1.1*tree_nodes[tree_nodes[tn].parent].radius);
-      
+      tree_nodes[tn].radius = std::min(tree_nodes[tn].radius, tree_nodes[tree_nodes[tn].parent].radius);
+
+    if (verbose  && (tn%2000)==1999)
+    {
+      std::vector<Eigen::Vector3d> starts;
+      std::vector<Eigen::Vector3d> ends;
+      std::vector<double> radii;
+      for (auto &tree_node: tree_nodes)
+      {
+        if (tree_node.parent >= 0)
+        {
+          if ((tree_nodes[tree_node.parent].centroid - tree_node.centroid).norm() < 0.001)
+            continue;
+          if (tree_nodes[tree_node.parent].centroid.norm() < 0.1)
+            continue;
+          if (tree_node.centroid.norm() < 0.1)
+            continue;
+          starts.push_back(tree_nodes[tree_node.parent].centroid);
+          ends.push_back(tree_node.centroid);
+          radii.push_back(tree_node.radius);
+        }
+      }
+      DebugDraw::instance()->drawLines(starts, ends);
+      DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
+    }
+
     // now add the single child for this particular tree node, assuming there are still ends
     if (tree_nodes[tn].ends.size() > 0)
     {
@@ -382,7 +406,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       new_node.radius = tree_nodes[tn].radius;
       new_node.min_dist_from_ground = max_dist_from_ground;
       tree_nodes.push_back(new_node);
-    }
+    }    
   }
   // remove node 0
   for (auto &tree_node: tree_nodes)
@@ -391,25 +415,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       tree_node.parent = -2;
   }
 
-  if (verbose)
-  {
-    std::vector<Eigen::Vector3d> starts;
-    std::vector<Eigen::Vector3d> ends;
-    std::vector<double> radii;
-    for (auto &tree_node: tree_nodes)
-    {
-      if (tree_node.parent >= 0)
-      {
-        if ((tree_nodes[tree_node.parent].centroid - tree_node.centroid).norm() < 0.001)
-          continue;
-        starts.push_back(tree_nodes[tree_node.parent].centroid);
-        ends.push_back(tree_node.centroid);
-        radii.push_back(tree_node.radius);
-      }
-    }
-    DebugDraw::instance()->drawLines(starts, ends);
-    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
-  }
+
 
   // generate children links
   for (unsigned int i = 0; i<tree_nodes.size(); i++)
