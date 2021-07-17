@@ -14,18 +14,24 @@ namespace ray
 struct QueueNode
 {
   QueueNode(){}
-  QueueNode(double distance_to_ground, int index) : distance_to_ground(distance_to_ground), id(index) {}
+  QueueNode(double distance_to_ground, double score, int index) : distance_to_ground(distance_to_ground), score(score), id(index) {}
 
   double distance_to_ground;
+  double score;
   int id;
 };
 
+//#define MINIMISE_SCORE // currently the square of distance
 class QueueNodeComparator 
 { 
 public: 
     bool operator() (const QueueNode &p1, const QueueNode &p2) 
     { 
+#if defined MINIMISE_SCORE
+        return p1.score > p2.score; 
+#else
         return p1.distance_to_ground > p2.distance_to_ground; 
+#endif
     } 
 }; 
 
@@ -34,11 +40,11 @@ static const double inf = 1e10;
 struct Vertex
 {
   Vertex(){}
-  Vertex(const Eigen::Vector3d &pos) : pos(pos), parent(-1), distance_to_ground(inf), radius(0.0), visited(false) {}
+  Vertex(const Eigen::Vector3d &pos) : pos(pos), parent(-1), distance_to_ground(inf), score(inf), visited(false) {}
   Eigen::Vector3d pos;
   int parent;
   double distance_to_ground;
-  double radius;
+  double score;
   bool visited;
 };
 
@@ -108,12 +114,11 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   
   // 2b. climb up from lowest points...
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
-  double start_radius = 0.16;
   for (auto &ground_id: ground_points)
   {
     points[ground_id].distance_to_ground = 0;
-    points[ground_id].radius = start_radius;
-    closest_node.push(QueueNode(0, ground_id));
+    points[ground_id].score = 0;
+    closest_node.push(QueueNode(0, 0, ground_id));
   }
 
 	while(!closest_node.empty())
@@ -121,43 +126,19 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 		QueueNode node = closest_node.top(); closest_node.pop();
 		if(!points[node.id].visited)
     {
-      // just estimate radius here, based on parent's radius estimate
-      double min_dist = 2.0*points[node.id].radius;
-      double min_dist_sqr = sqr(min_dist);
-      Eigen::Vector3d sum = points[node.id].pos;
-      Eigen::Matrix3d sum_sqr = points[node.id].pos * points[node.id].pos.transpose();
-      double num = 1;
-      for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
-      {
-        int neighbour = indices(i, node.id);
-        if (points[neighbour].distance_to_ground > points[node.id].distance_to_ground - min_dist)
-        {
-          if ((points[node.id].pos - points[neighbour].pos).squaredNorm() < min_dist_sqr)
-          {
-            sum += points[neighbour].pos;
-            sum_sqr += points[neighbour].pos * points[neighbour].pos.transpose();
-            num++;
-          }
-        }
-      }
-      sum /= num;
-      Eigen::Matrix3d scatter = (sum_sqr/num) - sum*sum.transpose(); // TODO: fix, this can't be right
-      double radius = pow(std::abs(scatter.determinant()), 1.0/6.0);
-
-      if (num > 3 && points[node.id].radius > radius)
-      {
-        points[node.id].radius += (radius - points[node.id].radius) * 0.5;
-      }
-
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
+        #if defined MINIMISE_SCORE
+        if (node.score + dists2(i, node.id) < points[child].score)
+        #else
         if (node.distance_to_ground + dists(i, node.id) < points[child].distance_to_ground)
+        #endif
         {
+					points[child].score = node.score + dists2(i, node.id);
 					points[child].distance_to_ground = node.distance_to_ground + dists(i, node.id);
           points[child].parent = node.id;
-          points[child].radius = points[node.id].radius;
-					closest_node.push(QueueNode(points[child].distance_to_ground, child));
+					closest_node.push(QueueNode(points[child].distance_to_ground, points[child].score, child));
 				}
 			}
 		  points[node.id].visited = true;
@@ -170,13 +151,13 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     for (size_t i = 0; i<points.size(); i++)
     {
       ps[i] = points[i].pos;
-      vs[i] = points[i].radius / start_radius;
+      vs[i] = 1.0;
     }
     DebugDraw::instance()->drawCloud(ps, vs, 0);
   }  
 
   const double node_separation = 0.16;
-  if (false) // verbose)
+  if (verbose)
   {
     std::vector<Eigen::Vector3d> starts;
     std::vector<Eigen::Vector3d> ends;
@@ -322,7 +303,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       for (auto &node: tree_nodes[tn].ends)
       {
         nodes.push_back(node);
-        while (points[node].parent != -1 && points[node].distance_to_ground >= max_dist_from_ground)
+        while (points[node].parent != -1 && points[node].distance_to_ground >= tree_nodes[tn].min_dist_from_ground)
         {
           node = points[node].parent;
           if (std::find(nodes.begin(), nodes.end(), node) != nodes.end())
