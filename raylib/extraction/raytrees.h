@@ -23,6 +23,7 @@ struct TreesNode
   int id; // 0 based per tree
   double min_dist_from_ground;
   std::vector<int> roots; // root points
+  std::vector<int> ends;
   std::vector<int> children;
 };    
 

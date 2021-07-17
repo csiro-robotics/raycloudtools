@@ -99,10 +99,12 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     }
     if (!any_below)
     {
-      if (points[i].pos[2] < 0.05)
+      if (points[i].pos[2] < 0.15)
         ground_points.push_back(i);
     }
   }
+
+  std::cout << "num ground points: " << ground_points.size() << std::endl;
   
   // 2b. climb up from lowest points...
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
@@ -174,7 +176,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   }  
 
   const double node_separation = 0.16;
-  if (verbose)
+  if (false) // verbose)
   {
     std::vector<Eigen::Vector3d> starts;
     std::vector<Eigen::Vector3d> ends;
@@ -211,9 +213,11 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 
   TreesNode root;
   root.roots = ground_points;
+  root.radius = 0.05;
   tree_nodes.push_back(root);
 
   // now trace from root tree nodes upwards, getting node centroids
+  // a tree_node is a segment, and these are added as we iterate through the list
   for (size_t tn = 0; tn < tree_nodes.size(); tn++)
   {
     for (size_t i = 0; i<points.size(); i++)
@@ -222,35 +226,120 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     if (tree_nodes[tn].parent >= 0)
       thickness = 4.0*tree_nodes[tree_nodes[tn].parent].radius;
     double max_dist_from_ground = tree_nodes[tn].min_dist_from_ground + thickness;
-    Eigen::Vector3d centroid_sqr(0,0,0);
-    std::vector<int> child_roots;
+
     std::vector<int> nodes = tree_nodes[tn].roots;
-    std::vector<Eigen::Vector3d> radius_points;
-    for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
+    std::cout << "tree " << tn << " roots: " << tree_nodes[tn].roots.size() << ", ends: " << tree_nodes[tn].ends.size() << std::endl;
+    if (tree_nodes[tn].ends.empty())
     {
-      int i = nodes[ijk];
-      if (points[i].visited)
-        continue;
-      points[i].visited = true;
-      tree_nodes[tn].centroid += points[i].pos;
-      tree_nodes[tn].num_points++;
-      radius_points.push_back(points[i].pos);
-      int id = i;
-      for (auto &child: children[id])
+      // 1. find all the points in this tree node:
+      for (size_t i = 0; i<points.size(); i++)
+        points[i].visited = false;  
+      for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
       {
-        if (points[child].visited)
+        int i = nodes[ijk];
+        if (points[i].visited)
           continue;
-        if (points[child].distance_to_ground < max_dist_from_ground) // in same slot, so accumulate
+        points[i].visited = true;
+        for (auto &child: children[i])
         {
-          nodes.push_back(child); // so we recurse on this child too
-        }
-        else // not same slot, so add to child roots 
-        {
-          child_roots.push_back(child);
-          points[child].visited = true;
+          if (points[child].visited)
+            continue;
+          if (points[child].distance_to_ground < max_dist_from_ground) // in same slot, so accumulate
+            nodes.push_back(child); // so we recurse on this child too
+          else 
+          {
+            tree_nodes[tn].ends.push_back(child);
+            points[child].visited = true;
+          }
         }
       }
+      std::cout << "no ends, so found " << tree_nodes[tn].ends.size() << " ends" << std::endl;
     }
+    // TODO: what if we have found 0 ends here? i.e. the end of the branch...?
+    if (tree_nodes[tn].ends.size() > 1)
+    {
+      #define DIRECTED_DIFF // interpolates each point so it is exactly at max_distance, to avoid spurious splitting
+        
+      // 2. do floodfill on child roots to find if we have separate branches
+      for (size_t i = 0; i<points.size(); i++)
+        points[i].visited = false;   
+      std::vector<int> new_ends;
+      new_ends.push_back(tree_nodes[tn].ends[0]);
+      for (size_t ijk = 0; ijk<new_ends.size(); ijk++)
+      {
+        int i = new_ends[ijk];
+        points[i].visited = true;
+        for (auto &j: tree_nodes[tn].ends)
+        {
+          if (points[j].visited)
+            continue;
+          #if defined DIRECTED_DIFF
+          if (points[i].parent == -1 && points[j].parent == -1)
+            std::cout << "something went wrong, end points should always have a parent" << std::endl;
+          double dist1i = points[i].distance_to_ground;
+          double dist0i = points[points[i].parent].distance_to_ground;
+          double blendi = (max_dist_from_ground - dist0i) / (dist1i - dist0i);
+          Eigen::Vector3d posi = points[points[i].parent].pos*(1.0-blendi) + points[i].pos*blendi;
+
+          double dist1j = points[j].distance_to_ground;
+          double dist0j = points[points[j].parent].distance_to_ground;
+          double blendj = (max_dist_from_ground - dist0j) / (dist1j - dist0j);
+          Eigen::Vector3d posj = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
+
+          Eigen::Vector3d diff = posi - posj;
+          #else
+          Eigen::Vector3d diff = points[i].pos - points[j].pos;
+          #endif
+          if (diff.norm() < 2.0*tree_nodes[tn].radius)
+          {
+            new_ends.push_back(j);
+            points[j].visited = true;
+          }
+        }        
+      }
+
+      if (new_ends.size() < tree_nodes[tn].ends.size()) // 3. if we are splitting then split and remove roots
+      {
+        tree_nodes[tn].roots.clear(); // we can't trust these roots, we don't know which tree node they belong to
+        nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
+
+        TreesNode new_node = tree_nodes[tn];
+        new_node.ends.clear();
+        for (auto &node: tree_nodes[tn].ends)
+        {
+          if (std::find(new_ends.begin(), new_ends.end(), node) == new_ends.end())
+            new_node.ends.push_back(node);
+        }
+        tree_nodes.push_back(new_node);
+        std::cout << "connected ends: " << new_ends.size() << " so new node " << tree_nodes.size() << " with " << new_node.ends.size() << " ends" << std::endl;
+
+        tree_nodes[tn].ends = new_ends;
+      }
+    }
+
+    if (tree_nodes[tn].roots.empty()) // 4. if no roots then we need to find them from the ends
+    {
+      for (auto &node: tree_nodes[tn].ends)
+      {
+        nodes.push_back(node);
+        while (points[node].parent != -1 && points[node].distance_to_ground >= max_dist_from_ground)
+        {
+          node = points[node].parent;
+          if (std::find(nodes.begin(), nodes.end(), node) != nodes.end())
+            break;
+          nodes.push_back(node);
+        }
+      }
+      std::cout << "no roots, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
+    }
+
+    // find points in this segment, and the root points for the child segment
+    for (auto &i: nodes)
+    {
+      tree_nodes[tn].centroid += points[i].pos;
+      tree_nodes[tn].num_points++;
+    }
+
     if (tree_nodes[tn].num_points != (int)nodes.size())
       std::cout << "node size isn't a proxy for num points" << std::endl;
     if (tree_nodes[tn].num_points > 0)
@@ -259,65 +348,39 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     Eigen::Vector3d dir(0,0,1);
     if (tree_nodes[tn].parent != -1)
       dir = (tree_nodes[tn].centroid - tree_nodes[tree_nodes[tn].parent].centroid).normalized();
-    double rad_sqr = 0.0;
+    double rad = 0.0;
     for (auto &node: nodes)
     {
       Eigen::Vector3d offset = points[node].pos - tree_nodes[tn].centroid;
       Eigen::Vector3d p = offset - dir*offset.dot(dir);
-      rad_sqr += p.squaredNorm();
+      rad += p.squaredNorm();
     }
     if (tree_nodes[tn].num_points > 4 || tree_nodes[tn].parent == -1)
     {
-      rad_sqr /= (double)tree_nodes[tn].num_points;
-      tree_nodes[tn].radius = std::sqrt(rad_sqr);
+      rad /= (double)tree_nodes[tn].num_points;
+      tree_nodes[tn].radius = std::sqrt(rad);
+      std::cout << "estimated radius: " << tree_nodes[tn].radius << std::endl;
     }
     else
     {
       tree_nodes[tn].radius = 1.2*tree_nodes[tree_nodes[tn].parent].radius;
     }
 
-    {
- //     DebugDraw::instance()->drawCloud(radius_points, 0.5, 0); 
- //     std::cout << "dir: " << dir.transpose() << " radius: " << tree_nodes[tn].radius << " of " << tree_nodes[tn].num_points << " points" << std::endl;
-    }
+//    if (tree_nodes[tn].radius > 1.0)
+//      tree_nodes[tn].radius = 0.05;//node_separation;
 
-    if (tree_nodes[tn].radius > 1.0)
-      tree_nodes[tn].radius = 0.2;//node_separation;
-
-
-
-    tree_nodes[tn].radius = std::max(tree_nodes[tn].radius, 0.0125);
+    tree_nodes[tn].radius = std::max(tree_nodes[tn].radius, 0.02);
     if (tree_nodes[tn].parent != -1)
       tree_nodes[tn].radius = std::min(tree_nodes[tn].radius, 1.1*tree_nodes[tree_nodes[tn].parent].radius);
       
-  //  std::cout << "cent: " << centroid_sqr.transpose() << ", cen2: " << centroid2.transpose() << " = rad: " << tree_nodes[tn].radius << std::endl;
-    
-    // floodfill graph to find separate cliques
-    for (size_t i = 0; i<points.size(); i++)
-      points[i].visited = false;   
-    for (auto &root: child_roots)
+    // now add the single child for this particular tree node, assuming there are still ends
+    if (tree_nodes[tn].ends.size() > 0)
     {
-      if (points[root].visited)
-        continue;
       TreesNode new_node;
       new_node.parent = (int)tn;
-      new_node.roots.push_back(root);
+      new_node.roots = tree_nodes[tn].ends;
+      new_node.radius = tree_nodes[tn].radius;
       new_node.min_dist_from_ground = max_dist_from_ground;
-      for (size_t ijk = 0; ijk<new_node.roots.size(); ijk++)
-      {
-        int i = new_node.roots[ijk];
-        points[i].visited = true;
-        for (auto &j: child_roots)
-        {
-          if (points[j].visited)
-            continue;
-          if ((points[i].pos - points[j].pos).norm() < 1.5*tree_nodes[tn].radius)
-          {
-            new_node.roots.push_back(j);
-            points[j].visited = true;
-          }
-        }        
-      }
       tree_nodes.push_back(new_node);
     }
   }
@@ -337,7 +400,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     {
       if (tree_node.parent >= 0)
       {
-        if ((tree_nodes[tree_node.parent].centroid - tree_node.centroid).norm() < 0.01)
+        if ((tree_nodes[tree_node.parent].centroid - tree_node.centroid).norm() < 0.001)
           continue;
         starts.push_back(tree_nodes[tree_node.parent].centroid);
         ends.push_back(tree_node.centroid);
