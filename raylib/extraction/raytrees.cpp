@@ -195,22 +195,22 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   BranchSection root;
   root.roots = ground_points;
   root.radius = 0.1;
-  branch_sections.push_back(root);
+  sections.push_back(root);
 
   // now trace from root tree nodes upwards, getting node centroids
   // a tree_node is a segment, and these are added as we iterate through the list
-  for (size_t tn = 0; tn < branch_sections.size(); tn++)
+  for (size_t sec = 0; sec < sections.size(); sec++)
   {
     for (size_t i = 0; i<points.size(); i++)
       points[i].visited = false;   
     double thickness = node_separation;
-    if (branch_sections[tn].parent >= 0)
-      thickness = 4.0*branch_sections[branch_sections[tn].parent].radius;
-    double max_dist_from_ground = branch_sections[tn].min_dist_from_ground + thickness;
+    if (sections[sec].parent >= 0)
+      thickness = 4.0*sections[sections[sec].parent].radius;
+    double max_dist_from_ground = sections[sec].min_dist_from_ground + thickness;
 
-    std::vector<int> nodes = branch_sections[tn].roots;
-    std::cout << "tree " << tn << " roots: " << branch_sections[tn].roots.size() << ", ends: " << branch_sections[tn].ends.size() << std::endl;
-    bool extract_from_ends = branch_sections[tn].ends.size() > 0;
+    std::vector<int> nodes = sections[sec].roots;
+    std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
+    bool extract_from_ends = sections[sec].ends.size() > 0;
     if (!extract_from_ends)
     {
       // 1. find all the points in this tree node:
@@ -230,16 +230,16 @@ Trees::Trees(const Cloud &cloud, bool verbose)
             nodes.push_back(child); // so we recurse on this child too
           else 
           {
-            branch_sections[tn].ends.push_back(child); 
+            sections[sec].ends.push_back(child); 
             points[child].visited = true;
           }
         }
       }
       if (verbose)
-        std::cout << "no ends, so found " << branch_sections[tn].ends.size() << " ends" << std::endl;
+        std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
     }
     // TODO: what if we have found 0 ends here? i.e. the end of the branch...?
-    if (branch_sections[tn].ends.size() > 1)
+    if (sections[sec].ends.size() > 1)
     {
       #define DIRECTED_DIFF // interpolates each point so it is exactly at max_distance, to avoid spurious splitting
         
@@ -247,12 +247,12 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       for (size_t i = 0; i<points.size(); i++)
         points[i].visited = false;   
       std::vector<int> new_ends;
-      new_ends.push_back(branch_sections[tn].ends[0]);
+      new_ends.push_back(sections[sec].ends[0]);
       for (size_t ijk = 0; ijk<new_ends.size(); ijk++)
       {
         int i = new_ends[ijk];
         points[i].visited = true;
-        for (auto &j: branch_sections[tn].ends)
+        for (auto &j: sections[sec].ends)
         {
           if (points[j].visited)
             continue;
@@ -273,7 +273,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           #else
           Eigen::Vector3d diff = points[i].pos - points[j].pos;
           #endif
-          if (diff.norm() < 2.0*branch_sections[tn].radius)
+          if (diff.norm() < 2.0*sections[sec].radius)
           {
             new_ends.push_back(j);
             points[j].visited = true;
@@ -281,29 +281,29 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         }        
       }
 
-      if (new_ends.size() < branch_sections[tn].ends.size()) // 3. if we are splitting then split and remove roots
+      if (new_ends.size() < sections[sec].ends.size()) // 3. if we are splitting then split and remove roots
       {
         extract_from_ends = true;
         nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
 
-        BranchSection new_node = branch_sections[tn];
+        BranchSection new_node = sections[sec];
         new_node.ends.clear();
-        for (auto &node: branch_sections[tn].ends)
+        for (auto &node: sections[sec].ends)
         {
           if (std::find(new_ends.begin(), new_ends.end(), node) == new_ends.end())
             new_node.ends.push_back(node);
         }
-        branch_sections.push_back(new_node);
+        sections.push_back(new_node);
         if (verbose)
-          std::cout << "connected ends: " << new_ends.size() << " so new node " << branch_sections.size() << " with " << new_node.ends.size() << " ends" << std::endl;
+          std::cout << "connected ends: " << new_ends.size() << " so new node " << sections.size() << " with " << new_node.ends.size() << " ends" << std::endl;
 
-        branch_sections[tn].ends = new_ends;
+        sections[sec].ends = new_ends;
       }
     }
 
     if (extract_from_ends) // 4. we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
-      for (auto &end: branch_sections[tn].ends)
+      for (auto &end: sections[sec].ends)
       {
         int node = points[end].parent;
         if (node == -1)
@@ -316,7 +316,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           if (std::find(nodes.begin(), nodes.end(), node) != nodes.end())
             break;
           nodes.push_back(node);
-          if (std::find(branch_sections[tn].roots.begin(), branch_sections[tn].roots.end(), node) != nodes.end())
+          if (std::find(sections[sec].roots.begin(), sections[sec].roots.end(), node) != nodes.end())
             break;
           node = points[node].parent;
         }
@@ -332,58 +332,62 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     }
     // Finally we have it, a set of nodes from which to get a centroid and radius estimation
 
-
     // find points in this segment, and the root points for the child segment
-    branch_sections[tn].centroid.setZero();
+    Eigen::Vector3d centroid(0,0,0);
     for (auto &i: nodes)
-      branch_sections[tn].centroid += points[i].pos;
-
+      centroid += points[i].pos;
     if (nodes.size() > 0)
-      branch_sections[tn].centroid /= (double)nodes.size();
-    
+      centroid /= (double)nodes.size();
+
+    sections[sec].tip.setZero();
+    for (auto &i: sections[sec].ends)
+      sections[sec].tip += points[i].pos;
+    if (sections[sec].ends.size() > 0)
+      sections[sec].tip /= (double)sections[sec].ends.size();
+    else 
+      sections[sec].tip = centroid; // if there are no end points, then just use the mean of all the points in this section
+
     Eigen::Vector3d dir(0,0,1);
-    if (branch_sections[tn].parent != -1)
-      dir = (branch_sections[tn].centroid - branch_sections[branch_sections[tn].parent].centroid).normalized();
+    if (sections[sec].parent != -1)
+      dir = (sections[sec].tip - sections[sections[sec].parent].tip).normalized();
+    
+    // use the section centroid for estimating the radius
     double rad = 0.0;
     for (auto &node: nodes)
     {
-      Eigen::Vector3d offset = points[node].pos - branch_sections[tn].centroid;
+      Eigen::Vector3d offset = points[node].pos - centroid;
       Eigen::Vector3d p = offset - dir*offset.dot(dir);
       rad += p.squaredNorm();
     }
-    if (nodes.size() > 4 || branch_sections[tn].parent == -1)
+    if (nodes.size() > 4 || sections[sec].parent == -1)
     {
       rad /= (double)nodes.size();
-      branch_sections[tn].radius = std::sqrt(rad);
-      std::cout << "estimated radius: " << branch_sections[tn].radius << std::endl;
+      sections[sec].radius = std::sqrt(rad);
+      std::cout << "estimated radius: " << sections[sec].radius << std::endl;
     }
     else
     {
-      branch_sections[tn].radius = branch_sections[branch_sections[tn].parent].radius;
+      sections[sec].radius = sections[sections[sec].parent].radius;
     }
 
-//    if (branch_sections[tn].radius > 1.0)
-//      branch_sections[tn].radius = 0.05;//node_separation;
-
- //   branch_sections[tn].radius = std::max(branch_sections[tn].radius, 0.02);
-    if (branch_sections[tn].parent != -1)
-      branch_sections[tn].radius = std::min(branch_sections[tn].radius, branch_sections[branch_sections[tn].parent].radius);
+    if (sections[sec].parent != -1)
+      sections[sec].radius = std::min(sections[sec].radius, sections[sections[sec].parent].radius);
 
     // now add the single child for this particular tree node, assuming there are still ends
-    if (branch_sections[tn].ends.size() > 0)
+    if (sections[sec].ends.size() > 0)
     {
       BranchSection new_node;
-      new_node.parent = (int)tn;
-      new_node.roots = branch_sections[tn].ends;
-      new_node.radius = branch_sections[tn].radius;
+      new_node.parent = (int)sec;
+      new_node.roots = sections[sec].ends;
+      new_node.radius = sections[sec].radius;
       new_node.min_dist_from_ground = max_dist_from_ground; // this is the only problem for 1-section-per-point... may affect something
-      branch_sections.push_back(new_node);
+      sections.push_back(new_node);
     }    
   }
   // remove node 0
-  for (auto &tree_node: branch_sections)
+  for (auto &tree_node: sections)
   {
-    if (tree_node.parent >= 0 && branch_sections[tree_node.parent].parent == -1)
+    if (tree_node.parent >= 0 && sections[tree_node.parent].parent == -1)
       tree_node.parent = -2;
   }
   if (verbose)
@@ -391,18 +395,18 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     std::vector<Eigen::Vector3d> starts;
     std::vector<Eigen::Vector3d> ends;
     std::vector<double> radii;
-    for (auto &tree_node: branch_sections)
+    for (auto &tree_node: sections)
     {
       if (tree_node.parent >= 0)
       {
-        if ((branch_sections[tree_node.parent].centroid - tree_node.centroid).norm() < 0.001)
+        if ((sections[tree_node.parent].tip - tree_node.tip).norm() < 0.001)
           continue;
-        if (branch_sections[tree_node.parent].centroid.norm() < 0.1)
+        if (sections[tree_node.parent].tip.norm() < 0.1)
           continue;
-        if (tree_node.centroid.norm() < 0.1)
+        if (tree_node.tip.norm() < 0.1)
           continue;
-        starts.push_back(branch_sections[tree_node.parent].centroid);
-        ends.push_back(tree_node.centroid);
+        starts.push_back(sections[tree_node.parent].tip);
+        ends.push_back(tree_node.tip);
         radii.push_back(std::max(tree_node.radius, 0.01));
       }
     }
@@ -412,25 +416,25 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 
 
   // generate children links
-  for (unsigned int i = 0; i<branch_sections.size(); i++)
+  for (unsigned int i = 0; i<sections.size(); i++)
   {
-    if (branch_sections[i].parent >= 0)
+    if (sections[i].parent >= 0)
     {
-      branch_sections[branch_sections[i].parent].children.push_back(i);
+      sections[sections[i].parent].children.push_back(i);
     }
-    else if (branch_sections[i].parent == -2)
+    else if (sections[i].parent == -2)
       root_nodes.push_back(i);
   }
   // generate local parent links
   for (auto &root: root_nodes)
   {
     int child_id = 0;
-    branch_sections[root].id = child_id++;
-    std::vector<int> children = branch_sections[root].children;
+    sections[root].id = child_id++;
+    std::vector<int> children = sections[root].children;
     for (unsigned int c = 0; c<children.size(); c++)
     {
-      branch_sections[children[c]].id = child_id++;
-      for (auto i: branch_sections[children[c]].children)
+      sections[children[c]].id = child_id++;
+      for (auto i: sections[children[c]].children)
         children.push_back(i);
     }
   }
@@ -447,14 +451,14 @@ bool Trees::save(const std::string &filename)
   ofs << "# Tree structure. One row per tree, which repeats: 'x,y,z,radius,parent_id, ' per segment" << std::endl;
   for (auto &root: root_nodes)
   {
-    ofs << branch_sections[root].centroid[0] << "," << branch_sections[root].centroid[1] << "," << branch_sections[root].centroid[2] << "," << branch_sections[root].radius << ",-1";
+    ofs << sections[root].tip[0] << "," << sections[root].tip[1] << "," << sections[root].tip[2] << "," << sections[root].radius << ",-1";
 
-    std::vector<int> children = branch_sections[root].children;
+    std::vector<int> children = sections[root].children;
     for (unsigned int c = 0; c<children.size(); c++)
     {
-      BranchSection &node = branch_sections[children[c]];
-      ofs << ", " << node.centroid[0] << "," << node.centroid[1] << "," << node.centroid[2] << "," << node.radius << "," << branch_sections[node.parent].id;
-      for (auto i: branch_sections[children[c]].children)
+      BranchSection &node = sections[children[c]];
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << "," << sections[node.parent].id;
+      for (auto i: sections[children[c]].children)
         children.push_back(i);
     }
     ofs << std::endl;
