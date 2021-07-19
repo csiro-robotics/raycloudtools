@@ -57,8 +57,10 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       points.push_back(Vertex(cloud.ends[i]));
   if (verbose)
   {
-    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+ //   DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
+  std::vector<Eigen::Vector3d> end_points;
+  std::vector<double> end_shades;
 
   // OK, the planned algorithm is as follows:
   // 1. get nearest neighbours for all points
@@ -177,7 +179,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         colours.push_back(col);
       }
     }
-    DebugDraw::instance()->drawLines(starts, ends, colours);
+  //  DebugDraw::instance()->drawLines(starts, ends, colours);
   }
 
   // 2c. generate skeletons. 
@@ -273,7 +275,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           #else
           Eigen::Vector3d diff = points[i].pos - points[j].pos;
           #endif
-          if (diff.norm() < 2.0*sections[sec].radius)
+          if (diff.norm() < 1.75*sections[sec].radius)
           {
             new_ends.push_back(j);
             points[j].visited = true;
@@ -338,6 +340,15 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       centroid += points[i].pos;
     if (nodes.size() > 0)
       centroid /= (double)nodes.size();
+
+    // TODO: draw the ends points, in one colour each...
+    srand(sec);
+    double s = (double)(rand()%1000) / 1000.0;
+    for (auto &i: sections[sec].ends)
+    {
+      end_points.push_back(points[i].pos);
+      end_shades.push_back(s);
+    }
 
     sections[sec].tip.setZero();
     for (auto &i: sections[sec].ends)
@@ -410,6 +421,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         radii.push_back(std::max(tree_node.radius, 0.01));
       }
     }
+    DebugDraw::instance()->drawCloud(end_points, end_shades, 0);
     DebugDraw::instance()->drawLines(starts, ends);
     DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
   }
