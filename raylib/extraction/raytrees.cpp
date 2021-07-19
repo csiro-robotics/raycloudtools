@@ -57,7 +57,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       points.push_back(Vertex(cloud.ends[i]));
   if (verbose)
   {
- //   DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
   // OK, the planned algorithm is as follows:
@@ -210,7 +210,8 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 
     std::vector<int> nodes = tree_nodes[tn].roots;
     std::cout << "tree " << tn << " roots: " << tree_nodes[tn].roots.size() << ", ends: " << tree_nodes[tn].ends.size() << std::endl;
-    if (tree_nodes[tn].ends.empty())
+    bool extract_from_ends = tree_nodes[tn].ends.size() > 0;
+    if (!extract_from_ends)
     {
       // 1. find all the points in this tree node:
       for (size_t i = 0; i<points.size(); i++)
@@ -229,12 +230,13 @@ Trees::Trees(const Cloud &cloud, bool verbose)
             nodes.push_back(child); // so we recurse on this child too
           else 
           {
-            tree_nodes[tn].ends.push_back(child);
+            tree_nodes[tn].ends.push_back(child); 
             points[child].visited = true;
           }
         }
       }
-      std::cout << "no ends, so found " << tree_nodes[tn].ends.size() << " ends" << std::endl;
+      if (verbose)
+        std::cout << "no ends, so found " << tree_nodes[tn].ends.size() << " ends" << std::endl;
     }
     // TODO: what if we have found 0 ends here? i.e. the end of the branch...?
     if (tree_nodes[tn].ends.size() > 1)
@@ -281,7 +283,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
 
       if (new_ends.size() < tree_nodes[tn].ends.size()) // 3. if we are splitting then split and remove roots
       {
-        tree_nodes[tn].roots.clear(); // we can't trust these roots, we don't know which tree node they belong to
+        extract_from_ends = true;
         nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
 
         TreesNode new_node = tree_nodes[tn];
@@ -292,39 +294,52 @@ Trees::Trees(const Cloud &cloud, bool verbose)
             new_node.ends.push_back(node);
         }
         tree_nodes.push_back(new_node);
-        std::cout << "connected ends: " << new_ends.size() << " so new node " << tree_nodes.size() << " with " << new_node.ends.size() << " ends" << std::endl;
+        if (verbose)
+          std::cout << "connected ends: " << new_ends.size() << " so new node " << tree_nodes.size() << " with " << new_node.ends.size() << " ends" << std::endl;
 
         tree_nodes[tn].ends = new_ends;
       }
     }
 
-    if (tree_nodes[tn].roots.empty()) // 4. if no roots then we need to find them from the ends
+    if (extract_from_ends) // 4. we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
-      for (auto &node: tree_nodes[tn].ends)
+      for (auto &end: tree_nodes[tn].ends)
       {
-        nodes.push_back(node);
-        while (points[node].parent != -1 && points[node].distance_to_ground >= tree_nodes[tn].min_dist_from_ground)
+        int node = points[end].parent;
+        if (node == -1)
         {
-          node = points[node].parent;
+          std::cout << "shouldn't be parentless here" << std::endl;
+          continue;
+        }
+        while (node != -1)
+        {
           if (std::find(nodes.begin(), nodes.end(), node) != nodes.end())
             break;
           nodes.push_back(node);
+          if (std::find(tree_nodes[tn].roots.begin(), tree_nodes[tn].roots.end(), node) != nodes.end())
+            break;
+          node = points[node].parent;
         }
       }
-      std::cout << "no roots, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
+      if (verbose)
+        std::cout << "no roots, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
     }
+    if (nodes.size() == 0)
+    {
+      if (verbose)
+        std::cout << "bad node size zero" << std::endl;
+      continue;
+    }
+    // Finally we have it, a set of nodes from which to get a centroid and radius estimation
+
 
     // find points in this segment, and the root points for the child segment
+    tree_nodes[tn].centroid.setZero();
     for (auto &i: nodes)
-    {
       tree_nodes[tn].centroid += points[i].pos;
-      tree_nodes[tn].num_points++;
-    }
 
-    if (tree_nodes[tn].num_points != (int)nodes.size())
-      std::cout << "node size isn't a proxy for num points" << std::endl;
-    if (tree_nodes[tn].num_points > 0)
-      tree_nodes[tn].centroid /= (double)tree_nodes[tn].num_points;
+    if (nodes.size() > 0)
+      tree_nodes[tn].centroid /= (double)nodes.size();
     
     Eigen::Vector3d dir(0,0,1);
     if (tree_nodes[tn].parent != -1)
@@ -336,47 +351,23 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       Eigen::Vector3d p = offset - dir*offset.dot(dir);
       rad += p.squaredNorm();
     }
-    if (tree_nodes[tn].num_points > 4 || tree_nodes[tn].parent == -1)
+    if (nodes.size() > 4 || tree_nodes[tn].parent == -1)
     {
-      rad /= (double)tree_nodes[tn].num_points;
+      rad /= (double)nodes.size();
       tree_nodes[tn].radius = std::sqrt(rad);
       std::cout << "estimated radius: " << tree_nodes[tn].radius << std::endl;
     }
     else
     {
-      tree_nodes[tn].radius = 1.2*tree_nodes[tree_nodes[tn].parent].radius;
+      tree_nodes[tn].radius = tree_nodes[tree_nodes[tn].parent].radius;
     }
 
 //    if (tree_nodes[tn].radius > 1.0)
 //      tree_nodes[tn].radius = 0.05;//node_separation;
 
-    tree_nodes[tn].radius = std::max(tree_nodes[tn].radius, 0.02);
+ //   tree_nodes[tn].radius = std::max(tree_nodes[tn].radius, 0.02);
     if (tree_nodes[tn].parent != -1)
       tree_nodes[tn].radius = std::min(tree_nodes[tn].radius, tree_nodes[tree_nodes[tn].parent].radius);
-
-    if (verbose  && (tn%2000)==1999)
-    {
-      std::vector<Eigen::Vector3d> starts;
-      std::vector<Eigen::Vector3d> ends;
-      std::vector<double> radii;
-      for (auto &tree_node: tree_nodes)
-      {
-        if (tree_node.parent >= 0)
-        {
-          if ((tree_nodes[tree_node.parent].centroid - tree_node.centroid).norm() < 0.001)
-            continue;
-          if (tree_nodes[tree_node.parent].centroid.norm() < 0.1)
-            continue;
-          if (tree_node.centroid.norm() < 0.1)
-            continue;
-          starts.push_back(tree_nodes[tree_node.parent].centroid);
-          ends.push_back(tree_node.centroid);
-          radii.push_back(tree_node.radius);
-        }
-      }
-      DebugDraw::instance()->drawLines(starts, ends);
-      DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
-    }
 
     // now add the single child for this particular tree node, assuming there are still ends
     if (tree_nodes[tn].ends.size() > 0)
@@ -385,7 +376,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       new_node.parent = (int)tn;
       new_node.roots = tree_nodes[tn].ends;
       new_node.radius = tree_nodes[tn].radius;
-      new_node.min_dist_from_ground = max_dist_from_ground;
+      new_node.min_dist_from_ground = max_dist_from_ground; // this is the only problem for 1-section-per-point... may affect something
       tree_nodes.push_back(new_node);
     }    
   }
@@ -395,7 +386,29 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     if (tree_node.parent >= 0 && tree_nodes[tree_node.parent].parent == -1)
       tree_node.parent = -2;
   }
-
+  if (verbose)
+  {
+    std::vector<Eigen::Vector3d> starts;
+    std::vector<Eigen::Vector3d> ends;
+    std::vector<double> radii;
+    for (auto &tree_node: tree_nodes)
+    {
+      if (tree_node.parent >= 0)
+      {
+        if ((tree_nodes[tree_node.parent].centroid - tree_node.centroid).norm() < 0.001)
+          continue;
+        if (tree_nodes[tree_node.parent].centroid.norm() < 0.1)
+          continue;
+        if (tree_node.centroid.norm() < 0.1)
+          continue;
+        starts.push_back(tree_nodes[tree_node.parent].centroid);
+        ends.push_back(tree_node.centroid);
+        radii.push_back(std::max(tree_node.radius, 0.01));
+      }
+    }
+    DebugDraw::instance()->drawLines(starts, ends);
+    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
+  }
 
 
   // generate children links

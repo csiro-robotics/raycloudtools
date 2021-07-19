@@ -15,10 +15,9 @@ namespace ray
 {
 struct TreesNode
 {
-  TreesNode() : centroid(0,0,0), radius(0), num_points(0), parent(-1), id(-1), min_dist_from_ground(0.0) {}
+  TreesNode() : centroid(0,0,0), radius(0), parent(-1), id(-1), min_dist_from_ground(0.0) {}
   Eigen::Vector3d centroid;
   double radius;
-  int num_points;
   int parent;
   int id; // 0 based per tree
   double min_dist_from_ground;
