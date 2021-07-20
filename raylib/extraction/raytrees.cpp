@@ -202,9 +202,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
   // now trace from root tree nodes upwards, getting node centroids
   // a tree_node is a segment, and these are added as we iterate through the list
   for (size_t sec = 0; sec < sections.size(); sec++)
-  {
-    for (size_t i = 0; i<points.size(); i++)
-      points[i].visited = false;   
+  {   
     double thickness = node_separation;
     if (sections[sec].parent >= 0)
       thickness = 4.0*sections[sections[sec].parent].radius;
@@ -217,24 +215,16 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     {
       nodes = sections[sec].roots;
       // 1. find all the points in this tree node:
-      for (size_t i = 0; i<points.size(); i++)
-        points[i].visited = false;  
       for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
       {
         int i = nodes[ijk];
-        if (points[i].visited)
-          continue;
-        points[i].visited = true;
         for (auto &child: children[i])
         {
-          if (points[child].visited)
-            continue;
           if (points[child].distance_to_ground < max_dist_from_ground) // in same slot, so accumulate
             nodes.push_back(child); // so we recurse on this child too
           else 
           {
             sections[sec].ends.push_back(child); 
-            points[child].visited = true;
           }
         }
       }
