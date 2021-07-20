@@ -21,13 +21,14 @@ struct QueueNode
   int id;
 };
 
-//#define MINIMISE_SCORE // currently the square of distance
+//#define MINIMISE_SQUARE_DISTANCE // bad: end points are so distant that it creates separate branches
+//#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
 class QueueNodeComparator 
 { 
 public: 
     bool operator() (const QueueNode &p1, const QueueNode &p2) 
     { 
-#if defined MINIMISE_SCORE
+#if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
         return p1.score > p2.score; 
 #else
         return p1.distance_to_ground > p2.distance_to_ground; 
@@ -131,14 +132,28 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
-        #if defined MINIMISE_SCORE
-        if (node.score + dists2(i, node.id) < points[child].score)
+        double new_dist = node.distance_to_ground + dists(i, node.id);
+        double new_score = 0;
+        #if defined MINIMISE_SQUARE_DISTANCE
+        new_score = node.score + dists2(i, node.id);
+        if (new_score < points[child].score)
+        #elif defined MINIMISE_ANGLE
+        Eigen::Vector3d dif = points[child].pos - points[node.id].pos;
+        Eigen::Vector3d dir(0,0,1);
+        if (points[node.id].parent != -1)
+          dir = (points[node.id].pos - points[points[node.id].parent].pos).normalized();
+        double d = dif.norm();
+        dif /= d;
+        const double power = 2.0;
+        double dist = d / std::pow(std::max(0.001, dif.dot(dir)), power);
+        new_score = node.score + dist;
+        if (new_score < points[child].score)
         #else
-        if (node.distance_to_ground + dists(i, node.id) < points[child].distance_to_ground)
+        if (new_dist < points[child].distance_to_ground)
         #endif
         {
-					points[child].score = node.score + dists2(i, node.id);
-					points[child].distance_to_ground = node.distance_to_ground + dists(i, node.id);
+					points[child].score = new_score;
+					points[child].distance_to_ground = new_dist;
           points[child].parent = node.id;
 					closest_node.push(QueueNode(points[child].distance_to_ground, points[child].score, child));
 				}
@@ -316,12 +331,6 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       if (verbose)
         std::cout << "extract from ends, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
     }
-    if (nodes.size() == 0)
-    {
-      if (verbose)
-        std::cout << "bad node size zero" << std::endl;
-      continue;
-    }
     // Finally we have it, a set of nodes from which to get a centroid and radius estimation
 
     // find points in this segment, and the root points for the child segment
@@ -330,80 +339,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       centroid += points[i].pos;
     if (nodes.size() > 0)
       centroid /= (double)nodes.size();
-
-    // TODO: draw the ends points, in one colour each...
-    if (verbose && sec == -1) // temporary code to debug individual junctions
-    {
-      double s = (double)(sec%5) / 8.0;
-      for (auto &i: nodes)
-      {
-        end_points.push_back(points[i].pos);
-        end_shades.push_back(s);
-      }    
-      for (auto &i: sections[sec].ends)
-      {
-        end_points.push_back(points[i].pos + Eigen::Vector3d(0,0,0.02));
-        end_shades.push_back(1.0);
-      }
-      for (auto &i: sections[sec].roots)
-      {
-        end_points.push_back(points[i].pos - Eigen::Vector3d(0,0,0.02));
-        end_shades.push_back(0.0);
-      }      
-      DebugDraw::instance()->drawCloud(end_points, end_shades, 0);
-      // 1. go up from roots:
-      std::vector<Eigen::Vector3d> starts;
-      std::vector<Eigen::Vector3d> ends;
-      for (auto &root: sections[sec].roots)
-      {
-        std::vector<int> nds(1);
-        nds[0] = root;
-        for (unsigned int ijk = 0; ijk<nds.size(); ijk++)
-        {
-          int i = nds[ijk];
-          for (auto &child: children[i])
-          {
-            if (points[child].distance_to_ground < max_dist_from_ground) // in same slot, so accumulate
-            {
-              starts.push_back(points[nds.back()].pos);
-              ends.push_back(points[child].pos);
-              nds.push_back(child); // so we recurse on this child too
-            }
-          }
-        }
-      }
-      DebugDraw::instance()->drawLines(starts, ends);
-      // 2. go back from ends:
-      starts.clear();
-      ends.clear();
-      for (auto &end: sections[sec].ends)
-      {
-        std::vector<int> nds;
-        nds.push_back(end);
-        int node = points[end].parent;
-        if (node == -1)
-        {
-          continue;
-        }
-        while (node != -1)
-        {
-          if (std::find(nds.begin(), nds.end(), node) != nds.end())
-            break;
-          if (nds.size() > 0)
-          {
-            starts.push_back(points[nds.back()].pos);
-            ends.push_back(points[node].pos);
-          }
-          nds.push_back(node);
-          if (std::find(sections[sec].roots.begin(), sections[sec].roots.end(), node) != sections[sec].roots.end())
-            break;
-          node = points[node].parent;
-        }
-      }      
-      DebugDraw::instance()->drawLines(starts, ends);
-    }
-
-    sections[sec].tip = centroid; // if there are no end points, then just use the mean of all the points in this section
+    sections[sec].tip = centroid; 
 
     Eigen::Vector3d dir(0,0,1);
     if (sections[sec].parent != -1)
