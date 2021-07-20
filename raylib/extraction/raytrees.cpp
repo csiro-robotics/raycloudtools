@@ -314,7 +314,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         }
       }
       if (verbose)
-        std::cout << "no roots, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
+        std::cout << "extract from ends, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
     }
     if (nodes.size() == 0)
     {
@@ -403,13 +403,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       DebugDraw::instance()->drawLines(starts, ends);
     }
 
-    sections[sec].tip.setZero();
-    for (auto &i: sections[sec].ends)
-      sections[sec].tip += points[i].pos;
-    if (sections[sec].ends.size() > 0)
-      sections[sec].tip /= (double)sections[sec].ends.size();
- //   else 
-      sections[sec].tip = centroid; // if there are no end points, then just use the mean of all the points in this section
+    sections[sec].tip = centroid; // if there are no end points, then just use the mean of all the points in this section
 
     Eigen::Vector3d dir(0,0,1);
     if (sections[sec].parent != -1)
