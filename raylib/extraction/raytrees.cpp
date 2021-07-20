@@ -179,7 +179,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         colours.push_back(col);
       }
     }
-  //  DebugDraw::instance()->drawLines(starts, ends, colours);
+    DebugDraw::instance()->drawLines(starts, ends, colours);
   }
 
   // 2c. generate skeletons. 
@@ -210,11 +210,12 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       thickness = 4.0*sections[sections[sec].parent].radius;
     double max_dist_from_ground = sections[sec].min_dist_from_ground + thickness;
 
-    std::vector<int> nodes = sections[sec].roots;
+    std::vector<int> nodes;
     std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
     bool extract_from_ends = sections[sec].ends.size() > 0;
     if (!extract_from_ends)
     {
+      nodes = sections[sec].roots;
       // 1. find all the points in this tree node:
       for (size_t i = 0; i<points.size(); i++)
         points[i].visited = false;  
@@ -275,7 +276,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           #else
           Eigen::Vector3d diff = points[i].pos - points[j].pos;
           #endif
-          if (diff.norm() < 1.75*sections[sec].radius)
+          if (diff.norm() < 2.0*sections[sec].radius)
           {
             new_ends.push_back(j);
             points[j].visited = true;
@@ -295,14 +296,13 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           if (std::find(new_ends.begin(), new_ends.end(), node) == new_ends.end())
             new_node.ends.push_back(node);
         }
-        sections.push_back(new_node);
         if (verbose)
           std::cout << "connected ends: " << new_ends.size() << " so new node " << sections.size() << " with " << new_node.ends.size() << " ends" << std::endl;
+        sections.push_back(new_node);
 
         sections[sec].ends = new_ends;
       }
     }
-
     if (extract_from_ends) // 4. we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
       for (auto &end: sections[sec].ends)
@@ -318,7 +318,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           if (std::find(nodes.begin(), nodes.end(), node) != nodes.end())
             break;
           nodes.push_back(node);
-          if (std::find(sections[sec].roots.begin(), sections[sec].roots.end(), node) != nodes.end())
+          if (std::find(sections[sec].roots.begin(), sections[sec].roots.end(), node) != sections[sec].roots.end())
             break;
           node = points[node].parent;
         }
@@ -342,12 +342,75 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       centroid /= (double)nodes.size();
 
     // TODO: draw the ends points, in one colour each...
-    srand(sec);
-    double s = (double)(rand()%1000) / 1000.0;
-    for (auto &i: sections[sec].ends)
+    if (verbose && sec == -1) // temporary code to debug individual junctions
     {
-      end_points.push_back(points[i].pos);
-      end_shades.push_back(s);
+      double s = (double)(sec%5) / 8.0;
+      for (auto &i: nodes)
+      {
+        end_points.push_back(points[i].pos);
+        end_shades.push_back(s);
+      }    
+      for (auto &i: sections[sec].ends)
+      {
+        end_points.push_back(points[i].pos + Eigen::Vector3d(0,0,0.02));
+        end_shades.push_back(1.0);
+      }
+      for (auto &i: sections[sec].roots)
+      {
+        end_points.push_back(points[i].pos - Eigen::Vector3d(0,0,0.02));
+        end_shades.push_back(0.0);
+      }      
+      DebugDraw::instance()->drawCloud(end_points, end_shades, 0);
+      // 1. go up from roots:
+      std::vector<Eigen::Vector3d> starts;
+      std::vector<Eigen::Vector3d> ends;
+      for (auto &root: sections[sec].roots)
+      {
+        std::vector<int> nds(1);
+        nds[0] = root;
+        for (unsigned int ijk = 0; ijk<nds.size(); ijk++)
+        {
+          int i = nds[ijk];
+          for (auto &child: children[i])
+          {
+            if (points[child].distance_to_ground < max_dist_from_ground) // in same slot, so accumulate
+            {
+              starts.push_back(points[nds.back()].pos);
+              ends.push_back(points[child].pos);
+              nds.push_back(child); // so we recurse on this child too
+            }
+          }
+        }
+      }
+      DebugDraw::instance()->drawLines(starts, ends);
+      // 2. go back from ends:
+      starts.clear();
+      ends.clear();
+      for (auto &end: sections[sec].ends)
+      {
+        std::vector<int> nds;
+        nds.push_back(end);
+        int node = points[end].parent;
+        if (node == -1)
+        {
+          continue;
+        }
+        while (node != -1)
+        {
+          if (std::find(nds.begin(), nds.end(), node) != nds.end())
+            break;
+          if (nds.size() > 0)
+          {
+            starts.push_back(points[nds.back()].pos);
+            ends.push_back(points[node].pos);
+          }
+          nds.push_back(node);
+          if (std::find(sections[sec].roots.begin(), sections[sec].roots.end(), node) != sections[sec].roots.end())
+            break;
+          node = points[node].parent;
+        }
+      }      
+      DebugDraw::instance()->drawLines(starts, ends);
     }
 
     sections[sec].tip.setZero();
@@ -355,7 +418,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       sections[sec].tip += points[i].pos;
     if (sections[sec].ends.size() > 0)
       sections[sec].tip /= (double)sections[sec].ends.size();
-    else 
+ //   else 
       sections[sec].tip = centroid; // if there are no end points, then just use the mean of all the points in this section
 
     Eigen::Vector3d dir(0,0,1);
