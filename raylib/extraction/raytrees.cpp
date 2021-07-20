@@ -22,7 +22,7 @@ struct QueueNode
 };
 
 //#define MINIMISE_SQUARE_DISTANCE // bad: end points are so distant that it creates separate branches
-//#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
+#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
 class QueueNodeComparator 
 { 
 public: 
@@ -132,20 +132,21 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
+        double dist = dists(i, node.id);
         double new_dist = node.distance_to_ground + dists(i, node.id);
         double new_score = 0;
         #if defined MINIMISE_SQUARE_DISTANCE
-        new_score = node.score + dists2(i, node.id);
-        if (new_score < points[child].score)
-        #elif defined MINIMISE_ANGLE
-        Eigen::Vector3d dif = points[child].pos - points[node.id].pos;
+        dist *= dist;
+        #endif
+        #if defined MINIMISE_ANGLE
+        Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
         Eigen::Vector3d dir(0,0,1);
         if (points[node.id].parent != -1)
           dir = (points[node.id].pos - points[points[node.id].parent].pos).normalized();
-        double d = dif.norm();
-        dif /= d;
-        const double power = 2.0;
-        double dist = d / std::pow(std::max(0.001, dif.dot(dir)), power);
+        const double power = 4.0;
+        dist /= std::pow(std::max(0.001, dif.dot(dir)), power);
+        #endif
+        #if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
         new_score = node.score + dist;
         if (new_score < points[child].score)
         #else
@@ -281,7 +282,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           #else
           Eigen::Vector3d diff = points[i].pos - points[j].pos;
           #endif
-          if (diff.norm() < 2.0*sections[sec].radius)
+          if (diff.norm() < 3.0*sections[sec].radius)
           {
             new_ends.push_back(j);
             points[j].visited = true;
@@ -353,7 +354,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       Eigen::Vector3d p = offset - dir*offset.dot(dir);
       rad += p.squaredNorm();
     }
-    if (nodes.size() > 4 || sections[sec].parent == -1)
+    if (nodes.size() > 5 || sections[sec].parent == -1)
     {
       rad /= (double)nodes.size();
       sections[sec].radius = std::sqrt(rad);
@@ -365,7 +366,10 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     }
 
     if (sections[sec].parent != -1)
+    {
       sections[sec].radius = std::min(sections[sec].radius, sections[sections[sec].parent].radius);
+      sections[sec].radius = std::max(sections[sec].radius, 0.7*sections[sections[sec].parent].radius);
+    }
 
     // now add the single child for this particular tree node, assuming there are still ends
     if (sections[sec].ends.size() > 0)
