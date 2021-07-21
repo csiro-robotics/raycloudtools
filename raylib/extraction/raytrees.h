@@ -15,12 +15,11 @@ namespace ray
 {
 struct BranchSection
 {
-  BranchSection() : tip(0,0,0), radius(0), parent(-1), id(-1), min_dist_from_ground(0.0) {}
+  BranchSection() : tip(0,0,0), radius(0), parent(-1), id(-1) {}
   Eigen::Vector3d tip;
   double radius;
   int parent;
   int id; // 0 based per tree
-  double min_dist_from_ground;
   std::vector<int> roots; // root points
   std::vector<int> ends;
   std::vector<int> children;
@@ -28,7 +27,7 @@ struct BranchSection
 
 struct Trees
 {
-  Trees(const Cloud &cloud, bool verbose);
+  Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, bool verbose);
   bool save(const std::string &filename);
   std::vector<BranchSection> sections;
   std::vector<int> root_nodes;

@@ -23,7 +23,7 @@ void usage(bool error=false)
   std::cout << "Extract feature into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayextract trunks cloud.ply                 - estimate tree trunks and save to text file" << std::endl;
-  std::cout << "rayextract trees cloud.ply                  - estimate trees and save to text file" << std::endl;
+  std::cout << "rayextract trees cloud.ply cloud_trunks.txt - estimate trees using trunks as seeds, and save to text file" << std::endl;
   std::cout << "rayextract forest cloud.ply ground_mesh.ply - extracts tree locations to file, using a supplied ground mesh" << std::endl;
   std::cout << "                         --tree_roundness 2 - 1: willow, 0.5: birch, 0.2: pine (length per crown radius)." << std::endl;
   std::cout << std::endl;
@@ -37,14 +37,14 @@ void usage(bool error=false)
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
-  ray::FileArgument cloud_file, mesh_file;
+  ray::FileArgument cloud_file, mesh_file, trunks_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
   ray::OptionalKeyValueArgument roundness_option("tree_roundness", 't', &tree_roundness);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&verbose});
-  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file}, {&verbose});
+  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &trunks_file}, {&verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file, &mesh_file}, {&roundness_option, &verbose});
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
@@ -66,7 +66,13 @@ int main(int argc, char *argv[])
   }
   else if (extract_trees)
   {
-    ray::Trees trees(cloud, verbose.isSet());
+    std::vector<std::pair<Eigen::Vector3d, double> > trunks = ray::Wood::load(trunks_file.name());
+    if (trunks.empty())
+    {
+      std::cerr << "no trunks found in file: " << trunks_file.name() << std::endl;
+      usage(true);
+    }
+    ray::Trees trees(cloud, trunks, verbose.isSet());
     trees.save(cloud_file.nameStub() + "_trees.txt");
   }
   else if (extract_forest)
