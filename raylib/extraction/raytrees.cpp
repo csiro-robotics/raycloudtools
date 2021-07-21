@@ -21,7 +21,7 @@ struct QueueNode
   int id;
 };
 
-//#define MINIMISE_SQUARE_DISTANCE // bad: end points are so distant that it creates separate branches
+#define MINIMISE_SQUARE_DISTANCE // bad: end points are so distant that it creates separate branches
 #define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
 class QueueNodeComparator 
 { 
@@ -222,7 +222,13 @@ Trees::Trees(const Cloud &cloud, bool verbose)
     double thickness = node_separation;
     if (sections[sec].parent >= 0)
       thickness = 4.0*sections[sections[sec].parent].radius;
-    double max_dist_from_ground = sections[sec].min_dist_from_ground + thickness;
+    double thickness_sqr = thickness*thickness;
+    Eigen::Vector3d base(0,0,0);
+    for (auto &root: sections[sec].roots)
+      base += points[root].pos;
+    base /= (double)sections[sec].roots.size();
+
+  //  double max_dist_from_ground = sections[sec].min_dist_from_ground + thickness;
 
     std::vector<int> nodes;
     std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
@@ -236,7 +242,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
         int i = nodes[ijk];
         for (auto &child: children[i])
         {
-          if (points[child].distance_to_ground < max_dist_from_ground) // in same slot, so accumulate
+          if ((points[child].pos - base).squaredNorm() < thickness_sqr) // in same slot, so accumulate
             nodes.push_back(child); // so we recurse on this child too
           else 
           {
@@ -268,14 +274,14 @@ Trees::Trees(const Cloud &cloud, bool verbose)
           #if defined DIRECTED_DIFF
           if (points[i].parent == -1 && points[j].parent == -1)
             std::cout << "something went wrong, end points should always have a parent" << std::endl;
-          double dist1i = points[i].distance_to_ground;
-          double dist0i = points[points[i].parent].distance_to_ground;
-          double blendi = (max_dist_from_ground - dist0i) / (dist1i - dist0i);
+          double dist1i = (points[i].pos - base).norm();
+          double dist0i = (points[points[i].parent].pos - base).norm();
+          double blendi = (thickness - dist0i) / (dist1i - dist0i);
           Eigen::Vector3d posi = points[points[i].parent].pos*(1.0-blendi) + points[i].pos*blendi;
 
-          double dist1j = points[j].distance_to_ground;
-          double dist0j = points[points[j].parent].distance_to_ground;
-          double blendj = (max_dist_from_ground - dist0j) / (dist1j - dist0j);
+          double dist1j = (points[j].pos - base).norm();
+          double dist0j = (points[points[j].parent].pos - base).norm();
+          double blendj = (thickness - dist0j) / (dist1j - dist0j);
           Eigen::Vector3d posj = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
 
           Eigen::Vector3d diff = posi - posj;
@@ -378,7 +384,7 @@ Trees::Trees(const Cloud &cloud, bool verbose)
       new_node.parent = (int)sec;
       new_node.roots = sections[sec].ends;
       new_node.radius = sections[sec].radius;
-      new_node.min_dist_from_ground = max_dist_from_ground; // this is the only problem for 1-section-per-point... may affect something
+  //    new_node.min_dist_from_ground = max_dist_from_ground; // this is the only problem for 1-section-per-point... may affect something
       sections.push_back(new_node);
     }    
   }

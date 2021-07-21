@@ -193,6 +193,7 @@ void TreeGen::generateRays(double ray_density)
     Branch &parent_branch = branches_[branch.parent_index];
     double area = (branch.tip - parent_branch.tip).norm() * 2.0 * kPi * (branch.radius + parent_branch.radius) /
                   2.0;  // slightly approximate
+    area *= random(0.25, 1.0);
     cumulative_size[i] = cumulative_size[i - 1] + area;
   }
 
