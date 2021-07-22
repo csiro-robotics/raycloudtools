@@ -57,6 +57,29 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
     if (cloud.rayBounded(i))
       points.push_back(Vertex(cloud.ends[i]));
+
+	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
+  for (auto &trunk: trunks)
+  {
+    // find the lowest point in this trunk and put it a bit lower:
+    double min_height = 1e10;
+    for (auto &point: points)
+    {
+      Eigen::Vector3d dif = point.pos - trunk.first;
+      dif[2] = 0.0;
+      if (dif.squaredNorm() < 2.0*trunk.second*trunk.second)
+        min_height = std::min(min_height, point.pos[2]);
+    }
+    Eigen::Vector3d root(trunk.first[0], trunk.first[1], min_height - trunk.second);
+    BranchSection base;
+    base.radius = trunk.second;
+    closest_node.push(QueueNode(0, 0, base.radius, (int)points.size()));
+    base.roots.push_back((int)points.size());
+    points.push_back(Vertex(root));
+    points.back().distance_to_ground = 0;
+    points.back().score = 0;
+    sections.push_back(base);
+  }
   if (verbose)
   {
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
@@ -80,10 +103,9 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     for (int j = 0; j<dists2.cols(); j++)
       dists(i, j) = std::sqrt(dists(i,j));
   }
-	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
   // 2. go through the trunks and find points within them
-  int cc = 0;
+ /* int cc = 0;
   for (auto &trunk: trunks)
   {
     double radius = trunk.second * 2.0;
@@ -142,7 +164,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       closest_node.push(QueueNode(0, 0, radius, ground_id));
     }
     std::cout << "trunk " << cc++ << " ground points: " << ground_points.size() << std::endl;
-  }
+  }*/
 
   
   // 2b. climb up from lowest points...
@@ -186,7 +208,6 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
 		}
 	}
 
-  const double node_separation = 0.16;
   if (verbose)
   {
     std::vector<Eigen::Vector3d> starts;
@@ -198,7 +219,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       {
         starts.push_back(points[points[i].parent].pos);
         ends.push_back(points[i].pos);
-        int slot = (int)(points[i].distance_to_ground / node_separation);
+        int slot = (int)(points[i].distance_to_ground / 0.2);
         srand(slot);
         Eigen::Vector3d col;
         col[0] = (double)(rand()%1000)/1000.0;
@@ -227,7 +248,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   // a tree_node is a segment, and these are added as we iterate through the list
   for (size_t sec = 0; sec < sections.size(); sec++)
   {   
-    double thickness = node_separation;
+    double thickness = 4.0*sections[sec].radius;
     if (sections[sec].parent >= 0)
       thickness = 4.0*sections[sections[sec].parent].radius;
     double thickness_sqr = thickness*thickness;
@@ -319,8 +340,9 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         if (verbose)
           std::cout << "connected ends: " << new_ends.size() << " so new node " << sections.size() << " with " << new_node.ends.size() << " ends" << std::endl;
         
-        if (sections[sec].parent == -1 || sections[sections[sec].parent].parent == -1) // special case to avoid downwards node...
+        if (false) // base[2] < 1.0) // sections[sec].parent == -1 || sections[sections[sec].parent].parent == -1) // special case to avoid downwards node...
         {
+          double mid_height = base[2] + thickness*0.75;
           double lowest = 1e10;
           for (auto &end: new_ends)
             lowest = std::min(lowest, points[end].pos[2]);
@@ -328,15 +350,15 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           for (auto &end: new_node.ends)
             lowest2 = std::min(lowest2, points[end].pos[2]);
 
-          if (lowest < base[2]) // oh dear
+          if (lowest < mid_height) // oh dear
           {
             // we can't use this node, so replace it with new_node
-            if (lowest2 < base[2])
+            if (lowest2 < mid_height)
               std::cout << "oh dear, both branches are pointing down!" << std::endl;
             std::cout << "current section pointing down, so use the other section instead" << std::endl;
             sections[sec] = new_node;
           }
-          else if (lowest2 > base[2])
+          else if (lowest2 > mid_height)
             sections.push_back(new_node);
           else 
             std::cout << "other section pointing down, so don't add it" << std::endl;
