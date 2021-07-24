@@ -216,67 +216,69 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       }
       if (verbose)
         std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
-    }
-    // TODO: what if we have found 0 ends here? i.e. the end of the branch...?
-    if (sections[sec].ends.size() > 1)
-    {
-      #define DIRECTED_DIFF // interpolates each point so it is exactly at max_distance, to avoid spurious splitting
-        
+    
+      std::vector<int> all_ends = sections[sec].ends;
       // 2. do floodfill on child roots to find if we have separate branches
       for (size_t i = 0; i<points.size(); i++)
         points[i].visited = false;   
-      std::vector<int> new_ends;
-      new_ends.push_back(sections[sec].ends[0]);
-      for (size_t ijk = 0; ijk<new_ends.size(); ijk++)
+      int cc = -1;
+      for (auto &end: all_ends)
       {
-        int i = new_ends[ijk];
-        points[i].visited = true;
-        for (auto &j: sections[sec].ends)
+        cc++;
+        #define DIRECTED_DIFF // interpolates each point so it is exactly at max_distance, to avoid spurious splitting
+        if (points[end].visited)
+          continue;        
+        std::vector<int> new_ends;
+        new_ends.push_back(end);
+        for (size_t ijk = 0; ijk<new_ends.size(); ijk++)
         {
-          if (points[j].visited)
-            continue;
-          #if defined DIRECTED_DIFF
-          if (points[i].parent == -1 && points[j].parent == -1)
-            std::cout << "something went wrong, end points should always have a parent" << std::endl;
-          double dist1i = (points[i].pos - base).norm();
-          double dist0i = (points[points[i].parent].pos - base).norm();
-          double blendi = (thickness - dist0i) / (dist1i - dist0i);
-          Eigen::Vector3d posi = points[points[i].parent].pos*(1.0-blendi) + points[i].pos*blendi;
-
-          double dist1j = (points[j].pos - base).norm();
-          double dist0j = (points[points[j].parent].pos - base).norm();
-          double blendj = (thickness - dist0j) / (dist1j - dist0j);
-          Eigen::Vector3d posj = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
-
-          Eigen::Vector3d diff = posi - posj;
-          #else
-          Eigen::Vector3d diff = points[i].pos - points[j].pos;
-          #endif
-          if (diff.norm() < 3.0*sections[sec].radius)
+          int i = new_ends[ijk];
+          points[i].visited = true;
+          for (auto &j: all_ends)
           {
-            new_ends.push_back(j);
-            points[j].visited = true;
-          }
-        }        
-      }
+            if (points[j].visited)
+              continue;
+            #if defined DIRECTED_DIFF
+            if (points[i].parent == -1 && points[j].parent == -1)
+              std::cout << "something went wrong, end points should always have a parent" << std::endl;
+            double dist1i = (points[i].pos - base).norm();
+            double dist0i = (points[points[i].parent].pos - base).norm();
+            double blendi = (thickness - dist0i) / (dist1i - dist0i);
+            Eigen::Vector3d posi = points[points[i].parent].pos*(1.0-blendi) + points[i].pos*blendi;
 
-      if (new_ends.size() < sections[sec].ends.size()) // 3. if we are splitting then split and remove roots
-      {
-        extract_from_ends = true;
-        nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
+            double dist1j = (points[j].pos - base).norm();
+            double dist0j = (points[points[j].parent].pos - base).norm();
+            double blendj = (thickness - dist0j) / (dist1j - dist0j);
+            Eigen::Vector3d posj = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
 
-        BranchSection new_node = sections[sec];
-        new_node.ends.clear();
-        for (auto &node: sections[sec].ends)
-        {
-          if (std::find(new_ends.begin(), new_ends.end(), node) == new_ends.end())
-            new_node.ends.push_back(node);
+            Eigen::Vector3d diff = posi - posj;
+            #else
+            Eigen::Vector3d diff = points[i].pos - points[j].pos;
+            #endif
+            if (diff.norm() < 3.0*sections[sec].radius)
+            {
+              new_ends.push_back(j);
+              points[j].visited = true;
+            }
+          }        
         }
-        if (verbose)
-          std::cout << "connected ends: " << new_ends.size() << " so new node " << sections.size() << " with " << new_node.ends.size() << " ends" << std::endl;
-        
-        sections.push_back(new_node);
-        sections[sec].ends = new_ends;
+        if (new_ends.size() < all_ends.size()) // 3. if we are splitting then split and remove roots
+        {
+          if (end == all_ends[0]) // if first clique
+          {
+            std::cout << "first branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
+            extract_from_ends = true;
+            nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
+            sections[sec].ends = new_ends;
+          }
+          else
+          {
+            std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
+            BranchSection new_node = sections[sec];
+            new_node.ends = new_ends;
+            sections.push_back(new_node);
+          }
+        }
       }
     }
     if (extract_from_ends) // 4. we have split the ends, so we need to extract the set of nodes in a backwards manner
