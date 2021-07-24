@@ -185,9 +185,26 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   // a tree_node is a segment, and these are added as we iterate through the list
   for (size_t sec = 0; sec < sections.size(); sec++)
   {   
+    // 1. Apply Leonardo's rule
+    const double radius_change_scale = 1.1; // we're allowed to scale the total radius slightly each section
+    int par = sections[sec].parent;
+    if (par != -1 && sections[par].parent != -1) 
+    {
+      double rad = sections[sections[par].parent].radius;
+      double child_rad = 0.0;
+      for (auto &child: sections[sections[par].parent].children)
+        child_rad += sqr(sections[child].radius);
+      child_rad = std::sqrt(child_rad);
+      rad = std::max(rad/radius_change_scale, std::min(child_rad, rad*radius_change_scale)); // try to head some way towards child_rad
+      double scale = rad / child_rad;
+      std::cout << "parent parent r " << rad << " has " << sections[sections[par].parent].children.size() << " children r " << child_rad << std::endl;
+      for (auto &child: sections[sections[par].parent].children) // normalise children radii. Doesn't matter if we do this multiple times
+        sections[child].radius *= scale;
+    }
     double thickness = 4.0*sections[sec].radius;
     if (sections[sec].parent >= 0)
       thickness = 4.0*sections[sections[sec].parent].radius;
+
     double thickness_sqr = thickness*thickness;
     Eigen::Vector3d base(0,0,0);
     for (auto &root: sections[sec].roots)
@@ -276,6 +293,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
             std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
             BranchSection new_node = sections[sec];
             new_node.ends = new_ends;
+            sections[new_node.parent].children.push_back((int)sections.size());
             sections.push_back(new_node);
           }
         }
@@ -350,6 +368,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       new_node.parent = (int)sec;
       new_node.roots = sections[sec].ends;
       new_node.radius = sections[sec].radius;
+      sections[sec].children.push_back((int)sections.size());
       sections.push_back(new_node);
     }    
   }
@@ -385,12 +404,10 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
 
 
   // generate children links
-  for (unsigned int i = 0; i<sections.size(); i++)
+/*  for (unsigned int i = 0; i<sections.size(); i++)
   {
-    if (sections[i].parent >= 0)
-    {
+    if (sections[i].parent == -1)
       sections[sections[i].parent].children.push_back(i);
-    }
     else if (sections[i].parent == -2)
       root_nodes.push_back(i);
   }
@@ -406,7 +423,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       for (auto i: sections[children[c]].children)
         children.push_back(i);
     }
-  }
+  }*/
 }
 
 bool Trees::save(const std::string &filename)
