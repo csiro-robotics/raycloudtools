@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
       box_min *= forest_ground_multiplier; // for a forest, we need a larger ground 
       box_max *= forest_ground_multiplier;
     }
-    if (!from_file)
+ /*   if (!from_file)
     {
       int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
       for (int i = 0; i < num; i++)
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
         cloud.times.push_back(time);
         time += time_delta;
       }
-    }
+    }*/
     colourByTime(cloud.times, cloud.colours);
   }
   else if (type == "terrain")
