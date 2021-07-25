@@ -124,7 +124,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         Eigen::Vector3d dir(0,0,1);
         if (points[node.id].parent != -1)
           dir = (points[node.id].pos - points[points[node.id].parent].pos).normalized();
-        const double power = 4.0;
+        const double power = 2.0;
         dist /= std::pow(std::max(0.001, dif.dot(dir)), power);
         #endif
         dist /= node.radius;
@@ -396,13 +396,9 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       {
         if ((sections[tree_node.parent].tip - tree_node.tip).norm() < 0.001)
           continue;
-        if (sections[tree_node.parent].tip.norm() < 0.1)
-          continue;
-        if (tree_node.tip.norm() < 0.1)
-          continue;
         starts.push_back(sections[tree_node.parent].tip);
         ends.push_back(tree_node.tip);
-        radii.push_back(std::max(tree_node.radius, 0.01));
+        radii.push_back(tree_node.radius);
       }
     }
 
