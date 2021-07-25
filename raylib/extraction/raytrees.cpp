@@ -217,7 +217,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     if (!extract_from_ends)
     {
       nodes = sections[sec].roots;
-      // 1. find all the points in this tree node:
+      // 2. find all the points in this section:
       for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
       {
         int i = nodes[ijk];
@@ -235,7 +235,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
     
       std::vector<int> all_ends = sections[sec].ends;
-      // 2. do floodfill on child roots to find if we have separate branches
+      // 3. do floodfill on child roots to find if we have separate branches
       for (size_t i = 0; i<points.size(); i++)
         points[i].visited = false;   
       int cc = -1;
@@ -279,7 +279,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
             }
           }        
         }
-        if (new_ends.size() < all_ends.size()) // 3. if we are splitting then split and remove roots
+        if (new_ends.size() < all_ends.size()) // 4. if we are splitting then split and remove roots
         {
           if (end == all_ends[0]) // if first clique
           {
@@ -299,7 +299,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         }
       }
     }
-    if (extract_from_ends) // 4. we have split the ends, so we need to extract the set of nodes in a backwards manner
+    if (extract_from_ends) // 5. we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
       for (auto &end: sections[sec].ends)
       {
@@ -332,9 +332,13 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       centroid /= (double)nodes.size();
     sections[sec].tip = centroid; 
 
-    Eigen::Vector3d dir(0,0,1);
-    if (sections[sec].parent != -1)
-      dir = (sections[sec].tip - sections[sections[sec].parent].tip).normalized();
+    Eigen::Vector3d dir(0,0,1), prevdir(0,0,1);
+    if (par != -1)
+    {
+      dir = (sections[sec].tip - sections[par].tip).normalized();
+      if (sections[par].parent != -1)
+        prevdir = (sections[par].tip - sections[sections[par].parent].tip).normalized();
+    }
     
     // use the section centroid for estimating the radius
     double rad = 0.0;
@@ -344,7 +348,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       Eigen::Vector3d p = offset - dir*offset.dot(dir);
       rad += p.squaredNorm();
     }
-    if (nodes.size() > 5 || sections[sec].parent == -1)
+    if (nodes.size() > 5)
     {
       rad /= (double)nodes.size();
       sections[sec].radius = std::sqrt(rad);
@@ -353,12 +357,14 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     else
     {
       sections[sec].radius = sections[sections[sec].parent].radius;
-    }
-
-    if (sections[sec].parent != -1)
-    {
-      sections[sec].radius = std::min(sections[sec].radius, sections[sections[sec].parent].radius);
-      sections[sec].radius = std::max(sections[sec].radius, 0.7*sections[sections[sec].parent].radius);
+      if (extract_from_ends) // multi-branching and not enough nodes for a reliable estimate... what do we do? use branch angle
+      {
+        sections[sec].radius *= 0.707;
+        /*
+        double sin_angle = dir.cross(prevdir).norm();
+        std::cout << "not enough radius info on split, so using lateral change: " << sin_angle << " giving radius scale: " << 1.0/std::sqrt(1.0 + 2.0*sin_angle) << std::endl;
+        sections[sec].radius /= std::sqrt(1.0 + 2.0*sin_angle); // increase the coefficient for more angle sensitivity */
+      }
     }
 
     // now add the single child for this particular tree node, assuming there are still ends
@@ -398,6 +404,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         radii.push_back(std::max(tree_node.radius, 0.01));
       }
     }
+
     DebugDraw::instance()->drawLines(starts, ends);
     DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
   }
