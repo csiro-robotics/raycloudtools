@@ -185,6 +185,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   // a tree_node is a segment, and these are added as we iterate through the list
   for (size_t sec = 0; sec < sections.size(); sec++)
   {   
+    if (!(sec%1000))
+      std::cout << "sec " << sec << std::endl;
     // 1. Apply Leonardo's rule
     const double radius_change_scale = 1.1; // we're allowed to scale the total radius slightly each section
     int par = sections[sec].parent;
@@ -197,7 +199,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       child_rad = std::sqrt(child_rad);
       rad = std::max(rad/radius_change_scale, std::min(child_rad, rad*radius_change_scale)); // try to head some way towards child_rad
       double scale = rad / child_rad;
-      std::cout << "parent parent r " << rad << " has " << sections[sections[par].parent].children.size() << " children r " << child_rad << std::endl;
+   //   std::cout << "parent parent r " << rad << " has " << sections[sections[par].parent].children.size() << " children r " << child_rad << std::endl;
       for (auto &child: sections[sections[par].parent].children) // normalise children radii. Doesn't matter if we do this multiple times
         sections[child].radius *= scale;
     }
@@ -212,7 +214,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     base /= (double)sections[sec].roots.size();
 
     std::vector<int> nodes;
-    std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
+  //  std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
     bool extract_from_ends = sections[sec].ends.size() > 0;
     if (!extract_from_ends)
     {
@@ -231,13 +233,11 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           }
         }
       }
-      if (verbose)
-        std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
+ //     if (verbose)
+ //       std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
     
       std::vector<int> all_ends = sections[sec].ends;
       // 3. do floodfill on child roots to find if we have separate branches
-      for (size_t i = 0; i<points.size(); i++)
-        points[i].visited = false;   
       int cc = -1;
       for (auto &end: all_ends)
       {
@@ -283,14 +283,14 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         {
           if (end == all_ends[0]) // if first clique
           {
-            std::cout << "first branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
+    //        std::cout << "first branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
             extract_from_ends = true;
             nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
             sections[sec].ends = new_ends;
           }
           else
           {
-            std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
+     //       std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
             BranchSection new_node = sections[sec];
             new_node.ends = new_ends;
             sections[new_node.parent].children.push_back((int)sections.size());
@@ -319,8 +319,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           node = points[node].parent;
         }
       }
-      if (verbose)
-        std::cout << "extract from ends, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
+ //     if (verbose)
+ //       std::cout << "extract from ends, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
     }
     // Finally we have it, a set of nodes from which to get a centroid and radius estimation
 
