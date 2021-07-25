@@ -199,7 +199,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       child_rad = std::sqrt(child_rad);
       rad = std::max(rad/radius_change_scale, std::min(child_rad, rad*radius_change_scale)); // try to head some way towards child_rad
       double scale = rad / child_rad;
-      std::cout << "parent parent r " << rad << " has " << sections[sections[par].parent].children.size() << " children r " << child_rad << std::endl;
+//      std::cout << "parent parent r " << rad << " has " << sections[sections[par].parent].children.size() << " children r " << child_rad << std::endl;
       for (auto &child: sections[sections[par].parent].children) // normalise children radii. Doesn't matter if we do this multiple times
         sections[child].radius *= scale;
     }
@@ -214,7 +214,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     base /= (double)sections[sec].roots.size();
 
     std::vector<int> nodes;
-    std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
+ //   std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
     bool extract_from_ends = sections[sec].ends.size() > 0;
     if (!extract_from_ends)
     {
@@ -233,8 +233,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           }
         }
       }
-      if (verbose)
-        std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
+ //     if (verbose)
+ //       std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
     
       std::vector<int> all_ends = sections[sec].ends;
       // 3. do floodfill on child roots to find if we have separate branches
@@ -283,14 +283,14 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         {
           if (end == all_ends[0]) // if first clique
           {
-            std::cout << "first branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
+ //           std::cout << "first branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
             extract_from_ends = true;
             nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
             sections[sec].ends = new_ends;
           }
           else
           {
-            std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
+ //           std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
             BranchSection new_node = sections[sec];
             new_node.ends = new_ends;
             sections[new_node.parent].children.push_back((int)sections.size());
@@ -319,8 +319,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           node = points[node].parent;
         }
       }
-      if (verbose)
-        std::cout << "extract from ends, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
+//      if (verbose)
+//        std::cout << "extract from ends, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
     }
     // Finally we have it, a set of nodes from which to get a centroid and radius estimation
 
@@ -352,7 +352,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     {
       rad /= (double)nodes.size();
       sections[sec].radius = std::sqrt(rad);
-      std::cout << "estimated radius: " << sections[sec].radius << std::endl;
+ //     std::cout << "estimated radius: " << sections[sec].radius << std::endl;
     }
     else
     {
@@ -363,7 +363,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
    //     sections[sec].radius *= 0.707;
         
         double sin_angle = dir.cross(prevdir).norm();
-        std::cout << "not enough radius info on split, so using lateral change: " << sin_angle << " giving radius scale: " << 1.0/std::sqrt(1.0 + 2.0*sin_angle) << std::endl;
+ //       std::cout << "not enough radius info on split, so using lateral change: " << sin_angle << " giving radius scale: " << 1.0/std::sqrt(1.0 + 2.0*sin_angle) << std::endl;
         sections[sec].radius /= std::sqrt(1.0 + 2.0*sin_angle); // increase the coefficient for more angle sensitivity 
       }
     }
