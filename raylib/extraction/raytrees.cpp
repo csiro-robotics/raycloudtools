@@ -82,7 +82,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   }
   if (verbose)
   {
-    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+ //   DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
   // 1. get nearest neighbours
@@ -97,12 +97,6 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   indices.resize(search_size, points.size());
   dists2.resize(search_size, points.size());
   nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
-  Eigen::MatrixXd dists = dists2;
-  for (int i = 0; i<dists2.rows(); i++)
-  {
-    for (int j = 0; j<dists2.cols(); j++)
-      dists(i, j) = std::sqrt(dists(i,j));
-  }
   
   // 2b. climb up from lowest points...
 	while(!closest_node.empty())
@@ -113,8 +107,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
-        double dist = dists(i, node.id);
-        double new_dist = node.distance_to_ground + dists(i, node.id)/node.radius;
+        double dist = std::sqrt(dists2(i, node.id));
+        double new_dist = node.distance_to_ground + dist/node.radius;
         double new_score = 0;
         #if defined MINIMISE_SQUARE_DISTANCE
         dist *= dist;
@@ -122,8 +116,14 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         #if defined MINIMISE_ANGLE
         Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
         Eigen::Vector3d dir(0,0,1);
-        if (points[node.id].parent != -1)
-          dir = (points[node.id].pos - points[points[node.id].parent].pos).normalized();
+        int ppar = points[node.id].parent;
+        if (ppar != -1)
+        {
+          if (points[ppar].parent != -1)
+            dir = (points[node.id].pos - points[points[ppar].parent].pos).normalized(); // this is a bit smoother than...
+          else
+            dir = (points[node.id].pos - points[ppar].pos).normalized();  // ..just this
+        }
         const double power = 2.0;
         dist /= std::pow(std::max(0.001, dif.dot(dir)), power);
         #endif
@@ -156,12 +156,10 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       {
         starts.push_back(points[points[i].parent].pos);
         ends.push_back(points[i].pos);
-        int slot = (int)(points[i].distance_to_ground / 0.2);
-        srand(slot);
         Eigen::Vector3d col;
-        col[0] = (double)(rand()%1000)/1000.0;
-        col[1] = (double)(rand()%1000)/1000.0;
-        col[2] = (double)(rand()%1000)/1000.0;
+        col[0] = std::fmod(points[i].score, 1.0);
+        col[1] = std::fmod(points[i].score/10.0,      1.0);
+        col[2] = std::fmod(points[i].score/100.0, 1.0);
         colours.push_back(col);
       }
     }
@@ -188,7 +186,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     if (!(sec%1000))
       std::cout << "sec " << sec << std::endl;
     // 1. Apply Leonardo's rule
-    const double radius_change_scale = 1.1; // we're allowed to scale the total radius slightly each section
+    const double radius_change_scale = 1.0; // 1.1; // we're allowed to scale the total radius slightly each section
     int par = sections[sec].parent;
     if (par != -1 && sections[par].parent != -1) 
     {
@@ -293,7 +291,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
  //           std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
             BranchSection new_node = sections[sec];
             new_node.ends = new_ends;
-            sections[new_node.parent].children.push_back((int)sections.size());
+            if (new_node.parent != -1)
+              sections[new_node.parent].children.push_back((int)sections.size());
             sections.push_back(new_node);
           }
         }
@@ -403,7 +402,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     }
 
     DebugDraw::instance()->drawLines(starts, ends);
-    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
+  //  DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
   }
 
 
