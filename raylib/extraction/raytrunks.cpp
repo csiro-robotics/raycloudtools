@@ -12,6 +12,36 @@
 namespace ray
 {
 #define LEAN
+namespace
+{
+struct Ray
+{
+  Ray(const Eigen::Vector3d &start, const Eigen::Vector3d &pos) : start(start), pos(pos) {}
+  Eigen::Vector3d start, pos;
+};
+
+struct Cell
+{
+  std::vector<Ray> rays;
+  Eigen::Vector2d minBound;
+  double height;
+};
+
+struct Accumulator
+{
+  Accumulator(): weight(0), x(0), abs_x(0), y(0,0), xy(0,0), x2(0), radius(0), radius2(0), z(0,0), xz(0,0) {}
+
+  double weight;
+  double x;
+  double abs_x;
+  Eigen::Vector2d y;
+  Eigen::Vector2d xy;
+  double x2;
+  double radius;
+  double radius2;
+  Eigen::Vector2d z;
+  Eigen::Vector2d xz;
+};
 
 Eigen::Vector2d vector2d(const Eigen::Vector3d &v)
 {
@@ -173,6 +203,7 @@ void getOverlap(const Grid<Trunk> &grid, const Trunk &trunk, std::vector<Trunk*>
       }
     }
   }
+}
 }
 
 Wood::Wood(const Cloud &cloud, double midRadius, bool verbose)

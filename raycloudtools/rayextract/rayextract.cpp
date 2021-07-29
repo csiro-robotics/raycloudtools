@@ -5,6 +5,7 @@
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
 #include "raylib/extraction/raytrunks.h"
+#include "raylib/extraction/raybranches.h"
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/rayforest.h"
 #include "raylib/extraction/raytrees.h"
@@ -24,6 +25,7 @@ void usage(bool error=false)
   std::cout << "Extract feature into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayextract trunks cloud.ply                 - estimate tree trunks and save to text file" << std::endl;
+  std::cout << "rayextract branches cloud.ply               - estimate tree branches and save to text file" << std::endl;
   std::cout << "rayextract trees cloud.ply cloud_trunks.txt - estimate trees using trunks as seeds, and save to text file" << std::endl;
   std::cout << "rayextract forest cloud.ply ground_mesh.ply - extracts tree locations to file, using a supplied ground mesh" << std::endl;
   std::cout << "                         --tree_roundness 2 - 1: willow, 0.5: birch, 0.2: pine (length per crown radius)." << std::endl;
@@ -36,7 +38,7 @@ void usage(bool error=false)
 }
 
 
-// Decimates the ray cloud, spatially or in time
+// extracts natural features from scene
 int main(int argc, char *argv[])
 {
 // #define TEST_CLUSTER
@@ -63,16 +65,17 @@ int main(int argc, char *argv[])
 #endif
 
   ray::FileArgument cloud_file, mesh_file, trunks_file;
-  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
+  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), branches("branches"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
   ray::OptionalKeyValueArgument roundness_option("tree_roundness", 't', &tree_roundness);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&verbose});
+  bool extract_branches = ray::parseCommandLine(argc, argv, {&branches, &cloud_file}, {&verbose});
   bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &trunks_file}, {&verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file, &mesh_file}, {&roundness_option, &verbose});
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
-  if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
+  if (!extract_trunks && !extract_branches && !extract_forest && !extract_terrain && !extract_trees)
     usage();  
   if (verbose.isSet())
   {
@@ -89,6 +92,12 @@ int main(int argc, char *argv[])
     ray::Wood woods(cloud, radius, verbose.isSet());
     woods.save(cloud_file.nameStub() + "_trunks.txt");
   }
+  else if (extract_branches)
+  {
+    const double radius = 0.15; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
+    ray::Bush woods(cloud, radius, verbose.isSet());
+    woods.save(cloud_file.nameStub() + "_trunks.txt");
+  }  
   else if (extract_trees)
   {
     std::vector<std::pair<Eigen::Vector3d, double> > trunks = ray::Wood::load(trunks_file.name());
