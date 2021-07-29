@@ -12,6 +12,7 @@
 #include "raylib/rayparse.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
+#include "raylib/extraction/rayclusters.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,9 +35,33 @@ void usage(bool error=false)
   exit(error);
 }
 
+
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
+// #define TEST_CLUSTER
+#if defined TEST_CLUSTER
+  ray::DebugDraw::init(argc, argv, "rayextract");
+  for (int j = 0; j<100; j++)
+  {
+    std::vector<Eigen::Vector3d> points;
+    int num = 1 + std::rand()%4;
+    for (int i = 0; i<num; i++)
+    {
+      Eigen::Vector3d centre((double)(std::rand()%1000)/1000.0, (double)(std::rand()%1000)/1000.0, (double)(std::rand()%1000)/1000.0);
+      int count = 1 + std::rand()%30;
+      for (int i = 0; i<count; i++)
+      {
+        Eigen::Vector3d offset((double)(std::rand()%1000)/3000.0, (double)(std::rand()%1000)/3000.0, (double)(std::rand()%1000)/3000.0);
+        points.push_back(centre + offset);
+      }
+    }
+    std::cout << "points size: " << points.size() << std::endl;
+    ray::generateClusters(points, 10.0, 0.35, true, true);
+  }
+  return 0;
+#endif
+
   ray::FileArgument cloud_file, mesh_file, trunks_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
