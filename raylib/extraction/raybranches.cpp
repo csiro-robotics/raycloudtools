@@ -256,7 +256,6 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
           Eigen::Vector3d to_point = points[i] - branch.centre;
           Eigen::Vector2d offset(to_point.dot(ax1), to_point.dot(ax2));
 
-          double dist = offset.norm();
           double w = 1.0 - dist/(branch.radius * boundary_radius_scale); // lateral fade off
           // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated branch centred on that edge
           //                If radius_removal_factor=1 then v thin branches may accidentally get a radius and it won't shrink down
