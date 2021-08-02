@@ -252,7 +252,7 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
 }
 
 void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
-                              const std::vector<double> &radii, int id)
+                              const std::vector<double> &radii, int id, const std::vector<Eigen::Vector4d> &colours)
 {
   visualization_msgs::MarkerArray marker_array;
   for (int i = 0; i < (int)starts.size(); i++)
@@ -273,10 +273,10 @@ void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const 
     }
     else
     {
-      marker.color.a = 0.5f;
-      marker.color.r = 0.5f;
-      marker.color.g = 0.3f;
-      marker.color.b = 0.4f;
+      marker.color.a = colours[i][3];
+      marker.color.r = colours[i][0];
+      marker.color.g = colours[i][1];
+      marker.color.b = colours[i][2];
     }
 
     Eigen::Vector3d dir = (starts[i] - ends[i]).normalized();

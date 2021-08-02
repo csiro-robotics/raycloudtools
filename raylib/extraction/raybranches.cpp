@@ -16,12 +16,13 @@ namespace
 {
 struct Branch
 {
-  Branch() : centre(0,0,0), radius(0), score(0), length(0), dir(0,0,0) {}
+  Branch() : centre(0,0,0), radius(0), score(0), length(0), dir(0,0,0), active(true) {}
   Eigen::Vector3d centre; 
   double radius;
   double score;
   double length; 
   Eigen::Vector3d dir;
+  bool active;
 };
 
 struct Accumulator
@@ -84,17 +85,28 @@ struct IntegerVoxels
   Eigen::Vector3d offset;
 };
 
+// Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
+const double minimum_score = 50.0; 
+
 void drawBranches(const std::vector<Branch> &branches)
 {
   std::vector<Eigen::Vector3d> starts(branches.size()), ends(branches.size());
   std::vector<double> radii(branches.size());
+  std::vector<Eigen::Vector4d> colours(branches.size());
   for (size_t i = 0; i<branches.size(); i++)
   {
-    starts[i] = branches[i].centre - branches[i].dir*branches[i].length*0.5;
-    ends[i] = branches[i].centre + branches[i].dir*branches[i].length*0.5;
-    radii[i] = branches[i].radius;
+    if (!branches[i].active)
+      continue;
+    starts.push_back(branches[i].centre - branches[i].dir*branches[i].length*0.5);
+    ends.push_back(branches[i].centre + branches[i].dir*branches[i].length*0.5);
+    radii.push_back(branches[i].radius);
+    double shade = std::min(branches[i].score / (2.0 * minimum_score), 1.0);
+    Eigen::Vector4d col(0,0,0,0.5);
+    col[0] = col[1] = shade;
+    col[2] = shade > 0.5 ? 1.0 : 0.0;
+    colours.push_back(col);
   }
-  DebugDraw::instance()->drawCylinders(starts, ends, radii, 1);
+  DebugDraw::instance()->drawCylinders(starts, ends, radii, 1, colours);
 }
 
 static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
@@ -105,7 +117,7 @@ void getOverlap(const Grid<Eigen::Vector3d> &grid, const Branch &branch, std::ve
   Eigen::Vector3d base = branch.centre - 0.5*branch.length*branch.dir;
   Eigen::Vector3d top = branch.centre + 0.5*branch.length*branch.dir;
   double outer_radius = branch.radius * boundary_radius_scale;
-  Eigen::Vector3d rad(outer_radius, outer_radius, 0);
+  Eigen::Vector3d rad(outer_radius, outer_radius, outer_radius);
   Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
 
   Eigen::Vector3i mins = ((cuboid.min_bound_ - grid.box_min) / grid.voxel_width).cast<int>();
@@ -125,12 +137,14 @@ void getOverlap(const Grid<Eigen::Vector3d> &grid, const Branch &branch, std::ve
         auto &cell = grid.cell(ind);
         for (auto &pos: cell.data)
         {
-          double h = pos[2] - branch.centre[2];
+          Eigen::Vector3d p = pos - branch.centre;
+          double h = p.dot(branch.dir);
           if (std::abs(h) > branch.length*0.5)
           {
             continue;
           }
-          double dist2 = (branch.centre - pos).squaredNorm();
+          p -= branch.dir*h;
+          double dist2 = p.squaredNorm();
           if (dist2 <= outer_radius*outer_radius)
           {
             points.push_back(pos);
@@ -146,13 +160,11 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
 {
   double spacing = cloud.estimatePointSpacing();
   
-  // Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
-  const double minimum_score = 50.0; 
   
   if (verbose)
   {
     std::cout << "av radius: " << midRadius << ", estimated point spacing: " << spacing << ", minimum score: " << minimum_score << std::endl;
-    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
+    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 1);
   }
 
   Eigen::Vector3d min_bound = cloud.calcMinBound();
@@ -210,23 +222,26 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
   }
   if (verbose)
   {
-    drawBranches(branches);
+//    drawBranches(branches);
   }  
   // 3. iterate every candidate several times
+  std::vector<Branch> best_branches = branches;
+  for (auto &branch: best_branches)
+    branch.active = false;
   const int num_iterations = 5;
   for (int it = 0; it<num_iterations; it++)
   {
     for (int branch_id = 0; branch_id < (int)branches.size(); branch_id++)
     {
       auto &branch = branches[branch_id];
+      if (!branch.active)
+        continue;
       // get overlapping points to this branch
       std::vector<Eigen::Vector3d> points;
       getOverlap(grid, branch, points);
       if (points.size() < min_num_points) // not enough data to use
       {
-        branches[branch_id] = branches.back(); // so remove the branch
-        branches.pop_back();
-        branch_id--;
+        branch.active = false;
         continue;
       }
 
@@ -246,6 +261,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
         continue;
       }
 
+
       // 1. estimate branch direction, and distance up the branch
       {
         Eigen::Vector3d ax1 = Eigen::Vector3d(1,2,3).cross(branch.dir).normalized();
@@ -255,8 +271,8 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
         {
           Eigen::Vector3d to_point = points[i] - branch.centre;
           Eigen::Vector2d offset(to_point.dot(ax1), to_point.dot(ax2));
-
-          double w = 1.0 - dist/(branch.radius * boundary_radius_scale); // lateral fade off
+          // const double dist = offset.norm();
+          double w = 1.0;//1.0 - dist/(branch.radius * boundary_radius_scale); // lateral fade off
           // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated branch centred on that edge
           //                If radius_removal_factor=1 then v thin branches may accidentally get a radius and it won't shrink down
           const double radius_removal_factor = 0.5;
@@ -272,7 +288,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
           sum.weight += w;      
         }
         double n = sum.weight;
-        branch.centre += branch.dir*(sum.x / n);
+     //   branch.centre += branch.dir*(sum.x / n); // in theory it moves towards a better spot, but in practice it gets rid of diversity of positions
 
         // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
         Eigen::Vector2d sXY = sum.xy - sum.x*sum.y/n;
@@ -345,33 +361,33 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
         double num_points = (double)points.size() - 4.0; // (double)min_num_points;
         double variance = (sum.radius2/n - sqr(sum.radius / n)) * n/num_points; // end part gives sample variance
         double density = num_points * sqr(spacing) / (2.0 * kPi * branch.radius * branch.length);
+        
         branch.score = std::sqrt(density / variance);
-    
-        if (it == num_iterations-1 && branch.score < minimum_score) // then remove the branch
-        {
-          branches[branch_id] = branches.back(); 
-          branches.pop_back();
-          branch_id--;
-          continue;        
-        }
+        if (branch.score > best_branches[branch_id].score) // got worse, so analyse the best result now
+          best_branches[branch_id] = branch;      
       }
       if (branch.radius > 0.5*branch.length || branch.length < midRadius) // not enough data to use
-      {
-        branches[branch_id] = branches.back(); // so remove the branch
-        branches.pop_back();
-        branch_id--;
-        continue;
-      }
+        branch.active = false;
     }
-    if (verbose)
+    if (verbose && it >= num_iterations-2)
     {
       drawBranches(branches);
       std::cout << "num branches: " << branches.size() << std::endl;
-    }  
+    } 
+  }
+  for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
+  {
+    if (!best_branches[branch_id].active || best_branches[branch_id].score < minimum_score) // then remove the branch
+    {
+      best_branches[branch_id] = best_branches.back(); 
+      best_branches.pop_back();
+      branch_id--;
+      continue;        
+    }    
   }
   if (verbose)
   {
-    drawBranches(branches);
+    drawBranches(best_branches);
   } 
 
 

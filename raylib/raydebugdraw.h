@@ -44,7 +44,7 @@ public:
   void drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
                  const std::vector<Eigen::Vector3d> &colours = std::vector<Eigen::Vector3d>());
   void drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
-                     const std::vector<double> &radii, int id);
+                     const std::vector<double> &radii, int id, const std::vector<Eigen::Vector4d> &colours = std::vector<Eigen::Vector4d>());
   void drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
                       const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id);
   void drawTrunks(const std::vector<Trunk> &points);
