@@ -9,18 +9,61 @@
 #include "raylib/raylibconfig.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
-
+#include <map>
 
 namespace ray
 {
-#define LENGTH
-
 struct Bush
 {
   Bush(const Cloud &cloud, double midRadius, bool verbose);
   bool save(const std::string &filename);
   static std::vector<std::pair<Eigen::Vector3d, double> > load(const std::string &filename);
-  std::vector<Trunk> trunk_bases;
+};
+
+struct IntegerVoxels
+{
+  IntegerVoxels(double width, const Eigen::Vector3d offset) : voxel_width(width), offset(offset) {}
+
+  inline Eigen::Vector3i getIndex(const Eigen::Vector3d &pos)
+  {
+    Eigen::Vector3d ind = (pos - offset) / voxel_width;
+    return Eigen::Vector3i(int(std::floor(ind[0])), int(std::floor(ind[1])), int(std::floor(ind[2])));
+  }
+  inline void increment(const Eigen::Vector3d &pos)
+  {
+    increment(getIndex(pos));
+  }
+  inline void increment(const Eigen::Vector3i &index)
+  {
+    auto it = voxel_map.find(index);
+    if (it == voxel_map.end())
+    {
+      voxel_map[index] = 1;
+    }
+    else
+    {
+      it->second++;
+    }
+  }
+  inline int get(const Eigen::Vector3i &index)
+  {
+    auto it = voxel_map.find(index);
+    if (it == voxel_map.end())
+      return 0;
+    else
+      return it->second;
+  }
+  void forEach(std::function<void(double width, const Eigen::Vector3d &offset, const Eigen::Vector3i &index, int count)> func)
+  {
+    for (auto &voxel: voxel_map)
+    {
+      func(voxel_width, offset, voxel.first, voxel.second);
+    }
+  }
+
+  std::map<Eigen::Vector3i, int, Vector3iLess> voxel_map;
+  double voxel_width;
+  Eigen::Vector3d offset;
 };
 
 
