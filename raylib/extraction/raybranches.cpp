@@ -192,17 +192,26 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
 Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
 {
   double spacing = cloud.estimatePointSpacing();
-  
   if (verbose)
   {
     std::cout << "av radius: " << midRadius << ", estimated point spacing: " << spacing << ", minimum score: " << minimum_score << std::endl;
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 1);
   }
-
   Eigen::Vector3d min_bound = cloud.calcMinBound();
   Eigen::Vector3d max_bound = cloud.calcMaxBound();
   std::cout << "cloud from: " << min_bound.transpose() << " to: " << max_bound.transpose() << std::endl;
 
+  std::vector<Branch> branches;
+
+  // Next I need a load/save system to help in optimising the tree generation 
+  std::ifstream input("branchdata.dat", std::ios::in);
+  if (input.good())
+  {
+    readPlainOldDataArray(input, branches);
+  }
+  else
+  {
+  
   // 1. voxel grid of points (an acceleration structure)
   const double voxel_width = midRadius * 2.0;
   Grid<Eigen::Vector3d> grid(min_bound, max_bound, voxel_width);
@@ -216,7 +225,6 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
   const int min_num_points = 6;
 
   // 2. initialise one branch candidate for each occupied voxel
-  std::vector<Branch> branches;
   initialiseBranches(branches, cloud, min_bound, voxel_width);
  
   // 3. iterate every candidate several times
@@ -288,6 +296,10 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
     drawBranches(branches);
     std::cout << "num non-overlapping branches: " << branches.size() << std::endl;
   } 
+  std::ofstream output("branchdata.dat", std::ios::out);
+  writePlainOldDataArray(output, branches);
+
+  }
 
   // Next a forest nearest path search
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
