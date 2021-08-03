@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
   }
   else if (extract_branches)
   {
-    const double radius = 0.05; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
+    const double radius = 0.1; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
     ray::Bush woods(cloud, radius, verbose.isSet());
     woods.save(cloud_file.nameStub() + "_trunks.txt");
   }  

@@ -86,7 +86,9 @@ struct IntegerVoxels
 };
 
 // Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
-const double minimum_score = 50.0; 
+static const double minimum_score = 40.0; 
+static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
+static const double boundary_radius_scale = 2.0; // how much farther out is the expected boundary compared to real branch radius? Larger requires more space to declare it a branch
 
 void drawBranches(const std::vector<Branch> &branches)
 {
@@ -109,14 +111,12 @@ void drawBranches(const std::vector<Branch> &branches)
   DebugDraw::instance()->drawCylinders(starts, ends, radii, 1, colours);
 }
 
-static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
-static const double boundary_radius_scale = 2.0; // how much farther out is the expected boundary compared to real branch radius? Larger requires more space to declare it a branch
 
-void getOverlap(const Grid<Eigen::Vector3d> &grid, const Branch &branch, std::vector<Eigen::Vector3d> &points)
+void getOverlap(const Grid<Eigen::Vector3d> &grid, const Branch &branch, std::vector<Eigen::Vector3d> &points, double spacing)
 {
   Eigen::Vector3d base = branch.centre - 0.5*branch.length*branch.dir;
   Eigen::Vector3d top = branch.centre + 0.5*branch.length*branch.dir;
-  double outer_radius = branch.radius * boundary_radius_scale;
+  double outer_radius = (branch.radius + spacing) * boundary_radius_scale;
   Eigen::Vector3d rad(outer_radius, outer_radius, outer_radius);
   Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
 
@@ -159,7 +159,6 @@ void getOverlap(const Grid<Eigen::Vector3d> &grid, const Branch &branch, std::ve
 Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
 {
   double spacing = cloud.estimatePointSpacing();
-  
   
   if (verbose)
   {
@@ -231,6 +230,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
   const int num_iterations = 5;
   for (int it = 0; it<num_iterations; it++)
   {
+    std::cout << "iteration " << it << " / " << num_iterations << " " << branches.size() << " branches" << std::endl;
     for (int branch_id = 0; branch_id < (int)branches.size(); branch_id++)
     {
       auto &branch = branches[branch_id];
@@ -238,7 +238,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
         continue;
       // get overlapping points to this branch
       std::vector<Eigen::Vector3d> points;
-      getOverlap(grid, branch, points);
+      getOverlap(grid, branch, points, spacing);
       if (points.size() < min_num_points) // not enough data to use
       {
         branch.active = false;
@@ -369,12 +369,11 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
       if (branch.radius > 0.5*branch.length || branch.length < midRadius) // not enough data to use
         branch.active = false;
     }
-    if (verbose && it >= num_iterations-2)
-    {
-      drawBranches(branches);
-      std::cout << "num branches: " << branches.size() << std::endl;
-    } 
   }
+  if (verbose)
+  {
+//    drawBranches(best_branches);
+  }   
   for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
   {
     if (!best_branches[branch_id].active || best_branches[branch_id].score < minimum_score) // then remove the branch
@@ -387,10 +386,98 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
   }
   if (verbose)
   {
+ //   drawBranches(best_branches);
+  } 
+  std::cout << "num valid branches: " << best_branches.size() << std::endl;
+  // Next, clean up the set of branches by removing overlapping ones
+  // (brute force for now)
+  for (size_t i = 0; i<best_branches.size(); i++)
+  {
+    if (!(i%1000))
+      std::cout << i << " / " << best_branches.size() << std::endl;
+    Branch &branch = best_branches[i];
+    if (!branch.active)
+      continue;
+    Eigen::Vector3d ax1 = Eigen::Vector3d(1,2,3).cross(branch.dir).normalized();
+    Eigen::Vector3d ax2 = branch.dir.cross(ax1);
+    const int num = 5;
+    double s = 0.8;
+    double xs[num] = {0, s, 0, -s, 0};
+    double ys[num] = {0, 0, s,  0, -s};
+    double zs[num] = {-0.5*s, -0.25*s, 0, 0.25*s, 0.5*s};
+
+    // for coarse intersection
+    Eigen::Vector3d base = branch.centre - 0.5*branch.length*branch.dir;
+    Eigen::Vector3d top = branch.centre + 0.5*branch.length*branch.dir;
+    Eigen::Vector3d rad(branch.radius, branch.radius, branch.radius);
+    Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);    
+
+    for (size_t j = 0; j<best_branches.size(); j++)
+    {
+      if (i==j)
+        continue;
+      Branch &cylinder = best_branches[j];
+      if (!cylinder.active)
+        continue;
+      Eigen::Vector3d base2 = cylinder.centre - 0.5*cylinder.length*cylinder.dir;
+      Eigen::Vector3d top2 = cylinder.centre + 0.5*cylinder.length*cylinder.dir;
+      Eigen::Vector3d rad2(cylinder.radius, cylinder.radius, cylinder.radius);
+      Cuboid cuboid2(minVector(base2, top2) - rad2, maxVector(base2, top2) + rad2);  
+      if (!cuboid.overlaps(cuboid2)) // broadphase exclusion
+        continue;
+
+      int num_inside = 0;
+      for (int k = 0; k<num; k++)
+      {
+        for (int l = 0; l<num; l++)
+        {
+          Eigen::Vector3d pos = branch.centre + branch.dir*zs[k]*branch.length + (ax1*xs[l] + ax2*ys[l])*branch.radius;
+          pos -= cylinder.centre;
+          // is pos inside cylinder j?
+          double d = pos.dot(cylinder.dir);
+          if (d > cylinder.length*0.5 || d < -cylinder.length*0.5)
+            continue;
+          pos -= cylinder.dir*d;
+          if (pos.squaredNorm() < sqr(cylinder.radius))
+            num_inside++;
+        }
+      }
+      double inside_ratio = (double)num_inside / (double)(num*num);
+      if (inside_ratio > 0.4)
+      {
+        double vol_branch = sqr(branch.radius)*branch.length;
+        double vol_cylinder = sqr(cylinder.radius)*cylinder.length;
+        // remove the smaller one
+        if (vol_branch < vol_cylinder)
+        {
+          best_branches[i] = best_branches.back();
+          best_branches.pop_back();
+          i--;
+        }
+        else
+        {
+          if (j > i)
+          {
+            best_branches[j] = best_branches.back();
+            best_branches.pop_back();
+          }
+          else 
+            cylinder.active = false;
+        }
+        break;
+      }
+    }
+  }
+  branches.clear();
+  for (auto &branch: best_branches)
+    if (branch.active)
+      branches.push_back(branch);
+  std::cout << "num non-overlapping branches: " << branches.size() << std::endl;
+  
+  if (verbose)
+  {
     drawBranches(best_branches);
   } 
-
-
   // Next a forest nearest path search
 
 }

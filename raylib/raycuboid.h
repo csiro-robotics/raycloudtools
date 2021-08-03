@@ -28,7 +28,12 @@ public:
   /// a negative box has inwards normals, so the ray intersects the back wall, filling in the @c depth argument
   bool intersects(const Eigen::Vector3d &pos) const;
   /// overlap of this cuboid with another, 'kissing' cuboids count as intersection. 
-  bool overlaps(const Cuboid &other) const;
+  inline bool overlaps(const Cuboid &other) const
+  {
+    bool outside = other.min_bound_[0] > max_bound_[0] || other.min_bound_[1] > max_bound_[1] || other.min_bound_[2] > max_bound_[2] ||
+                   other.max_bound_[0] < min_bound_[0] || other.max_bound_[1] < min_bound_[1] || other.max_bound_[2] < min_bound_[2];
+    return !outside;
+  }
 
   /// clip ray to cuboid. Return false if no ray left. 
   bool clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const;
