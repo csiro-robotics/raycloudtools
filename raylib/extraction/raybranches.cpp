@@ -8,21 +8,28 @@
 #include "../raygrid.h"
 #include "../raycuboid.h"
 #include <map>
+#include <nabo/nabo.h>
+#include <queue>
 
 namespace ray
 {
 #define LEAN
 namespace
 {
+const double inf = 1e10;
 struct Branch
 {
-  Branch() : centre(0,0,0), radius(0), score(0), length(0), dir(0,0,0), active(true) {}
+  Branch() : centre(0,0,0), radius(0), score(0), length(0), dir(0,0,0), parent(-1), tree_score(inf), distance_to_ground(inf), active(true), visited(false) {}
   Eigen::Vector3d centre; 
   double radius;
   double score;
   double length; 
   Eigen::Vector3d dir;
+  int parent;
+  double tree_score;
+  double distance_to_ground;
   bool active;
+  bool visited;
 };
 
 struct Accumulator
@@ -110,6 +117,31 @@ void drawBranches(const std::vector<Branch> &branches)
   }
   DebugDraw::instance()->drawCylinders(starts, ends, radii, 1, colours);
 }
+
+struct QueueNode
+{
+  QueueNode(){}
+  QueueNode(double distance_to_ground, double score, int index) : distance_to_ground(distance_to_ground), score(score), id(index) {}
+
+  double distance_to_ground;
+  double score;
+  int id;
+};
+
+#define MINIMISE_SQUARE_DISTANCE // bad: end points are so distant that it creates separate branches
+#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
+class QueueNodeComparator 
+{ 
+public: 
+    bool operator() (const QueueNode &p1, const QueueNode &p2) 
+    { 
+#if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
+        return p1.score > p2.score; 
+#else
+        return p1.distance_to_ground > p2.distance_to_ground; 
+#endif
+    } 
+}; 
 
 
 void getOverlap(const Grid<Eigen::Vector3d> &grid, const Branch &branch, std::vector<Eigen::Vector3d> &points, double spacing)
@@ -476,10 +508,106 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
   
   if (verbose)
   {
-    drawBranches(best_branches);
+    drawBranches(branches);
   } 
+
   // Next a forest nearest path search
 
+	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
+  
+  // get the lowest points and fill in closest_node
+  for (size_t i = 0; i<branches.size(); i++)
+  {
+    size_t j;
+    for (j = 0; j<branches.size(); j++)
+    {
+      Eigen::Vector3d dif = branches[j].centre - branches[i].centre;
+      dif[2] = 0.0;
+      double x2 = dif.squaredNorm();
+      double height = branches[j].centre[2] - min_bound[2]; // TODO: use ground map for better value here
+
+      double z = x2/(2.0*height);
+      if (branches[i].centre[2] > z)
+        break;
+    }
+    if (j==branches.size())
+    {
+      closest_node.push(QueueNode(branches[i].centre[2], sqr(branches[i].centre[2]), (int)i));
+    }
+  }
+  std::cout << "number of ground branches: " << closest_node.size() << std::endl;
+
+  // 1. get nearest neighbours
+  const int search_size = 20;
+  Eigen::MatrixXd points_p(3, branches.size());
+  for (unsigned int i = 0; i < branches.size(); i++) 
+    points_p.col(i) = branches[i].centre;
+  Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
+  // Run the search
+  Eigen::MatrixXi indices;
+  Eigen::MatrixXd dists2;
+  indices.resize(search_size, branches.size());
+  dists2.resize(search_size, branches.size());
+  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
+  
+  // 2b. climb up from lowest branches...
+	while(!closest_node.empty())
+  {
+		QueueNode node = closest_node.top(); closest_node.pop();
+		if(!branches[node.id].visited)
+    {
+      for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
+      {
+        int child = indices(i, node.id);
+        double dist = std::sqrt(dists2(i, node.id));
+        double new_dist = node.distance_to_ground + dist;///branches[node.id].radius;
+        double new_score = 0;
+        #if defined MINIMISE_SQUARE_DISTANCE
+        dist *= dist;
+        #endif
+        #if defined MINIMISE_ANGLE
+        Eigen::Vector3d dif = (branches[child].centre - branches[node.id].centre).normalized();
+        Eigen::Vector3d dir = branches[node.id].dir;
+        Eigen::Vector3d dir2 = branches[child].dir;
+        if (dir2.dot(dir) < 0.0)
+          dir2 = -dir2;
+        dir = (dir + dir2).normalized();
+        
+        const double power = 2.0;
+        dist /= std::pow(std::max(0.001, dif.dot(dir)), power);
+        #endif
+     //   dist /= branches[node.id].radius;
+        #if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
+        new_score = node.score + dist;
+        if (new_score < branches[child].tree_score)
+        #else
+        if (new_dist < points[child].distance_to_ground)
+        #endif
+        {
+					branches[child].tree_score = new_score;
+					branches[child].distance_to_ground = new_dist;
+          branches[child].parent = node.id;
+					closest_node.push(QueueNode(branches[child].distance_to_ground, branches[child].tree_score, child));
+				}
+			}
+		  branches[node.id].visited = true;
+		}
+	}
+  // now we need to render the structure as a tree... I'll use lines
+  std::vector<Eigen::Vector3d> starts, ends, colours;
+  for (auto &branch: branches)
+  {
+    if (branch.parent == -1)
+      continue;
+    starts.push_back(branch.centre);
+    ends.push_back(branches[branch.parent].centre);
+    Eigen::Vector3d col;
+    col[0] = std::fmod(branch.tree_score,       1.0);
+    col[1] = std::fmod(branch.tree_score/10.0,  1.0);
+    col[2] = std::fmod(branch.tree_score/100.0, 1.0);
+    colours.push_back(col);
+  }
+  DebugDraw::instance()->drawLines(starts, ends, colours);
 }
 
 bool Bush::save(const std::string &filename)
