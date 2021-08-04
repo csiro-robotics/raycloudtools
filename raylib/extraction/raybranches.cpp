@@ -57,7 +57,7 @@ struct QueueNode
   int id;
 };
 
-#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
+//#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
 class QueueNodeComparator 
 { 
 public: 
@@ -367,7 +367,16 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
         double len2 = std::max(length/3.0, branches[child].length/4.0);
         Eigen::Vector3d mid1 = branches[node.id].centre + dir*len1;
         Eigen::Vector3d mid2 = branches[child].centre - dir_child*len2;
-        double dist = len1 + len2 + (mid2 - mid1).norm();
+
+        const double scale = 2.0; // larger requires more straightness
+        double iscale = 1.0/scale;
+        Eigen::Vector3d vec1 = mid1 - branches[node.id].centre;
+        Eigen::Vector3d vec2 = mid2 - mid1;
+        Eigen::Vector3d vec3 = branches[child].centre - mid2;
+        vec1 += dir*(iscale - 1.0)*dir.dot(vec1);
+        vec2 += dir*(iscale - 1.0)*dir.dot(vec2);
+        vec3 += dir*(iscale - 1.0)*dir.dot(vec3);
+        double dist = (vec1.norm() + vec2.norm() + vec3.norm())*scale;
         double dist_sqr = dist*dist / branches[node.id].radius;
 
         #if defined MINIMISE_ANGLE
