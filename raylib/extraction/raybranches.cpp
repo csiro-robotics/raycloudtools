@@ -23,13 +23,19 @@ static const double boundary_radius_scale = 2.0; // how much farther out is the 
 
 void drawBranches(const std::vector<Branch> &branches)
 {
-  std::vector<Eigen::Vector3d> starts(branches.size()), ends(branches.size());
-  std::vector<double> radii(branches.size());
-  std::vector<Eigen::Vector4d> colours(branches.size());
+  std::vector<Eigen::Vector3d> starts, ends;
+  std::vector<double> radii;
+  std::vector<Eigen::Vector4d> colours;
   for (size_t i = 0; i<branches.size(); i++)
   {
     if (!branches[i].active)
       continue;
+    if (!(branches[i].radius == branches[i].radius))
+      std::cout << "nan branch radius at " << i << std::endl;
+    if (branches[i].radius <= 0.0)
+      std::cout << "bad branch radius at " << i << std::endl;
+    if (!(branches[i].centre == branches[i].centre))
+      std::cout << "nan branch centre at " << i << std::endl;
     starts.push_back(branches[i].centre - branches[i].dir*branches[i].length*0.5);
     ends.push_back(branches[i].centre + branches[i].dir*branches[i].length*0.5);
     radii.push_back(branches[i].radius);
@@ -140,6 +146,7 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
         continue;
 
       int num_inside = 0;
+      std::vector<Eigen::Vector3d> ps;
       for (int k = 0; k<num; k++)
       {
         for (int l = 0; l<num; l++)
@@ -163,18 +170,20 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
         // remove the smaller one
         if (vol_branch < vol_cylinder)
         {
+          branch.active = false;
+          /*
           best_branches[i] = best_branches.back();
           best_branches.pop_back();
-          i--;
+          i--;*/
         }
         else
         {
-          if (j > i)
+          /*if (j > i)
           {
             best_branches[j] = best_branches.back();
             best_branches.pop_back();
           }
-          else 
+          else*/ 
             cylinder.active = false;
         }
         break;

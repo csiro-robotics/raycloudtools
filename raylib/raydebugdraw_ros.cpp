@@ -264,6 +264,10 @@ void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const 
     marker.action = marker.ADD;
     marker.scale.x = marker.scale.y = 2.0 * radii[i];
     marker.scale.z = (starts[i] - ends[i]).norm();
+    if (marker.scale.x <= 0.0f || !(marker.scale.x))
+      std::cout << "bad radii " << marker.scale.x << ", i: " << i << std::endl;
+    if (marker.scale.z <= 0.0f || !(marker.scale.z))
+      std::cout << "bad norm " << i << std::endl;
     if (id == 0)
     {
       marker.color.a = 1.0f;
