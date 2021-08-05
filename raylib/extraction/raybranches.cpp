@@ -325,6 +325,8 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
     }
     if (j==branches.size())
     {
+      if (branches[i].dir[2] < 0.0)
+        branches[i].dir *= -1;
       closest_node.push(QueueNode(sqr(branches[i].centre[2]), (int)i));
     }
   }
@@ -349,34 +351,60 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
 		QueueNode node = closest_node.top(); closest_node.pop();
 		if(!branches[node.id].visited)
     {
+      int par = branches[node.id].parent;
+      if (par != -1)
+      {
+        Eigen::Vector3d from_parent = branches[node.id].centre - branches[par].centre;
+        if (branches[node.id].dir.dot(from_parent) < 0.0)
+          branches[node.id].dir *= -1.0;
+      }
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
+        // branches[node.id].centre.setZero();
+        // branches[node.id].dir = Eigen::Vector3d(0,0,1);
+        // branches[child].centre = Eigen::Vector3d(1.0, 0.5, 1.0);
+        // branches[child].dir = Eigen::Vector3d(1,0,0);
+        
         Eigen::Vector3d to_child = branches[child].centre - branches[node.id].centre;
         // we cylinder dirs could be the opposite direction, we don't know yet
-        Eigen::Vector3d dir = branches[node.id].dir;
-        if (dir.dot(to_child) < 0.0)
-          dir = -dir;
-        Eigen::Vector3d dir_child = branches[node.id].dir;
-        if (dir_child.dot(to_child) < 0.0)
-          dir_child = -dir_child;
+        Eigen::Vector3d dir1 = branches[node.id].dir;
+        Eigen::Vector3d dir2 = branches[child].dir;
+        if (dir2.dot(to_child) < 0.0)
+          dir2 = -dir2;
+#if 1  // Good but it needs testing!
+        Eigen::Vector3d across = dir1.cross(dir2).normalized();
+        Eigen::Vector3d orth1 = across.cross(dir1);
+        Eigen::Vector3d orth2 = across.cross(dir2); 
 
+        double d1 = to_child.dot(orth2)/dir1.dot(orth2);
+        d1 = std::max(0.25*branches[node.id].length, d1);
+        Eigen::Vector3d mid1 = branches[node.id].centre + dir1*d1;
+        double d2 = to_child.dot(orth1)/dir2.dot(orth1);
+        d2 = std::max(0.25*branches[child].length, d2);
+        Eigen::Vector3d mid2 = branches[child].centre - dir2*d2;
+
+        const double scale = 3.0;
+        double dist = (mid1 - branches[node.id].centre).norm() + scale*(mid2 - mid1).norm() + (branches[child].centre - mid2).norm();
+ //       std::cout << "d1: " << d1 << ", d2: " << d2 << ", dist: " << dist << std::endl;       
+#else
         // generate square distance from 1st order approximation of the Bezier curve between branches
         double length = to_child.norm();
         double len1 = std::max(length/3.0, branches[node.id].length/4.0);
         double len2 = std::max(length/3.0, branches[child].length/4.0);
-        Eigen::Vector3d mid1 = branches[node.id].centre + dir*len1;
-        Eigen::Vector3d mid2 = branches[child].centre - dir_child*len2;
+        Eigen::Vector3d mid1 = branches[node.id].centre + dir1*len1;
+        Eigen::Vector3d mid2 = branches[child].centre - dir2*len2;
 
         const double scale = 2.0; // larger requires more straightness
         double iscale = 1.0/scale;
         Eigen::Vector3d vec1 = mid1 - branches[node.id].centre;
         Eigen::Vector3d vec2 = mid2 - mid1;
         Eigen::Vector3d vec3 = branches[child].centre - mid2;
-        vec1 += dir*(iscale - 1.0)*dir.dot(vec1);
-        vec2 += dir*(iscale - 1.0)*dir.dot(vec2);
-        vec3 += dir*(iscale - 1.0)*dir.dot(vec3);
+        vec1 += dir1*(iscale - 1.0)*dir1.dot(vec1);
+        vec2 += dir1*(iscale - 1.0)*dir1.dot(vec2);
+        vec3 += dir1*(iscale - 1.0)*dir1.dot(vec3);
         double dist = (vec1.norm() + vec2.norm() + vec3.norm())*scale;
+#endif
         double dist_sqr = dist*dist / branches[node.id].radius;
 
         #if defined MINIMISE_ANGLE
@@ -405,11 +433,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
     Eigen::Vector3d to_child = branch.centre - branches[branch.parent].centre;
     // we cylinder dirs could be the opposite direction, we don't know yet
     Eigen::Vector3d dir = branches[branch.parent].dir;
-    if (dir.dot(to_child) < 0.0)
-      dir = -dir;
     Eigen::Vector3d dir_child = branch.dir;
-    if (dir_child.dot(to_child) < 0.0)
-      dir_child = -dir_child;
 
     // generate square distance from 1st order approximation of the Bezier curve between branches
     double length = to_child.norm();

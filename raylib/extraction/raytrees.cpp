@@ -190,6 +190,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     // 1. Apply Leonardo's rule
     const double radius_change_scale = 1.1; // we're allowed to scale the total radius slightly each section
     int par = sections[sec].parent;
+    #if 0  // Leonardo's rule
     if (par != -1 && sections[par].parent != -1) 
     {
       double rad = sections[sections[par].parent].radius;
@@ -203,6 +204,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       for (auto &child: sections[sections[par].parent].children) // normalise children radii. Doesn't matter if we do this multiple times
         sections[child].radius *= scale;
     }
+    #endif
     double thickness = 4.0*sections[sec].radius;
     if (par >= 0)
       thickness = 4.0*sections[par].radius;
@@ -366,100 +368,100 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       centroid /= (double)nodes.size();
     sections[sec].tip = centroid; 
 
-    Eigen::Vector3d dir(0,0,1), prevdir(0,0,1);
-    if (par != -1)
+    
+    // estimate radius
+    if (par >= 0)
     {
+      Eigen::Vector3d dir(0,0,1), prevdir(0,0,1);
       dir = (sections[sec].tip - sections[par].tip).normalized();
       if (sections[par].parent != -1)
         prevdir = (sections[par].tip - sections[sections[par].parent].tip).normalized();
-    }
-    
-    // use the section centroid for estimating the radius
-    double rad = 0.0;
-    for (auto &node: nodes)
-    {
-      Eigen::Vector3d offset = points[node].pos - centroid;
-      Eigen::Vector3d p = offset - dir*offset.dot(dir);
-      rad += p.squaredNorm();
-    }
-    if (nodes.size() > 5)
-    {
-      rad /= (double)nodes.size();
-      if (par >= 0)
+      double rad = 0.0;
+      for (auto &node: nodes)
       {
+        Eigen::Vector3d offset = points[node].pos - centroid;
+        Eigen::Vector3d p = offset - dir*offset.dot(dir);
+        rad += p.squaredNorm();
+      }
+      if (nodes.size() > 5)
+      {
+        rad /= (double)nodes.size();
         sections[sec].radius = std::sqrt(rad);
         std::cout << "estimated radius: " << sections[sec].radius << std::endl;
-      }
-    }
-    else
-    {
-      if (par >= 0)
-        sections[sec].radius = sections[par].radius;
-      if (extract_from_ends) // multi-branching and not enough nodes for a reliable estimate... what do we do? use branch angle
-      {
-   //     sections[sec].radius *= 0.707;
+        #define REAL_CENTROID
+        #if defined REAL_CENTROID
+        Eigen::Vector3d mean_p(0,0,0);
+        std::vector<Eigen::Vector3d> ps;
+        Eigen::Vector3d vec(1,2,3);
+        Eigen::Vector3d ax1 = dir.cross(vec).normalized();
+        Eigen::Vector3d ax2 = dir.cross(ax1).normalized();
+        for (auto &i: nodes) // one iteration of operation to find centre, using centroid, direction and radius estimation as a prior guess
+        {
+          Eigen::Vector3d pos = points[i].pos - centroid;
+          Eigen::Vector2d offset(ax1.dot(pos), ax2.dot(pos));
+          Eigen::Vector2d xy = offset/sections[sec].radius;
+          double l2 = xy.squaredNorm();
+          Eigen::Vector3d point(xy[0], xy[1], 0.5*l2); // a paraboloid that has gradient 1 at 1
+          ps.push_back(point);
+          mean_p += point;     
+        }
+        mean_p /= (double)nodes.size(); 
+        struct Acc
+        {
+          Acc(){ x2 = y2 = xy = xz = yz = 0; }
+          double x2, y2, xy, xz, yz;
+        };
+        Acc plane;
+        for (auto &p: ps)
+        {
+          Eigen::Vector3d q = p - mean_p;
+          plane.x2 += q[0]*q[0];
+          plane.y2 += q[1]*q[1];
+          plane.xy += q[0]*q[1];        
+          plane.xz += q[0]*q[2];        
+          plane.yz += q[1]*q[2];        
+        }  
         
-        double sin_angle = dir.cross(prevdir).norm();
-        std::cout << "not enough radius info on split, so using lateral change: " << sin_angle << " giving radius scale: " << 1.0/std::sqrt(1.0 + 2.0*sin_angle) << std::endl;
-        sections[sec].radius /= std::sqrt(1.0 + 2.0*sin_angle); // increase the coefficient for more angle sensitivity 
+        const double eps = 1e-10;
+        if (std::abs(plane.x2*plane.y2 - plane.xy*plane.xy) > eps && std::abs(plane.y2) > eps)
+        {
+          double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
+          double B = (plane.yz - A * plane.xy) / plane.y2;
+
+          Eigen::Vector2d shift(A,B);
+          double height = mean_p[2] + (shift[0]-mean_p[0])*A + (shift[1]-mean_p[1])*B;
+          double paraboloid_height = 0.5*(A*A + B*B);
+          std::cout << "old radius: " << sections[sec].radius << std::endl;
+          double radius_scale = std::sqrt(2.0*(height - paraboloid_height));
+          radius_scale = std::max(0.5, std::min(radius_scale, 2.0)); // keep the estimation sensible
+          sections[sec].radius *= radius_scale;
+
+          double shift2 = shift.squaredNorm();
+          if (shift2 > 1.0) // don't shift more than one radius each iteration, for safety
+            shift /= std::sqrt(shift2);
+
+          std::cout << "shifting the centroid by " << shift.norm() * sections[sec].radius << " metres. New radius " << sections[sec].radius << std::endl;
+          sections[sec].tip += (ax1*shift[0] + ax2*shift[1]) * sections[sec].radius;   
+        }
+        #endif    
+      }
+      else
+      {
+        sections[sec].radius = sections[par].radius;
+        if (extract_from_ends) // multi-branching and not enough nodes for a reliable estimate... what do we do? use branch angle?
+        {
+          double sin_angle = dir.cross(prevdir).norm();
+          std::cout << "not enough radius info on split, so using lateral change: " << sin_angle << " giving radius scale: " << 1.0/std::sqrt(1.0 + 2.0*sin_angle) << std::endl;
+          sections[sec].radius /= std::sqrt(1.0 + 2.0*sin_angle); // increase the coefficient for more angle sensitivity 
+        }
+      }    
+      // constrain radius:
+      if (par >= 0)
+      {
+        sections[sec].radius = std::max(sections[par].radius*0.75, std::min(sections[sec].radius, sections[par].radius));
       }
     }
-    #define REAL_CENTROID
-    #if defined REAL_CENTROID
-    Eigen::Vector3d mean_p(0,0,0);
-    std::vector<Eigen::Vector3d> ps;
-    Eigen::Vector3d vec(1,2,3);
-    Eigen::Vector3d ax1 = dir.cross(vec).normalized();
-    Eigen::Vector3d ax2 = dir.cross(ax1).normalized();
-    for (auto &i: nodes) // one iteration of operation to find centre, using centroid, direction and radius estimation as a prior guess
-    {
-      Eigen::Vector3d pos = points[i].pos - centroid;
-      Eigen::Vector2d offset(ax1.dot(pos), ax2.dot(pos));
-      Eigen::Vector2d xy = offset/sections[sec].radius;
-      double l2 = xy.squaredNorm();
-      Eigen::Vector3d point(xy[0], xy[1], 0.5*l2); // a paraboloid that has gradient 1 at 1
-      ps.push_back(point);
-      mean_p += point;     
-    }
-    mean_p /= (double)nodes.size(); 
-    struct Acc
-    {
-      Acc(){ x2 = y2 = xy = xz = yz = 0; }
-      double x2, y2, xy, xz, yz;
-    };
-    Acc plane;
-    for (auto &p: ps)
-    {
-      Eigen::Vector3d q = p - mean_p;
-      plane.x2 += q[0]*q[0];
-      plane.y2 += q[1]*q[1];
-      plane.xy += q[0]*q[1];        
-      plane.xz += q[0]*q[2];        
-      plane.yz += q[1]*q[2];        
-    }  
-    
-    const double eps = 1e-10;
-    if (std::abs(plane.x2*plane.y2 - plane.xy*plane.xy) > eps && std::abs(plane.y2) > eps)
-    {
-      double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
-      double B = (plane.yz - A * plane.xy) / plane.y2;
 
-      Eigen::Vector2d shift(A,B);
-      double height = mean_p[2] + (shift[0]-mean_p[0])*A + (shift[1]-mean_p[1])*B;
-      double paraboloid_height = 0.5*(A*A + B*B);
-      std::cout << "old radius: " << sections[sec].radius << std::endl;
-      double radius_scale = std::sqrt(2.0*(height - paraboloid_height));
-      radius_scale = std::max(0.5, std::min(radius_scale, 2.0)); // keep the estimation sensible
-      sections[sec].radius *= radius_scale;
-
-      double shift2 = shift.squaredNorm();
-      if (shift2 > 1.0) // don't shift more than one radius each iteration, for safety
-        shift /= std::sqrt(shift2);
-
-      std::cout << "shifting the centroid by " << shift.norm() * sections[sec].radius << " metres. New radius " << sections[sec].radius << std::endl;
-      sections[sec].tip += (ax1*shift[0] + ax2*shift[1]) * sections[sec].radius;   
-    }
-    #endif    
 
     // now add the single child for this particular tree node, assuming there are still ends
     if (sections[sec].ends.size() > 0)
