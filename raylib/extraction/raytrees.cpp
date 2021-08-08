@@ -5,7 +5,7 @@
 // Author: Thomas Lowe
 #include "raytrees.h"
 #include "../raydebugdraw.h"
-
+#include "rayclusters.h"
 #include <nabo/nabo.h>
 #include <queue>
 
@@ -42,8 +42,9 @@ static const double inf = 1e10;
 struct Vertex
 {
   Vertex(){}
-  Vertex(const Eigen::Vector3d &pos) : pos(pos), parent(-1), distance_to_ground(inf), score(inf), visited(false) {}
+  Vertex(const Eigen::Vector3d &pos) : pos(pos), edge_pos(0,0,0), parent(-1), distance_to_ground(inf), score(inf), visited(false) {}
   Eigen::Vector3d pos;
+  Eigen::Vector3d edge_pos;
   int parent;
   double distance_to_ground;
   double score;
@@ -188,9 +189,9 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     if (!(sec%1000))
       std::cout << "sec " << sec << std::endl;
     // 1. Apply Leonardo's rule
-    const double radius_change_scale = 1.1; // we're allowed to scale the total radius slightly each section
     int par = sections[sec].parent;
     #if 0  // Leonardo's rule
+    const double radius_change_scale = 1.1; // we're allowed to scale the total radius slightly each section
     if (par != -1 && sections[par].parent != -1) 
     {
       double rad = sections[sections[par].parent].radius;
@@ -208,7 +209,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     double thickness = 4.0*sections[sec].radius;
     if (par >= 0)
       thickness = 4.0*sections[par].radius;
-    if (sec > 400)
+    if (sec > 3000)
       break;
 
     double thickness_sqr = thickness*thickness;
@@ -242,6 +243,45 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     
       std::vector<int> all_ends = sections[sec].ends;
       // 3. do floodfill on child roots to find if we have separate branches
+      for (auto &j: all_ends)
+      {
+        double dist1j = (points[j].pos - base).norm();
+        double dist0j = (points[points[j].parent].pos - base).norm();
+        double blendj = (thickness - dist0j) / (dist1j - dist0j);
+        points[j].edge_pos = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
+      }
+      #define CLUSTER
+      #if defined CLUSTER
+      std::vector<Eigen::Vector3d> ps;
+      std::vector<int> v_indices;
+      for (auto &i: all_ends)
+      {
+        ps.push_back(points[i].edge_pos);
+        v_indices.push_back(i);
+      }
+      std::vector< std::vector<int> > clusters = generateClusters(ps, 1.5*sections[sec].radius, 3.0*sections[sec].radius, true);
+      for (auto &cluster: clusters)
+      {
+        for (auto &id: cluster)
+          id = v_indices[id];
+      }
+      if (clusters.size() > 1)
+      {
+        std::cout << "first branch with " << clusters[0].size() << " / " << all_ends.size() << " points" << std::endl;
+        extract_from_ends = true;
+        nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
+        sections[sec].ends = clusters[0]; // not quite, we need to translate back to real indices!
+      }
+      for (size_t i = 1; i<clusters.size(); i++)
+      {
+        std::cout << "subsequent branch with " << clusters[i].size() << " / " << all_ends.size() << " points" << std::endl;
+        BranchSection new_node = sections[sec];
+        new_node.ends = clusters[i];
+        if (new_node.parent != -1)
+          sections[new_node.parent].children.push_back((int)sections.size());
+        sections.push_back(new_node);
+      }
+      #else
       int cc = -1;
       for (auto &end: all_ends)
       {
@@ -259,23 +299,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           {
             if (points[j].visited)
               continue;
-            #if defined DIRECTED_DIFF
-            if (points[i].parent == -1 && points[j].parent == -1)
-              std::cout << "something went wrong, end points should always have a parent" << std::endl;
-            double dist1i = (points[i].pos - base).norm();
-            double dist0i = (points[points[i].parent].pos - base).norm();
-            double blendi = (thickness - dist0i) / (dist1i - dist0i);
-            Eigen::Vector3d posi = points[points[i].parent].pos*(1.0-blendi) + points[i].pos*blendi;
-
-            double dist1j = (points[j].pos - base).norm();
-            double dist0j = (points[points[j].parent].pos - base).norm();
-            double blendj = (thickness - dist0j) / (dist1j - dist0j);
-            Eigen::Vector3d posj = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
-
-            Eigen::Vector3d diff = posi - posj;
-            #else
-            Eigen::Vector3d diff = points[i].pos - points[j].pos;
-            #endif
+            Eigen::Vector3d diff = points[i].edge_pos - points[j].edge_pos;
             if (diff.norm() < 1.5*sections[sec].radius)
             {
               new_ends.push_back(j);
@@ -303,7 +327,9 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           }
         }
       }
+      #endif
     }
+
     if (extract_from_ends) // 5. we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
       for (auto &end: sections[sec].ends)
@@ -389,7 +415,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         for (int ii = 0; ii<2; ii++)
         {
           std::vector<int> &node_list = ii==0 ? nodes : sections[sec].ends;
-          for (auto &i: nodes) // one iteration of operation to find centre, using centroid, direction and radius estimation as a prior guess
+          for (auto &i: node_list) // one iteration of operation to find centre, using centroid, direction and radius estimation as a prior guess
           {
             Eigen::Vector3d pos = points[i].pos - sections[sec].tip;
             Eigen::Vector2d offset(ax1.dot(pos), ax2.dot(pos));
