@@ -4,77 +4,98 @@
 //
 // Author: Thomas Lowe
 #include "rayforest.h"
+#include "../rayconvexhull.h"
+#include "../raymesh.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-#include <queue>
+#include <nabo/nabo.h>
 
 namespace ray
 {
-
-double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices)
+void agglomerate(const std::vector<Eigen::Vector3d> &points, double min_diameter, double max_diameter, std::vector< std::vector<int> > &point_clusters)
 {
-  // length estimated from both the pixel coverage and the paraboloid curvature
-//  double length = length_per_radius * std::sqrt(trees[ind].node.crownRadius() * trees[ind].approx_radius);
-//  double base = trees[ind].node.height() - length;
-//  double error = abs(base - trees[ind].ground_height);
+  // 1. get nearest neighbours for each point
+  const int search_size = std::min(8, (int)points.size()-1);
+  Eigen::MatrixXd points_p(2, points.size());
+  for (unsigned int i = 0; i < points.size(); i++) 
+    points_p.col(i) = Eigen::Vector2d(points[i][0], points[i][1]);
+  Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 2);
+  // Run the search
+  Eigen::MatrixXi indices;
+  Eigen::MatrixXd dists2;
+  indices.resize(search_size, points.size());
+  dists2.resize(search_size, points.size());
+  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0, min_diameter);
 
-  double baseA = trees[ind].node.height() - length_per_radius * trees[ind].node.crownRadius();
-  double baseB = trees[ind].node.height() - length_per_radius * trees[ind].approx_radius;
-
-//  std::cout << "ind: " << ind << " crown rad: " << trees[ind].node.crownRadius() << ", approx rad: " << trees[ind].approx_radius << std::endl;
-//  std::cout << "node height: " << trees[ind].node.height() << " length_per_radius: " << length_per_radius << std::endl;
-  
-  // double error = 0.5 * (abs(baseA - trees[ind].ground_height) + abs(baseB - trees[ind].ground_height));  // this makes more sense than below, but also not as good
-  // double error = 0.5 * (sqr(baseA - trees[ind].ground_height) + sqr(baseB - trees[ind].ground_height));  // this makes more sense than below, but also not as good
-
-  // we can justify the below condition working best as:
-  // sometimes the pixel area or curvature are just plain bad, so if at least one is good, then this tells us that it is a good place to split.
-  // i.e. is it works well with a fat tailed error distribution for each (baseA and baseB)
-//  double error = abs(baseB - trees[ind].ground_height);//std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
-  double error = std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
-  if (trees[ind].children[0] == -1)
+  struct Nd
   {
-    if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
+    Nd(int id1, int id2, double dist2) : id1(id1), id2(id2), dist2(dist2) {}
+    int id1, id2;
+    double dist2;
+  };
+  std::vector<Nd> nds;
+  for (size_t i = 0; i<points.size(); i++)
+  {
+    for (int j = 0; j<search_size && indices(j, i) > -1; j++)
     {
-      indices.push_back(ind);
-      return error;
+      nds.push_back(Nd((int)i, indices(j, i), dists2(j, i)));
     }
-    return 1e20;
   }
-  std::vector<int> child_indices[2];
-  int ind0 = trees[ind].children[0];
-  int ind1 = trees[ind].children[1];
-  double child_error = searchTrees(trees, ind0, length_per_radius, child_indices[0]);
-  if (ind1 != -1)
+  std::sort(nds.begin(), nds.end(), [](const Nd &nd1, const Nd &nd2){ return nd1.dist2 < nd2.dist2; });
+  struct Cluster
   {
-    child_error = (child_error + searchTrees(trees, ind1, length_per_radius, child_indices[1])) / 2.0; // mean error
-  }
-  if (error < child_error && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
+    Eigen::Vector3d min_bound, max_bound;
+    std::vector<int> ids;
+    bool active;
+  };
+  std::vector<Cluster> clusters(points.size());
+  std::vector<int> cluster_ids(points.size());
+  std::vector<bool> visited(points.size());
+  for (size_t i = 0; i<points.size(); i++)
   {
-    indices.push_back(ind);
-    return error;
+    clusters[i].min_bound = clusters[i].max_bound = points[i];
+    clusters[i].active = true;
+    clusters[i].ids.push_back((int)i);
+    cluster_ids[i] = (int)i;
+    visited[i] = false;
   }
 
-  indices.insert(indices.end(), child_indices[0].begin(), child_indices[0].end());
-  indices.insert(indices.end(), child_indices[1].begin(), child_indices[1].end());
-  return child_error;
+  // 2. for each node in turn, from smallest to highest distance, agglomerate
+  for (auto &node: nds)
+  {
+    if (cluster_ids[node.id1] == cluster_ids[node.id2]) // already part of same cluster
+      continue; 
+    int cl1 = cluster_ids[node.id1];
+    int cl2 = cluster_ids[node.id2];
+    Eigen::Vector3d minb = minVector(clusters[cl1].min_bound, clusters[cl2].min_bound);
+    Eigen::Vector3d maxb = maxVector(clusters[cl1].max_bound, clusters[cl2].max_bound);
+    Eigen::Vector3d dims = maxb - minb;
+    double diam = std::max(dims[0], dims[1]);
+    if (diam < max_diameter) // then merge
+    {
+      int first = std::min(cl1, cl2);
+      int last = std::max(cl1, cl2);
+      clusters[first].min_bound = minb;
+      clusters[first].max_bound = maxb;
+      clusters[first].ids.insert(clusters[first].ids.begin(), clusters[last].ids.begin(), clusters[last].ids.end());
+      for (auto &id: clusters[last].ids)
+        cluster_ids[id] = first;
+      clusters[last].active = false;
+    }
+  }
+  for (auto &cluster: clusters)
+  {
+    if (cluster.active)
+    {
+      point_clusters.push_back(cluster.ids);
+    }
+  }
 }
 
-struct Point 
-{ 
-  int x, y, index; // if index == -2 then we are merging
-  double height;
-};
-struct PointCmp 
-{
-  bool operator()(const Point& lhs, const Point& rhs) const 
-  { 
-    return lhs.height < rhs.height; 
-  }
-};
+
 
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
 void Forest::extract(const Cloud &cloud, Mesh &mesh, double voxel_width) // = 4.0 * cloud.estimatePointSpacing();
@@ -100,281 +121,69 @@ void Forest::extract(const Cloud &cloud, Mesh &mesh, double voxel_width) // = 4.
   extract(highs, lows, voxel_width);
 }
 
-// Extraction uses a hierarchical watershed algorithm:
-// 1. find all the highest points, give them unique labels, sort them from highest to lowest
-// 2. for each highest point, make it black, then give all the non-black neighbours the same label and 
-//    add them to the sorted list
 void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, double voxel_width)
 {
   voxel_width_ = voxel_width;
   heightfield_ = highs;
   lowfield_ = lows;
-  indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
-  // ignore the undercroft
   int count = 0;
+  std::vector<Eigen::Vector3d> points;
   for (int x = 0; x < heightfield_.rows(); x++)
   {
     for (int y = 0; y < heightfield_.cols(); y++)
     {
-      if (heightfield_(x, y) < lowfield_(x, y)+undercroft_height)
+      double &h = heightfield_(x, y);
+      double l = lowfield_(x, y);
+      if (h < l+undercroft_height)
       {
-        heightfield_(x, y) = -1e10;
+        h = -1e10;
         count++;
+      }
+      if (h > -1e10 && l > -1e10)
+      {
+        points.push_back(Eigen::Vector3d(voxel_width_*(double)x, voxel_width_*(double)y, h-l)); // get heightfield relative to ground
       }
     }
   }
   std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
   drawHeightField("highfield.png", heightfield_);
   drawHeightField("lowfield.png", lowfield_);
-  std::vector<TreeNode> trees;
-  std::set<int> heads;
-  hierarchicalWatershed(trees, heads);
 
-  std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
-  calculateTreeParaboloids(trees);
-  drawSegmentation("segmented.png", trees);
+  const double curvature = 0.1;
+  const double crown_radius_per_height = 0.3;
+  // 1. get top-down mesh of canopy
+  ConvexHull hull(points);
+  hull.growDownwards(curvature);
+  Mesh &mesh = hull.mesh();
+  std::vector<Eigen::Vector3d> &verts = mesh.vertices();
+  //std::vector<Eigen::Vector3i> &inds = mesh.indexList();
 
-  std::vector<int> indices;
-  for (auto &head: heads)
+  // 2. cluster according to radius based on height of points
+  std::vector< std::vector<int> > point_clusters;
+  double min_diameter = 0.5; 
+  double max_diameter = 5.0;
+  agglomerate(verts, min_diameter, max_diameter, point_clusters);
+
+  // 3. for each cluster, get a mean centre...
+  for (auto &cluster: point_clusters)
   {
-    searchTrees(trees, head, 1.0/tree_roundness, indices);
-  }
-  for (auto &ind: indices)
-  {
-    Result result;
-    result.tree_tip = trees[ind].node.pixelMean(); // peak;//tip();
-    result.tree_tip[2] = trees[ind].peak[2];
-    int x = (int) result.tree_tip[0];
-    int y = (int) result.tree_tip[1];
-    if (x < 0 || x >= lowfield_.rows())
-      continue;
-    if (y < 0 || y >= lowfield_.cols())
-      continue;
-    result.ground_height = lowfield_(x, y);
-    result.radius = trees[ind].approx_radius;
-    result.curvature = trees[ind].node.curvature();
-    results_.push_back(result);
+    Eigen::Vector3d weighted_sum(0,0,0);
+    double weight = 0.0;
+    for (auto &i: cluster)
+    {
+      weighted_sum += verts[i][2] * verts[i];
+      weight += verts[i][2];
+    }
+    Result tree;
+    Eigen::Vector3d tip = weighted_sum / weight;
+    tree.ground_height = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+    tree.tree_tip = tip + Eigen::Vector3d(0,0,tree.ground_height);
+    tree.radius = tip[2] * crown_radius_per_height;
+    tree.curvature = 1.0; // TODO fix
+    results_.push_back(tree);
   }
 
   drawTrees("result_trees.png", results_, (int)heightfield_.rows(), (int)heightfield_.cols());
-    
-  drawFinalSegmentation("result_tree_shapes.png", trees, indices);
-}
-
-void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads)
-{
-  std::priority_queue<Point, std::vector<Point>, PointCmp> basins;
-  // 1. find highest points
-  for (int x = 0; x < heightfield_.rows(); x++)
-  {
-    for (int y = 0; y < heightfield_.cols(); y++)
-    {
-      // Moore neighbourhood
-      double height = heightfield_(x, y);
-      double max_h = 0.0;
-      for (int i = std::max(0, x-1); i<= std::min(x+1, (int)heightfield_.rows()-1); i++)
-        for (int j = std::max(0, y-1); j<= std::min(y+1, (int)heightfield_.cols()-1); j++)
-          if (!(i==x && j==y))
-            max_h = std::max(max_h, heightfield_(i, j));
-      if (height > max_h && height > -1e10)
-      {
-        Point p;
-        p.x = x; p.y = y; p.height = height;
-        p.index = (int)basins.size();
-        basins.push(p);
-        heads.insert(p.index);
-        indexfield_(x, y) = p.index;     
-        trees.push_back(TreeNode(x, y, height, voxel_width_));
-      }
-    }
-  }
-  std::cout << "initial number of peaks: " << trees.size() << std::endl;
-  int cnt = 0;
-  // now iterate until basins is empty
-  // Below, don't divide by voxel_width, if you want to verify voxel_width independence
-  int max_tree_pixel_width = (int)(max_tree_canopy_width / (double)voxel_width_); 
-  while (!basins.empty())
-  {
-    Point p = basins.top();
-    basins.pop(); // removes it from basins. p still exists
-    int x = p.x;
-    int y = p.y;
-
-    if (p.index == -2) // a merge request
-    {
-      int p_head = x;
-      while (trees[p_head].attaches_to != -1)
-        p_head = trees[p_head].attaches_to;
-      int q_head = y;
-      while (trees[q_head].attaches_to != -1)
-        q_head = trees[q_head].attaches_to;
-      if (p_head != q_head) // already merged
-      {
-        TreeNode &p_tree = trees[p_head];
-        TreeNode &q_tree = trees[q_head];
-        Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
-        Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
-        mx -= mn;
-        if (std::max(mx[0], mx[1]) <= max_tree_pixel_width)
-        {
-          int new_index = (int)trees.size();
-          TreeNode node;
-          node.min_bound = p_tree.min_bound;
-          node.max_bound = p_tree.max_bound;
-          node.updateBound(q_tree.min_bound, q_tree.max_bound);
-          node.children[0] = p_head;  
-          node.children[1] = q_head;
-          node.peak = p_tree.peak[2] > q_tree.peak[2] ? p_tree.peak : q_tree.peak;
-
- //         if (node.validParaboloid(max_tree_canopy_width, voxel_width_)) 
-          {
-            heads.erase(p_head);
-            heads.erase(q_head);
-            heads.insert(new_index);
-            p_tree.attaches_to = new_index;
-            q_tree.attaches_to = new_index;
-            trees.push_back(node); // danger, this can invalidate the p_tree reference
-          }
-        }
-      }
-      continue;
-    }    
-
-    int xs[4] = {x-1, x, x, x+1};
-    int ys[4] = {y, y+1, y-1, y};
-    for (int i = 0; i<4; i++)
-    {
-      if (xs[i] < 0 || xs[i] >= indexfield_.rows())
-        continue;
-      if (ys[i] < 0 || ys[i] >= indexfield_.cols())
-        continue;
-      int p_head = p.index;
-      while (trees[p_head].attaches_to != -1)
-        p_head = trees[p_head].attaches_to;
-        
-      int xx = xs[i];
-      int yy = ys[i];
-      int &ind = indexfield_(xx, yy);
-
-      int q_head = ind;
-      if (q_head != -1)
-      {
-        while (trees[q_head].attaches_to != -1)
-          q_head = trees[q_head].attaches_to;
-      }
-
-      if (ind != -1 && p_head != q_head)
-      {
-        TreeNode &p_tree = trees[p_head];
-        TreeNode &q_tree = trees[q_head];
-        Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
-        Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
-        mx -= mn;
-        bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
-        if (merge)
-        {
-          const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
-          // add a merge task:
-          Eigen::Vector2d mid = Eigen::Vector2d(xx, yy) * voxel_width_;
-          Eigen::Vector2d ptree(p_tree.peak[0], p_tree.peak[1]);
-          Eigen::Vector2d qtree(q_tree.peak[0], q_tree.peak[1]);
-          double blend = (mid - ptree).dot(qtree-ptree) / (qtree-ptree).squaredNorm();
-          double flood_base = p_tree.peak[2]*(1.0-blend) + q_tree.peak[2]*blend;
-          double low_flood_height = flood_base - p.height;
-
-          Point q;
-          q.x = p_head; q.y = q_head; 
-          q.index = -2;
-          q.height = flood_base - low_flood_height * flood_merge_scale;
-          basins.push(q);
-        }
-      }
-      if (ind == -1 && heightfield_(xx, yy) > -1e10) 
-      {
-        Point q;
-        q.x = xx; q.y = yy; 
-        q.height = heightfield_(xx, yy);
- //       double big_drop_within_tree = 6.0;
-
-        // this doesn't make a lot of difference, but will sometimes find smaller segments, with less bleed out from trees
-        if (0) // (p.height - q.height) > big_drop_within_tree) // insert a node here, it may be a good cutting point
-        {
-          TreeNode node = trees[p_head];
-          node.children[0] = p_head;  
-          node.children[1] = -1;
-
-          heads.erase(p_head);
-          int new_index = (int)trees.size();          
-          heads.insert(new_index);
-          trees[p_head].attaches_to = new_index;
-          trees.push_back(node);        
-          p_head = new_index;
-        }      
-        q.index = p_head;
-
-     //   if ((p.height - q.height) < maximum_drop_within_tree)
-        {
-  /*        if (verbose && !(cnt%500)) // I need a way to visualise the hierarchy here!
-          {
-            drawSegmentation("segmenting.png", trees);
-          }*/
-          cnt++;
-          ind = p_head;
-          basins.push(q);
-          trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));        
-        } 
-      }
-    }
-  }
-}
-
-void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
-{
-  std::vector<std::vector<Eigen::Vector3d> > point_lists(trees.size()); // in metres
-  for (int x = 0; x<indexfield_.rows(); x++)
-  {
-    for (int y = 0; y<indexfield_.cols(); y++)
-    {
-      int ind = indexfield_(x, y);
-      if (ind < 0)
-        continue;
-      while (ind >= 0)
-      {
-        point_lists[ind].push_back(Eigen::Vector3d(voxel_width_*((double)x + 0.5), voxel_width_*((double)y + 0.5), heightfield_(x, y)));
-        ind = trees[ind].attaches_to;
-      }
-    }
-  }
-  for (size_t i = 0; i<trees.size(); i++)
-  {
-    auto &tree = trees[i];
-    tree.approx_radius = voxel_width_ * std::sqrt((double)point_lists[i].size() / kPi);
-    int x = (int)(tree.peak[0]/voxel_width_);
-    int y = (int)(tree.peak[1]/voxel_width_);   
-    x = std::max(0, std::min(x, (int)lowfield_.rows()-1));
-    y = std::max(0, std::min(y, (int)lowfield_.cols()-1));
-    tree.ground_height = lowfield_(x, y); 
-    TreeNode::Node node;
-    for (auto &pt: point_lists[i])
-      node.add(pt[0], pt[1], pt[2], 1, voxel_width_);
-    const int num_iterations = 10;
-    for (int it = 1; it<num_iterations; it++)
-    {
-      node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
-      node.curv_mat.setZero(); 
-      node.curv_vec.setZero();
-      for (auto &pt: point_lists[i])
-      {
-        double h = node.heightAt(pt[0], pt[1]);
-        double error = h - pt[2];
-        const double eps = 1e-2;
-        node.add(pt[0], pt[1], pt[2], 1.0/std::max(eps, std::abs(error)), voxel_width_); // 1/e reweighting gives a median paraboloid
-      }
-    }
-    node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
-
-    tree.node = node;
-  }
 }
 
 bool Forest::save(const std::string &filename)

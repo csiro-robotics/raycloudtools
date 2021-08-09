@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     else if (direction.selectedKey() == "upwards")
       concave_hull.growUpwards(curvature.value());
     else if (direction.selectedKey() == "downwards")
-      concave_hull.growTopDown(curvature.value());
+      concave_hull.growDownwards(curvature.value());
     else
       usage();
 
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
     else if (direction.selectedKey() == "upwards")
       convex_hull.growUpwards(curvature.value());
     else if (direction.selectedKey() == "downwards")
-      convex_hull.growTopDown(curvature.value());
+      convex_hull.growDownwards(curvature.value());
     else
       usage();
 

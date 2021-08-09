@@ -41,29 +41,6 @@ void usage(bool error=false)
 // extracts natural features from scene
 int main(int argc, char *argv[])
 {
-// #define TEST_CLUSTER
-#if defined TEST_CLUSTER
-  ray::DebugDraw::init(argc, argv, "rayextract");
-  for (int j = 0; j<100; j++)
-  {
-    std::vector<Eigen::Vector3d> points;
-    int num = 1 + std::rand()%4;
-    for (int i = 0; i<num; i++)
-    {
-      Eigen::Vector3d centre((double)(std::rand()%1000)/1000.0, (double)(std::rand()%1000)/1000.0, (double)(std::rand()%1000)/1000.0);
-      int count = 1 + std::rand()%30;
-      for (int i = 0; i<count; i++)
-      {
-        Eigen::Vector3d offset((double)(std::rand()%1000)/3000.0, (double)(std::rand()%1000)/3000.0, (double)(std::rand()%1000)/3000.0);
-        points.push_back(centre + offset);
-      }
-    }
-    std::cout << "points size: " << points.size() << std::endl;
-    ray::generateClusters(points, 10.0, 0.35, true, true);
-  }
-  return 0;
-#endif
-
   ray::FileArgument cloud_file, mesh_file, trunks_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), branches("branches"), terrain("terrain");
   ray::DoubleArgument tree_roundness(0.01, 3.0);
@@ -116,7 +93,7 @@ int main(int argc, char *argv[])
     std::cout << "tree roundness: " << forest.tree_roundness << std::endl;
     forest.verbose = verbose.isSet();
 
-//#define TEST
+#define TEST
 #if defined TEST
     const int res = 256;
     const double max_tree_height = (double)res / 8.0;
@@ -217,8 +194,9 @@ int main(int argc, char *argv[])
       }
     }
     // now render it 
-    forest.drawHeightField("highfield.png", heightfield);
-    forest.extract(heightfield, mesh, 1.0);
+    Eigen::ArrayXXd lowfield = heightfield;
+    lowfield.setZero();
+    forest.extract(heightfield, lowfield, 1.0);
 #else
     ray::Mesh mesh;
     ray::readPlyMesh(mesh_file.name(), mesh);
