@@ -322,7 +322,7 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Info &info)
 }
 
 
-double Cloud::estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points)
+double Cloud::estimatePointSpacing(const std::string &file_name, const Cuboid &bounds, int num_points)
 {
   // two-iteration estimation, modelling the point distribution by the below exponent.
   // larger exponents (towards 2.5) match thick forests, lower exponents (towards 2) match smooth terrain and surfaces

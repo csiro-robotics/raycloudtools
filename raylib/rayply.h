@@ -27,7 +27,7 @@ bool RAYLIB_EXPORT readPly(const std::string &file_name, std::vector<Eigen::Vect
 bool RAYLIB_EXPORT readPlyMesh(const std::string &file, class Mesh &mesh);
 
 /// write a .ply file representing a triangular mesh
-bool RAYLIB_EXPORT writePlyMesh(const std::string &file_name_rawaw, const class Mesh &mesh, bool flip_normals = false);
+bool RAYLIB_EXPORT writePlyMesh(const std::string &file_name, const class Mesh &mesh, bool flip_normals = false);
 
 /// ready in a ray cloud or point cloud .ply file, and call the @c apply function one chunk at a time, 
 /// @c chunk_size is the number of rays to read at one time. This method can be used on large clouds where

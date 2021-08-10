@@ -72,8 +72,7 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
     c = Col(0); 
   for (auto &result: results)
   {
-    Eigen::Vector3d pos = result.tree_tip;
- //   double length = pos[2] - result.ground_height;
+    Eigen::Vector3d pos = (result.tree_tip - min_bounds_) / voxel_width_;
     double curvature = result.curvature;
     double radius_pixels = result.radius / voxel_width_;
     for (int x = (int)(pos[0] - radius_pixels); x<= (int)(pos[0]+radius_pixels); x++)
@@ -87,8 +86,8 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
         double mag2 = (double)(X*X + Y*Y);
         if (mag2 <= result.radius*result.radius)
         {
-          double height = pos[2] + mag2 * curvature;
-          double shade = std::min((height - min_height)/(max_height - min_height), 1.0); // clamp because curvature can conceivably negative sometimes
+          double height = result.tree_tip[2] + mag2 * curvature;
+          double shade = std::max(0.0, std::min((height - min_height)/(max_height - min_height), 1.0)); // clamp because curvature can conceivably negative sometimes
           Col col(uint8_t(255.0*shade));
           if (pixels(x, y).r < col.r)
             pixels(x, y) = col;

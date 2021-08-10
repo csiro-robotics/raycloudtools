@@ -21,10 +21,10 @@ namespace ray
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : undercroft_height(1.0)
+  Forest() : verbose(true), undercroft_height(1.0)
   {
   }
-  void extract(const Cloud &cloud, Mesh &mesh, double voxel_width);
+  bool extract(const std::string &cloud_name, Mesh &mesh);
   void extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, double voxel_width);
   struct Result
   {

@@ -59,24 +59,33 @@ int main(int argc, char *argv[])
     ray::DebugDraw::init(argc, argv, "rayextract");
   }
 
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
-    usage(true);
 
   if (extract_trunks)
   {
+    ray::Cloud cloud;
+    if (!cloud.load(cloud_file.name()))
+      usage(true);
+
     const double radius = 0.15; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
     ray::Wood woods(cloud, radius, verbose.isSet());
     woods.save(cloud_file.nameStub() + "_trunks.txt");
   }
   else if (extract_branches)
   {
+    ray::Cloud cloud;
+    if (!cloud.load(cloud_file.name()))
+      usage(true);
+
     const double radius = 0.1; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
     ray::Bush woods(cloud, radius, verbose.isSet());
     woods.save(cloud_file.nameStub() + "_trunks.txt");
   }  
   else if (extract_trees)
   {
+    ray::Cloud cloud;
+    if (!cloud.load(cloud_file.name()))
+      usage(true);
+
     std::vector<std::pair<Eigen::Vector3d, double> > trunks = ray::Wood::load(trunks_file.name());
     if (trunks.empty())
     {
@@ -93,7 +102,7 @@ int main(int argc, char *argv[])
     std::cout << "tree roundness: " << forest.tree_roundness << std::endl;
     forest.verbose = verbose.isSet();
 
-#define TEST
+//#define TEST
 #if defined TEST
     const int res = 256;
     const double max_tree_height = (double)res / 8.0;
@@ -200,13 +209,16 @@ int main(int argc, char *argv[])
 #else
     ray::Mesh mesh;
     ray::readPlyMesh(mesh_file.name(), mesh);
-    double voxel_width = 0.25; // 4.0 * cloud.estimatePointSpacing();
-    forest.extract(cloud, mesh, voxel_width);
+    forest.extract(cloud_file.name(), mesh);
     forest.save(cloud_file.nameStub() + "_trunks.txt");
 #endif
   }
   else if (extract_terrain)
   {
+    ray::Cloud cloud;
+    if (!cloud.load(cloud_file.name()))
+      usage(true);
+
     ray::Terrain terrain;
     const double gradient = 1.0; // a half-way divide between ground and wall
     terrain.extract(cloud, cloud_file.nameStub(), gradient, verbose.isSet());

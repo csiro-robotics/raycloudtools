@@ -113,7 +113,7 @@ public:
   /// Static functions. These operate on the cloud file, and so do not require the full file to fit in memory
 
   /// Version for estimating the spacing between points for raycloud files. 
-  static double estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points);
+  static double estimatePointSpacing(const std::string &file_name, const Cuboid &bounds, int num_points);
 
   /// Calculate the key information of a ray cloud, such as its bounds
   /// @c ends are only the bounded ones. @c starts are for all rays
