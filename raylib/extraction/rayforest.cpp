@@ -4,6 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "rayforest.h"
+#include "rayterrain.h"
 #include "../rayconvexhull.h"
 #include "../raymesh.h"
 #include "../raycuboid.h"
@@ -20,7 +21,7 @@ namespace ray
 void agglomerate(const std::vector<Eigen::Vector3d> &points, double min_diameter_per_height, double max_diameter_per_height, std::vector< std::vector<int> > &point_clusters)
 {
   // 1. get nearest neighbours for each point
-  const int search_size = std::min(8, (int)points.size()-1);
+  const int search_size = std::min(16, (int)points.size()-1);
   Eigen::MatrixXd points_p(2, points.size());
   for (unsigned int i = 0; i < points.size(); i++) 
     points_p.col(i) = Eigen::Vector2d(points[i][0], points[i][1]);
@@ -83,6 +84,8 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, double min_diameter
     Eigen::Vector3d dims = maxb - minb;
     double diam = std::max(dims[0], dims[1]);
     double mean_height = (minb[2] + maxb[2])/2.0; 
+    if (diam > 2.0*std::min(dims[0], dims[1]) && (clusters[cl1].ids.size() + clusters[cl2].ids.size()) > 4) // ignore merges that are too elongated. TODO: use eigenvalues eventually 
+      continue;
     if (diam < max_diameter_per_height * mean_height) // then merge
     {
       int first = std::min(cl1, cl2);
@@ -170,9 +173,11 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   drawHeightField("highfield.png", heightfield_);
   drawHeightField("lowfield.png", lowfield_);
 
+  const double max_diameter_per_height = 0.9;
+  const double min_diameter_per_height = 0.4; 
   const double curvature_height = 8.0;
-  const double max_diameter_per_height = 0.8;
-  const double min_diameter_per_height = 0.2; 
+//#define PARABOLOID
+#if defined PARABOLOID
 
   // now scale the points to maintain the curvature per height
   for (auto &point: points)
@@ -209,6 +214,11 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
     if (point_used[i])
       verts.push_back(points[i]);
   }
+#else
+  const double gradient = 1.0;
+
+  std::vector<Eigen::Vector3d> verts = Terrain::growDownwards(points, gradient);
+#endif
   std::cout << "num points " << points.size() << " num verts: " << verts.size() << std::endl;
   //std::vector<Eigen::Vector3i> &inds = mesh.indexList();
 

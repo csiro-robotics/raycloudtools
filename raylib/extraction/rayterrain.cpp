@@ -172,6 +172,58 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
   std::cout << "number of rays: " << points.size() << ", number of visits: " << num_visits << ", number of cone tests: " << num_cone_tests << std::endl;
 }
 
+std::vector<Eigen::Vector3d> Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
+{
+  // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
+  // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
+  const double root_half = sqrt(0.5);
+  const double root_3 = sqrt(3.0);
+  const double root_2 = sqrt(2.0);
+  Eigen::Matrix3d mat;
+  mat.row(0) = Eigen::Vector3d(root_2/root_3,0,1.0/root_3);
+  mat.row(1) = Eigen::Vector3d(-root_half/root_3, -root_half, 1.0/root_3);
+  mat.row(2) = Eigen::Vector3d(-root_half/root_3, root_half, 1.0/root_3);
+  Eigen::Matrix3d imat = mat.inverse();
+  double grad_scale = gradient / std::sqrt(2.0);
+
+  std::vector<Eigen::Vector4d> points(positions.size());
+  double count = 0.5;
+  for (size_t i = 0; i<positions.size(); i++)
+  {
+    Eigen::Vector3d p = positions[i];
+    p[2] /= grad_scale;
+    Eigen::Vector3d pos = mat * p;
+    points[i] = Eigen::Vector4d(pos[0], pos[1], pos[2], count++);
+  }
+
+  std::vector<Vector4d> front;
+  // first find the lower bound
+  getParetoFront(points, front);
+  std::cout << "number of pareto front points: " << front.size() << std::endl;
+
+  // then convert it into a mesh
+  std::vector<Eigen::Vector3d> vecs(front.size());
+  std::vector<Eigen::Vector3d> vecs_flat(front.size());
+  for (size_t i = 0; i<front.size(); i++)
+  {
+    vecs[i] = imat * Eigen::Vector3d(front[i][0], front[i][1], front[i][2]);
+    vecs[i][2] *= grad_scale;
+  }
+  return vecs;
+}
+
+std::vector<Eigen::Vector3d> Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
+{
+  std::vector<Eigen::Vector3d> upsidedown_points = positions;
+  for (auto &point: upsidedown_points)
+    point[2] = -point[2];
+  std::vector<Eigen::Vector3d> front = growUpwards(upsidedown_points, gradient);
+  for (auto &point: front)
+    point[2] = -point[2];
+  return front;
+}
+
+
 void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
 {
   #define PRE_PROCESS 
@@ -198,20 +250,7 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   }
 #endif
 
-  // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
-  // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
-  const double root_half = sqrt(0.5);
-  const double root_3 = sqrt(3.0);
-  const double root_2 = sqrt(2.0);
-  Eigen::Matrix3d mat;
-  mat.row(0) = Eigen::Vector3d(root_2/root_3,0,1.0/root_3);
-  mat.row(1) = Eigen::Vector3d(-root_half/root_3, -root_half, 1.0/root_3);
-  mat.row(2) = Eigen::Vector3d(-root_half/root_3, root_half, 1.0/root_3);
-
-  Eigen::Matrix3d imat = mat.inverse();
-  std::vector<Vector4d> points;
-  double count = 0.5;
-  double grad_scale = gradient / std::sqrt(2.0);
+  std::vector<Eigen::Vector3d> points;
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
@@ -245,29 +284,18 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
     if (remove)
       continue;
     #endif
-    p[2] /= grad_scale;
-    Eigen::Vector3d pos = mat * p;
-    points.push_back(Vector4d(pos[0], pos[1], pos[2], count));
-    count++;
+    points.push_back(p);
   }
 #if defined PRE_PROCESS
   std::cout << "size before: " << cloud.ends.size() << ", size after: " << points.size() << std::endl;
 #endif
-  std::vector<Eigen::Vector3d> median_surface;
-  std::vector<Vector4d> neg;
 
-  // first find the lower bound
-  getParetoFront(points, neg);
-  std::cout << "number of wrap points: " << neg.size() << std::endl;
+  std::vector<Eigen::Vector3d> vecs = growUpwards(points, gradient);
 
-  // if there is no width then we are already finished...
   // then convert it into a mesh
-  std::vector<Eigen::Vector3d> vecs(neg.size());
-  std::vector<Eigen::Vector3d> vecs_flat(neg.size());
-  for (size_t i = 0; i<neg.size(); i++)
+  std::vector<Eigen::Vector3d> vecs_flat(vecs.size());
+  for (size_t i = 0; i<vecs.size(); i++)
   {
-    vecs[i] = imat * Eigen::Vector3d(neg[i][0], neg[i][1], neg[i][2]);
-    vecs[i][2] *= grad_scale;
     vecs_flat[i] = vecs[i];
     vecs_flat[i][2] = 0.0;
   }

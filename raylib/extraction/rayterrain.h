@@ -19,10 +19,14 @@ namespace ray
 class RAYLIB_EXPORT Terrain
 {
 public:
-  /// Extracts a robust smooth surface from the ray cloud, into the state
+  /// Extracts a robust smooth surface mesh from the ray cloud
   void extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose);
+
+  /// Direct extraction of the pareto front points
+  static std::vector<Eigen::Vector3d> growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
+  static std::vector<Eigen::Vector3d> growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
 private:
-  void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front);
+  static void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front);
 };
 
 
