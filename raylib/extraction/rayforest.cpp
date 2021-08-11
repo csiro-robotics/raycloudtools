@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+//#define PARABOLOID
 
 namespace ray
 {
@@ -33,7 +34,9 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<E
       int id1 = ind[i];
       int id2 = ind[(i+1)%3];
       Eigen::Vector3d diff = points[id1]-points[id2];
+      #if defined PARABOLOID // paraboloid allows points sweeping down the side of trees, so shouldn't penalise vertical distance
       diff[2] = 0.0;
+      #endif
       nds.push_back(Nd(std::min(id1, id2), std::max(id1, id2), diff.squaredNorm()));
     }
   }
@@ -74,8 +77,8 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<E
     Eigen::Vector3d dims = maxb - minb;
     double diam = std::max(dims[0], dims[1]);
     double mean_height = (minb[2] + maxb[2])/2.0; 
-    if (diam > 2.0*std::min(dims[0], dims[1]) && (clusters[cl1].ids.size() + clusters[cl2].ids.size()) > 4) // ignore merges that are too elongated. TODO: use eigenvalues eventually 
-      continue;
+ //   if (diam > 2.0*std::min(dims[0], dims[1]) && (clusters[cl1].ids.size() + clusters[cl2].ids.size()) > 4) // ignore merges that are too elongated. TODO: use eigenvalues eventually 
+ //     continue;
     if (diam < max_diameter_per_height * mean_height) // then merge
     {
       int first = std::min(cl1, cl2);
@@ -163,11 +166,10 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   drawHeightField("highfield.png", heightfield_);
   drawHeightField("lowfield.png", lowfield_);
 
-  const double curvature_height = 8.0;
-#define PARABOLOID
+  const double curvature_height = 4.0;
 #if defined PARABOLOID
   const double max_diameter_per_height = 1.2; 
-  const double min_diameter_per_height = 0.15;
+  const double min_diameter_per_height = 0.25;
 
   // now scale the points to maintain the curvature per height
   for (auto &point: points)
