@@ -172,7 +172,7 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
   std::cout << "number of rays: " << points.size() << ", number of visits: " << num_visits << ", number of cone tests: " << num_cone_tests << std::endl;
 }
 
-std::vector<Eigen::Vector3d> Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
+void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
 {
   // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
   // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
@@ -208,19 +208,24 @@ std::vector<Eigen::Vector3d> Terrain::growUpwards(const std::vector<Eigen::Vecto
   {
     vecs[i] = imat * Eigen::Vector3d(front[i][0], front[i][1], front[i][2]);
     vecs[i][2] *= grad_scale;
+    vecs_flat[i] = vecs[i];
+    vecs_flat[i][2] = 0.0;
   }
-  return vecs;
+  ConvexHull hull(vecs_flat);
+  hull.growUpwards(0.01); // same as a Delauney triangulation
+
+  mesh_.indexList() = hull.mesh().indexList();
+  mesh_.vertices() = vecs;
 }
 
-std::vector<Eigen::Vector3d> Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
+void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
 {
   std::vector<Eigen::Vector3d> upsidedown_points = positions;
   for (auto &point: upsidedown_points)
     point[2] = -point[2];
-  std::vector<Eigen::Vector3d> front = growUpwards(upsidedown_points, gradient);
-  for (auto &point: front)
+  growUpwards(upsidedown_points, gradient);
+  for (auto &point: mesh_.vertices())
     point[2] = -point[2];
-  return front;
 }
 
 
@@ -290,26 +295,17 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   std::cout << "size before: " << cloud.ends.size() << ", size after: " << points.size() << std::endl;
 #endif
 
-  std::vector<Eigen::Vector3d> vecs = growUpwards(points, gradient);
+  growUpwards(points, gradient);
+  mesh_.reduce();
 
-  // then convert it into a mesh
-  std::vector<Eigen::Vector3d> vecs_flat(vecs.size());
-  for (size_t i = 0; i<vecs.size(); i++)
-  {
-    vecs_flat[i] = vecs[i];
-    vecs_flat[i][2] = 0.0;
-  }
-  ConvexHull hull(vecs_flat);
-  hull.growUpwards(0.01); // same as a Delauney triangulation
-  hull.mesh().vertices() = vecs;
-  writePlyMesh(file_prefix + "_mesh.ply", hull.mesh(), true);
+  writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);
   if (verbose)
   {
     RGBA white;
     white.red = white.green = white.blue = white.alpha = 255;  
     Cloud local_cloud;
     double t = 0.0;
-    for (auto &p: vecs)
+    for (auto &p: mesh_.vertices())
       local_cloud.addRay(p, p, t++, white);
     local_cloud.save(file_prefix + "_terrain.ply");
   }

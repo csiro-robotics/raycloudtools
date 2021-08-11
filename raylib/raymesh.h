@@ -35,6 +35,9 @@ public:
   /// numerically. Note that different stats guarantee different meshes, but same stats do not guarantee same meshes
   /// These stats are arranged as the mean vertex location, then the standard deviation in each axis
   Eigen::Array<double, 6, 1> getMoments() const;
+
+  // remove surplus points that are not part of any triangles
+  void reduce();
 private:
   std::vector<Eigen::Vector3d> vertices_;
   std::vector<Eigen::Vector3i> index_list_; // one per triangle, gives the index into the vertices_ array for each corner

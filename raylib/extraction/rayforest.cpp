@@ -14,25 +14,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-#include <nabo/nabo.h>
 
 namespace ray
 {
-void agglomerate(const std::vector<Eigen::Vector3d> &points, double min_diameter_per_height, double max_diameter_per_height, std::vector< std::vector<int> > &point_clusters)
+void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<Eigen::Vector3i> index_list, double min_diameter_per_height, double max_diameter_per_height, std::vector< std::vector<int> > &point_clusters)
 {
-  // 1. get nearest neighbours for each point
-  const int search_size = std::min(16, (int)points.size()-1);
-  Eigen::MatrixXd points_p(2, points.size());
-  for (unsigned int i = 0; i < points.size(); i++) 
-    points_p.col(i) = Eigen::Vector2d(points[i][0], points[i][1]);
-  Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 2);
-  // Run the search
-  Eigen::MatrixXi indices;
-  Eigen::MatrixXd dists2;
-  indices.resize(search_size, points.size());
-  dists2.resize(search_size, points.size());
-  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
-
   struct Nd
   {
     Nd(int id1, int id2, double dist2) : id1(id1), id2(id2), dist2(dist2) {}
@@ -40,11 +26,15 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, double min_diameter
     double dist2;
   };
   std::vector<Nd> nds;
-  for (size_t i = 0; i<points.size(); i++)
+  for (auto &ind: index_list) // doubles up on edges, which slows down the sort, but is safely discarded in later code
   {
-    for (int j = 0; j<search_size && indices(j, i) > -1; j++)
+    for (int i = 0; i<3; i++)
     {
-      nds.push_back(Nd((int)i, indices(j, i), dists2(j, i)));
+      int id1 = ind[i];
+      int id2 = ind[(i+1)%3];
+      Eigen::Vector3d diff = points[id1]-points[id2];
+      diff[2] = 0.0;
+      nds.push_back(Nd(std::min(id1, id2), std::max(id1, id2), diff.squaredNorm()));
     }
   }
   std::sort(nds.begin(), nds.end(), [](const Nd &nd1, const Nd &nd2){ return nd1.dist2 < nd2.dist2; });
@@ -173,11 +163,11 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   drawHeightField("highfield.png", heightfield_);
   drawHeightField("lowfield.png", lowfield_);
 
-  const double max_diameter_per_height = 0.9;
-  const double min_diameter_per_height = 0.4; 
   const double curvature_height = 8.0;
-//#define PARABOLOID
+#define PARABOLOID
 #if defined PARABOLOID
+  const double max_diameter_per_height = 1.2; 
+  const double min_diameter_per_height = 0.15;
 
   // now scale the points to maintain the curvature per height
   for (auto &point: points)
@@ -188,46 +178,41 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   for (auto &point: points)
     point[2] = std::sqrt(2.0*point[2]); // unsquish
   Mesh &mesh = hull.mesh();
+  mesh.vertices() = points;
   if (verbose)
   {
-    mesh.vertices() = points;
-    for (auto &point: mesh.vertices())
+    std::cout << "num points " << mesh.vertices().size() << std::endl;
+    mesh.reduce();
+    std::cout << "num points2 " << mesh.vertices().size() << std::endl;
+    Mesh mesh2 = mesh;
+    for (auto &point: mesh2.vertices())
     {
       double ground_height = lowfield_(int(point[0]/voxel_width_), int(point[1]/voxel_width_));
       point += Eigen::Vector3d(min_bounds_[0], min_bounds_[1], ground_height);
     }
     // ideally we now colour the vertices based on which cluster they're in....
 
-    writePlyMesh("peak_points_mesh.ply", mesh);
-  }
- // std::vector<Eigen::Vector3d> &verts = mesh.vertices();
-  std::vector<bool> point_used(points.size(), false);
-  for (auto &ind: mesh.indexList())
-  {
-    point_used[ind[0]]=true;
-    point_used[ind[1]]=true;
-    point_used[ind[2]]=true;
-  }
-  std::vector<Eigen::Vector3d> verts;
-  for (size_t i = 0; i<points.size(); i++)
-  {
-    if (point_used[i])
-      verts.push_back(points[i]);
+    writePlyMesh("peak_points_mesh.ply", mesh2);
   }
 #else
+  const double max_diameter_per_height = 0.9;
+  const double min_diameter_per_height = 0.1; 
   const double gradient = 1.0;
 
-  std::vector<Eigen::Vector3d> verts = Terrain::growDownwards(points, gradient);
+  Terrain terrain;
+  terrain.growDownwards(points, gradient);
+  Mesh &mesh = terrain.mesh();
 #endif
-  std::cout << "num points " << points.size() << " num verts: " << verts.size() << std::endl;
-  //std::vector<Eigen::Vector3i> &inds = mesh.indexList();
+  std::cout << "num points " << mesh.vertices().size() << std::endl;
+  mesh.reduce();
+  std::cout << "num verts: " << mesh.vertices().size() << std::endl;
 
 
   // 2. cluster according to radius based on height of points
   std::vector< std::vector<int> > point_clusters;
-
-  agglomerate(verts, min_diameter_per_height, max_diameter_per_height, point_clusters);
+  agglomerate(mesh.vertices(), mesh.indexList(), min_diameter_per_height, max_diameter_per_height, point_clusters);
   std::cout << "number found: " << point_clusters.size() << std::endl;
+  std::vector<Eigen::Vector3d> &verts = mesh.vertices();
 
   if (verbose)
   {

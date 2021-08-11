@@ -10,6 +10,8 @@
 #include "../rayutils.h"
 #include "../raycloud.h"
 #include "../rayalignment.h"
+#include "../raymesh.h"
+
 typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 namespace ray
@@ -23,9 +25,14 @@ public:
   void extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose);
 
   /// Direct extraction of the pareto front points
-  static std::vector<Eigen::Vector3d> growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
-  static std::vector<Eigen::Vector3d> growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
+  void growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
+  void growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
+
+  /// access the generated mesh
+  Mesh &mesh(){ return mesh_; }
+  const Mesh &mesh() const { return mesh_; }  
 private:
+  Mesh mesh_;
   static void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front);
 };
 

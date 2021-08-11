@@ -74,6 +74,25 @@ public:
   }
 };
 
+void Mesh::reduce()
+{
+  std::vector<Eigen::Vector3d> verts;
+  std::vector<int> new_ids(vertices_.size(), -1);
+  for (auto &ind: index_list_)
+  {
+    for (int i = 0; i<3; i++)
+    {
+      if (new_ids[ind[i]] == -1)
+      {
+        new_ids[ind[i]] = (int)verts.size();
+        verts.push_back(vertices_[ind[i]]);
+      }
+      ind[i] = new_ids[ind[i]];
+    }
+  }
+  vertices_ = verts;
+}
+
 void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max, double width)
 {
   double top = box_max[2];
