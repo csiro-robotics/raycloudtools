@@ -18,7 +18,58 @@
 
 namespace ray
 {
-void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<Eigen::Vector3i> index_list, double min_diameter_per_height, double max_diameter_per_height, std::vector< std::vector<int> > &point_clusters)
+
+bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d> &points, Eigen::Vector3d &tip)
+{
+  if (cluster.ids.empty())
+  {
+    tip = cluster.max_bound;
+    return true; // TODO: do we believe truks absolutely? or should we double check against the free space?
+  }
+  Eigen::Vector3d weighted_sum(0,0,0);
+  double weight = 0.0;
+  for (auto &i: cluster.ids)
+  {
+    weighted_sum += points[i][2] * points[i];
+    weight += points[i][2];
+  }
+  tip = weighted_sum/weight;
+  Eigen::Vector3d tip_local = tip/voxel_width_;
+  const double gradient = 0.1;
+  double radius = tip_local[2]*gradient;
+
+  // now find the closest bit of space to put the tree in:
+  int min_x = std::max(0, (int)(tip_local[0] - radius));
+  int max_x = std::min((int)spacefield_.rows()-1, (int)(tip_local[0] + radius));
+  int min_y = std::max(0, (int)(tip_local[1] - radius));
+  int max_y = std::min((int)spacefield_.cols()-1, (int)(tip_local[1] + radius));
+  double best_score = -1e10;
+  int best_x = -1;
+  int best_y = -1;
+  for (int x = min_x; x<=max_x; x++)
+  {
+    for (int y = min_y; y<=max_y; y++)
+    {
+      double dist2 = sqr(((double)x-tip_local[0])/radius) + sqr(((double)y-tip_local[1])/radius);
+      double score = spacefield_(x, y) - 0.25*dist2; // slight preference for result near the centroid
+      if (score > best_score)
+      {
+        best_score = score;
+        best_x = x;
+        best_y = y;
+      }
+    }
+  }
+  if (best_x != -1) 
+  {
+    tip[0] = ((double)best_x+0.5)*voxel_width_;
+    tip[1] = ((double)best_y+0.5)*voxel_width_;
+    return true;
+  }
+  return false;
+}
+
+void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<Eigen::Vector3i> index_list, double min_diameter_per_height, double max_diameter_per_height, std::vector<Cluster> &point_clusters)
 {
   struct Nd
   {
@@ -41,12 +92,7 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<E
     }
   }
   std::sort(nds.begin(), nds.end(), [](const Nd &nd1, const Nd &nd2){ return nd1.dist2 < nd2.dist2; });
-  struct Cluster
-  {
-    Eigen::Vector3d min_bound, max_bound;
-    std::vector<int> ids;
-    bool active;
-  };
+
   std::vector<Cluster> clusters(points.size());
   std::vector<int> cluster_ids(points.size());
   std::vector<bool> visited(points.size());
@@ -55,8 +101,53 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<E
     clusters[i].min_bound = clusters[i].max_bound = points[i];
     clusters[i].active = true;
     clusters[i].ids.push_back((int)i);
+    clusters[i].trunk_id = -1;
     cluster_ids[i] = (int)i;
     visited[i] = false;
+  }
+  int c = 0;
+  for (auto &trunk: trunks_) // if there are known trunks, then include them...
+  {
+    double min_dist2 = 1e10f;
+    int closest_i = -1;
+    for (int i = 0; i<(int)points.size(); i++)
+    {
+      Eigen::Vector3d dif = points[i] - trunk.first;
+      dif[2] = 0.0;
+      double dist2 = dif.squaredNorm();
+      if (dist2 < min_dist2)
+      {
+        min_dist2 = dist2;
+        closest_i = i;
+      }
+    }
+    const double gradient = 0.1;
+    if (closest_i >= 0 && std::sqrt(min_dist2) < gradient*points[closest_i][2])
+      clusters[cluster_ids[closest_i]].trunk_id = c;
+    else // this trunk has no peak points above it, so is a lower tree. We still need to calculate its height
+    {
+      std::cout << "trunk has no peaks above it" << std::endl;
+      // this uses heightfield
+      int rad = 3;
+      Eigen::Vector3i index = ((trunk.first-min_bounds_)/voxel_width_).cast<int>(); 
+      int minx = std::max(0, index[0]-rad);
+      int maxx = std::min(index[0]+rad, (int)heightfield_.rows()-1);
+      int miny = std::max(0, index[1]-rad);
+      int maxy = std::min(index[1]+rad, (int)heightfield_.cols()-1);
+      double maxheight = -1e10;
+      for (int x = minx; x<=maxx; x++)
+        for (int y = miny; y<=maxy; y++)
+          maxheight = std::max(maxheight, heightfield_(x, y));
+
+      // now how to we relay this information??
+      Eigen::Vector3d tip = trunk.first - min_bounds_;
+      tip[2] = maxheight;
+      Cluster new_cluster;
+      new_cluster.min_bound = new_cluster.max_bound = tip;
+      new_cluster.trunk_id = c;
+      clusters.push_back(new_cluster);
+    }
+    c++;
   }
 
   // 2. for each node in turn, from smallest to highest distance, agglomerate
@@ -64,21 +155,29 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<E
   {
     if (cluster_ids[node.id1] == cluster_ids[node.id2]) // already part of same cluster
       continue; 
-    double dist2 = node.dist2 / (points[node.id1][2]*points[node.id2][2]);
-    if (dist2 > sqr(min_diameter_per_height))
-    {
- //     std::cout << "gap: " << std::sqrt(node.dist2) << " or " << (points[node.id1]-points[node.id2]).norm() << " at height: " << std::sqrt(points[node.id1][2]*points[node.id2][2]) << " > " << min_diameter_per_height << std::endl;
-      continue;
-    }
     int cl1 = cluster_ids[node.id1];
     int cl2 = cluster_ids[node.id2];
+    if (clusters[cl1].trunk_id >=0 && clusters[cl1].trunk_id == clusters[cl2].trunk_id) // don't merge from different trunks
+      continue; 
     Eigen::Vector3d minb = minVector(clusters[cl1].min_bound, clusters[cl2].min_bound);
     Eigen::Vector3d maxb = maxVector(clusters[cl1].max_bound, clusters[cl2].max_bound);
     Eigen::Vector3d dims = maxb - minb;
     double diam = std::max(dims[0], dims[1]);
     double mean_height = (minb[2] + maxb[2])/2.0; 
- //   if (diam > 2.0*std::min(dims[0], dims[1]) && (clusters[cl1].ids.size() + clusters[cl2].ids.size()) > 4) // ignore merges that are too elongated. TODO: use eigenvalues eventually 
- //     continue;
+
+    double dist2 = node.dist2 / (points[node.id1][2]*points[node.id2][2]);
+    if (dist2 > sqr(min_diameter_per_height))
+    {
+      // about to keep as isolated cluster. So check if there is space underneath, and only isolate if there is
+      //#define MERGE_IF_NO_SPACE
+      #if defined MERGE_IF_NO_SPACE 
+      Eigen::Vector3d tip;
+      bool space1 = findSpace(clusters[cl1].ids, points, tip);
+      bool space2 = findSpace(clusters[cl2].ids, points, tip);
+      if (space1 && space2) // space is found for each so they're separate, the end
+      #endif
+        continue; 
+    }
     if (diam < max_diameter_per_height * mean_height) // then merge
     {
       int first = std::min(cl1, cl2);
@@ -95,7 +194,7 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<E
   {
     if (cluster.active)
     {
-      point_clusters.push_back(cluster.ids);
+      point_clusters.push_back(cluster);
     }
   }
 }
@@ -103,15 +202,16 @@ void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<E
 
 
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
-bool Forest::extract(const std::string &cloud_name, Mesh &mesh) 
+bool Forest::extract(const std::string &cloud_name, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks) 
 {
+  trunks_ = trunks;
   Cloud::Info info;
   if (!Cloud::getInfo(cloud_name, info))
     return false;
   min_bounds_ = info.ends_bound.min_bound_;
   max_bounds_ = info.ends_bound.max_bound_;
-  double voxel_width = 6.0 * Cloud::estimatePointSpacing(cloud_name, info.ends_bound, info.num_bounded);
-  std::cout << "estimated voxel width: " << voxel_width << " m" << std::endl;
+  double voxel_width = 0.25; // 6.0 * Cloud::estimatePointSpacing(cloud_name, info.ends_bound, info.num_bounded);
+  std::cout << "voxel width: " << voxel_width << " m" << std::endl;
 
   double width = (max_bounds_[0] - min_bounds_[0])/voxel_width;
   double length = (max_bounds_[1] - min_bounds_[1])/voxel_width;
@@ -136,15 +236,38 @@ bool Forest::extract(const std::string &cloud_name, Mesh &mesh)
 
   Eigen::ArrayXXd lows;
   mesh.toHeightField(lows, min_bounds_, max_bounds_, voxel_width);
-  extract(highs, lows, voxel_width);
+  if (lows.rows() != highs.rows() || lows.cols() != highs.cols())
+    std::cerr << "error: arrays are different widths" << std::endl;
+
+
+    // generate grid
+  Grid2D grid2D;
+  if (!grid2D.load("occupied.dat"))
+  {
+    grid2D.init(info.ends_bound.min_bound_, info.ends_bound.max_bound_, voxel_width);
+    // walk the rays to fill densities
+    grid2D.fillDensities(cloud_name, lows, 1.0, 1.5);
+    grid2D.save("occupied.dat");
+  }
+  if (grid2D.dims_[0] != lows.rows() || grid2D.dims_[1] != lows.cols())
+    std::cerr << "error: arrays are different widths" << std::endl;
+  Eigen::ArrayXXd space(grid2D.dims_[0], grid2D.dims_[1]);
+  for (int i = 0; i<space.rows(); i++)
+  {
+    for (int j = 0; j<space.cols(); j++)
+      space(i,j) = grid2D.pixel(Eigen::Vector3i(i, j, 0)).density();
+  }
+
+  extract(highs, lows, space, voxel_width);
   return true;
 }
 
-void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, double voxel_width)
+void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width)
 {
   voxel_width_ = voxel_width;
   heightfield_ = highs;
   lowfield_ = lows;
+  spacefield_ = space;
   int count = 0;
   std::vector<Eigen::Vector3d> points;
   for (int x = 0; x < heightfield_.rows(); x++)
@@ -166,8 +289,9 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   drawHeightField("highfield.png", heightfield_);
   drawHeightField("lowfield.png", lowfield_);
 
-  const double curvature_height = 4.0;
+
 #if defined PARABOLOID
+  const double curvature_height = 4.0;
   const double max_diameter_per_height = 1.2; 
   const double min_diameter_per_height = 0.25;
 
@@ -181,21 +305,6 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
     point[2] = std::sqrt(2.0*point[2]); // unsquish
   Mesh &mesh = hull.mesh();
   mesh.vertices() = points;
-  if (verbose)
-  {
-    std::cout << "num points " << mesh.vertices().size() << std::endl;
-    mesh.reduce();
-    std::cout << "num points2 " << mesh.vertices().size() << std::endl;
-    Mesh mesh2 = mesh;
-    for (auto &point: mesh2.vertices())
-    {
-      double ground_height = lowfield_(int(point[0]/voxel_width_), int(point[1]/voxel_width_));
-      point += Eigen::Vector3d(min_bounds_[0], min_bounds_[1], ground_height);
-    }
-    // ideally we now colour the vertices based on which cluster they're in....
-
-    writePlyMesh("peak_points_mesh.ply", mesh2);
-  }
 #else
   const double max_diameter_per_height = 0.9;
   const double min_diameter_per_height = 0.1; 
@@ -211,24 +320,25 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
 
 
   // 2. cluster according to radius based on height of points
-  std::vector< std::vector<int> > point_clusters;
+  std::vector<Cluster> point_clusters;
   agglomerate(mesh.vertices(), mesh.indexList(), min_diameter_per_height, max_diameter_per_height, point_clusters);
   std::cout << "number found: " << point_clusters.size() << std::endl;
   std::vector<Eigen::Vector3d> &verts = mesh.vertices();
+  const double height_per_radius = 50.0; // TODO: temporary until we have a better parameter choice
 
   if (verbose)
   {
     std::vector<Eigen::Vector3d> cloud_points;
     std::vector<double> times;
     std::vector<RGBA> colours;
+    RGBA colour;
+    colour.alpha = 255;
     for (auto &cluster: point_clusters)
     {
-      RGBA colour;
       colour.red = uint8_t(rand()%255);
       colour.green = uint8_t(rand()%255);
       colour.blue = uint8_t(rand()%255);
-      colour.alpha = 255;
-      for (auto &i: cluster)
+      for (auto &i: cluster.ids)
       {
         double ground_height = lowfield_(int(verts[i][0]/voxel_width_), int(verts[i][1]/voxel_width));
         Eigen::Vector3d pos = verts[i];
@@ -237,27 +347,63 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
         times.push_back(0.0);
         colours.push_back(colour);
       }
+      Eigen::Vector3d tip;
+      bool found = findSpace(cluster, verts, tip);
+      double rad = tip[2] / height_per_radius;
+      tip[2] = lowfield_(int(tip[0]/voxel_width_), int(tip[1]/voxel_width));
+      tip[0] += min_bounds_[0];
+      tip[1] += min_bounds_[1];
+      if (!found)
+        colour.red = colour.green = colour.blue = 0;
+      for (double z = 0.0; z<2.0; z+=0.3)
+      {
+        for (double ang = 0.0; ang<2.0*kPi; ang += 0.3)
+        {
+          cloud_points.push_back(tip + Eigen::Vector3d(rad*std::sin(ang), rad*std::cos(ang), z));
+          times.push_back(0.0);
+          colours.push_back(colour);
+        }
+      }
     }
+
+    // now add the space field:
+    for (int i = 0; i<spacefield_.rows(); i++)
+    {
+      for (int j = 0; j<spacefield_.cols(); j++)
+      {
+        if (spacefield_(i,j) < 1.0)
+        {
+          double height = lowfield_(i, j) + 0.2;
+          double x = min_bounds_[0] + (double)i*voxel_width_;
+          double y = min_bounds_[1] + (double)j*voxel_width_;
+          cloud_points.push_back(Eigen::Vector3d(x, y, height));
+          times.push_back(0.0);
+          colour.red = colour.green = colour.blue = (uint8_t)(255.0*spacefield_(i,j));
+          colours.push_back(colour);
+        }
+      }
+    }
+
+
     writePlyPointCloud("clusters.ply", cloud_points, times, colours);
   }
 
   // 3. for each cluster, get a mean centre...
   for (auto &cluster: point_clusters)
   {
-    Eigen::Vector3d weighted_sum(0,0,0);
-    double weight = 0.0;
-    for (auto &i: cluster)
+    Eigen::Vector3d tip;
+    if (findSpace(cluster, verts, tip))
     {
-      weighted_sum += verts[i][2] * verts[i];
-      weight += verts[i][2];
+      Result tree;
+      tree.height = tip[2];
+      tree.base = min_bounds_ + tip;
+      tree.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+      if (cluster.trunk_id)
+        tree.radius = trunks_[cluster.trunk_id].second;
+      else 
+        tree.radius = tip[2] / height_per_radius;
+      results_.push_back(tree);
     }
-    Result tree;
-    Eigen::Vector3d tip = weighted_sum / weight;
-    tree.ground_height = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-    tree.tree_tip = min_bounds_ + tip + Eigen::Vector3d(0,0,tree.ground_height);
-    tree.radius = tip[2] * max_diameter_per_height * 0.5;
-    tree.curvature = -curvature_height/tip[2];
-    results_.push_back(tree);
   }
 
   drawTrees("result_trees.png", results_, (int)heightfield_.rows(), (int)heightfield_.cols());
@@ -274,10 +420,7 @@ bool Forest::save(const std::string &filename)
   ofs << "# Forest extraction, tree base location list: x, y, z, radius" << std::endl;
   for (auto &result: results_)
   {
-    Eigen::Vector3d base = result.tree_tip;
-    base[2] = result.ground_height;
-    const double tree_radius_to_trunk_radius = 1.0/20.0; // TODO: temporary until we have a better parameter choice
-    ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << result.radius*tree_radius_to_trunk_radius << std::endl;
+    ofs << result.base[0] << ", " << result.base[1] << ", " << result.base[2] << ", " << result.radius << ", " << result.height << std::endl;
   }
   return true;
 }

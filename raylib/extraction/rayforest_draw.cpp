@@ -54,14 +54,26 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
+void Grid2D::draw(const std::string &filename)
+{
+  Field2D<Col> pixels(dims_[0], dims_[1]);
+  for (int x = 0; x < pixels.dims[0]; x++)
+    for (int y = 0; y < pixels.dims[1]; y++)
+    {
+      double shade = pixel(Eigen::Vector3i(x, y, 0)).density();
+      pixels(x, y) = Col((uint8_t)(255.0 * shade));
+    }
+  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
+}
+
 void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height)
 {
   double max_height = 0.0;
   double min_height = 1e10;
   for (auto &res: results)
   {
-    max_height = std::max(max_height, res.tree_tip[2]);
-    min_height = std::min(min_height, res.ground_height);
+    max_height = std::max(max_height, res.base[2] + res.height);
+    min_height = std::min(min_height, res.base[2]);
   }
 
   // I should probably draw the result
@@ -72,9 +84,10 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
     c = Col(0); 
   for (auto &result: results)
   {
-    Eigen::Vector3d pos = (result.tree_tip - min_bounds_) / voxel_width_;
-    double curvature = result.curvature;
-    double radius_pixels = result.radius / voxel_width_;
+    Eigen::Vector3d pos = (result.base - min_bounds_) / voxel_width_;
+    double curvature = -0.05;
+    double crown_radius = result.radius * 5.0;
+    double radius_pixels = crown_radius / voxel_width_;
     for (int x = (int)(pos[0] - radius_pixels); x<= (int)(pos[0]+radius_pixels); x++)
     {
       for (int y = (int)(pos[1] - radius_pixels); y<= (int)(pos[1]+radius_pixels); y++)
@@ -84,9 +97,9 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
         double X = ((double)x - pos[0]) * voxel_width_;
         double Y = ((double)y - pos[1]) * voxel_width_;
         double mag2 = (double)(X*X + Y*Y);
-        if (mag2 <= result.radius*result.radius)
+        if (mag2 <= crown_radius*crown_radius)
         {
-          double height = result.tree_tip[2] + mag2 * curvature;
+          double height = result.base[2] + result.height + mag2 * curvature;
           double shade = std::max(0.0, std::min((height - min_height)/(max_height - min_height), 1.0)); // clamp because curvature can conceivably negative sometimes
           Col col(uint8_t(255.0*shade));
           if (pixels(x, y).r < col.r)

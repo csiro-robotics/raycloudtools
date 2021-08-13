@@ -82,7 +82,7 @@ void readPlainOldData(std::ifstream &in, T &t)
 template<typename T>
 void writePlainOldDataArray(std::ofstream &out, const std::vector<T> &array)
 {
-  unsigned int size = array.size();
+  unsigned int size = (unsigned int) array.size();
   out.write(reinterpret_cast<char*>(&size), sizeof(unsigned int));
   for (unsigned int i = 0; i<size; i++)
     writePlainOldData(out, array[i]);

@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
     else
       usage();
 
+    convex_hull.mesh().reduce();
     writePlyMesh(cloud_file.nameStub() + "_mesh.ply", convex_hull.mesh(), true);
   }
 
