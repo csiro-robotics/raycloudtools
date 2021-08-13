@@ -26,6 +26,12 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
     tip = cluster.max_bound;
     return true; // TODO: do we believe truks absolutely? or should we double check against the free space?
   }
+  if (cluster.trunk_id >= 0) // if this cluster is associated with a trunk, then use the trunk location, not the centroid
+  {
+    tip = trunks_[cluster.trunk_id].first - min_bounds_;
+    tip[2] = cluster.max_bound[2];
+    return true;
+  }
   Eigen::Vector3d weighted_sum(0,0,0);
   double weight = 0.0;
   for (auto &i: cluster.ids)
@@ -105,14 +111,15 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
     cluster_ids[i] = (int)i;
     visited[i] = false;
   }
-  int c = 0;
-  for (auto &trunk: trunks_) // if there are known trunks, then include them...
+  int outside_count = 0;
+  for (int c = 0; c<(int)trunks_.size(); c++) // if there are known trunks, then include them...
   {
+    auto &trunk = trunks_[c];
     double min_dist2 = 1e10f;
     int closest_i = -1;
     for (int i = 0; i<(int)points.size(); i++)
     {
-      Eigen::Vector3d dif = points[i] - trunk.first;
+      Eigen::Vector3d dif = points[i] - (trunk.first - min_bounds_);
       dif[2] = 0.0;
       double dist2 = dif.squaredNorm();
       if (dist2 < min_dist2)
@@ -126,7 +133,6 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       clusters[cluster_ids[closest_i]].trunk_id = c;
     else // this trunk has no peak points above it, so is a lower tree. We still need to calculate its height
     {
-      std::cout << "trunk has no peaks above it" << std::endl;
       // this uses heightfield
       int rad = 3;
       Eigen::Vector3i index = ((trunk.first-min_bounds_)/voxel_width_).cast<int>(); 
@@ -138,7 +144,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       for (int x = minx; x<=maxx; x++)
         for (int y = miny; y<=maxy; y++)
           maxheight = std::max(maxheight, heightfield_(x, y));
-
+      std::cout << "trunk " << ++outside_count << "/" << trunks_.size() << " has no peaks above it, canopy found at " << maxheight << " above trunk" << std::endl;
       // now how to we relay this information??
       Eigen::Vector3d tip = trunk.first - min_bounds_;
       tip[2] = maxheight;
@@ -147,18 +153,22 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       new_cluster.trunk_id = c;
       clusters.push_back(new_cluster);
     }
-    c++;
   }
 
   // 2. for each node in turn, from smallest to highest distance, agglomerate
   for (auto &node: nds)
   {
-    if (cluster_ids[node.id1] == cluster_ids[node.id2]) // already part of same cluster
-      continue; 
     int cl1 = cluster_ids[node.id1];
     int cl2 = cluster_ids[node.id2];
-    if (clusters[cl1].trunk_id >=0 && clusters[cl1].trunk_id == clusters[cl2].trunk_id) // don't merge from different trunks
+    if (cl1 == cl2) // already part of same cluster
       continue; 
+    if (clusters[cl1].trunk_id >=0 && clusters[cl2].trunk_id >=0 && clusters[cl1].trunk_id != clusters[cl2].trunk_id) // don't merge from different trunks
+    {
+      std::cout << "clusters " << cl1 << " and " << cl2 << "cannot merge between two different trunks " << clusters[cl1].trunk_id << " and " << clusters[cl2].trunk_id << std::endl;
+      continue;
+    } 
+    if (clusters[cl1].trunk_id >=0 && clusters[cl1].trunk_id == clusters[cl2].trunk_id)
+      std::cout << "weird, two different clusters have the same trunk id " << cl1 << ", " << cl2 << " have " << clusters[cl1].trunk_id << " and " << clusters[cl2].trunk_id << std::endl;
     Eigen::Vector3d minb = minVector(clusters[cl1].min_bound, clusters[cl2].min_bound);
     Eigen::Vector3d maxb = maxVector(clusters[cl1].max_bound, clusters[cl2].max_bound);
     Eigen::Vector3d dims = maxb - minb;
@@ -172,8 +182,8 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       //#define MERGE_IF_NO_SPACE
       #if defined MERGE_IF_NO_SPACE 
       Eigen::Vector3d tip;
-      bool space1 = findSpace(clusters[cl1].ids, points, tip);
-      bool space2 = findSpace(clusters[cl2].ids, points, tip);
+      bool space1 = findSpace(clusters[cl1], points, tip);
+      bool space2 = findSpace(clusters[cl2], points, tip);
       if (space1 && space2) // space is found for each so they're separate, the end
       #endif
         continue; 
@@ -184,6 +194,12 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       int last = std::max(cl1, cl2);
       clusters[first].min_bound = minb;
       clusters[first].max_bound = maxb;
+      if (clusters[last].trunk_id >= 0)
+      {
+        if (clusters[first].trunk_id >= 0)
+          std::cout << "error, this should never happen " << clusters[first].trunk_id << ", " << clusters[last].trunk_id << std::endl;
+        clusters[first].trunk_id = clusters[last].trunk_id;
+      }
       clusters[first].ids.insert(clusters[first].ids.begin(), clusters[last].ids.begin(), clusters[last].ids.end());
       for (auto &id: clusters[last].ids)
         cluster_ids[id] = first;
@@ -355,7 +371,16 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
       tip[1] += min_bounds_[1];
       if (!found)
         colour.red = colour.green = colour.blue = 0;
-      for (double z = 0.0; z<2.0; z+=0.3)
+      double z_max = 2.0;
+      if (cluster.trunk_id >= 0)
+        z_max = 4.0;
+      if (cluster.ids.empty())
+      {
+        colour.red = 255;
+        colour.green = 0;
+        colour.blue = 255;
+      }
+      for (double z = 0.0; z<z_max; z+=0.3)
       {
         for (double ang = 0.0; ang<2.0*kPi; ang += 0.3)
         {
