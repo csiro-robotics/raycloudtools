@@ -91,9 +91,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       int id1 = ind[i];
       int id2 = ind[(i+1)%3];
       Eigen::Vector3d diff = points[id1]-points[id2];
-      #if defined PARABOLOID // paraboloid allows points sweeping down the side of trees, so shouldn't penalise vertical distance
       diff[2] = 0.0;
-      #endif
       nds.push_back(Nd(std::min(id1, id2), std::max(id1, id2), diff.squaredNorm()));
     }
   }
@@ -323,7 +321,7 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   mesh.vertices() = points;
 #else
   const double max_diameter_per_height = 0.9;
-  const double min_diameter_per_height = 0.15; 
+  const double min_diameter_per_height = 0.1; 
   const double gradient = 1.0;
 
   Terrain terrain;
