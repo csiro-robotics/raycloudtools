@@ -323,7 +323,7 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   mesh.vertices() = points;
 #else
   const double max_diameter_per_height = 0.9;
-  const double min_diameter_per_height = 0.1; 
+  const double min_diameter_per_height = 0.15; 
   const double gradient = 1.0;
 
   Terrain terrain;
