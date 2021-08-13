@@ -164,11 +164,9 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       continue; 
     if (clusters[cl1].trunk_id >=0 && clusters[cl2].trunk_id >=0 && clusters[cl1].trunk_id != clusters[cl2].trunk_id) // don't merge from different trunks
     {
-      std::cout << "clusters " << cl1 << " and " << cl2 << "cannot merge between two different trunks " << clusters[cl1].trunk_id << " and " << clusters[cl2].trunk_id << std::endl;
+  //    std::cout << "clusters " << cl1 << " and " << cl2 << "cannot merge between two different trunks " << clusters[cl1].trunk_id << " and " << clusters[cl2].trunk_id << std::endl;
       continue;
     } 
-    if (clusters[cl1].trunk_id >=0 && clusters[cl1].trunk_id == clusters[cl2].trunk_id)
-      std::cout << "weird, two different clusters have the same trunk id " << cl1 << ", " << cl2 << " have " << clusters[cl1].trunk_id << " and " << clusters[cl2].trunk_id << std::endl;
     Eigen::Vector3d minb = minVector(clusters[cl1].min_bound, clusters[cl2].min_bound);
     Eigen::Vector3d maxb = maxVector(clusters[cl1].max_bound, clusters[cl2].max_bound);
     Eigen::Vector3d dims = maxb - minb;
