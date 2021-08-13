@@ -244,12 +244,14 @@ bool Forest::extract(const std::string &cloud_name, Mesh &mesh, const std::vecto
       h = std::max(h, ends[i][2]);
     }
   };
-
   if (!ray::Cloud::read(cloud_name, fillHeightField))
     return false;
 
   Eigen::ArrayXXd lows;
-  mesh.toHeightField(lows, min_bounds_, max_bounds_, voxel_width);
+  if (mesh.vertices().empty())
+    lows = Eigen::ArrayXXd::Constant(highs.rows(), highs.cols(), min_bounds_[2]);
+  else 
+    mesh.toHeightField(lows, min_bounds_, max_bounds_, voxel_width);
   if (lows.rows() != highs.rows() || lows.cols() != highs.cols())
     std::cerr << "error: arrays are different widths" << std::endl;
 
