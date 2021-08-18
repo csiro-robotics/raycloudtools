@@ -8,6 +8,7 @@
 #include "../raydebugdraw.h"
 #include "../raygrid.h"
 #include "../raycuboid.h"
+#include "../rayply.h"
 #include <nabo/nabo.h>
 #include <queue>
 
@@ -17,7 +18,7 @@ namespace
 {
 const double inf = 1e10;
 // Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
-static const double minimum_score = 40.0; 
+static const double minimum_score = 55;//40.0; 
 static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
 static const double boundary_radius_scale = 2.0; // how much farther out is the expected boundary compared to real branch radius? Larger requires more space to declare it a branch
 
@@ -192,7 +193,7 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
   }
 }
 
-Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
+Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
 {
   double spacing = cloud.estimatePointSpacing();
   if (verbose)
@@ -252,15 +253,15 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
         continue;
       }
 
-      if (branch.dir[2] == 1.0)
+      if (branch.dir[2] == 1.0 && !trunks_only)
       {
         branch.estimatePose(points);
         continue;
       }
 
-      branch.updateDirection(points);
+      branch.updateDirection(points, trunks_only);
       branch.updateCentre(points);
-      branch.updateRadiusAndScore(points, spacing);
+      branch.updateRadiusAndScore(points, spacing, trunks_only);
 
       if (branch.score > best_branches[branch_id].score) // got worse, so analyse the best result now
         best_branches[branch_id] = branch;      
@@ -268,14 +269,18 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
       if (branch.length < midRadius) // not enough data to use
         branch.active = false;
     }
+    if (verbose)
+    {
+      drawBranches(best_branches);
+    } 
   }
-  if (verbose)
-  {
-//    drawBranches(best_branches);
-  }   
+  
   for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
   {
-    if (!best_branches[branch_id].active || best_branches[branch_id].score < minimum_score) // then remove the branch
+    bool leaning_too_much = false;
+    if (trunks_only)
+      leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.9;
+    if (!best_branches[branch_id].active || best_branches[branch_id].score < minimum_score || leaning_too_much) // then remove the branch
     {
       best_branches[branch_id] = best_branches.back(); 
       best_branches.pop_back();
@@ -307,7 +312,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
 
   // Next a forest nearest path search
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
-  
+  std::vector<int> lowest_branch_ids;
   // get the lowest points and fill in closest_node
   for (size_t i = 0; i<branches.size(); i++)
   {
@@ -328,9 +333,42 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose)
       if (branches[i].dir[2] < 0.0)
         branches[i].dir *= -1;
       closest_node.push(QueueNode(sqr(branches[i].centre[2]), (int)i));
+      lowest_branch_ids.push_back((int)i);
     }
   }
   std::cout << "number of ground branches: " << closest_node.size() << std::endl;
+
+  // render these trunk points to disk:
+  if (verbose)
+  {
+    std::vector<Eigen::Vector3d> cloud_points;
+    std::vector<double> times;
+    std::vector<RGBA> colours;
+    RGBA colour;
+    colour.alpha = 255;
+    for (auto &id: lowest_branch_ids)
+    {
+      Branch &branch = branches[id];
+      colour.red = uint8_t(rand()%255);
+      colour.green = uint8_t(rand()%255);
+      colour.blue = uint8_t(rand()%255);
+
+      Eigen::Vector3d side1 = branch.dir.cross(Eigen::Vector3d(1,2,3)).normalized();
+      Eigen::Vector3d side2 = side1.cross(branch.dir);
+      double rad = branch.radius;
+      for (double z = -0.5; z<0.5; z+=0.1)
+      {
+        for (double ang = 0.0; ang<2.0*kPi; ang += 0.3)
+        {
+          Eigen::Vector3d pos = branch.centre + branch.dir*branch.length*z + side1*std::sin(ang)*rad + side2*std::cos(ang)*rad;
+          cloud_points.push_back(pos);
+          times.push_back(0.0);
+          colours.push_back(colour);
+        }
+      }
+    }
+    writePlyPointCloud("trunks_verbose.ply", cloud_points, times, colours);
+  }
 
   // 1. get nearest neighbours
   const int search_size = 20;

@@ -78,7 +78,7 @@ void Branch::estimatePose(const std::vector<Eigen::Vector3d> &points)
   dir = eigen_solver.eigenvectors().col(2);       
 }
 
-void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points)
+void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool trunks_only)
 {
   struct Accumulator
   {
@@ -115,7 +115,8 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points)
     sum.weight += w;      
   }
   double n = sum.weight;
-//  centre += dir*(sum.x / n); // in theory it moves towards a better spot, but in practice it gets rid of diversity of positions
+  if (trunks_only)
+    centre += dir*(sum.x / n); // in theory it moves towards a better spot, but in practice it gets rid of diversity of positions
 
   // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
   Eigen::Vector2d sXY = sum.xy - sum.x*sum.y/n;
@@ -124,7 +125,8 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points)
     sXY /= sXX;
 
   dir = (dir + ax1*sXY[0] + ax2*sXY[1]).normalized();
-//  length = 4.0*(sum.abs_x/n);    
+  if (trunks_only)
+    length = 4.0*(sum.abs_x/n);    
 }
 
 // shift to an estimation of the centre of the cylinder's circle
@@ -171,7 +173,7 @@ void Branch::updateCentre(const std::vector<Eigen::Vector3d> &points)
   centre += (ax1*shift[0] + ax2*shift[1]) * radius;       
 }
 
-void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double spacing)
+void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double spacing, bool trunks_only)
 {
   double rad = 0, rad_sqr = 0;
   std::vector<double> scores(points.size());
@@ -184,7 +186,8 @@ void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, do
   }
   double n = (double)points.size();
   radius = rad / n;
-  length = 2.0*radius * branch_height_to_width;
+  if (!trunks_only)
+    length = 2.0*radius * branch_height_to_width;
   double num_points = (double)points.size() - 4.0; // (double)min_num_points;
   double variance = (rad_sqr/n - sqr(rad / n)) * n/num_points; // end part gives sample variance
   double density = num_points * sqr(spacing) / (2.0 * kPi * radius * length);

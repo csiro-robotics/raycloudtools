@@ -28,9 +28,9 @@ struct Branch
 
   void getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Vector3d> &points, double spacing);
   void estimatePose(const std::vector<Eigen::Vector3d> &points);
-  void updateDirection(const std::vector<Eigen::Vector3d> &points);
+  void updateDirection(const std::vector<Eigen::Vector3d> &points, bool trunks_only);
   void updateCentre(const std::vector<Eigen::Vector3d> &points);
-  void updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double spacing);
+  void updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double spacing, bool trunks_only);
 };
 } // namespace ray
 #endif // RAYLIB_RAYBRANCH_H
