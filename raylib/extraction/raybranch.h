@@ -19,10 +19,12 @@ struct Branch
   double radius;
   double score;
   double length; 
+  double actual_length;
   Eigen::Vector3d dir;
   int parent;
   double tree_score;
   double distance_to_ground;
+  double ground_height;
   bool active;
   bool visited;
 

@@ -98,8 +98,8 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool tr
   {
     Eigen::Vector3d to_point = points[i] - centre;
     Eigen::Vector2d offset(to_point.dot(ax1), to_point.dot(ax2));
-    // const double dist = offset.norm();
-    double w = 1.0;//1.0 - dist/(radius * boundary_radius_scale); // lateral fade off
+    const double dist = offset.norm();
+    double w = 1.0;// trunks_only ? 1.0 - dist/(radius * boundary_radius_scale) : 1.0; // lateral fade off
     // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated branch centred on that edge
     //                If radius_removal_factor=1 then v thin branches may accidentally get a radius and it won't shrink down
     const double radius_removal_factor = 0.5;
@@ -116,7 +116,7 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool tr
   }
   double n = sum.weight;
   if (trunks_only)
-    centre += dir*(sum.x / n); // in theory it moves towards a better spot, but in practice it gets rid of diversity of positions
+    centre += dir*(sum.x / n); 
 
   // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
   Eigen::Vector2d sXY = sum.xy - sum.x*sum.y/n;
@@ -126,7 +126,10 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool tr
 
   dir = (dir + ax1*sXY[0] + ax2*sXY[1]).normalized();
   if (trunks_only)
-    length = 4.0*(sum.abs_x/n);    
+  {
+    actual_length = 4.0*(sum.abs_x/n);
+    length = std::max(actual_length, 2.0*radius * branch_height_to_width);    
+  }
 }
 
 // shift to an estimation of the centre of the cylinder's circle
@@ -190,9 +193,9 @@ void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, do
     length = 2.0*radius * branch_height_to_width;
   double num_points = (double)points.size() - 4.0; // (double)min_num_points;
   double variance = (rad_sqr/n - sqr(rad / n)) * n/num_points; // end part gives sample variance
-  double density = num_points * sqr(spacing) / (2.0 * kPi * radius * length);
+ // double density = num_points * sqr(spacing) / (2.0 * kPi * radius * length);
   
-  score = std::sqrt(density / variance);
+  score = std::sqrt(actual_length /* * density*/ / variance); // unitless
 }
 
 } // namespace ray

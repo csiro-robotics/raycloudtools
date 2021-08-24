@@ -18,15 +18,16 @@ namespace
 {
 const double inf = 1e10;
 // Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
-static const double minimum_score = 55;//40.0; 
+static const double minimum_score = 30.0; // 55;//40.0; 
 static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
 static const double boundary_radius_scale = 2.0; // how much farther out is the expected boundary compared to real branch radius? Larger requires more space to declare it a branch
 
 void drawBranches(const std::vector<Branch> &branches)
 {
+  #if USE_RVIZ
   std::vector<Eigen::Vector3d> starts, ends;
   std::vector<double> radii;
-  std::vector<Eigen::Vector4d> colours;
+  std::vector<Eigen::Vector3d> colours;
   for (size_t i = 0; i<branches.size(); i++)
   {
     if (!branches[i].active)
@@ -41,12 +42,46 @@ void drawBranches(const std::vector<Branch> &branches)
     ends.push_back(branches[i].centre + branches[i].dir*branches[i].length*0.5);
     radii.push_back(branches[i].radius);
     double shade = std::min(branches[i].score / (2.0 * minimum_score), 1.0);
-    Eigen::Vector4d col(0,0,0,0.5);
+    Eigen::Vector3d col(0,0,0);
     col[0] = col[1] = shade;
     col[2] = shade > 0.5 ? 1.0 : 0.0;
     colours.push_back(col);
   }
-  DebugDraw::instance()->drawCylinders(starts, ends, radii, 1, colours);
+//  DebugDraw::instance()->drawCylinders(starts, ends, radii, 1, colours);
+  DebugDraw::instance()->drawLines(starts, ends, colours);
+  #else
+    std::vector<Eigen::Vector3d> cloud_points;
+    std::vector<double> times;
+    std::vector<RGBA> colours;
+    RGBA colour;
+    colour.alpha = 255;
+    for (auto &branch: branches)
+    {
+      if (!branch.active)
+        continue;
+  //    colour.red = uint8_t(rand()%255);
+  //    colour.green = uint8_t(rand()%255);
+  //    colour.blue = uint8_t(rand()%255);
+      colour.red = colour.green = colour.blue = (uint8_t)std::min(255.0*branch.score / (2.0*minimum_score), 255.0);
+      if (branch.score < minimum_score)
+        colour.green = colour.blue = 0;
+
+      Eigen::Vector3d side1 = branch.dir.cross(Eigen::Vector3d(1,2,3)).normalized();
+      Eigen::Vector3d side2 = side1.cross(branch.dir);
+      double rad = branch.radius;
+      for (double z = -0.5; z<0.5; z+=0.15)
+      {
+        for (double ang = 0.0; ang<2.0*kPi; ang += 0.6)
+        {
+          Eigen::Vector3d pos = branch.centre + branch.dir*branch.length*z + side1*std::sin(ang)*rad + side2*std::cos(ang)*rad;
+          cloud_points.push_back(pos);
+          times.push_back(0.0);
+          colours.push_back(colour);
+        }
+      }
+    }
+    writePlyPointCloud("branches_verbose.ply", cloud_points, times, colours);
+  #endif
 }
 
 struct QueueNode
@@ -91,7 +126,7 @@ void initialiseBranches(std::vector<Branch> &branches, const Cloud &cloud, const
     (double voxel_width, const Eigen::Vector3d &offset, const Eigen::Vector3i &index, int count)
   {
     Eigen::Vector3d centre = (index.cast<double>() + Eigen::Vector3d(0.5,0.5,0.5))*voxel_width + offset;
-    if (count < 2)
+    if (count < 4)
       return;
     Branch branch;
     double diameter = voxel_width / std::sqrt(2.0);
@@ -170,23 +205,9 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
         double vol_cylinder = sqr(cylinder.radius)*cylinder.length;
         // remove the smaller one
         if (vol_branch < vol_cylinder)
-        {
           branch.active = false;
-          /*
-          best_branches[i] = best_branches.back();
-          best_branches.pop_back();
-          i--;*/
-        }
         else
-        {
-          /*if (j > i)
-          {
-            best_branches[j] = best_branches.back();
-            best_branches.pop_back();
-          }
-          else*/ 
-            cylinder.active = false;
-        }
+          cylinder.active = false;
         break;
       }
     }
@@ -238,7 +259,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
   const int num_iterations = 5;
   for (int it = 0; it<num_iterations; it++)
   {
-    std::cout << "iteration " << it << " / " << num_iterations << " " << branches.size() << " branches" << std::endl;
+    double above_count = 0;
     for (int branch_id = 0; branch_id < (int)branches.size(); branch_id++)
     {
       auto &branch = branches[branch_id];
@@ -266,31 +287,79 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
       if (branch.score > best_branches[branch_id].score) // got worse, so analyse the best result now
         best_branches[branch_id] = branch;      
 
-      if (branch.length < midRadius) // not enough data to use
+      bool leaning_too_much = false;
+      if (trunks_only)
+        leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.85;
+      if (branch.length < midRadius || leaning_too_much) // not enough data to use
         branch.active = false;
+  //    if (branch.score < 0.25*minimum_score)
+  //      branch.active = false;
+      if (branch.score > minimum_score)
+        above_count++;
     }
+    std::cout << "iteration " << it << " / " << num_iterations << " " << branches.size() << " branches, " << above_count << " valid" << std::endl;
     if (verbose)
     {
       drawBranches(best_branches);
     } 
   }
   
+  // now filter the remaining branches
   for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
   {
     bool leaning_too_much = false;
     if (trunks_only)
       leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.9;
-    if (!best_branches[branch_id].active || best_branches[branch_id].score < minimum_score || leaning_too_much) // then remove the branch
+    Branch &branch = best_branches[branch_id];
+    if (!branch.active || branch.score < minimum_score || leaning_too_much) // then remove the branch
     {
       best_branches[branch_id] = best_branches.back(); 
       best_branches.pop_back();
       branch_id--;
       continue;        
     }    
+    // now check if rays pass through the branch:
+    const double min_width = 0.05;
+    if (branch.radius < min_width) // too thin for pass throughs
+      continue;
+    Eigen::Vector3d base = branch.centre - branch.length*0.5*branch.dir;
+    Eigen::Vector3d tip  = branch.centre + branch.length*0.5*branch.dir;
+    branch.dir.normalize(); // just in case it wasn't already
+    double penetration = 0.0;
+    double total = 0.0;
+    for (size_t i = 0; i<cloud.ends.size(); i++)
+    {
+      Eigen::Vector3d line_dir = cloud.ends[i] - cloud.starts[i];
+      Eigen::Vector3d across = line_dir.cross(branch.dir);
+      Eigen::Vector3d side = across.cross(branch.dir);
+
+      double d = std::max(0.0, std::min((base - cloud.starts[i]).dot(side) / line_dir.dot(side), 1.0));
+      Eigen::Vector3d closest_point = cloud.starts[i] + line_dir * d;
+
+
+      double d2 = std::max(0.0, std::min((closest_point - base).dot(branch.dir), branch.length + branch.radius));
+      Eigen::Vector3d closest_point2 = base + branch.dir * d2;
+      
+      double dist = (closest_point - closest_point2).norm();
+      if (dist < branch.radius)
+      {
+        penetration += branch.radius - dist;
+        total++;
+      }
+    }
+    if (total > 0.0)
+      penetration /= total;
+    if (penetration > min_width) // lines go through this branch, so kill it
+    {
+      best_branches[branch_id] = best_branches.back(); 
+      best_branches.pop_back();
+      branch_id--;
+      continue; 
+    } 
   }
   if (verbose)
   {
- //   drawBranches(best_branches);
+    drawBranches(best_branches);
     std::cout << "num valid branches: " << best_branches.size() << std::endl;
   } 
 
@@ -300,8 +369,8 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
     if (branch.active)
       branches.push_back(branch);
 
-  std::ofstream output("branchdata.dat", std::ios::out);
-  writePlainOldDataArray(output, branches);
+//  std::ofstream output("branchdata.dat", std::ios::out);
+//  writePlainOldDataArray(output, branches);
   }
 
   if (verbose)
@@ -309,6 +378,29 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
     drawBranches(branches);
     std::cout << "num non-overlapping branches: " << branches.size() << std::endl;
   } 
+
+  // now get ground height for each branch:
+  double pixel_width = 2.0;
+  int dimx = (int)std::ceil((max_bound[0] - min_bound[0])/pixel_width);
+  int dimy = (int)std::ceil((max_bound[1] - min_bound[1])/pixel_width);
+  Eigen::ArrayXXd ground_heights(dimx, dimy);
+  ground_heights.setZero();
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+  {
+    if (!cloud.rayBounded(i))
+      continue;
+    Eigen::Vector3i index = ((cloud.ends[i] - min_bound)/pixel_width).cast<int>();
+    double &h = ground_heights(index[0], index[1]);
+    if (h == 0.0 || cloud.ends[i][2] < h)
+      h = cloud.ends[i][2];
+  }
+  for (auto &branch: branches)
+  {
+    Eigen::Vector3i index = ((branch.centre - min_bound)/pixel_width).cast<int>();
+    branch.ground_height = ground_heights(index[0], index[1]) - 1.0;  // TODO: fix!
+    if (branch.dir[2] < 0.0)
+      branch.dir *= -1.0;
+  }
 
   // Next a forest nearest path search
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
@@ -322,11 +414,16 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
       Eigen::Vector3d dif = branches[j].centre - branches[i].centre;
       dif[2] = 0.0;
       double x2 = dif.squaredNorm();
-      double height = branches[j].centre[2] - min_bound[2]; // TODO: use ground map for better value here
+      double height = std::max(0.001, branches[j].centre[2] - branches[j].ground_height); 
 
       double z = x2/(2.0*height);
-      if (branches[i].centre[2] > z)
+      Eigen::Vector3d basei = branches[i].centre - branches[i].dir*0.5*branches[i].length;
+      Eigen::Vector3d basej = branches[j].centre - branches[j].dir*0.5*branches[j].length;
+      if (basei[2] > basej[2] + z)
+      {
+//        std::cout << "branch " << i << ": " << basei.transpose() << " is above branch " << j << ": " << basej.transpose() << " with ground height: " << branches[j].ground_height << " so removing" << std::endl;
         break;
+      }
     }
     if (j==branches.size())
     {
