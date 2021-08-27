@@ -316,25 +316,33 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
       drawBranches(branches); // best_branches);
     } 
   }
-  for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
+  branches.clear();
+  for (auto &branch: best_branches)
   {
     bool leaning_too_much = false;
     if (trunks_only)
-      leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.9;
-    Branch &branch = best_branches[branch_id];
-    if (!branch.active || branch.score < minimum_score || leaning_too_much) // then remove the branch
-    {
-      best_branches[branch_id] = best_branches.back(); 
-      best_branches.pop_back();
-      branch_id--;
-      continue;        
-    }   
+      leaning_too_much = std::abs(branch.dir[2]) < 0.9;
+    if (branch.active && branch.score >= minimum_score && !leaning_too_much) // then remove the branch
+      branches.push_back(branch);       
+  }  
+  best_branches = branches;
+  removeOverlappingBranches(best_branches);
+  branches.clear();
+  for (auto &branch: best_branches)
+  {
+    if (branch.active) // then remove the branch
+      branches.push_back(branch);         
   }  
 
-#if 1 // fast method
+  if (verbose)
+  {
+    drawBranches(branches);
+    std::cout << "num non-overlapping branches: " << branches.size() << std::endl;
+  } 
+#if 0 // remove ray-filled branches
   RayGrid2D grid2D;
   grid2D.init(min_bound, max_bound, 2.0);
-  for (auto &branch: best_branches)
+  for (auto &branch: branches)
   {
     grid2D.pixel(branch.centre).filled = true;
   }
@@ -345,9 +353,9 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
   std::cout << "num rays total: " << count << std::endl;
 
   int num_removed = 0;
-  for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
+  for (int branch_id = 0; branch_id<(int)branches.size(); branch_id++)
   { 
-    Branch &branch = best_branches[branch_id];
+    Branch &branch = branches[branch_id];
     // now check if rays pass through the branch:
     const double min_width = 0.05;
     if (branch.radius < min_width) // too thin for pass throughs
@@ -359,7 +367,6 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
     double total = 0.0;
 
     auto &ray_ids = grid2D.pixel(branch.centre).ray_ids;
-    std::cout << "branch: " << branch_id << " has " << ray_ids.size() << " rays around it" << std::endl;
     for (size_t i = 0; i<ray_ids.size(); i++)
     {
       Eigen::Vector3d start = cloud.starts[ray_ids[i]];
@@ -388,30 +395,17 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
     if (penetration > min_width) // lines go through this branch, so kill it
     {
       num_removed++;
-      best_branches[branch_id] = best_branches.back(); 
-      best_branches.pop_back();
+      branches[branch_id] = branches.back(); 
+      branches.pop_back();
       branch_id--;
       continue; 
     } 
   }
   std::cout << "number of trunks removed due to rays passing through them: " << num_removed << std::endl;
-  
-  if (verbose)
-  {
-    drawBranches(best_branches);
-    std::cout << "num valid branches: " << best_branches.size() << std::endl;
-  } 
-
-  removeOverlappingBranches(best_branches);
-  branches.clear();
-  for (auto &branch: best_branches)
-    if (branch.active)
-      branches.push_back(branch);
-
 //  std::ofstream output("branchdata.dat", std::ios::out);
 //  writePlainOldDataArray(output, branches);
   }
-
+#endif
   if (verbose)
   {
     drawBranches(branches);
@@ -472,7 +466,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
       lowest_branch_ids.push_back((int)i);
     }
   }
-  std::cout << "number of ground branches: " << closest_node.size() << std::endl;
+  std::cout << "number of ground trunks: " << closest_node.size() << " so " << branches.size() - closest_node.size() << " trunks have been removed" << std::endl;
 
   // render these trunk points to disk:
   if (verbose)
