@@ -65,8 +65,11 @@ int main(int argc, char *argv[])
     if (!cloud.load(cloud_file.name()))
       usage(true);
 
-    const double radius = 0.15; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
-    ray::Wood woods(cloud, radius, verbose.isSet());
+ /*   const double radius = 0.15; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
+    ray::Wood woods(cloud, radius, verbose.isSet());*/
+
+    const double radius = 0.1; // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm 
+    ray::Bush woods(cloud, radius, verbose.isSet(), true);
     woods.save(cloud_file.nameStub() + "_trunks.txt");
   }
   else if (extract_branches)
@@ -76,8 +79,7 @@ int main(int argc, char *argv[])
       usage(true);
 
     const double radius = 0.1; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
-    const bool trunks_only = true;
-    ray::Bush woods(cloud, radius, verbose.isSet(), trunks_only);
+    ray::Bush woods(cloud, radius, verbose.isSet(), false);
     woods.save(cloud_file.nameStub() + "_branches.txt");
   }  
   else if (extract_trees)
