@@ -17,10 +17,6 @@ namespace ray
 namespace
 {
 const double inf = 1e10;
-// Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
-static const double minimum_score = 30.0; // 55;//40.0; 
-static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
-static const double boundary_radius_scale = 2.0; // how much farther out is the expected boundary compared to real branch radius? Larger requires more space to declare it a branch
 
 void drawBranches(const std::vector<Branch> &branches)
 {
@@ -123,11 +119,19 @@ void initialiseBranches(std::vector<Branch> &branches, const Cloud &cloud, const
     }
   }
   auto addBranch = [&branches]
-    (double voxel_width, const Eigen::Vector3d &offset, const Eigen::Vector3i &index, int count)
+    (const struct IntegerVoxels &voxels, double voxel_width, const Eigen::Vector3d &offset, const Eigen::Vector3i &index, int count)
   {
     Eigen::Vector3d centre = (index.cast<double>() + Eigen::Vector3d(0.5,0.5,0.5))*voxel_width + offset;
     if (count < 4)
       return;
+    const int minpoints = 4;
+    bool above1 = voxels.get(index + Eigen::Vector3i(0,0,1)) >= minpoints;
+    bool above2 = voxels.get(index + Eigen::Vector3i(0,0,2)) >= minpoints;
+    bool below1 = voxels.get(index - Eigen::Vector3i(0,0,1)) >= minpoints;
+    bool below2 = voxels.get(index - Eigen::Vector3i(0,0,2)) >= minpoints;
+    bool tall_enough = (above1 && below1) || (above1 && above2) || (below1 && below2);
+    if (!tall_enough)
+      return; 
     Branch branch;
     double diameter = voxel_width / std::sqrt(2.0);
     branch.centre = centre;
@@ -251,6 +255,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
 
   // 2. initialise one branch candidate for each occupied voxel
   initialiseBranches(branches, cloud, min_bound, voxel_width);
+  std::cout << "initialised to " << branches.size() << " branches" << std::endl;
  
   // 3. iterate every candidate several times
   std::vector<Branch> best_branches = branches;
@@ -260,6 +265,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
   for (int it = 0; it<num_iterations; it++)
   {
     double above_count = 0;
+    double active_count = 0;
     for (int branch_id = 0; branch_id < (int)branches.size(); branch_id++)
     {
       auto &branch = branches[branch_id];
@@ -282,29 +288,34 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
 
       branch.updateDirection(points, trunks_only);
       branch.updateCentre(points);
+  //    double oldoldscore = branch.last_score;
       branch.updateRadiusAndScore(points, spacing, trunks_only);
 
       if (branch.score > best_branches[branch_id].score) // got worse, so analyse the best result now
         best_branches[branch_id] = branch;      
+//      if (oldoldscore > 0.0 && branch.score + (branch.score - oldoldscore) < minimum_score)
+//        branch.active = false;
+      if (branch.last_score > 0.0 && branch.score + 3.0*(branch.score - branch.last_score) < minimum_score)
+        branch.active = false;
 
       bool leaning_too_much = false;
       if (trunks_only)
         leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.85;
-      if (branch.length < midRadius || leaning_too_much) // not enough data to use
+      if (branch.length < 4.0*midRadius || leaning_too_much) // not enough data to use
         branch.active = false;
-  //    if (branch.score < 0.25*minimum_score)
-  //      branch.active = false;
+
+      if (branch.active)
+        active_count++;
       if (branch.score > minimum_score)
         above_count++;
     }
     std::cout << "iteration " << it << " / " << num_iterations << " " << branches.size() << " branches, " << above_count << " valid" << std::endl;
+    std::cout << active_count << " active" << std::endl;
     if (verbose)
     {
-      drawBranches(best_branches);
+      drawBranches(branches); // best_branches);
     } 
   }
-  
-  // now filter the remaining branches
   for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
   {
     bool leaning_too_much = false;
@@ -317,24 +328,49 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
       best_branches.pop_back();
       branch_id--;
       continue;        
-    }    
+    }   
+  }  
+
+#if 1 // fast method
+  RayGrid2D grid2D;
+  grid2D.init(min_bound, max_bound, 2.0);
+  for (auto &branch: best_branches)
+  {
+    grid2D.pixel(branch.centre).filled = true;
+  }
+  grid2D.fillRays(cloud);
+  size_t count = 0;
+  for (auto &pixel: grid2D.pixels_)
+    count += pixel.ray_ids.size();
+  std::cout << "num rays total: " << count << std::endl;
+
+  int num_removed = 0;
+  for (int branch_id = 0; branch_id<(int)best_branches.size(); branch_id++)
+  { 
+    Branch &branch = best_branches[branch_id];
     // now check if rays pass through the branch:
     const double min_width = 0.05;
     if (branch.radius < min_width) // too thin for pass throughs
       continue;
     Eigen::Vector3d base = branch.centre - branch.length*0.5*branch.dir;
-    Eigen::Vector3d tip  = branch.centre + branch.length*0.5*branch.dir;
+   // Eigen::Vector3d tip  = branch.centre + branch.length*0.5*branch.dir;
     branch.dir.normalize(); // just in case it wasn't already
     double penetration = 0.0;
     double total = 0.0;
-    for (size_t i = 0; i<cloud.ends.size(); i++)
+
+    auto &ray_ids = grid2D.pixel(branch.centre).ray_ids;
+    std::cout << "branch: " << branch_id << " has " << ray_ids.size() << " rays around it" << std::endl;
+    for (size_t i = 0; i<ray_ids.size(); i++)
     {
-      Eigen::Vector3d line_dir = cloud.ends[i] - cloud.starts[i];
+      Eigen::Vector3d start = cloud.starts[ray_ids[i]];
+      Eigen::Vector3d end = cloud.ends[ray_ids[i]];
+      
+      Eigen::Vector3d line_dir = end - start;
       Eigen::Vector3d across = line_dir.cross(branch.dir);
       Eigen::Vector3d side = across.cross(branch.dir);
 
-      double d = std::max(0.0, std::min((base - cloud.starts[i]).dot(side) / line_dir.dot(side), 1.0));
-      Eigen::Vector3d closest_point = cloud.starts[i] + line_dir * d;
+      double d = std::max(0.0, std::min((base - start).dot(side) / line_dir.dot(side), 1.0));
+      Eigen::Vector3d closest_point = start + line_dir * d;
 
 
       double d2 = std::max(0.0, std::min((closest_point - base).dot(branch.dir), branch.length + branch.radius));
@@ -351,12 +387,15 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
       penetration /= total;
     if (penetration > min_width) // lines go through this branch, so kill it
     {
+      num_removed++;
       best_branches[branch_id] = best_branches.back(); 
       best_branches.pop_back();
       branch_id--;
       continue; 
     } 
   }
+  std::cout << "number of trunks removed due to rays passing through them: " << num_removed << std::endl;
+  
   if (verbose)
   {
     drawBranches(best_branches);

@@ -212,6 +212,7 @@ struct Grid2D
 
     std::cout << "average bit count: " << (double)bitcount / (double)pixels_.size() << std::endl;
   }
+
   void draw(const std::string &filename);
 };
 

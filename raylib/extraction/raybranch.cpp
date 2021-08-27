@@ -14,12 +14,8 @@
 namespace ray
 {
 const double inf = 1e10;
-// Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
-static const double minimum_score = 40.0; 
-static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
-static const double boundary_radius_scale = 2.0; // how much farther out is the expected boundary compared to real branch radius? Larger requires more space to declare it a branch
 
-Branch::Branch() : centre(0,0,0), radius(0), score(0), length(0), dir(0,0,0), parent(-1), tree_score(inf), distance_to_ground(inf), active(true), visited(false) 
+Branch::Branch() : centre(0,0,0), radius(0), score(0), last_score(0), length(0), dir(0,0,0), parent(-1), tree_score(inf), distance_to_ground(inf), active(true), visited(false) 
 {
 }
 
@@ -178,24 +174,29 @@ void Branch::updateCentre(const std::vector<Eigen::Vector3d> &points)
 
 void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double spacing, bool trunks_only)
 {
-  double rad = 0, rad_sqr = 0;
+  double rad = 0;
   std::vector<double> scores(points.size());
-  for (size_t i = 0; i<points.size(); i++)
+  for (auto &point: points)
   {
-    Eigen::Vector3d to_point = points[i] - centre;
-    double dist_sqr = (to_point - dir*dir.dot(to_point)).squaredNorm();
-    rad += std::sqrt(dist_sqr);
-    rad_sqr += dist_sqr;
+    Eigen::Vector3d to_point = point - centre;
+    rad += (to_point - dir*dir.dot(to_point)).norm();
   }
   double n = (double)points.size();
   radius = rad / n;
+  double raddiff = 0.0;
+  for (auto &point: points)
+  {
+    Eigen::Vector3d to_point = point - centre;
+    double rad = (to_point - dir*dir.dot(to_point)).norm();
+    raddiff += std::abs(rad - radius);
+  }
   if (!trunks_only)
     length = 2.0*radius * branch_height_to_width;
-  double num_points = (double)points.size() - 4.0; // (double)min_num_points;
-  double variance = (rad_sqr/n - sqr(rad / n)) * n/num_points; // end part gives sample variance
- // double density = num_points * sqr(spacing) / (2.0 * kPi * radius * length);
+  double num_points = (double)points.size() - 4.0; 
+  double variation = raddiff / num_points; // end part gives sample variation
   
-  score = std::sqrt(actual_length /* * density*/ / variance); // unitless
+  last_score = score;
+  score = actual_length / variation; // unitless
 }
 
 } // namespace ray

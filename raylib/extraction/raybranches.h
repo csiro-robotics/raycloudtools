@@ -46,7 +46,7 @@ struct IntegerVoxels
       it->second++;
     }
   }
-  inline int get(const Eigen::Vector3i &index)
+  inline int get(const Eigen::Vector3i &index) const
   {
     auto it = voxel_map.find(index);
     if (it == voxel_map.end())
@@ -54,11 +54,11 @@ struct IntegerVoxels
     else
       return it->second;
   }
-  void forEach(std::function<void(double width, const Eigen::Vector3d &offset, const Eigen::Vector3i &index, int count)> func)
+  void forEach(std::function<void(const struct IntegerVoxels &voxels, double width, const Eigen::Vector3d &offset, const Eigen::Vector3i &index, int count)> func)
   {
     for (auto &voxel: voxel_map)
     {
-      func(voxel_width, offset, voxel.first, voxel.second);
+      func(*this, voxel_width, offset, voxel.first, voxel.second);
     }
   }
 
