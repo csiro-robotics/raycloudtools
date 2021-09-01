@@ -184,7 +184,7 @@ void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &i
 
 void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                        std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats, 
-                       Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays) const
+                       Eigen::MatrixXi *neighbour_indices, double max_distance, bool reject_back_facing_rays) const
 {
   // simplest scheme... find 3 nearest neighbours and do cross product
   if (centroids)
@@ -211,7 +211,10 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
   Eigen::MatrixXd dists2;
   indices.resize(search_size, ray_ids.size());
   dists2.resize(search_size, ray_ids.size());
-  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
+  if (max_distance != 0.0)
+    nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0, max_distance);
+  else
+    nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
   delete nns;
 
   if (neighbour_indices)

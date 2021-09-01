@@ -81,7 +81,7 @@ public:
   /// The last argument excludes back-facing rays from the surfel, this produces flatter surfels on thin double walls
   void getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                   std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats,
-                  Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays = true) const;
+                  Eigen::MatrixXi *neighbour_indices, double max_distance = 0.0, bool reject_back_facing_rays = true) const;
   /// Get first and second order moments of cloud. This can be used as a simple way to compare clouds
   /// numerically. Note that different stats guarantee different clouds, but same stats do not guarantee same clouds
   /// These stats are arranged as: start mean, start sigma, end mean, end sigma, colour mean, time mean, time sigma, 
