@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <map>
+#include <nabo/nabo.h>
 
 void usage(int exit_code = 1)
 {
@@ -26,6 +28,11 @@ void usage(int exit_code = 1)
   std::cout << "                         --lit   - shaded (slow on large datasets)" << std::endl;
   std::cout << "                   foliage       - uses lidar intensity to split around best split point. r,g,b are different blur levels" << std::endl;
   exit(exit_code);
+}
+
+double areaMeasure(const Eigen::Matrix3d &mat)
+{
+  return mat(0,0)*mat(1,1) - mat(0,1)*mat(1,0) + mat(0,0)*mat(2,2) - mat(0,2)*mat(2,0) + mat(1,1)*mat(2,2) - mat(1,2)*mat(2,1);
 }
 
 // shortcut, to place the red green blue spectrum into the RGBA structure
@@ -55,46 +62,13 @@ int main(int argc, char *argv[])
   const std::string type = colour_type.selectedKey();
   std::string in_file = cloud_file.name();
   const std::string out_file = cloud_file.nameStub() + "_coloured.ply";
-  uint8_t split_alpha = 90; // was 185
+  uint8_t split_alpha = 100; 
 
   if (type != "shape" && type != "normal" && type != "foliage") // chunk loading possible for simple cases
   {
     ray::CloudWriter writer;
     if (!writer.begin(out_file))
       usage();
-
-    if (type == "foliage")
-    {
-      int ticks_per_bucket = 10;
-      int num_buckets = 1 + 255 / ticks_per_bucket;
-      std::vector<int> histogram(num_buckets, 0);
-
-      auto fill_histogram = [&histogram, &ticks_per_bucket](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &, std::vector<double> &, std::vector<ray::RGBA> &colours)
-      {
-        for (auto &colour: colours)
-        {
-          int bucket = (int)colour.alpha / ticks_per_bucket;
-          histogram[bucket]++;
-        }
-      };
-      if (!ray::Cloud::read(cloud_file.name(), fill_histogram))
-        usage();    
-
-      for (auto &hist: histogram)
-        std::cout << hist << ", ";
-      std::cout << std::endl;
-
-      int starti = split_alpha / ticks_per_bucket;
-      int i;
-      for (i = starti; i < num_buckets-1 && histogram[i+1]<histogram[i]; i++);
-      int j;
-      for (j = starti; j > 0 && histogram[j-1]<histogram[j]; j--);
-      if (histogram[j] < histogram[i])
-        i = j;
-      
-   //   split_alpha = (uint8_t)(ticks_per_bucket*i + ticks_per_bucket/2);
-      std::cout << "foliage / branch alpha split value: " << (int)split_alpha << std::endl;
-    }
 
     auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer, &split_alpha]
       (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
@@ -144,16 +118,6 @@ int main(int argc, char *argv[])
             colour.blue = uint8_t(255.0 * col_vec[2]);
           }
         }
-        else if (type == "foliage")
-        {
-          for (auto &colour: colours)
-          {
-            int scale = 4;
-            int shade = 127 + ((int)colour.alpha - (int)split_alpha) * scale;
-            colour.red = colour.green = colour.blue = (uint8_t)std::max(0, std::min(shade, 255));
- //           colour.alpha = 255;
-          }
-        }
         else
           usage();
       }
@@ -183,8 +147,6 @@ int main(int argc, char *argv[])
   };
   std::vector<Data> data(cloud.ends.size());
   int search_size = 20;
-  if (type == "foliage")
-    search_size = 5;
   std::vector<Eigen::Vector3d> centroids;
   std::vector<Eigen::Vector3d> dimensions;
   std::vector<Eigen::Vector3d> normals;
@@ -203,7 +165,7 @@ int main(int argc, char *argv[])
   else if (type == "foliage")
   {
     inds = &indices;
-    max_distance = 0.2;
+    dims = &dimensions;
   }
   else
     calc_surfels = lit.isSet();
@@ -215,7 +177,7 @@ int main(int argc, char *argv[])
   }
 
   if (calc_surfels)
-    cloud.getSurfels(search_size, cents, norms, dims, mats, inds, max_distance);
+    cloud.getSurfels(search_size, cents, norms, dims, mats, inds, max_distance, false);
   if (type == "shape")
   {
     for (int i = 0; i < (int)cloud.ends.size(); i++)
@@ -225,9 +187,9 @@ int main(int argc, char *argv[])
       const double sphericity = dimensions[i][0] / dimensions[i][2];
       const double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
       const double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
-      cloud.colours[i].red = (uint8_t)(255.0 * (0.3 + 0.7 * sphericity));
-      cloud.colours[i].green = (uint8_t)(255.0 * (0.3 + 0.7 * cylindricality));
-      cloud.colours[i].blue = (uint8_t)(255.0 * (0.3 + 0.7 * planarity));
+      cloud.colours[i].red = (uint8_t)(255.0 * sphericity);//(0.3 + 0.7 * sphericity));
+      cloud.colours[i].green = (uint8_t)(255.0 * cylindricality);//(0.3 + 0.7 * cylindricality));
+      cloud.colours[i].blue = (uint8_t)(255.0 * planarity);//(0.3 + 0.7 * planarity));
     }
   }
   else if (type == "normal")
@@ -243,48 +205,41 @@ int main(int argc, char *argv[])
   }
   else if (type == "foliage")
   {
+    std::vector<uint8_t> cols;
     for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
-      double alpha = cloud.colours[i].alpha;
-      double num = 1;
-      for (int j = 0; j<search_size && indices(j, i) > -1; j++)
+      cols.clear();
+      cols.push_back(cloud.colours[i].alpha);
+      for (int j = 0; j<4 && indices(j, i) > -1; j++)
       {
-        alpha += (double)cloud.colours[indices(j, i)].alpha;
-        num++;
+        cols.push_back(cloud.colours[indices(j, i)].alpha);
       }
-      cloud.colours[i].red = (uint8_t)(alpha / num);
-    }    
-    for (int i = 0; i < (int)cloud.ends.size(); i++)
-    {
-      double alpha = cloud.colours[i].red;
-      double num = 1;
-      for (int j = 0; j<search_size && indices(j, i) > -1; j++)
-      {
-        alpha += (double)cloud.colours[indices(j, i)].red;
-        num++;
-      }
-      cloud.colours[i].green = (uint8_t)(alpha / num);
-    }   
-    for (int i = 0; i < (int)cloud.ends.size(); i++)
-    {
-      double alpha = cloud.colours[i].green;
-      double num = 1;
-      for (int j = 0; j<search_size && indices(j, i) > -1; j++)
-      {
-        alpha += (double)cloud.colours[indices(j, i)].green;
-        num++;
-      }
-      cloud.colours[i].blue = (uint8_t)(alpha / num);
-    }  
-    for (auto &colour: cloud.colours)
-    {
-      int scale = 3;
-      colour.red = (uint8_t)std::max(0, std::min(127 + ((int)colour.red - split_alpha)*scale, 255));
-      colour.green = (uint8_t)std::max(0, std::min(127 + ((int)colour.green - split_alpha)*scale, 255));
-      colour.blue = (uint8_t)std::max(0, std::min(127 + ((int)colour.blue - split_alpha)*scale, 255));
-    }  
-  }
+      if (cols.size() < 4 + 1)
+        std::cout << i << ", " << cols.size() << " ss: " << 4+1 << std::endl;
+      if (cols.size() == 1)
+        cloud.colours[i].red = cloud.colours[i].alpha;
+      else 
+        cloud.colours[i].red = ray::median(cols);
+      double range = (cloud.ends[i] - cloud.starts[i]).norm();
+      double half_range = 100.0;
+      cloud.colours[i].red = (uint8_t)( (double) cloud.colours[i].red / (1.0 + range / half_range));
 
+      int scale = 2;
+      const double sphericity = dimensions[i][0] / dimensions[i][2];
+      const double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
+      const double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
+   /*   cloud.colours[i].red = 255 - (uint8_t)std::max(0, std::min(127 + ((int)cloud.colours[i].red - (int)split_alpha)*scale, 255));
+
+      cloud.colours[i].green = (uint8_t)(255.0 * (1.0 + sphericity - cylindricality)/2.0);
+      cloud.colours[i].blue = (uint8_t)(255.0 * (1.0 + sphericity - planarity)/2.0);*/
+      
+      
+      double value = 255.0 * (1.0 + sphericity - std::max(cylindricality, planarity))/2.0;  
+      value += (double)(127 - ((int)cloud.colours[i].red - (int)split_alpha)*scale);
+      cloud.colours[i].red = 255 - (uint8_t)std::max(0, std::min((int)value/2, 255));
+      cloud.colours[i].green = cloud.colours[i].blue = cloud.colours[i].red;
+    }    
+  }
   if (lit.isSet())
   {
     std::vector<double> curvatures(cloud.ends.size());

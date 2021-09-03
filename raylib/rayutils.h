@@ -142,7 +142,7 @@ inline T sqr(const T &val)
 }
 
 template <class T>
-T mean(const std::vector<T> &list)
+inline T mean(const std::vector<T> &list)
 {
   T result = list[0];
   for (unsigned int i = 1; i < list.size(); i++) result += list[i];
@@ -154,7 +154,7 @@ T mean(const std::vector<T> &list)
  * When there are an even number of elements it returns the mean of the two medians
  */
 template <class T>
-T median(std::vector<T> list)
+inline T median(std::vector<T> list)
 {
   typename std::vector<T>::iterator first = list.begin();
   typename std::vector<T>::iterator last = list.end();
@@ -166,7 +166,7 @@ T median(std::vector<T> list)
   {
     typename std::vector<T>::iterator middle2 = middle + 1;
     nth_element(first, middle2, last);
-    return (*middle + *middle2) / 2.0;
+    return (*middle + *middle2) / static_cast<T>(2);
   }
 }
 
