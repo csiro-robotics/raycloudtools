@@ -208,36 +208,46 @@ int main(int argc, char *argv[])
     std::vector<uint8_t> cols;
     for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
+      // 1. red is median alpha value, rescaled
       cols.clear();
       cols.push_back(cloud.colours[i].alpha);
       for (int j = 0; j<4 && indices(j, i) > -1; j++)
       {
         cols.push_back(cloud.colours[indices(j, i)].alpha);
       }
-      if (cols.size() < 4 + 1)
-        std::cout << i << ", " << cols.size() << " ss: " << 4+1 << std::endl;
       if (cols.size() == 1)
         cloud.colours[i].red = cloud.colours[i].alpha;
       else 
         cloud.colours[i].red = ray::median(cols);
+
       double range = (cloud.ends[i] - cloud.starts[i]).norm();
       double half_range = 100.0;
-      cloud.colours[i].red = (uint8_t)( (double) cloud.colours[i].red / (1.0 + range / half_range));
+      double red = (double) cloud.colours[i].red / (1.0 + range / half_range);
+      double scale = 2.0;
+      cloud.colours[i].red = (uint8_t)std::max(0, std::min(127 + ((int)(0.5 + red*scale) - (int)(split_alpha*scale)), 255));
 
-      int scale = 2;
-      const double sphericity = dimensions[i][0] / dimensions[i][2];
-      const double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
-      const double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
-   /*   cloud.colours[i].red = 255 - (uint8_t)std::max(0, std::min(127 + ((int)cloud.colours[i].red - (int)split_alpha)*scale, 255));
+      // 2. green is cyliinidricality
+      Eigen::Vector3d mean = cloud.ends[i];
+      int num = 1;
+      for (int j = 0; j<search_size && indices(j, i) > -1; j++)
+      {
+        mean += cloud.ends[indices(j, i)];
+        num++;
+      }
+      mean /= (double)num;
+      Eigen::Matrix3d scatter = (cloud.ends[i]-mean)*(cloud.ends[i]-mean).transpose();
+      for (int j = 0; j<search_size && indices(j, i) > -1; j++)
+      {
+        Eigen::Vector3d v = cloud.ends[indices(j, i)]-mean;
+        scatter += v*v.transpose();
+      }
+      scatter /= (double)num;
 
-      cloud.colours[i].green = (uint8_t)(255.0 * (1.0 + sphericity - cylindricality)/2.0);
-      cloud.colours[i].blue = (uint8_t)(255.0 * (1.0 + sphericity - planarity)/2.0);*/
-      
-      
-      double value = 255.0 * (1.0 + sphericity - std::max(cylindricality, planarity))/2.0;  
-      value += (double)(127 - ((int)cloud.colours[i].red - (int)split_alpha)*scale);
-      cloud.colours[i].red = 255 - (uint8_t)std::max(0, std::min((int)value/2, 255));
-      cloud.colours[i].green = cloud.colours[i].blue = cloud.colours[i].red;
+      double cylind  = 1.0 - 3.0 * std::sqrt(areaMeasure(scatter) / 3.0) / scatter.trace();
+      cloud.colours[i].green = (uint8_t)std::max(0.0, 255.0 * std::min(cylind, 1.0));
+
+      // 3. blue is nothing
+      cloud.colours[i].blue = 0;
     }    
   }
   if (lit.isSet())
