@@ -18,6 +18,7 @@
 
 namespace ray
 {
+static const double wrap_gradient = 1.0;
 
 bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d> &points, Eigen::Vector3d &tip)
 {
@@ -41,8 +42,8 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
   }
   tip = weighted_sum/weight;
   Eigen::Vector3d tip_local = tip/voxel_width_;
-  const double gradient = 0.1;
-  double radius = tip_local[2]*gradient;
+  const double search_down_gradient = 0.2;
+  double radius = tip_local[2]*search_down_gradient;
 
   // now find the closest bit of space to put the tree in:
   int min_x = std::max(0, (int)(tip_local[0] - radius));
@@ -79,9 +80,9 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
 {
   struct Nd
   {
-    Nd(int id1, int id2, double dist2) : id1(id1), id2(id2), dist2(dist2) {}
+    Nd(int id1, int id2, double dist) : id1(id1), id2(id2), dist(dist) {}
     int id1, id2;
-    double dist2;
+    double dist;
   };
   std::vector<Nd> nds;
   for (auto &ind: index_list) // doubles up on edges, which slows down the sort, but is safely discarded in later code
@@ -91,11 +92,20 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       int id1 = ind[i];
       int id2 = ind[(i+1)%3];
       Eigen::Vector3d diff = points[id1]-points[id2];
+      double height = std::abs(diff[2]);
       diff[2] = 0.0;
-      nds.push_back(Nd(std::min(id1, id2), std::max(id1, id2), diff.squaredNorm()));
+
+      double dist = diff.norm();
+      double h = height / (wrap_gradient * dist);
+      if (h > 1.01)
+        std::cout << "how did this happen?" << std::endl;
+      double height_penalty_factor = 0.5; // 0 to 1. Make apparent distance less when there is a height difference, because large height differences we cannot see as much downward slope
+      dist *= 1.0 - h*height_penalty_factor;
+
+      nds.push_back(Nd(std::min(id1, id2), std::max(id1, id2), dist));
     }
   }
-  std::sort(nds.begin(), nds.end(), [](const Nd &nd1, const Nd &nd2){ return nd1.dist2 < nd2.dist2; });
+  std::sort(nds.begin(), nds.end(), [](const Nd &nd1, const Nd &nd2){ return nd1.dist < nd2.dist; });
 
   std::vector<Cluster> clusters(points.size());
   std::vector<int> cluster_ids(points.size());
@@ -109,7 +119,6 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
     cluster_ids[i] = (int)i;
     visited[i] = false;
   }
-  int outside_count = 0;
   for (int c = 0; c<(int)trunks_.size(); c++) // if there are known trunks, then include them...
   {
     auto &trunk = trunks_[c];
@@ -126,8 +135,8 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
         closest_i = i;
       }
     }
-    const double gradient = 0.1;
-    if (closest_i >= 0 && std::sqrt(min_dist2) < gradient*points[closest_i][2])
+    const double search_up_gradient = 0.2;
+    if (closest_i >= 0 && std::sqrt(min_dist2) < search_up_gradient*points[closest_i][2])
       clusters[cluster_ids[closest_i]].trunk_id = c;
     else // this trunk has no peak points above it, so is a lower tree. We still need to calculate its height
     {
@@ -142,7 +151,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       for (int x = minx; x<=maxx; x++)
         for (int y = miny; y<=maxy; y++)
           maxheight = std::max(maxheight, heightfield_(x, y));
-      std::cout << "trunk " << ++outside_count << "/" << trunks_.size() << " has no peaks above it, canopy found at " << maxheight << " above trunk" << std::endl;
+      std::cout << "trunk " << c << "/" << trunks_.size() << " has no peaks above it, canopy found at " << maxheight << " above trunk" << std::endl;
       // now how to we relay this information??
       Eigen::Vector3d tip = trunk.first - min_bounds_;
       tip[2] = maxheight;
@@ -171,11 +180,11 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
     double diam = std::max(dims[0], dims[1]);
     double mean_height = (minb[2] + maxb[2])/2.0; 
 
-    double dist2 = node.dist2 / (points[node.id1][2]*points[node.id2][2]);
-    if (dist2 > sqr(min_diameter_per_height))
+    double mid_node_height = (points[node.id1][2]+points[node.id2][2])/2.0; // TODO: divide by this mid height before sorting
+    if (node.dist > min_diameter_per_height * mid_node_height)
     {
       // about to keep as isolated cluster. So check if there is space underneath, and only isolate if there is
-      //#define MERGE_IF_NO_SPACE
+      #define MERGE_IF_NO_SPACE // haven't seen this make a difference yet on viewed data... but it ought to be a worthwhile condition
       #if defined MERGE_IF_NO_SPACE 
       Eigen::Vector3d tip;
       bool space1 = findSpace(clusters[cl1], points, tip);
@@ -303,31 +312,13 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
   drawHeightField("highfield.png", heightfield_);
   drawHeightField("lowfield.png", lowfield_);
 
-
-#if defined PARABOLOID
-  const double curvature_height = 4.0;
-  const double max_diameter_per_height = 1.2; 
-  const double min_diameter_per_height = 0.25;
-
-  // now scale the points to maintain the curvature per height
-  for (auto &point: points)
-    point[2] = 0.5 * point[2]*point[2]; // squish
-  // 1. get top-down mesh of canopy
-  ConvexHull hull(points);
-  hull.growDownwards(curvature_height);
-  for (auto &point: points)
-    point[2] = std::sqrt(2.0*point[2]); // unsquish
-  Mesh &mesh = hull.mesh();
-  mesh.vertices() = points;
-#else
   const double max_diameter_per_height = 0.9;
-  const double min_diameter_per_height = 0.1; 
-  const double gradient = 1.0;
+  const double min_diameter_per_height = 0.15; 
 
   Terrain terrain;
-  terrain.growDownwards(points, gradient);
+  terrain.growDownwards(points, wrap_gradient);
   Mesh &mesh = terrain.mesh();
-#endif
+
   std::cout << "num points " << mesh.vertices().size() << std::endl;
   mesh.reduce();
   std::cout << "num verts: " << mesh.vertices().size() << std::endl;
