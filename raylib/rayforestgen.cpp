@@ -62,21 +62,21 @@ bool ForestGen::makeFromFile(const std::string &filename, const ForestParams &pa
     if (line.length() == 0 || line[0] == '#')
       continue;
     int num_commas = (int)std::count(line.begin(), line.end(), ',');
-    if (num_commas == 3) // just the base
+    if (num_commas == 3 || num_commas == 4 || num_commas == 6) // just the base
     {
       trunks_only = true;
       std::istringstream ss(line);
-      for (int i = 0; i<4; i++)
+      for (int i = 0; i<num_commas+1; i++)
       {
         std::string token;
         std::getline(ss, token, ',');
         if (i<3)
           base[i] = std::stod(token.c_str());
-        else
+        else if (i==3)
           radius = std::stod(token.c_str());
       }
       bases.push_back(base);
-      radii.push_back(radius);
+      radii.push_back(radius);      
     }
     else
     {
