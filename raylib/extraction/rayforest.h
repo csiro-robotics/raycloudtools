@@ -166,7 +166,7 @@ struct Grid2D
       }
     };
     ray::Cloud::read(cloudname, addFreeSpace);
-    draw("freespace_mess.png");
+  //  draw("freespace_mess.png");
 
     auto removeOccupiedSpace = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<ray::RGBA> &colours)
     {
@@ -208,7 +208,7 @@ struct Grid2D
       vox.bits = count;
       bitcount += vox.bits;      
     }
-    draw("occupiedspace.png");
+  //  draw("occupiedspace.png");
 
     std::cout << "average bit count: " << (double)bitcount / (double)pixels_.size() << std::endl;
   }
@@ -231,18 +231,19 @@ public:
   Forest() : verbose(true), undercroft_height(1.0)
   {
   }
-  bool extract(const std::string &cloud_name, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks);
-  void extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width);
+  bool extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks);
+  void extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
   struct Result
   {
-    Eigen::Vector3d base; // this is in units of pixels horizontally, and metres vertically!
+    Eigen::Vector3d base; 
     double height;
     double radius;
+    bool height_estimated;
+    bool radius_estimated;
   };
 
   // in rayforest_draw.cpp
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
-  void drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height);
   bool save(const std::string &filename);
 
   // parameters

@@ -66,48 +66,4 @@ void Grid2D::draw(const std::string &filename)
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height)
-{
-  double max_height = 0.0;
-  double min_height = 1e10;
-  for (auto &res: results)
-  {
-    max_height = std::max(max_height, res.base[2] + res.height);
-    min_height = std::min(min_height, res.base[2]);
-  }
-
-  // I should probably draw the result
-  if (!verbose)
-    return;
-  Field2D<Col> pixels(width, height);
-  for (auto &c: pixels.data)
-    c = Col(0); 
-  for (auto &result: results)
-  {
-    Eigen::Vector3d pos = (result.base - min_bounds_) / voxel_width_;
-    double curvature = -0.05;
-    double crown_radius = result.radius * 5.0;
-    double radius_pixels = crown_radius / voxel_width_;
-    for (int x = (int)(pos[0] - radius_pixels); x<= (int)(pos[0]+radius_pixels); x++)
-    {
-      for (int y = (int)(pos[1] - radius_pixels); y<= (int)(pos[1]+radius_pixels); y++)
-      {
-        if (x < 0 || x >= width || y<0 || y>=height)
-          continue;
-        double X = ((double)x - pos[0]) * voxel_width_;
-        double Y = ((double)y - pos[1]) * voxel_width_;
-        double mag2 = (double)(X*X + Y*Y);
-        if (mag2 <= crown_radius*crown_radius)
-        {
-          double height = result.base[2] + result.height + mag2 * curvature;
-          double shade = std::max(0.0, std::min((height - min_height)/(max_height - min_height), 1.0)); // clamp because curvature can conceivably negative sometimes
-          Col col(uint8_t(255.0*shade));
-          if (pixels(x, y).r < col.r)
-            pixels(x, y) = col;
-        }
-      }
-    }
-  }    
-  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
-}
 } // namespace ray

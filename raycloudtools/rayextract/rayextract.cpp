@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
       usage(true);
     }
 
-    forest.extract(cloud_file.name(), mesh, trunks);
+    forest.extract(cloud_file.nameStub(), mesh, trunks);
     forest.save(cloud_file.nameStub() + "_forest.txt");
   }
   else if (extract_terrain)

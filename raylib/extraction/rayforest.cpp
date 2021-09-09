@@ -119,6 +119,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
     cluster_ids[i] = (int)i;
     visited[i] = false;
   }
+  int num_no_peaks = 0;
   for (int c = 0; c<(int)trunks_.size(); c++) // if there are known trunks, then include them...
   {
     auto &trunk = trunks_[c];
@@ -151,7 +152,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       for (int x = minx; x<=maxx; x++)
         for (int y = miny; y<=maxy; y++)
           maxheight = std::max(maxheight, heightfield_(x, y));
-      std::cout << "trunk " << c << "/" << trunks_.size() << " has no peaks above it, canopy found at " << maxheight << " above trunk" << std::endl;
+      num_no_peaks++;
       // now how to we relay this information??
       Eigen::Vector3d tip = trunk.first - min_bounds_;
       tip[2] = maxheight;
@@ -161,6 +162,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       clusters.push_back(new_cluster);
     }
   }
+  std::cout << num_no_peaks << " out of " << trunks_.size() << " trunks have no mesh peaks above them, canopy found directly above trunks instead" << std::endl;
 
   // 2. for each node in turn, from smallest to highest distance, agglomerate
   for (auto &node: nds)
@@ -223,15 +225,15 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
 
 
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
-bool Forest::extract(const std::string &cloud_name, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks) 
+bool Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks) 
 {
   trunks_ = trunks;
   Cloud::Info info;
-  if (!Cloud::getInfo(cloud_name, info))
+  if (!Cloud::getInfo(cloud_name_stub + ".ply", info))
     return false;
   min_bounds_ = info.ends_bound.min_bound_;
   max_bounds_ = info.ends_bound.max_bound_;
-  double voxel_width = 0.25; // 6.0 * Cloud::estimatePointSpacing(cloud_name, info.ends_bound, info.num_bounded);
+  double voxel_width = 0.25; // 6.0 * Cloud::estimatePointSpacing(cloud_name_stub, info.ends_bound, info.num_bounded);
   std::cout << "voxel width: " << voxel_width << " m" << std::endl;
 
   double width = (max_bounds_[0] - min_bounds_[0])/voxel_width;
@@ -251,7 +253,7 @@ bool Forest::extract(const std::string &cloud_name, Mesh &mesh, const std::vecto
       h = std::max(h, ends[i][2]);
     }
   };
-  if (!ray::Cloud::read(cloud_name, fillHeightField))
+  if (!ray::Cloud::read(cloud_name_stub + ".ply", fillHeightField))
     return false;
 
   Eigen::ArrayXXd lows;
@@ -265,12 +267,12 @@ bool Forest::extract(const std::string &cloud_name, Mesh &mesh, const std::vecto
 
     // generate grid
   Grid2D grid2D;
-  if (!grid2D.load("occupied.dat"))
+  if (!grid2D.load(cloud_name_stub + "_occupied.dat"))
   {
     grid2D.init(info.ends_bound.min_bound_, info.ends_bound.max_bound_, voxel_width);
     // walk the rays to fill densities
-    grid2D.fillDensities(cloud_name, lows, 1.0, 1.5);
-    grid2D.save("occupied.dat");
+    grid2D.fillDensities(cloud_name_stub + ".ply", lows, 1.0, 1.5);
+    grid2D.save(cloud_name_stub + "_occupied.dat");
   }
   if (grid2D.dims_[0] != lows.rows() || grid2D.dims_[1] != lows.cols())
     std::cerr << "error: arrays are different widths" << std::endl;
@@ -281,11 +283,11 @@ bool Forest::extract(const std::string &cloud_name, Mesh &mesh, const std::vecto
       space(i,j) = grid2D.pixel(Eigen::Vector3i(i, j, 0)).density();
   }
 
-  extract(highs, lows, space, voxel_width);
+  extract(highs, lows, space, voxel_width, cloud_name_stub);
   return true;
 }
 
-void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width)
+void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub)
 {
   voxel_width_ = voxel_width;
   heightfield_ = highs;
@@ -308,9 +310,9 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
         points.push_back(Eigen::Vector3d(voxel_width_*((double)x + 0.5), voxel_width_*((double)y + 0.5), h-l)); // get heightfield relative to ground
     }
   }
-  std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
-  drawHeightField("highfield.png", heightfield_);
-  drawHeightField("lowfield.png", lowfield_);
+  std::cout << "undercroft at height " << undercroft_height << " removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
+  drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
+  drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
 
   const double max_diameter_per_height = 0.9;
   const double min_diameter_per_height = 0.15; 
@@ -399,28 +401,41 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
     }
 
 
-    writePlyPointCloud("clusters.ply", cloud_points, times, colours);
+    writePlyPointCloud(cloud_name_stub + "_clusters.ply", cloud_points, times, colours);
   }
 
-  // 3. for each cluster, get a mean centre...
+  int no_space_trees = 0;
   for (auto &cluster: point_clusters)
   {
     Eigen::Vector3d tip;
     if (findSpace(cluster, verts, tip))
     {
       Result tree;
-      tree.height = tip[2];
       tree.base = min_bounds_ + tip;
       tree.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-      if (cluster.trunk_id)
+      tree.height = tip[2] - tree.base[2];
+      tree.radius_estimated = tree.height_estimated = false;
+      if (cluster.trunk_id >= 0)
         tree.radius = trunks_[cluster.trunk_id].second;
       else 
-        tree.radius = tip[2] / height_per_radius;
+      {
+        tree.radius = tree.height / height_per_radius;
+        tree.radius_estimated = true;
+      }
+      if (cluster.ids.empty())
+        tree.height_estimated = true;
       results_.push_back(tree);
     }
+    else
+    {
+      no_space_trees++;
+    }
+  }
+  if (no_space_trees > 0)
+  {
+    std::cout << no_space_trees << " trees from _trunks.txt have rays passing through, so appear to be falsy identified as trees." << std::endl;
   }
 
-  drawTrees("result_trees.png", results_, (int)heightfield_.rows(), (int)heightfield_.cols());
 }
 
 bool Forest::save(const std::string &filename)
@@ -431,10 +446,10 @@ bool Forest::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "# Forest extraction, tree base location list: x, y, z, radius" << std::endl;
+  ofs << "# Forest extraction, tree base location list: x, y, z, radius, height, radius estimated, height estimated  (estimated parameters are less reliable)" << std::endl;
   for (auto &result: results_)
   {
-    ofs << result.base[0] << ", " << result.base[1] << ", " << result.base[2] << ", " << result.radius << ", " << result.height << std::endl;
+    ofs << result.base[0] << ", " << result.base[1] << ", " << result.base[2] << ", " << result.radius << ", " << result.height << ", " << result.radius_estimated << ", " << result.height_estimated << std::endl;
   }
   return true;
 }
