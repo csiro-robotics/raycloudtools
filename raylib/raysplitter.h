@@ -38,6 +38,7 @@ bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cl
 bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
   const Eigen::Vector4d &cell_width);
 
+bool RAYLIB_EXPORT splitTrees(const std::string &file_name, const std::string &cloud_name_stub, const std::string &tree_file);
 }  // namespace ray
 
 #endif  // RAYLIB_RAYSPLITTER_H

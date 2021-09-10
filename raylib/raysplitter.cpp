@@ -8,6 +8,7 @@
 #include "raysplitter.h"
 #include "raycloudwriter.h"
 #include "raycuboid.h"
+#include "extraction/rayforest.h"
 
 namespace ray
 {
@@ -292,4 +293,78 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
   return true;
 }
 
+
+bool splitTrees(const std::string &file_name, const std::string &cloud_name_stub, const std::string &tree_file)
+{
+  std::vector<TreeSummary> trees = TreeSummary::load(tree_file);
+  int length = (int)trees.size();
+
+  const int max_allowable_cells = 1024; // operating systems will fail with too many open file pointers.
+  if (length > 256)
+  {
+    std::cout << "Warning: more than 256 file pointers will be open at once." << std::endl;
+    std::cout << "If simultaneous open files exceeds your operating system maximum, some output data may be lost." <<std::endl;
+  }
+  if (length > max_allowable_cells)
+  {
+    std::cout << "Error: grid has more cells than the maximum of " << max_allowable_cells << "." << std::endl;
+    return false;
+  }
+  std::vector<CloudWriter> cells(length);
+  std::vector<Cloud> chunks(length);
+
+  // splitting performed per chunk
+  auto per_chunk = [&trees, &cells, &chunks, &cloud_name_stub]
+    (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
+  {
+    const double max_diameter_per_height = 0.9;
+    double radius_per_height = max_diameter_per_height/2.0;
+
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      int min_t = -1;
+      double min_d_sqr = 1e10;
+      for (size_t t = 0; t<trees.size(); t++)
+      {
+        Eigen::Vector3d dif = trees[t].base - ends[i];
+        dif[2] = 0.0;
+        double d_sqr = dif.squaredNorm() / sqr(trees[t].height*radius_per_height);
+        if (d_sqr < 1.0)
+        {
+          if (d_sqr < min_d_sqr)
+          {
+            min_d_sqr = d_sqr;
+            min_t = (int)t;
+          }
+        }
+      }
+      if (min_t != -1)
+      {
+        if (cells[min_t].fileName() == "") // first time in this cell, so start writing to a new file
+        {
+          std::stringstream name;
+          name << cloud_name_stub << "_tree_" << min_t;
+          name << ".ply"; 
+          cells[min_t].begin(name.str());
+        }         
+        chunks[min_t].addRay(starts[i], ends[i], times[i], colours[i]);
+      }
+    }
+    for (int i = 0; i<(int)chunks.size(); i++)
+    {
+      if (chunks[i].ends.size() > 0)
+      {
+        cells[i].writeChunk(chunks[i]);
+        chunks[i].clear();
+      }
+    }       
+  };
+  if (!Cloud::read(file_name, per_chunk))
+    return false;
+  for (int i = 0; i<length; i++)
+  {
+    cells[i].end(); // has no effect on writers where begin has not been called
+  }  
+  return true;
+}
 }  // namespace ray

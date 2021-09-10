@@ -19,7 +19,6 @@ bool CloudWriter::begin(const std::string &file_name)
   file_name_ = file_name;
   if (!writeRayCloudChunkStart(file_name_, ofs_))
   {
-    std::cerr << "cannot write to file: " << file_name_ << std::endl;
     return false;    
   }
   return true;

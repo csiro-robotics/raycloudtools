@@ -29,6 +29,7 @@ void usage(int exit_code = 1)
   std::cout << "                  box rx,ry,rz           - splits around a centred axis-aligned box of the given radii" << std::endl;
   std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
+  std::cout << "                  trees cloud_forest.txt - splits trees into one file each, allowing a buffer around each tree" << std::endl;
   exit(exit_code);
 }
 
@@ -42,9 +43,9 @@ int main(int argc, char *argv[])
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0);
   ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "raydir", "range"}, 
                              {&plane,  &time,  &colour,  &alpha,  &raydir,  &range});
-  ray::FileArgument mesh_file;
+  ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
-  ray::TextArgument box_text("box"), grid_text("grid");
+  ray::TextArgument box_text("box"), grid_text("grid"), tree_text("trees");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
   bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
@@ -52,7 +53,8 @@ int main(int argc, char *argv[])
   bool grid_format = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width});
   bool grid_format2 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width2});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
-  if (!standard_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent)
+  bool tree_split = ray::parseCommandLine(argc, argv, {&cloud_file, &tree_text, &tree_file});
+  if (!standard_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent && !tree_split)
   {
     usage();
   }
@@ -100,6 +102,10 @@ int main(int argc, char *argv[])
       return cloud.times[i] > time_thresh; 
     });
   }
+  else if (tree_split)
+  {
+    res = ray::splitTrees(rc_name, cloud_file.nameStub(), tree_file.name());
+  }  
   else if (box_format)
   {
     // Can't use cloud::split as sets are not mutually exclusive here.

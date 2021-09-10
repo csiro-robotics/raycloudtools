@@ -118,8 +118,8 @@ int main(int argc, char *argv[])
       usage(true);
     }
 
-    forest.extract(cloud_file.nameStub(), mesh, trunks);
-    forest.save(cloud_file.nameStub() + "_forest.txt");
+    std::vector<ray::TreeSummary> results = forest.extract(cloud_file.nameStub(), mesh, trunks);
+    ray::TreeSummary::save(cloud_file.nameStub() + "_forest.txt", results);
   }
   else if (extract_terrain)
   {

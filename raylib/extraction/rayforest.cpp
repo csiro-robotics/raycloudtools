@@ -225,12 +225,12 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
 
 
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
-bool Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks) 
+std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks) 
 {
   trunks_ = trunks;
   Cloud::Info info;
   if (!Cloud::getInfo(cloud_name_stub + ".ply", info))
-    return false;
+    return std::vector<TreeSummary>();
   min_bounds_ = info.ends_bound.min_bound_;
   max_bounds_ = info.ends_bound.max_bound_;
   double voxel_width = 0.25; // 6.0 * Cloud::estimatePointSpacing(cloud_name_stub, info.ends_bound, info.num_bounded);
@@ -254,7 +254,7 @@ bool Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::
     }
   };
   if (!ray::Cloud::read(cloud_name_stub + ".ply", fillHeightField))
-    return false;
+    return std::vector<TreeSummary>();
 
   Eigen::ArrayXXd lows;
   if (mesh.vertices().empty())
@@ -283,11 +283,10 @@ bool Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::
       space(i,j) = grid2D.pixel(Eigen::Vector3i(i, j, 0)).density();
   }
 
-  extract(highs, lows, space, voxel_width, cloud_name_stub);
-  return true;
+  return extract(highs, lows, space, voxel_width, cloud_name_stub);
 }
 
-void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub)
+std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub)
 {
   voxel_width_ = voxel_width;
   heightfield_ = highs;
@@ -400,57 +399,40 @@ void Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, 
       }
     }
 
-
     writePlyPointCloud(cloud_name_stub + "_clusters.ply", cloud_points, times, colours);
   }
 
   int no_space_trees = 0;
+  std::vector<TreeSummary> results;
   for (auto &cluster: point_clusters)
   {
     Eigen::Vector3d tip;
     if (findSpace(cluster, verts, tip))
     {
-      Result tree;
+      TreeSummary tree;
       tree.base = min_bounds_ + tip;
       tree.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
       tree.height = tip[2] - tree.base[2];
-      tree.radius_estimated = tree.height_estimated = false;
+      tree.trunk_identified = true;
       if (cluster.trunk_id >= 0)
         tree.radius = trunks_[cluster.trunk_id].second;
       else 
       {
         tree.radius = tree.height / height_per_radius;
-        tree.radius_estimated = true;
+        tree.trunk_identified = false;
       }
-      if (cluster.ids.empty())
-        tree.height_estimated = true;
-      results_.push_back(tree);
+      results.push_back(tree);
     }
     else
     {
       no_space_trees++;
     }
   }
+  std::sort(results.begin(), results.end(), [](const TreeSummary &a, const TreeSummary &b){ return a.height > b.height; });
   if (no_space_trees > 0)
   {
-    std::cout << no_space_trees << " trees from _trunks.txt have rays passing through, so appear to be falsy identified as trees." << std::endl;
+    std::cout << no_space_trees << " trees from _trunks.txt have rays passing through, so appear to be falsly identified as trees. Removing." << std::endl;
   }
-
-}
-
-bool Forest::save(const std::string &filename)
-{
-  std::ofstream ofs(filename.c_str(), std::ios::out);
-  if (!ofs.is_open())
-  {
-    std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
-    return false;
-  }  
-  ofs << "# Forest extraction, tree base location list: x, y, z, radius, height, radius estimated, height estimated  (estimated parameters are less reliable)" << std::endl;
-  for (auto &result: results_)
-  {
-    ofs << result.base[0] << ", " << result.base[1] << ", " << result.base[2] << ", " << result.radius << ", " << result.height << ", " << result.radius_estimated << ", " << result.height_estimated << std::endl;
-  }
-  return true;
+  return results;
 }
 }
