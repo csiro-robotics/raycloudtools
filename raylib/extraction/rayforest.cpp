@@ -24,8 +24,9 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
 {
   if (cluster.ids.empty())
   {
-    tip = cluster.max_bound;
-    return true; // TODO: do we believe truks absolutely? or should we double check against the free space?
+    tip = (cluster.min_bound + cluster.max_bound) / 2.0;
+    tip[2] = cluster.max_bound[2];
+    return true; // TODO: do we believe trunks absolutely? or should we double check against the free space?
   }
   if (cluster.trunk_id >= 0) // if this cluster is associated with a trunk, then use the trunk location, not the centroid
   {
@@ -412,7 +413,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
       TreeSummary tree;
       tree.base = min_bounds_ + tip;
       tree.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-      tree.height = tip[2] - tree.base[2];
+      tree.height = tip[2];
       tree.trunk_identified = true;
       if (cluster.trunk_id >= 0)
         tree.radius = trunks_[cluster.trunk_id].second;
