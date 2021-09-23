@@ -107,7 +107,7 @@ The WITH_TBB option defaults to OFF because there is an occasional fault with ra
 
 For rayconvert to work from .laz files:
 * git clone https://github.com/LASzip/LASzip.git, then git checkout tags/2.0.1, then mkdir build, cd build, cmake .., make, sudo make install. 
-* git clone https://github.com/libLAS/libLAS.git, then mkdir build, cd build, cmake .. -DWITH_LAS_ZIP=ON, make, sudo make install
+* git clone https://github.com/libLAS/libLAS.git, then mkdir build, cd build, cmake .. -DWITH_LASZIP=ON, make, sudo make install
 * in raycloudtools/build: cmake .. -DWITH_LAS=ON  (or ccmake .. to turn on/off WITH_LAS)
 
 For raywrap:
