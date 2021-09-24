@@ -182,7 +182,7 @@ void DensityGrid::addNeighbourPriors()
 }
 
 bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, 
-                 RenderStyle style, double pix_width, const std::string &image_file)                 
+                 RenderStyle style, double pix_width, const std::string &image_file, bool mark_origin)                 
 {
   // convert the view direction into useable parameters
   int axis = 0;
@@ -400,6 +400,33 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           col.blue  = uint8_t(std::min(255.0*col3d[2], 255.0));
           col.alpha = alpha;
           pixel_colours[ind] = col;
+        }
+      }
+    }
+    if (mark_origin)
+    {
+      if (pixel_colours.empty())
+      {
+        std::cout << "warning: mark origin not implemented for hdr images" << std::endl;
+      }
+      else
+      {
+        const Eigen::Vector3d pos = -bounds.min_bound_ / pix_width;
+        const Eigen::Vector3i p = pos.cast<int>();
+        const int x = p[ax1], y = p[ax2];
+
+        if (x >= 0 && x < width && y >= 0 && y < height)
+        {
+          const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction      
+          // using 4 dimensions helps us to accumulate colours in a greater variety of ways
+          RGBA &col = pixel_colours[indx + width *y];      
+          col.red = col.blue = 255;
+          col.green = 0;
+          // we leave alpha alone as it might be needed to indicate the presence of points
+        }
+        else
+        {
+          std::cerr << "error: the origin cannot be marked on this image as it is not within the image bounds" << std::endl;
         }
       }
     }
