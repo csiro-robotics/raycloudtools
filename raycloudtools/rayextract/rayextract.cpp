@@ -111,11 +111,15 @@ int main(int argc, char *argv[])
          usage(true);
       }
     }
-    std::vector<std::pair<Eigen::Vector3d, double> > trunks = ray::Wood::load(trunks_file.name());
-    if (trunks.empty())
+    std::vector<std::pair<Eigen::Vector3d, double> > trunks;
+    if (trunks_option.isSet())
     {
-      std::cerr << "no trunks found in file: " << trunks_file.name() << std::endl;
-      usage(true);
+      trunks = ray::Wood::load(trunks_file.name());
+      if (trunks.empty())
+      {
+        std::cerr << "no trunks found in file: " << trunks_file.name() << std::endl;
+        usage(true);
+      }
     }
 
     std::vector<ray::TreeSummary> results = forest.extract(cloud_file.nameStub(), mesh, trunks);

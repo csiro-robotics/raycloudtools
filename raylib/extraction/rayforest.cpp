@@ -314,8 +314,8 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
 
-  const double max_diameter_per_height = 0.9;
-  const double min_diameter_per_height = 0.15; 
+  const double max_diameter_per_height = 1.5; // 0.9 for bellbworie, 1.5 for T
+  const double min_diameter_per_height = 0.15; // for T, 0.15 or 0.25 are about equal
 
   Terrain terrain;
   terrain.growDownwards(points, wrap_gradient);

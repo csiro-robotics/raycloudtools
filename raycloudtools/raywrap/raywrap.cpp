@@ -31,42 +31,6 @@ void usage(int exit_code = 1)
 
 int main(int argc, char *argv[])
 {
-  std::vector<Eigen::Vector2d> targets;
-  std::vector<Eigen::Vector2d> vels, accs;
-  double real_s = 3.1;
-  double real_d = 2.5;
-  // generate
-  for (int i = 0; i<10; i++)
-  {
-    Eigen::Vector2d target(ray::random(-1.0, 1.0), ray::random(-1.0, 1.0));
-    Eigen::Vector2d vel(ray::random(-1.0, 1.0), ray::random(-1.0, 1.0));
-    Eigen::Vector2d acc = real_s*target + real_d*vel + Eigen::Vector2d(ray::random(-0.01, 0.01), ray::random(-0.01, 0.01));
-
-    targets.push_back(target);
-    vels.push_back(vel);
-    accs.push_back(acc);
-  }
-
-  // recover
-  Eigen::MatrixXd A(2*targets.size(), 2); 
-  Eigen::VectorXd b(2*targets.size());
-  for (size_t i = 0; i<targets.size(); i++)
-  {
-    for (int j = 0; j<2; j++)
-    {
-      A.row(2*i + j) = Eigen::Vector2d(targets[i][j], vels[i][j]);
-      b[2*i + j] = accs[i][j];
-    }
-  }
-  Eigen::Vector2d x = (A.transpose()*A).ldlt().solve(A.transpose()*b); 
-
-  std::cout << "estimated s: " << x[0] << " vs real s: " << real_s << std::endl;
-  std::cout << "estimated d: " << x[1] << " vs real d: " << real_d << std::endl;
-
-
-
-
-  exit(1);
   ray::FileArgument cloud_file;
   ray::KeyChoice direction({"upwards", "downwards", "inwards", "outwards"});
   ray::DoubleArgument curvature;
