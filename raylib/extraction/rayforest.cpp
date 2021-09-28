@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-//#define PARABOLOID
+#define USE_GROWTH_RATIO
 
 namespace ray
 {
@@ -180,11 +180,18 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
     Eigen::Vector3d minb = minVector(clusters[cl1].min_bound, clusters[cl2].min_bound);
     Eigen::Vector3d maxb = maxVector(clusters[cl1].max_bound, clusters[cl2].max_bound);
     Eigen::Vector3d dims = maxb - minb;
-    double diam = std::max(dims[0], dims[1]);
+    double diam = 1.0 + std::max(dims[0], dims[1]);
+#if defined USE_GROWTH_RATIO
+    double diam1 = 1.0 + std::max(clusters[cl1].max_bound[0] - clusters[cl1].min_bound[0], clusters[cl1].max_bound[1] - clusters[cl1].min_bound[1]);
+    double diam2 = 1.0 + std::max(clusters[cl2].max_bound[0] - clusters[cl2].min_bound[0], clusters[cl2].max_bound[1] - clusters[cl2].min_bound[1]);
+    double growth_ratio = diam / std::max(diam1, diam2); // 1 or higher
+#else
+    double growth_ratio = 1.0;
+#endif
     double mean_height = (minb[2] + maxb[2])/2.0; 
 
     double mid_node_height = (points[node.id1][2]+points[node.id2][2])/2.0; // TODO: divide by this mid height before sorting
-    if (node.dist > min_diameter_per_height * mid_node_height)
+    if (node.dist > mid_node_height * min_diameter_per_height / growth_ratio) // /growth_ratio means you separate trees more easily when connectinng two distinct blobs
     {
       // about to keep as isolated cluster. So check if there is space underneath, and only isolate if there is
       #define MERGE_IF_NO_SPACE // haven't seen this make a difference yet on viewed data... but it ought to be a worthwhile condition
@@ -196,7 +203,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
       #endif
         continue; 
     }
-    if (diam < max_diameter_per_height * mean_height) // then merge
+    if (diam < mean_height * max_diameter_per_height / growth_ratio) // then merge
     {
       int first = std::min(cl1, cl2);
       int last = std::max(cl1, cl2);
@@ -314,8 +321,13 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
 
+#if defined USE_GROWTH_RATIO
+  const double max_diameter_per_height = 2.0; // 0.9 for bellbworie, 1.5 for T
+  const double min_diameter_per_height = 0.25; // for T, 0.15 or 0.25 are about equal
+#else
   const double max_diameter_per_height = 1.5; // 0.9 for bellbworie, 1.5 for T
   const double min_diameter_per_height = 0.15; // for T, 0.15 or 0.25 are about equal
+#endif
 
   Terrain terrain;
   terrain.growDownwards(points, wrap_gradient);
