@@ -97,7 +97,7 @@ void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode>
         inds.push_back(ind);
         ind = trees[ind].attaches_to;
       }
-      double scale = 0.06;
+      double scale = 0.03;
       for (int i = (int)inds.size()-1; i>=0; i--)
       {
         srand(1 + inds[i]);
