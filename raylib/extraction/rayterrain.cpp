@@ -231,6 +231,7 @@ void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, doubl
 
 void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
 {
+#if RAYLIB_WITH_QHULL  
   #define PRE_PROCESS 
   #if defined PRE_PROCESS
   // preprocessing to make the cloud smaller.
@@ -309,5 +310,6 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
       local_cloud.addRay(p, p, t++, white);
     local_cloud.save(file_prefix + "_terrain.ply");
   }
+#endif
 }
 } // ray
