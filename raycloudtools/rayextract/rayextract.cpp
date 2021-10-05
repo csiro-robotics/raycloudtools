@@ -29,6 +29,7 @@ void usage(bool error=false)
   std::cout << "rayextract forest cloud.ply                 - extracts tree locations, radii and heights to file" << std::endl;
   std::cout << "                            --ground ground_mesh.ply - ground mesh file (otherwise assume flat)" << std::endl; 
   std::cout << "                            --trunks cloud_trunks.txt - known tree trunks file" << std::endl;
+  std::cout << "                            --tree_roundness 2 - crown radius to height ratio" << std::endl;
   std::cout << "rayextract trees cloud.ply cloud_trunks.txt - estimate trees using trunks as seeds, and save to text file" << std::endl;
   std::cout << "rayextract branches cloud.ply               - estimate tree branches and save to text file" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
@@ -44,11 +45,13 @@ int main(int argc, char *argv[])
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), branches("branches"), terrain("terrain");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
+  ray::DoubleArgument tree_roundness(0.01, 3.0);
+  ray::OptionalKeyValueArgument roundness_option("tree_roundness", 't', &tree_roundness);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&verbose});
-  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &verbose});
+  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &roundness_option, &verbose});
   bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &trunks_file}, {&verbose});
   bool extract_branches = ray::parseCommandLine(argc, argv, {&branches, &cloud_file}, {&verbose});
   if (!extract_trunks && !extract_branches && !extract_forest && !extract_terrain && !extract_trees)
@@ -57,7 +60,6 @@ int main(int argc, char *argv[])
   {
     ray::DebugDraw::init(argc, argv, "rayextract");
   }
-
 
   if (extract_trunks)
   {
@@ -100,6 +102,7 @@ int main(int argc, char *argv[])
   else if (extract_forest)
   {
     ray::Forest forest;
+    forest.tree_roundness = roundness_option.isSet() ? tree_roundness.value() : 0.5;
     forest.verbose = verbose.isSet();
 
     ray::Mesh mesh;

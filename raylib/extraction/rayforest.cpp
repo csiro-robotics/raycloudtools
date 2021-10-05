@@ -150,6 +150,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   spacefield_ = space;
   drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
+  const double height_per_radius = 50.0; // TODO: temporary until we have a better parameter choice
 
   #if defined AGGLOMERATE
   int count = 0;
@@ -188,7 +189,6 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   agglomerate(mesh.vertices(), mesh.indexList(), min_diameter_per_height, max_diameter_per_height, point_clusters);
   std::cout << "number found: " << point_clusters.size() << std::endl;
   std::vector<Eigen::Vector3d> &verts = mesh.vertices();
-  const double height_per_radius = 50.0; // TODO: temporary until we have a better parameter choice
 
   if (verbose)
     renderAgglomeration(point_clusters, verts);
@@ -223,6 +223,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   {
     searchTrees(trees, head, 1.0/tree_roundness, indices);
   }
+  std::vector<TreeSummary> results;
   for (auto &ind: indices)
   {
     TreeSummary result;
@@ -237,14 +238,15 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
     result.ground_height = lowfield_(x, y);
     result.radius = trees[ind].approx_radius;
     result.curvature = trees[ind].node.curvature();
-    results_.push_back(result);
+    results.push_back(result);
   }
 
-  drawTrees("result_trees.png", results_, (int)heightfield_.rows(), (int)heightfield_.cols());
+  drawTrees("result_trees.png", results, (int)heightfield_.rows(), (int)heightfield_.cols());
     
   drawFinalSegmentation("result_tree_shapes.png", trees, indices);
 
-  
+  // make a verts vector of 3d points
+
   #endif
 
   int no_space_trees = 0;
