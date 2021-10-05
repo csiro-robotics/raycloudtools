@@ -51,6 +51,9 @@ set(PUBLIC_HEADERS
   extraction/rayterrain.h 
   extraction/raytrees.h
   extraction/rayforest.h
+  extraction/raywatershed.h
+  extraction/rayoccupancy2d.h
+  extraction/raytreesummary.h
 )
 
 set(PRIVATE_HEADERS
@@ -93,6 +96,8 @@ set(SOURCES
   extraction/raytrees.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp
+  extraction/raywatershed.cpp
+  extraction/rayagglomerate.cpp
 )
 
 # Select the source file to use with raydebudraw.

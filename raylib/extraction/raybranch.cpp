@@ -94,7 +94,7 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool tr
   {
     Eigen::Vector3d to_point = points[i] - centre;
     Eigen::Vector2d offset(to_point.dot(ax1), to_point.dot(ax2));
-    const double dist = offset.norm();
+    //const double dist = offset.norm();
     double w = 1.0;// trunks_only ? 1.0 - dist/(radius * boundary_radius_scale) : 1.0; // lateral fade off
     // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated branch centred on that edge
     //                If radius_removal_factor=1 then v thin branches may accidentally get a radius and it won't shrink down
@@ -172,7 +172,7 @@ void Branch::updateCentre(const std::vector<Eigen::Vector3d> &points)
   centre += (ax1*shift[0] + ax2*shift[1]) * radius;       
 }
 
-void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double spacing, bool trunks_only)
+void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double /*spacing*/, bool trunks_only)
 {
   double rad = 0;
   std::vector<double> scores(points.size());
