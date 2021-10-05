@@ -12,6 +12,13 @@
 namespace ray
 {
 
+struct Result
+{
+  Eigen::Vector3d tree_tip; // this is in units of pixels horizontally, and metres vertically!
+  double ground_height;
+  double radius, curvature;
+};
+
 struct TreeSummary
 {
   Eigen::Vector3d base; 

@@ -15,8 +15,6 @@
 #include "rayoccupancy2d.h"
 #include "raytreesummary.h"
 
-#define TEST_SCALE 1.0
-
 namespace ray
 {
 struct Cluster
@@ -31,20 +29,20 @@ struct Cluster
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : verbose(true), undercroft_height(1.0) {}
+  Forest() : verbose(true), max_tree_canopy_width_to_height_ratio(7.0), undercroft_height(1.0) {}
   std::vector<struct TreeSummary> extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks);
   std::vector<struct TreeSummary> extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
 
-
-  // in rayforest_draw.cpp
-  void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
   bool save(const std::string &filename);
 
   // parameters
   bool verbose;
+  double max_tree_canopy_width_to_height_ratio; 
+  double tree_roundness;
   double undercroft_height;
 
 private:
+  void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
   bool findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d> &points, Eigen::Vector3d &tip);
 
   double voxel_width_;
