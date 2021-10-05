@@ -54,13 +54,12 @@ private:
 
   // agglomerate:
   void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<Eigen::Vector3i> index_list, double min_diameter_per_height, double max_diameter_per_height, std::vector<Cluster> &point_clusters);
-  void renderAgglomeration(const std::vector<Cluster> &point_clusters, const std::vector<Eigen::Vector3d> &verts);
+  void renderAgglomeration(const std::vector<Cluster> &point_clusters, const std::vector<Eigen::Vector3d> &verts, const std::string &cloud_name_stub);
 
 
   // watershed:
   void drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
-  void drawTrees(const std::string &filename, const std::vector<TreeSummary> &results, int width, int height);
-  void drawTreeShapes(const std::string &filename, const std::vector<TreeNode> &results, int width, int height);
+ // void drawTrees(const std::string &filename, const std::vector<TreeSummary> &results, int width, int height);
   void drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees, std::vector<int> &indices);
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   void calculateTreeParaboloids(std::vector<TreeNode> &trees);

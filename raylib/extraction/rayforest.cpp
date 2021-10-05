@@ -151,6 +151,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
   const double height_per_radius = 50.0; // TODO: temporary until we have a better parameter choice
+  std::vector<TreeSummary> results;
 
   #if defined AGGLOMERATE
   int count = 0;
@@ -191,8 +192,37 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   std::vector<Eigen::Vector3d> &verts = mesh.vertices();
 
   if (verbose)
-    renderAgglomeration(point_clusters, verts);
+    renderAgglomeration(point_clusters, verts, cloud_name_stub);
   
+  int no_space_trees = 0;
+  for (auto &cluster: point_clusters)
+  {
+    Eigen::Vector3d tip;
+    if (findSpace(cluster, verts, tip))
+    {
+      TreeSummary tree;
+      tree.base = min_bounds_ + tip;
+      tree.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+      tree.height = tip[2];
+      tree.trunk_identified = true;
+      if (cluster.trunk_id >= 0)
+        tree.radius = trunks_[cluster.trunk_id].second;
+      else 
+      {
+        tree.radius = tree.height / height_per_radius;
+        tree.trunk_identified = false;
+      }
+      results.push_back(tree);
+    }
+    else
+    {
+      no_space_trees++;
+    }
+  }  
+  if (no_space_trees > 0)
+  {
+    std::cout << no_space_trees << " trees from _trunks.txt have rays passing through, so appear to be falsly identified as trees. Removing." << std::endl;
+  }
   #else // watershed
 
   indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
@@ -223,63 +253,45 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   {
     searchTrees(trees, head, 1.0/tree_roundness, indices);
   }
-  std::vector<TreeSummary> results;
+  drawFinalSegmentation("result_tree_shapes.png", trees, indices);
+
   for (auto &ind: indices)
   {
     TreeSummary result;
-    result.tree_tip = trees[ind].node.pixelMean(); // peak;//tip();
-    result.tree_tip[2] = trees[ind].peak[2];
-    int x = (int) result.tree_tip[0];
-    int y = (int) result.tree_tip[1];
+    result.base = trees[ind].node.pixelMean(); 
+    int x = (int) result.base[0];
+    int y = (int) result.base[1];
     if (x < 0 || x >= lowfield_.rows())
       continue;
     if (y < 0 || y >= lowfield_.cols())
       continue;
-    result.ground_height = lowfield_(x, y);
-    result.radius = trees[ind].approx_radius;
-    result.curvature = trees[ind].node.curvature();
+    result.base[2] = lowfield_(x, y);
+    result.height = trees[ind].peak[2] - result.base[2];
+    result.trunk_identified = true; 
+
+//    result.radius = trees[ind].approx_radius;
+//    result.curvature = trees[ind].node.curvature();
+
+    if (trees[ind].trunk_id >= 0)
+      result.radius = trunks_[trees[ind].trunk_id].second;
+    else 
+    {
+      result.radius = result.height / height_per_radius;
+      result.trunk_identified = false;
+    }    
     results.push_back(result);
   }
 
-  drawTrees("result_trees.png", results, (int)heightfield_.rows(), (int)heightfield_.cols());
+ // drawTrees("result_trees.png", results, (int)heightfield_.rows(), (int)heightfield_.cols());
     
-  drawFinalSegmentation("result_tree_shapes.png", trees, indices);
 
   // make a verts vector of 3d points
 
   #endif
 
-  int no_space_trees = 0;
-  std::vector<TreeSummary> results;
-  for (auto &cluster: point_clusters)
-  {
-    Eigen::Vector3d tip;
-    if (findSpace(cluster, verts, tip))
-    {
-      TreeSummary tree;
-      tree.base = min_bounds_ + tip;
-      tree.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-      tree.height = tip[2];
-      tree.trunk_identified = true;
-      if (cluster.trunk_id >= 0)
-        tree.radius = trunks_[cluster.trunk_id].second;
-      else 
-      {
-        tree.radius = tree.height / height_per_radius;
-        tree.trunk_identified = false;
-      }
-      results.push_back(tree);
-    }
-    else
-    {
-      no_space_trees++;
-    }
-  }
+
   std::sort(results.begin(), results.end(), [](const TreeSummary &a, const TreeSummary &b){ return a.height > b.height; });
-  if (no_space_trees > 0)
-  {
-    std::cout << no_space_trees << " trees from _trunks.txt have rays passing through, so appear to be falsly identified as trees. Removing." << std::endl;
-  }
+
   return results;
 }
 

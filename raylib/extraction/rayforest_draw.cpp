@@ -74,7 +74,7 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Grid2D::draw(const std::string &filename)
+void Occupancy2D::draw(const std::string &filename)
 {
   ColourField pixels(dims_[0], dims_[1]);
   for (int x = 0; x < pixels.dims[0]; x++)
@@ -178,7 +178,7 @@ void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode>
 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
-
+/*
 void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height)
 {
   double max_height = 0.0;
@@ -222,6 +222,6 @@ void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Re
     }
   }    
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
-}
+}*/
 
 } // namespace ray

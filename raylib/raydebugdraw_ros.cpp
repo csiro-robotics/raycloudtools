@@ -270,17 +270,17 @@ void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const 
       std::cout << "bad norm " << i << std::endl;
     if (id == 0)
     {
-      marker.color.a = 1.0f;
       marker.color.r = 0.8f;
       marker.color.g = 0.7f;
       marker.color.b = 0.4f;
+      marker.color.a = 1.0f;
     }
     else
     {
-      marker.color.a = colours[i][3];
-      marker.color.r = colours[i][0];
-      marker.color.g = colours[i][1];
-      marker.color.b = colours[i][2];
+      marker.color.r = (float)colours[i][0];
+      marker.color.g = (float)colours[i][1];
+      marker.color.b = (float)colours[i][2];
+      marker.color.a = (float)colours[i][3];
     }
 
     Eigen::Vector3d dir = (starts[i] - ends[i]).normalized();

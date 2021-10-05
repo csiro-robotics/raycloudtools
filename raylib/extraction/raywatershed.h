@@ -17,7 +17,7 @@ namespace ray
 {
 struct RAYLIB_EXPORT TreeNode
 {
-  TreeNode() : min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) 
+  TreeNode() : min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1), trunk_id(-1) 
   {
     children[0] = children[1] = -1;
     peak.setZero();
@@ -69,6 +69,7 @@ struct RAYLIB_EXPORT TreeNode
   double approx_radius; // in metres
   int attaches_to;
   int children[2];
+  int trunk_id;
 
 //  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
  // inline Eigen::Vector3d weightedMean() const { return Eigen::Vector3d(curv_vec[1] / curv_vec[3], curv_vec[2] / curv_vec[3], peak[2]); }

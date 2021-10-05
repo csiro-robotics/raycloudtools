@@ -167,7 +167,7 @@ void Forest::agglomerate(const std::vector<Eigen::Vector3d> &points, const std::
   }
 }
 
-void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, const std::vector<Eigen::Vector3d> &verts)
+void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, const std::vector<Eigen::Vector3d> &verts, const std::string &cloud_name_stub)
 {
   std::vector<Eigen::Vector3d> cloud_points;
   std::vector<double> times;
@@ -181,7 +181,7 @@ void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, con
     colour.blue = uint8_t(rand()%255);
     for (auto &i: cluster.ids)
     {
-      double ground_height = lowfield_(int(verts[i][0]/voxel_width_), int(verts[i][1]/voxel_width));
+      double ground_height = lowfield_(int(verts[i][0]/voxel_width_), int(verts[i][1]/voxel_width_));
       Eigen::Vector3d pos = verts[i];
       pos += Eigen::Vector3d(min_bounds_[0], min_bounds_[1], ground_height + 0.05);
       cloud_points.push_back(pos);
@@ -190,8 +190,9 @@ void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, con
     }
     Eigen::Vector3d tip;
     bool found = findSpace(cluster, verts, tip);
+    double height_per_radius = 50.0;
     double rad = tip[2] / height_per_radius;
-    tip[2] = lowfield_(int(tip[0]/voxel_width_), int(tip[1]/voxel_width));
+    tip[2] = lowfield_(int(tip[0]/voxel_width_), int(tip[1]/voxel_width_));
     tip[0] += min_bounds_[0];
     tip[1] += min_bounds_[1];
     if (!found)
@@ -236,3 +237,5 @@ void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, con
 
   writePlyPointCloud(cloud_name_stub + "_clusters.ply", cloud_points, times, colours);
 }
+
+} // namespace ray
