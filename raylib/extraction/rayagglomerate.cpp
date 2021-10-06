@@ -192,7 +192,14 @@ void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, con
     bool found = findSpace(cluster, verts, tip);
     double height_per_radius = 50.0;
     double rad = tip[2] / height_per_radius;
-    tip[2] = lowfield_(int(tip[0]/voxel_width_), int(tip[1]/voxel_width_));
+    int x = int(tip[0]/voxel_width_);
+    int y = int(tip[1]/voxel_width_);
+    if (x < 0 || x >= lowfield_.rows() || y < 0 || y >= lowfield_.cols())
+    {
+      std::cout << "bad lookup: " << x << ", " << y << std::endl;
+      continue;
+    }
+    tip[2] = lowfield_(x, y);
     tip[0] += min_bounds_[0];
     tip[1] += min_bounds_[1];
     if (!found)

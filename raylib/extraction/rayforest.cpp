@@ -15,6 +15,7 @@
 #include <string.h>
 #include <iostream>
 #define USE_GROWTH_RATIO
+//#define AGGLOMERATE
 
 namespace ray
 {
@@ -251,7 +252,9 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   std::vector<int> indices;
   for (auto &head: heads)
   {
-    searchTrees(trees, head, 1.0/tree_roundness, indices);
+    double error = searchTrees(trees, head, 1.0/tree_roundness, indices);
+    if (error == 1e20)
+      std::cout << "error for head: " << head << ", roundness: " << tree_roundness << std::endl;
   }
   drawFinalSegmentation("result_tree_shapes.png", trees, indices);
 
