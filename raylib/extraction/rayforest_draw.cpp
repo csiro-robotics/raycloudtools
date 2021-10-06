@@ -71,6 +71,7 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
   for (int x = 0; x < pixels.dims[0]; x++)
     for (int y = 0; y < pixels.dims[1]; y++)
       pixels(x, y) = Col((uint8_t)(255.0 * (heightfield(x, y) - min_height)/(max_height - min_height)));
+  stbi_flip_vertically_on_write(1);
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
@@ -83,6 +84,7 @@ void Occupancy2D::draw(const std::string &filename)
       double shade = pixel(Eigen::Vector3i(x, y, 0)).density();
       pixels(x, y) = Col((uint8_t)(255.0 * shade));
     }
+  stbi_flip_vertically_on_write(1);
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
@@ -125,6 +127,7 @@ void Forest::drawFinalSegmentation(const std::string &filename, std::vector<Tree
       }
     }
   }
+  stbi_flip_vertically_on_write(1);
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
@@ -176,6 +179,7 @@ void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode>
     }
   }
 
+  stbi_flip_vertically_on_write(1);
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 /*

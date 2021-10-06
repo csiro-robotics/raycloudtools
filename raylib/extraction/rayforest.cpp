@@ -119,19 +119,19 @@ std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mes
   else 
     mesh.toHeightField(lows, min_bounds_, max_bounds_, voxel_width);
   if (lows.rows() != highs.rows() || lows.cols() != highs.cols())
-    std::cerr << "error: arrays are different widths" << std::endl;
+    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << highs.rows() << " or " << lows.cols() << "!=" << highs.cols() << std::endl;
 
   // generate grid
   Occupancy2D grid2D;
   if (!grid2D.load(cloud_name_stub + "_occupied.dat"))
   {
-    grid2D.init(info.ends_bound.min_bound_, info.ends_bound.max_bound_, voxel_width);
+    grid2D.init(min_bounds_, max_bounds_, voxel_width);
     // walk the rays to fill densities
     grid2D.fillDensities(cloud_name_stub + ".ply", lows, 1.0, 1.5);
     grid2D.save(cloud_name_stub + "_occupied.dat");
   }
   if (grid2D.dims_[0] != lows.rows() || grid2D.dims_[1] != lows.cols())
-    std::cerr << "error: arrays are different widths" << std::endl;
+    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << grid2D.dims_[0] << " or " << lows.cols() << "!=" << grid2D.dims_[1] << std::endl;
   Eigen::ArrayXXd space(grid2D.dims_[0], grid2D.dims_[1]);
   for (int i = 0; i<space.rows(); i++)
   {
