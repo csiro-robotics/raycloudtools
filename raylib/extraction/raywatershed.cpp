@@ -71,6 +71,21 @@ struct PointCmp
 
 void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads)
 {
+  // fast array lookup of trunk centres:
+  Eigen::ArrayXXi trunkfield = Eigen::ArrayXXi::Constant(indexfield_.rows(), indexfield_.cols(), -1);
+  for (int c = 0; c<(int)trunks_.size(); c++) // if there are known trunks, then include them...
+  {
+    auto &trunk = trunks_[c];
+    Eigen::Vector3i pos = ((trunk.first - min_bounds_)/voxel_width_).cast<int>();
+    if (pos[0] < 0 || pos[0] >= trunkfield.rows() || pos[1] < 0 || pos[1] >= trunkfield.cols())
+    {
+      std::cout << "warning: trunk " << c << " location is out of bounds" << std::endl;
+      continue;
+    }
+    trunkfield(pos[0], pos[1]) = c;
+  }
+
+
   std::priority_queue<Point, std::vector<Point>, PointCmp> basins;
   // 1. find highest points
   for (int x = 0; x < heightfield_.rows(); x++)
@@ -92,10 +107,13 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         basins.push(p);
         heads.insert(p.index);
         indexfield_(x, y) = p.index;     
-        trees.push_back(TreeNode(x, y, height, voxel_width_));
+        trees.push_back(TreeNode(x, y, height, voxel_width_, trunkfield(x, y)));
       }
     }
   }
+
+
+
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   int cnt = 0;
   // now iterate until basins is empty
@@ -116,7 +134,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       int q_head = y;
       while (trees[q_head].attaches_to != -1)
         q_head = trees[q_head].attaches_to;
-      if (p_head != q_head) // already merged
+      bool separate_trunks = trees[p_head].trunk_id >= 0 && trees[q_head].trunk_id >= 0 && trees[p_head].trunk_id != trees[q_head].trunk_id;
+      if (p_head != q_head && !separate_trunks) // not already merged and don't have differing trunk ids
       {
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
@@ -140,6 +159,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           node.updateBound(q_tree.min_bound, q_tree.max_bound);
           node.children[0] = p_head;  
           node.children[1] = q_head;
+          node.trunk_id = p_tree.trunk_id >= 0 ? p_tree.trunk_id : q_tree.trunk_id;
 
  //         if (node.validParaboloid(max_tree_canopy_width_to_height_ratio, voxel_width_)) 
           {
@@ -178,7 +198,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           q_head = trees[q_head].attaches_to;
       }
 
-      if (ind != -1 && p_head != q_head)
+      if (ind != -1 && p_head != q_head) // connecting separate trees, so trigger a future merge event
       {
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
@@ -194,7 +214,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         double tree_height = std::max(0.0, peak[2] - lowfield_(x, y)); 
 
         bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width * std::sqrt(tree_height);
-        if (merge)
+        bool separate_trunks = p_tree.trunk_id >= 0 && q_tree.trunk_id >= 0 && p_tree.trunk_id != q_tree.trunk_id;
+        if (merge && !separate_trunks)
         {
           const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
           // add a merge task:
@@ -212,40 +233,30 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           basins.push(q);
         }
       }
-      if (ind == -1 && heightfield_(xx, yy) > -1e10) 
+      if (ind == -1 && heightfield_(xx, yy) > -1e10) // adding a single pixel to a tree
       {
         Point q;
         q.x = xx; q.y = yy; 
         q.height = heightfield_(xx, yy);
- //       double big_drop_within_tree = 6.0;
-
-        // this doesn't make a lot of difference, but will sometimes find smaller segments, with less bleed out from trees
-        if (0) // (p.height - q.height) > big_drop_within_tree) // insert a node here, it may be a good cutting point
+        cnt++;
+ 
+        int trunkid = trunkfield(xx, yy);
+        if (trunkid >= 0)
         {
-          TreeNode node = trees[p_head];
-          node.children[0] = p_head;  
-          node.children[1] = -1;
-
-          heads.erase(p_head);
-          int new_index = (int)trees.size();          
-          heads.insert(new_index);
-          trees[p_head].attaches_to = new_index;
-          trees.push_back(node);        
-          p_head = new_index;
-        }      
-        q.index = p_head;
-
-     //   if ((p.height - q.height) < maximum_drop_within_tree)
-        {
-  /*        if (verbose && !(cnt%500)) // I need a way to visualise the hierarchy here!
+          if (trees[p_head].trunk_id == -1)
           {
-            drawSegmentation("segmenting.png", trees);
-          }*/
-          cnt++;
-          ind = p_head;
-          basins.push(q);
-          trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));        
-        } 
+            trees[p_head].trunk_id = trunkid;
+          }
+          else // a second trunk on a downward slope, we'll have to make a whole new treenodde
+          {
+            p_head = trees.size(); // this new pixel will point to the new tree node here
+            trees.push_back(TreeNode(xx, yy, q.height, voxel_width_, trunkid));
+          }
+        }    
+        q.index = p_head;
+        ind = p_head;
+        basins.push(q);
+        trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));    
       }
     }
   }
