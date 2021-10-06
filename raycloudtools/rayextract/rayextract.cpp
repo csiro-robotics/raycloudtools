@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
   ray::DoubleArgument tree_roundness(0.01, 3.0);
-  ray::OptionalKeyValueArgument roundness_option("tree_roundness", 't', &tree_roundness);
+  ray::OptionalKeyValueArgument roundness_option("tree_roundness", 'r', &tree_roundness);
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
