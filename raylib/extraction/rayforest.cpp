@@ -69,6 +69,64 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
       }
     }
   }
+  if (best_score > 0.0) 
+  {
+    tip[0] = ((double)best_x+0.5)*voxel_width_;
+    tip[1] = ((double)best_y+0.5)*voxel_width_;
+    return true;
+  }
+  return false;
+}
+
+bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
+{
+  bool calculate = false;
+  if (node.node.area() <= 1.0)
+  {
+    Eigen::Vector2d mid = voxel_width_ * (node.min_bound + node.max_bound).cast<double>()/2.0;
+    tip[0] = mid[0];
+    tip[1] = mid[1];
+  }
+  else if (node.trunk_id >= 0) // if this node is associated with a trunk, then use the trunk location, not the centroid
+  {
+    tip = trunks_[node.trunk_id].first - min_bounds_;
+  }
+  else
+  {
+    tip = node.node.pixelMean(); 
+    calculate = true;
+  }
+  Eigen::Vector3d tip_local = tip/voxel_width_;
+  tip[2] = node.peak[2] - lowfield_((int)tip_local[0], (int)tip_local[1]);
+  if (!calculate)
+  {
+    return true;
+  }
+  const double search_down_gradient = 0.2;
+  double radius = tip_local[2]*search_down_gradient;
+
+  // now find the closest bit of space to put the tree in:
+  int min_x = std::max(0, (int)(tip_local[0] - radius));
+  int max_x = std::min((int)spacefield_.rows()-1, (int)(tip_local[0] + radius));
+  int min_y = std::max(0, (int)(tip_local[1] - radius));
+  int max_y = std::min((int)spacefield_.cols()-1, (int)(tip_local[1] + radius));
+  double best_score = -1e10;
+  int best_x = -1;
+  int best_y = -1;
+  for (int x = min_x; x<=max_x; x++)
+  {
+    for (int y = min_y; y<=max_y; y++)
+    {
+      double dist2 = sqr(((double)x-tip_local[0])/radius) + sqr(((double)y-tip_local[1])/radius);
+      double score = spacefield_(x, y) - 0.25*dist2; // slight preference for result near the centroid
+      if (score > best_score)
+      {
+        best_score = score;
+        best_x = x;
+        best_y = y;
+      }
+    }
+  }
   if (best_x != -1) 
   {
     tip[0] = ((double)best_x+0.5)*voxel_width_;
@@ -153,6 +211,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
   const double height_per_radius = 50.0; // TODO: temporary until we have a better parameter choice
   std::vector<TreeSummary> results;
+  int num_spaces = 0;
 
   #if defined AGGLOMERATE
   int count = 0;
@@ -195,35 +254,11 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   if (verbose)
     renderAgglomeration(point_clusters, verts, cloud_name_stub);
   
-  int no_space_trees = 0;
   for (auto &cluster: point_clusters)
   {
     Eigen::Vector3d tip;
+    int trunk_id = cluster.trunk_id;    
     if (findSpace(cluster, verts, tip))
-    {
-      TreeSummary tree;
-      tree.base = min_bounds_ + tip;
-      tree.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-      tree.height = tip[2];
-      tree.trunk_identified = true;
-      if (cluster.trunk_id >= 0)
-        tree.radius = trunks_[cluster.trunk_id].second;
-      else 
-      {
-        tree.radius = tree.height / height_per_radius;
-        tree.trunk_identified = false;
-      }
-      results.push_back(tree);
-    }
-    else
-    {
-      no_space_trees++;
-    }
-  }  
-  if (no_space_trees > 0)
-  {
-    std::cout << no_space_trees << " trees from _trunks.txt have rays passing through, so appear to be falsly identified as trees. Removing." << std::endl;
-  }
   #else // watershed
 
   indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
@@ -253,46 +288,39 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   for (auto &head: heads)
   {
     double error = searchTrees(trees, head, 1.0/tree_roundness, indices);
-    if (error == 1e20)
-      std::cout << "error for head: " << head << ", roundness: " << tree_roundness << std::endl;
   }
   drawFinalSegmentation("result_tree_shapes.png", trees, indices);
+  renderWatershed(cloud_name_stub, trees, indices);
 
   for (auto &ind: indices)
   {
-    TreeSummary result;
-    result.base = trees[ind].node.pixelMean(); 
-    int x = (int) result.base[0];
-    int y = (int) result.base[1];
-    if (x < 0 || x >= lowfield_.rows())
-      continue;
-    if (y < 0 || y >= lowfield_.cols())
-      continue;
-    result.base[2] = lowfield_(x, y);
-    result.height = trees[ind].peak[2] - result.base[2];
-    result.trunk_identified = true; 
-
-//    result.radius = trees[ind].approx_radius;
-//    result.curvature = trees[ind].node.curvature();
-
-    if (trees[ind].trunk_id >= 0)
-      result.radius = trunks_[trees[ind].trunk_id].second;
-    else 
+    Eigen::Vector3d tip;
+    int trunk_id = trees[ind].trunk_id;
+    if (findSpace2(trees[ind], tip))
+  #endif
     {
-      result.radius = result.height / height_per_radius;
-      result.trunk_identified = false;
-    }    
-    results.push_back(result);
-  }
+      TreeSummary result;
+      result.base = min_bounds_ + tip;
+      result.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+      result.height = tip[2];
+      result.trunk_identified = true;
+      if (trunk_id >= 0)
+        result.radius = trunks_[trunk_id].second;
+      else 
+      {
+        result.radius = result.height / height_per_radius;
+        result.trunk_identified = false;
+      }
+      results.push_back(result);
+    }
+    else
+    {
+      num_spaces++;
+    }
+  }    
+  std::cout << "number of disallowed trees: " << num_spaces << " / " << results.size() << std::endl;
 
  // drawTrees("result_trees.png", results, (int)heightfield_.rows(), (int)heightfield_.cols());
-    
-
-  // make a verts vector of 3d points
-
-  #endif
-
-
   std::sort(results.begin(), results.end(), [](const TreeSummary &a, const TreeSummary &b){ return a.height > b.height; });
 
   return results;

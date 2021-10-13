@@ -10,9 +10,97 @@
 #include <string.h>
 #include <iostream>
 #include <queue>
+#include "../rayply.h"
 
 namespace ray
 {
+
+void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<TreeNode> &trees, std::vector<int> &indices)
+{
+  if (!verbose)
+    return;
+  std::vector<Eigen::Vector3d> cloud_points;
+  std::vector<double> times;
+  std::vector<RGBA> colours;
+  RGBA colour;
+  colour.alpha = 255;
+
+  for (int x = 0; x < indexfield_.rows(); x++)
+  {
+    for (int y = 0; y < indexfield_.cols(); y++)
+    {
+      int ind = indexfield_(x, y);
+      if (ind == -1)
+        continue;
+      while (trees[ind].attaches_to != -1)
+      {
+        if (std::find(indices.begin(), indices.end(), ind) != indices.end())
+          break;
+        ind = trees[ind].attaches_to;
+      }
+      if (std::find(indices.begin(), indices.end(), ind) == indices.end())
+        continue;
+      srand(1 + ind);
+      colour.red = (uint8_t)(rand()%256);
+      colour.green = (uint8_t)(rand()%256);
+      colour.blue = (uint8_t)(rand()%256);
+      Eigen::Vector3d pos = min_bounds_ + voxel_width_*Eigen::Vector3d(0.5 + (double)x, 0.5 + (double)y, 0);
+      pos[2] = heightfield_(x, y);
+      cloud_points.push_back(pos);
+      times.push_back(0.0);
+      colours.push_back(colour);
+    }
+  }
+
+  for (auto &ind: indices)
+  {
+    Eigen::Vector3d tip;
+    srand(1 + ind);
+    colour.red = (uint8_t)(rand()%256);
+    colour.green = (uint8_t)(rand()%256);
+    colour.blue = (uint8_t)(rand()%256);
+    double z_max = 2.0;
+    if (trees[ind].trunk_id >= 0)
+      z_max = 4.0;
+    if (findSpace2(trees[ind], tip))
+    {
+      Eigen::Vector3d base = min_bounds_ + tip;
+      base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+      double height_per_radius = 50.0;
+      double rad = tip[2] / height_per_radius;
+
+      for (double z = 0.0; z<z_max; z+=0.3)
+      {
+        for (double ang = 0.0; ang<2.0*kPi; ang += 0.3)
+        {
+          cloud_points.push_back(base + Eigen::Vector3d(rad*std::sin(ang), rad*std::cos(ang), z));
+          times.push_back(0.0);
+          colours.push_back(colour);
+        }
+      }
+    }
+  }
+
+  // now add the space field:
+  for (int i = 0; i<spacefield_.rows(); i++)
+  {
+    for (int j = 0; j<spacefield_.cols(); j++)
+    {
+      if (spacefield_(i,j) < 1.0)
+      {
+        double height = lowfield_(i, j) + 0.2;
+        double x = min_bounds_[0] + (double)i*voxel_width_;
+        double y = min_bounds_[1] + (double)j*voxel_width_;
+        cloud_points.push_back(Eigen::Vector3d(x, y, height));
+        times.push_back(0.0);
+        colour.red = colour.green = colour.blue = (uint8_t)(255.0*spacefield_(i,j));
+        colours.push_back(colour);
+      }
+    }
+  }  
+
+  writePlyPointCloud(cloud_name_stub + "_watershed.ply", cloud_points, times, colours);  
+}
 
 double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices)
 {
@@ -249,7 +337,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           }
           else // a second trunk on a downward slope, we'll have to make a whole new treenodde
           {
-            p_head = trees.size(); // this new pixel will point to the new tree node here
+            p_head = (int)trees.size(); // this new pixel will point to the new tree node here
             trees.push_back(TreeNode(xx, yy, q.height, voxel_width_, trunkid));
           }
         }    

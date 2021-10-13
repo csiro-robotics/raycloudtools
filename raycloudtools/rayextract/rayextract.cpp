@@ -41,6 +41,38 @@ void usage(bool error=false)
 // extracts natural features from scene
 int main(int argc, char *argv[])
 {
+ // #define BRANCH_CONVOLUTION_TEST
+  #if defined BRANCH_CONVOLUTION_TEST
+  double radius = 0.0;
+  double edgeradius = 0.0;
+  double d = 0.01;
+  double pi = 3.141592;
+  // 2D k=1.96 for power 1, and edge is 78% of branch radius estimate
+  // 3D k=1.44 for power 2, and edge is 61% of branch radius estimate
+  double k = 1.442; // 1.96; // 2.24; // 2.04; // 1.96;
+  double power = 2.0;
+  double rad = 1.0;
+  int num = 0, total = 0;
+  for (double x = 0.5*d-rad; x <= rad; x += d)
+  {
+    for (double z = 0.5*d-rad; z <= rad; z += d)
+    {
+      if (z*z + x*x > rad*rad)
+        continue;
+      for (double y = 0.5*d-4.0*rad; y <= 4.0*rad; y += d)
+      {
+        total++;
+        double d1 = std::pow(x*x + y*y + z*z, power/2.0);
+        double d2 = std::pow((x+rad)*(x+rad) + y*y + z*z, power/2.0);
+        radius += d*d*d / (4.0 * pi * k * d1);
+        edgeradius += d*d*d / (4.0 * pi * k * d2);
+      }
+    }
+  }
+  std::cout << "centre radius: " << radius << ", edge radius: " << edgeradius << std::endl;
+  std::cout << "num: " << num << " / " << total << std::endl;
+  return 1;
+  #endif  
   ray::FileArgument cloud_file, mesh_file, trunks_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), branches("branches"), terrain("terrain");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);

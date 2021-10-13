@@ -45,7 +45,7 @@ struct RAYLIB_EXPORT TreeNode
     inline Eigen::Vector3d tip() const { return Eigen::Vector3d(vw*-abcd[1]/(2*abcd[0]), vw*-abcd[2]/(2*abcd[0]), height()); }
     inline double curvature() const { return abcd[0]/(vw*vw); }
     inline double crownRadius() const { return vw*vw / -abcd[0]; }
- //   inline double area() const { return curv_mat(3, 3); }
+    inline double area() const { return curv_mat(3, 3); }
     inline Eigen::Vector3d pixelMean() const { return Eigen::Vector3d(curv_mat(1,3), curv_mat(2,3), curv_vec[3]) / curv_mat(3, 3); }
 
     Eigen::Matrix4d curv_mat;
