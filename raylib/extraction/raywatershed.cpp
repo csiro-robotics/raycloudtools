@@ -102,6 +102,8 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
   writePlyPointCloud(cloud_name_stub + "_watershed.ply", cloud_points, times, colours);  
 }
 
+
+
 double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices)
 {
   // length estimated from both the pixel coverage and the paraboloid curvature

@@ -289,7 +289,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   {
     searchTrees(trees, head, 1.0/tree_roundness, indices);
   }
-  drawFinalSegmentation("result_tree_shapes.png", trees, indices);
+  drawFinalSegmentation(cloud_name_stub, trees, indices);
   renderWatershed(cloud_name_stub, trees, indices);
 
   for (auto &ind: indices)

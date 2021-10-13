@@ -12,6 +12,7 @@
 
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "raylib/imagewrite.h"
+#include "raylib/raycloudwriter.h"
 
 namespace ray
 {
@@ -88,7 +89,41 @@ void Occupancy2D::draw(const std::string &filename)
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees, std::vector<int> &indices)
+void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels, const Eigen::Vector3d &min_bounds, double voxel_width)
+{
+  std::string filename = cloud_name_stub + ".ply";
+  ray::CloudWriter writer;
+  if (!writer.begin(cloud_name_stub + "_segmented.ply"))
+    return;
+
+  ray::Cloud chunk;
+  auto segment = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    chunk.resize(ends.size());    
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      Eigen::Vector3d ind = (ends[i] - min_bounds)/voxel_width;
+      chunk.starts[i] = starts[i];
+      chunk.ends[i] = ends[i];
+      chunk.times[i] = times[i];
+      RGBA col;
+      col.alpha = colours[i].alpha;
+      Col pix = pixels((int)ind[0], (int)ind[1]);
+      col.red = pix.r;
+      col.green = pix.g;
+      col.blue = pix.b;
+      chunk.colours[i] = col;
+    }
+    writer.writeChunk(chunk);
+  };
+
+  if (!ray::Cloud::read(filename, segment))
+    return;  
+  writer.end();
+}
+
+
+void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vector<TreeNode> &trees, std::vector<int> &indices)
 {
   if (!verbose)
     return;
@@ -128,7 +163,12 @@ void Forest::drawFinalSegmentation(const std::string &filename, std::vector<Tree
     }
   }
   stbi_flip_vertically_on_write(1);
-  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
+
+  segmentCloud(cloud_name_stub, pixels, min_bounds_, voxel_width_);
+
+  std::string output_file = cloud_name_stub + "_trees.png";
+  
+  stbi_write_png(output_file.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
 
