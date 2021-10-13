@@ -93,7 +93,7 @@ bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
   }
   else
   {
-    tip = node.node.pixelMean(); 
+    tip = node.node.pixelMean() * voxel_width_; 
     calculate = true;
   }
   Eigen::Vector3d tip_local = tip/voxel_width_;
@@ -127,7 +127,7 @@ bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
       }
     }
   }
-  if (best_x != -1) 
+  if (best_score > 0.0) 
   {
     tip[0] = ((double)best_x+0.5)*voxel_width_;
     tip[1] = ((double)best_y+0.5)*voxel_width_;
@@ -287,7 +287,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   std::vector<int> indices;
   for (auto &head: heads)
   {
-    double error = searchTrees(trees, head, 1.0/tree_roundness, indices);
+    searchTrees(trees, head, 1.0/tree_roundness, indices);
   }
   drawFinalSegmentation("result_tree_shapes.png", trees, indices);
   renderWatershed(cloud_name_stub, trees, indices);
