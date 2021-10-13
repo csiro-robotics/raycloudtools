@@ -159,7 +159,6 @@ struct PointCmp
 
 void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads)
 {
-  int count = 0;
   // fast array lookup of trunk centres:
   Eigen::ArrayXXi trunkfield = Eigen::ArrayXXi::Constant(indexfield_.rows(), indexfield_.cols(), -1);
   for (int c = 0; c<(int)trunks_.size(); c++) // if there are known trunks, then include them...
@@ -197,13 +196,9 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         heads.insert(p.index);
         indexfield_(x, y) = p.index;     
         trees.push_back(TreeNode(x, y, height, voxel_width_, trunkfield(x, y)));
-        if (count++ < 5)
-          std::cout << "point: " << x << ", " << y << ", " << height << ", " << p.index << std::endl;
       }
     }
   }
-
-  count = 0;
 
   std::cout << "initial number of peaks: " << trees.size() << std::endl;
   int cnt = 0;
@@ -219,8 +214,6 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 
     if (p.index == -2) // a merge request
     {
-      if (count++ < 5)
-        std::cout << "merge request: " << x << ", " << y << std::endl;
       int p_head = x;
       while (trees[p_head].attaches_to != -1)
         p_head = trees[p_head].attaches_to;
@@ -308,8 +301,6 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 
         bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width * std::sqrt(tree_height);
         bool separate_trunks = p_tree.trunk_id >= 0 && q_tree.trunk_id >= 0 && p_tree.trunk_id != q_tree.trunk_id;
-        if (count++ < 5)
-          std::cout << "merge : " << merge << ", " << max_tree_pixel_width << ", " << tree_height << ", st: " << separate_trunks << std::endl;
         if (merge && !separate_trunks)
         {
           const double flood_merge_scale = 2.0; // 1 merges immediately, infinity never merges
@@ -359,7 +350,6 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 
 void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
 {
-  int count = 0;
   std::vector<std::vector<Eigen::Vector3d> > point_lists(trees.size()); // in metres
   for (int x = 0; x<indexfield_.rows(); x++)
   {
@@ -402,9 +392,6 @@ void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
       }
     }
     node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
-    if (count++<5)
-      std::cout << "abcd: " << node.abcd.transpose() << std::endl;
-
     tree.node = node;
   }
 }

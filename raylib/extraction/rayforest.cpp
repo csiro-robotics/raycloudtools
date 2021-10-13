@@ -145,11 +145,11 @@ std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mes
     return std::vector<TreeSummary>();
   min_bounds_ = info.ends_bound.min_bound_;
   max_bounds_ = info.ends_bound.max_bound_;
-  #if defined AGGLOMERATE
+//  #if defined AGGLOMERATE
   double voxel_width = 0.25; // 6.0 * Cloud::estimatePointSpacing(cloud_name_stub, info.ends_bound, info.num_bounded);
-  #else
-  double voxel_width = 1.0;
-  #endif
+//  #else
+//  double voxel_width = 1.0;
+//  #endif
   std::cout << "voxel width: " << voxel_width << " m" << std::endl;
 
   double width = (max_bounds_[0] - min_bounds_[0])/voxel_width;
