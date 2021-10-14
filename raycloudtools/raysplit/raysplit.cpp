@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
                              {&plane,  &time,  &colour,  &alpha,  &raydir,  &range});
   ray::FileArgument mesh_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
-  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("text");
+  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
   bool colour_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_text});
@@ -64,9 +64,9 @@ int main(int argc, char *argv[])
   const std::string rc_name = cloud_file.name(); // ray cloud name
   bool res = true;
 
-  if (colour_split)
+  if (colour_format)
   {
-    
+    res = ray::splitColour(cloud_file.name(), cloud_file.nameStub());
   }
   else if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
   {
