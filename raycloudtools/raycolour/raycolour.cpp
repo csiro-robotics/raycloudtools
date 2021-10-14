@@ -6,6 +6,8 @@
 #include "raylib/raycloud.h"
 #include "raylib/raycloudwriter.h"
 #include "raylib/rayparse.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "raylib/imageread.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +25,7 @@ void usage(int exit_code = 1)
   std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
   std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
   std::cout << "                   1,1,1         - set r,g,b" << std::endl;
+  std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds" << std::endl;
   std::cout << "                         --lit   - shaded (slow on large datasets)" << std::endl;
   exit(exit_code);
 }
@@ -36,19 +39,55 @@ void spectrumRGB(double value, ray::RGBA &colour)
   colour.blue = static_cast<uint8_t>(255.0 * col[2]);  
 }
 
-// Decimates the ray cloud, spatially or in time
+/// Function to colour the cloud from a horizontal projection of a supplied image, stretching to match the cloud bounds.
+void colourFromImage(const std::string &cloud_file, const std::string &image_file, ray::CloudWriter &writer)
+{
+  ray::Cloud::Info info;
+  if (!ray::Cloud::getInfo(cloud_file, info))
+  {
+    usage();
+  }
+  const ray::Cuboid bounds = info.ends_bound;
+  stbi_set_flip_vertically_on_load(1);
+  int width, height, num_channels;
+  unsigned char *image_data = stbi_load(image_file.c_str(), &width, &height, &num_channels, 0);
+  const double pixel_width = std::min((bounds.max_bound_[0] - bounds.min_bound_[0])/(double)width, (bounds.max_bound_[1] - bounds.min_bound_[1])/(double)height);
+
+  auto colour_from_image = [&bounds, &writer, &image_data, pixel_width, width, height, num_channels]
+    (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
+    std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    for (size_t i = 0; i<ends.size(); i++)
+    {
+      const Eigen::Vector3i ind = ((ends[i] - bounds.min_bound_) / pixel_width).cast<int>();
+      const int index = num_channels*(ind[0] + width*ind[1]);
+      colours[i].red = image_data[index];
+      colours[i].green = image_data[index+1];
+      colours[i].blue = image_data[index+2];
+    }
+    writer.writeChunk(starts, ends, times, colours);
+  };
+
+  if (!ray::Cloud::read(cloud_file, colour_from_image))
+    usage();
+
+  stbi_image_free(image_data);
+}
+
+// Colours the ray cloud based on the specified arguments
 int main(int argc, char *argv[])
 {
-  ray::FileArgument cloud_file;
+  ray::FileArgument cloud_file, image_file;
   ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha"});
   ray::OptionalFlagArgument lit("lit", 'l');
   ray::Vector3dArgument col(0.0, 1.0);
   ray::DoubleArgument alpha(0.0, 1.0);
-  ray::TextArgument alpha_text("alpha");
+  ray::TextArgument alpha_text("alpha"), image_text("image");
   const bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&lit});
   const bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col}, {&lit});
   const bool flat_alpha = ray::parseCommandLine(argc, argv, {&cloud_file, &alpha_text, &alpha}, {&lit});
-  if (!standard_format && !flat_colour && !flat_alpha)
+  const bool image_format = ray::parseCommandLine(argc, argv, {&cloud_file, &image_text, &image_file}, {&lit});
+  if (!standard_format && !flat_colour && !flat_alpha && !image_format)
     usage();
   
   const std::string type = colour_type.selectedKey();
@@ -114,9 +153,15 @@ int main(int argc, char *argv[])
       }
       writer.writeChunk(starts, ends, times, colours);
     };
-
-    if (!ray::Cloud::read(cloud_file.name(), colour_rays))
+    
+    if (image_format)
+    {
+      colourFromImage(cloud_file.name(), image_file.name(), writer);
+    }
+    else if (!ray::Cloud::read(cloud_file.name(), colour_rays))
+    {
       usage();
+    }
     writer.end();
     if (!lit.isSet())
       return 0;
