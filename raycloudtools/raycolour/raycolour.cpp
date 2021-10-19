@@ -51,7 +51,7 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
   stbi_set_flip_vertically_on_load(1);
   int width, height, num_channels;
   unsigned char *image_data = stbi_load(image_file.c_str(), &width, &height, &num_channels, 0);
-  const double pixel_width = std::min((bounds.max_bound_[0] - bounds.min_bound_[0])/(double)width, (bounds.max_bound_[1] - bounds.min_bound_[1])/(double)height);
+  const double pixel_width = std::max((bounds.max_bound_[0] - bounds.min_bound_[0])/(double)width, (bounds.max_bound_[1] - bounds.min_bound_[1])/(double)height);
 
   auto colour_from_image = [&bounds, &writer, &image_data, pixel_width, width, height, num_channels]
     (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
