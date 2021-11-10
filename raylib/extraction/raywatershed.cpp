@@ -120,7 +120,7 @@ double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double l
   double error = std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
   if (trees[ind].children[0] == -1)
   {
-    if (trees[ind].validParaboloid(max_tree_canopy_width_to_height_ratio, voxel_width_))
+    if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
     {
       indices.push_back(ind);
       return error;
@@ -135,7 +135,7 @@ double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double l
   {
     child_error = (child_error + searchTrees(trees, ind1, length_per_radius, child_indices[1])) / 2.0; // mean error
   }
-  if (error < child_error && trees[ind].validParaboloid(max_tree_canopy_width_to_height_ratio, voxel_width_))
+  if (error < child_error && trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
   {
     indices.push_back(ind);
     return error;
@@ -206,7 +206,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
   int cnt = 0;
   // now iterate until basins is empty
   // Below, don't divide by voxel_width, if you want to verify voxel_width independence
-  int max_tree_pixel_width = (int)(max_tree_canopy_width_to_height_ratio / (double)voxel_width_); 
+  int max_tree_pixel_width = (int)(max_tree_canopy_width / (double)voxel_width_); 
   while (!basins.empty())
   {
     Point p = basins.top();
@@ -239,7 +239,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
-        if (std::max(mx[0], mx[1]) <= max_tree_pixel_width*std::sqrt(tree_height))
+        if (std::max(mx[0], mx[1]) <= max_tree_pixel_width)
         {
           int new_index = (int)trees.size();
           node.min_bound = p_tree.min_bound;
@@ -249,7 +249,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           node.children[1] = q_head;
           node.trunk_id = p_tree.trunk_id >= 0 ? p_tree.trunk_id : q_tree.trunk_id;
 
- //         if (node.validParaboloid(max_tree_canopy_width_to_height_ratio, voxel_width_)) 
+ //         if (node.validParaboloid(max_tree_canopy_width, voxel_width_)) 
           {
             heads.erase(p_head);
             heads.erase(q_head);
@@ -301,7 +301,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         y = std::max(0, std::min(y, (int)lowfield_.cols()-1));
         double tree_height = std::max(0.0, peak[2] - lowfield_(x, y)); 
 
-        bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width * std::sqrt(tree_height);
+        bool merge = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
         bool separate_trunks = p_tree.trunk_id >= 0 && q_tree.trunk_id >= 0 && p_tree.trunk_id != q_tree.trunk_id;
         if (merge && !separate_trunks)
         {
