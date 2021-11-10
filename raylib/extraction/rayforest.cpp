@@ -15,7 +15,7 @@
 #include <string.h>
 #include <iostream>
 #define USE_GROWTH_RATIO
-//#define AGGLOMERATE
+#define AGGLOMERATE
 
 namespace ray
 {
@@ -145,11 +145,8 @@ std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mes
     return std::vector<TreeSummary>();
   min_bounds_ = info.ends_bound.min_bound_;
   max_bounds_ = info.ends_bound.max_bound_;
-//  #if defined AGGLOMERATE
   double voxel_width = 0.25; // 6.0 * Cloud::estimatePointSpacing(cloud_name_stub, info.ends_bound, info.num_bounded);
-//  #else
-//  double voxel_width = 1.0;
-//  #endif
+
   std::cout << "voxel width: " << voxel_width << " m" << std::endl;
 
   double width = (max_bounds_[0] - min_bounds_[0])/voxel_width;
@@ -233,7 +230,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   }
   std::cout << "undercroft at height " << undercroft_height << " removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
 
-  const double max_diameter_per_height = 1.5; // 0.9 for bellbworie, 1.5 for T
+  const double max_diameter_per_height = 0.9; // 1.5; // 0.9 for bellbworie, 1.5 for T
   const double min_diameter_per_height = 0.15; // for T, 0.15 or 0.25 are about equal
 
   Terrain terrain;
