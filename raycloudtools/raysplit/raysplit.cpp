@@ -30,22 +30,101 @@ void usage(int exit_code = 1)
   std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
   std::cout << "                  trees cloud_forest.txt - splits trees into one file each, allowing a buffer around each tree" << std::endl;
+  std::cout << "                  tube 1,2,3 10,11,12 5  - splits within a tube (cylinder) using start, end and radius" << std::endl;
   exit(exit_code);
 }
 
 // Decimates the ray cloud, spatially or in time
 int main(int argc, char *argv[])
 {
+  #if defined LEAN_TEST
+  std::string file_name = "/media/parallels/AutoMap/results.yaml";
+  std::cout << "loading yaml " << file_name << std::endl;
+  std::string line;
+  std::ifstream ifs(file_name.c_str(), std::ios::in);
+  if (!ifs)
+  {
+    std::cerr << "Failed to open yaml file: " << file_name << std::endl;
+    return false;
+  }
+  std::vector<Eigen::Quaterniond> quats;
+  int count = 0;
+  while (count < 413159) // !ifs.eof())
+  {
+    Eigen::Vector4d q;
+
+    for (int i = 0; i<4; i++)
+    {
+      getline(ifs, line);
+      std::string line2 = line.substr(3);
+      std::istringstream iss(line2);
+      iss >> q[i];
+      if (iss.fail())
+      {
+        std::cerr << "Invalid fields at line " << i << " of " << file_name << std::endl;
+        return false;
+      }
+    }
+    Eigen::Quaterniond quat(q[3], q[0], q[1], q[2]);
+    quats.push_back(quat);
+    getline(ifs, line);
+ //   std::cout << count << std::endl;
+    count++;
+  }
+  double mean_angle = 0;
+  double mean_angle_sqr = 0;
+  for (auto &quat: quats)
+  {
+    Eigen::Vector3d up(0,0,1);
+    Eigen::Vector3d tilt = quat * up;
+    double angle = std::atan2(std::sqrt(tilt[0]*tilt[0] + tilt[1]*tilt[1]), tilt[2]);
+ //   std::cout << "quat: " << quat.w() << ", " << quat.x() << ", " << quat.y() << ", " << quat.z() << ", angle: " << angle << std::endl;
+    mean_angle += angle;
+    mean_angle_sqr += angle*angle;
+  }
+  std::cout << "mean angle degrees: " << 57.3 * mean_angle/(double)quats.size() << ", mean angle_sqr: " << 57.3 * std::sqrt(mean_angle_sqr / (double)quats.size()) << std::endl; 
+  int c = 0;
+  for (int j = 0; j<10; j++)
+  {
+    mean_angle = 0;
+    mean_angle_sqr = 0;
+    for (int i = 0; i<60000; i++)
+    {
+      if (c == quats.size())
+        break;
+      Eigen::Vector3d up(0,0,1);
+      Eigen::Vector3d tilt = quats[c] * up;
+      double angle = std::atan2(std::sqrt(tilt[0]*tilt[0] + tilt[1]*tilt[1]), tilt[2]);
+  //   std::cout << "quat: " << quat.w() << ", " << quat.x() << ", " << quat.y() << ", " << quat.z() << ", angle: " << angle << std::endl;
+      mean_angle += angle;
+      mean_angle_sqr += angle*angle;
+      c++;
+    }
+    std::cout << "mean angle: " << 57.3 * mean_angle/60000.0 << ", RMS: " << 57.3 * std::sqrt(mean_angle_sqr / 60000.0) << std::endl; 
+
+  }
+  exit(1);
+  #endif
+
+
+
+
+
+
+
+
+
+
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
-  ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val);
+  ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
-  ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0);
+  ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), tube_radius(0.001, 1000.0);
   ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "raydir", "range"}, 
                              {&plane,  &time,  &colour,  &alpha,  &raydir,  &range});
   ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
-  ray::TextArgument box_text("box"), grid_text("grid"), tree_text("trees");
+  ray::TextArgument box_text("box"), grid_text("grid"), tree_text("trees"), tube_text("tube");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
   bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
@@ -54,7 +133,8 @@ int main(int argc, char *argv[])
   bool grid_format2 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width2});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
   bool tree_split = ray::parseCommandLine(argc, argv, {&cloud_file, &tree_text, &tree_file});
-  if (!standard_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent && !tree_split)
+  bool tube_split = ray::parseCommandLine(argc, argv, {&cloud_file, &tube_text, &tube_start, &tube_end, &tube_radius});
+  if (!standard_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent && !tree_split && !tube_split)
   {
     usage();
   }
@@ -64,7 +144,26 @@ int main(int argc, char *argv[])
   const std::string rc_name = cloud_file.name(); // ray cloud name
   bool res = true;
 
-  if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
+  if (tube_split)
+  {
+    Eigen::Vector3d start = tube_start.value();
+    Eigen::Vector3d end = tube_end.value();
+    Eigen::Vector3d dir = end - start;
+    dir /= dir.dot(dir);
+    double radius = tube_radius.value();
+
+    res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool 
+    { 
+      double d = (cloud.ends[i] - start).dot(dir);
+ //     if (d < 0.0 || d > 1.0)
+ //       return true;
+      Eigen::Vector3d pos = cloud.ends[i] + (start - end)*d;
+      if ((pos - start).squaredNorm() > radius*radius)
+        return true;
+      return false;
+    });   
+  }
+  else if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
   {
     ray::Cloud cloud; // used as a buffer when chunk loading
     if (!cloud.load(rc_name))
