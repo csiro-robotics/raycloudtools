@@ -105,16 +105,6 @@ int main(int argc, char *argv[])
   }
   exit(1);
   #endif
-
-
-
-
-
-
-
-
-
-
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
   ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
@@ -155,8 +145,8 @@ int main(int argc, char *argv[])
     res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool 
     { 
       double d = (cloud.ends[i] - start).dot(dir);
- //     if (d < 0.0 || d > 1.0)
- //       return true;
+      if (d < 0.0 || d > 1.0)
+        return true;
       Eigen::Vector3d pos = cloud.ends[i] + (start - end)*d;
       if ((pos - start).squaredNorm() > radius*radius)
         return true;
