@@ -51,16 +51,23 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
   stbi_set_flip_vertically_on_load(1);
   int width, height, num_channels;
   unsigned char *image_data = stbi_load(image_file.c_str(), &width, &height, &num_channels, 0);
-  const double pixel_width = std::max((bounds.max_bound_[0] - bounds.min_bound_[0])/(double)width, (bounds.max_bound_[1] - bounds.min_bound_[1])/(double)height);
+  const double width_x = (bounds.max_bound_[0] - bounds.min_bound_[0])/(double)width;
+  const double width_y = (bounds.max_bound_[1] - bounds.min_bound_[1])/(double)height;
+  if (std::max(width_x, width_y) > 1.05 * std::min(width_x, width_y))
+  {
+    std::cout << "Warning: image aspect ratio does not match aspect match of point cloud (" << 
+      bounds.max_bound_[0] - bounds.min_bound_[0] << " x " << bounds.max_bound_[1] - bounds.min_bound_[1] << ", stretching to fit) " << std::endl;
+  }
 
-  auto colour_from_image = [&bounds, &writer, &image_data, pixel_width, width, height, num_channels]
+  auto colour_from_image = [&bounds, &writer, &image_data, width_x, width_y, width, height, num_channels]
     (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
     std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     for (size_t i = 0; i<ends.size(); i++)
     {
-      const Eigen::Vector3i ind = ((ends[i] - bounds.min_bound_) / pixel_width).cast<int>();
-      const int index = num_channels*(ind[0] + width*ind[1]);
+      const int ind0 = static_cast<int>((ends[i][0] - bounds.min_bound_[0]) / width_x);
+      const int ind1 = static_cast<int>((ends[i][1] - bounds.min_bound_[1]) / width_y);
+      const int index = num_channels*(ind0 + width*ind1);
       colours[i].red = image_data[index];
       colours[i].green = image_data[index+1];
       colours[i].blue = image_data[index+2];
