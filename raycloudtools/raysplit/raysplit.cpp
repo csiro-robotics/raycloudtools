@@ -20,6 +20,7 @@ void usage(int exit_code = 1)
   std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raysplit raycloud plane 10,0,0           - splits around plane at 10 m along x axis" << std::endl;
+  std::cout << "                  colour                 - splits by colour, one cloud per colour" << std::endl;
   std::cout << "                  colour 0.5,0,0         - splits by colour, around half red component" << std::endl;
   std::cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity" << std::endl;
   std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << std::endl;
@@ -44,15 +45,16 @@ int main(int argc, char *argv[])
                              {&plane,  &time,  &colour,  &alpha,  &raydir,  &range});
   ray::FileArgument mesh_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
-  ray::TextArgument box_text("box"), grid_text("grid");
+  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
+  bool colour_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_text});
   bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
   bool box_format = ray::parseCommandLine(argc, argv, {&cloud_file, &box_text, &box_radius});
   bool grid_format = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width});
   bool grid_format2 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width2});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
-  if (!standard_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent)
+  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent)
   {
     usage();
   }
@@ -62,7 +64,11 @@ int main(int argc, char *argv[])
   const std::string rc_name = cloud_file.name(); // ray cloud name
   bool res = true;
 
-  if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
+  if (colour_format)
+  {
+    res = ray::splitColour(cloud_file.name(), cloud_file.nameStub());
+  }
+  else if (mesh_split) // I can't chunk load this one, so it will need to fit in RAM
   {
     ray::Cloud cloud; // used as a buffer when chunk loading
     if (!cloud.load(rc_name))
