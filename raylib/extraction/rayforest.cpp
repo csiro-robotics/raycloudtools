@@ -306,7 +306,10 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   std::vector<Eigen::Vector3d> &verts = mesh.vertices();
 
   if (verbose)
+  {
     renderAgglomeration(point_clusters, verts, cloud_name_stub);
+    drawAgglomeration(point_clusters, verts, cloud_name_stub);
+  }
   
   for (auto &cluster: point_clusters)
   {
