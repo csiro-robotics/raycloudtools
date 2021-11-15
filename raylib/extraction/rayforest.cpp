@@ -209,8 +209,8 @@ void Forest::addTrunkHeights()
     {
       continue;
     }
-    double radius = 7.0 * trunk.second / voxel_width_;
-    double height = 40.0 * trunk.second;
+    double radius = 10.0 * trunk.second / voxel_width_;
+    double height = 80.0 * trunk.second;
     int rad = (int)std::ceil(radius);
     for (int x = std::max(0, pos[0]-rad); x <= std::min(pos[0] + rad, (int)heightfield_.rows()-1); x++)
     {
@@ -222,9 +222,8 @@ void Forest::addTrunkHeights()
         double h = height * (1.0 - r);
         if (h > 0.0)
         {
-          if (heightfield_(x, y) == -1e10)
-            heightfield_(x, y) = 0;
-          heightfield_(x, y) += h;
+          if (heightfield_(x, y) != -1e10)
+            heightfield_(x, y) += h;
         }
       }    
     }
@@ -347,6 +346,20 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   hierarchicalWatershed(trees, heads);
 
   std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
+
+  for (int x = 0; x < indexfield_.rows(); x++)
+  {
+    for (int y = 0; y < indexfield_.cols(); y++)
+    {
+      int ind = indexfield_(x, y);
+      if (ind == -1)
+        continue;
+      while (trees[ind].attaches_to != -1)
+        ind = trees[ind].attaches_to;
+      trees[ind].area++;
+    }
+  }
+
 
   drawFinalSegmentation(cloud_name_stub, trees);
   renderWatershed(cloud_name_stub, trees, heads);

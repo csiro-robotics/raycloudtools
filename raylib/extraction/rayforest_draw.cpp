@@ -140,12 +140,19 @@ void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vect
       {
         while (trees[ind].attaches_to != -1)
           ind = trees[ind].attaches_to;
-        srand(1 + ind);
-        col.a = 255;
-        col.r = (uint8_t)(rand()%256);
-        col.g = (uint8_t)(rand()%256);
-        col.b = (uint8_t)(rand()%256);
-        pixels(x, y) = col;
+        if (trees[ind].area <= 25.0)
+        {
+          pixels(x, y) = Col(30);
+        }
+        else
+        {
+          srand(1 + ind);
+          col.a = 255;
+          col.r = (uint8_t)(rand()%256);
+          col.g = (uint8_t)(rand()%256);
+          col.b = (uint8_t)(rand()%256);
+          pixels(x, y) = col;
+        }
       }
     }
   }

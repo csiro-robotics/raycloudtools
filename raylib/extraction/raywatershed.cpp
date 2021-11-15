@@ -206,7 +206,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           double drop = peak - p.height;
           double tree_height = std::max(0.0, peak - lowfield_(xx, yy)); 
 
-          if (drop < tree_height * 0.1) // good to merge
+          bool too_small = std::max(mx[0], mx[1]) <= 10;
+          if (drop < tree_height * 0.1 || too_small) // good to merge
           {
             int new_index = (int)trees.size();
             TreeNode node;

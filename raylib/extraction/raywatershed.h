@@ -22,6 +22,7 @@ struct RAYLIB_EXPORT TreeNode
     children[0] = children[1] = -1;
     peak.setZero();
     ground_height = height = 0;
+    area = 0;
   }
   TreeNode(int i, int j, double height_, double voxel_width, int trunkid) // TODO: should this be x,y or a distance in metres? probably x,y
   {
@@ -33,6 +34,7 @@ struct RAYLIB_EXPORT TreeNode
     ground_height = height = 0;
     peak = Eigen::Vector3d(x, y, height_); // in which case peak should probably be in metres horizontally
     trunk_id = trunkid;
+    area = 0;
   }
   // for calculating paraboloid of best fit:
   struct Node
@@ -72,6 +74,7 @@ struct RAYLIB_EXPORT TreeNode
   int attaches_to;
   int children[2];
   int trunk_id;
+  int area;
 
 //  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
  // inline Eigen::Vector3d weightedMean() const { return Eigen::Vector3d(curv_vec[1] / curv_vec[3], curv_vec[2] / curv_vec[3], peak[2]); }
