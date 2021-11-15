@@ -77,10 +77,6 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
         }
       }
     }
-    else
-    {
-      std::cout << "no space found for index: " << ind << std::endl;
-    }
   }
 
   // now add the space field:
@@ -217,8 +213,6 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           // if there is no space under one of the two areas, then do the merge
           Eigen::Vector3d tip;
           bool space_each = findSpace2(p_tree, tip) && findSpace2(q_tree, tip);
-          if (!space_each)
-            std::cout << "no space each" << std::endl;
 
           bool too_small = std::max(mx[0], mx[1]) <= 10;
           if (drop < tree_height * 0.1 || too_small || !space_each) // good to merge

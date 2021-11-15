@@ -15,7 +15,7 @@
 #include <string.h>
 #include <iostream>
 #define USE_GROWTH_RATIO
-//#define AGGLOMERATE
+#define AGGLOMERATE
 
 namespace ray
 {
@@ -122,7 +122,6 @@ bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
       }
     }
   }
-  std::cout << "best score: " << best_score << std::endl;
   if (best_score > 0.0) 
   {
     tip[0] = ((double)best_x+0.5)*voxel_width_;
