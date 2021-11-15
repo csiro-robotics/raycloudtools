@@ -96,58 +96,6 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
   writePlyPointCloud(cloud_name_stub + "_watershed.ply", cloud_points, times, colours);  
 }
 
-
-
-double Forest::searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices)
-{
-  // length estimated from both the pixel coverage and the paraboloid curvature
-//  double length = length_per_radius * std::sqrt(trees[ind].node.crownRadius() * trees[ind].approx_radius);
-//  double base = trees[ind].node.height() - length;
-//  double error = abs(base - trees[ind].ground_height);
-
-  double baseA = trees[ind].node.height() - length_per_radius * trees[ind].node.crownRadius();
-  double baseB = trees[ind].node.height() - length_per_radius * trees[ind].approx_radius;
-  
-  // we can justify the below condition working best as:
-  // sometimes the pixel area or curvature are just plain bad, so if at least one is good, then this tells us that it is a good place to split.
-  // i.e. is it works well with a fat tailed error distribution for each (baseA and baseB)
- // double error = std::sqrt(abs(baseA - trees[ind].ground_height) * abs(baseB - trees[ind].ground_height));
-
-  double drop = (trees[ind].peak[2] - trees[ind].height) / (trees[ind].peak[2] - trees[ind].ground_height);
-  double width = voxel_width_ * (double)std::min(trees[ind].max_bound[0] - trees[ind].min_bound[0], trees[ind].max_bound[1] - trees[ind].min_bound[1]);
-  double error = 1e20;
-  if (width > 2.0) // drop > 0.00 && width > 2.0)
-    error = 0;
-
-  if (trees[ind].children[0] == -1)
-  {
-    if (trees[ind].validParaboloid(max_tree_canopy_width, voxel_width_))
-    {
-      indices.push_back(ind);
-      return error;
-    }
-    return 1e20;
-  }
-  if (error == 0.0)
-  {
-    indices.push_back(ind);
-    return error;
-  }
-
-  std::vector<int> child_indices[2];
-  int ind0 = trees[ind].children[0];
-  int ind1 = trees[ind].children[1];
-  double child_error = searchTrees(trees, ind0, length_per_radius, child_indices[0]);
-  if (ind1 != -1)
-  {
-    child_error = (child_error + searchTrees(trees, ind1, length_per_radius, child_indices[1])) / 2.0; // mean error
-  }
-
-  indices.insert(indices.end(), child_indices[0].begin(), child_indices[0].end());
-  indices.insert(indices.end(), child_indices[1].begin(), child_indices[1].end());
-  return child_error;
-}
-
 struct Point 
 { 
   int x, y, index; // if index == -2 then we are merging
@@ -176,7 +124,6 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
     }
     trunkfield(pos[0], pos[1]) = c;
   }
-
 
   std::priority_queue<Point, std::vector<Point>, PointCmp> basins;
   // 1. find highest points
@@ -307,54 +254,6 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         trees[p_head].updateBound(Eigen::Vector2i(xx, yy), Eigen::Vector2i(xx, yy));    
       }
     }
-  }
-}
-
-void Forest::calculateTreeParaboloids(std::vector<TreeNode> &trees)
-{
-  std::vector<std::vector<Eigen::Vector3d> > point_lists(trees.size()); // in metres
-  for (int x = 0; x<indexfield_.rows(); x++)
-  {
-    for (int y = 0; y<indexfield_.cols(); y++)
-    {
-      int ind = indexfield_(x, y);
-      if (ind < 0)
-        continue;
-      while (ind >= 0)
-      {
-        point_lists[ind].push_back(Eigen::Vector3d(voxel_width_*((double)x + 0.5), voxel_width_*((double)y + 0.5), heightfield_(x, y)));
-        ind = trees[ind].attaches_to;
-      }
-    }
-  }
-  for (size_t i = 0; i<trees.size(); i++)
-  {
-    auto &tree = trees[i];
-    tree.approx_radius = voxel_width_ * std::sqrt((double)point_lists[i].size() / kPi);
-    int x = (int)(tree.peak[0]/voxel_width_);
-    int y = (int)(tree.peak[1]/voxel_width_);   
-    x = std::max(0, std::min(x, (int)lowfield_.rows()-1));
-    y = std::max(0, std::min(y, (int)lowfield_.cols()-1));
-    tree.ground_height = lowfield_(x, y); 
-    TreeNode::Node node;
-    for (auto &pt: point_lists[i])
-      node.add(pt[0], pt[1], pt[2], 1, voxel_width_);
-    const int num_iterations = 10;
-    for (int it = 1; it<num_iterations; it++)
-    {
-      node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
-      node.curv_mat.setZero(); 
-      node.curv_vec.setZero();
-      for (auto &pt: point_lists[i])
-      {
-        double h = node.heightAt(pt[0], pt[1]);
-        double error = h - pt[2];
-        const double eps = 1e-2;
-        node.add(pt[0], pt[1], pt[2], 1.0/std::max(eps, std::abs(error)), voxel_width_); // 1/e reweighting gives a median paraboloid
-      }
-    }
-    node.abcd = node.curv_mat.ldlt().solve(node.curv_vec);
-    tree.node = node;
   }
 }
 

@@ -198,6 +198,39 @@ std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mes
   return extract(highs, lows, space, voxel_width, cloud_name_stub);
 }
 
+void Forest::addTrunkHeights()
+{
+  for (int c = 0; c<(int)trunks_.size(); c++) // if there are known trunks, then include them...
+  {
+    auto &trunk = trunks_[c];
+    Eigen::Vector3d posr = (trunk.first - min_bounds_)/voxel_width_;
+    Eigen::Vector3i pos = posr.cast<int>();
+    if (pos[0] < 0 || pos[0] >= heightfield_.rows() || pos[1] < 0 || pos[1] >= heightfield_.cols())
+    {
+      continue;
+    }
+    double radius = 7.0 * trunk.second / voxel_width_;
+    double height = 40.0 * trunk.second;
+    int rad = (int)std::ceil(radius);
+    for (int x = std::max(0, pos[0]-rad); x <= std::min(pos[0] + rad, (int)heightfield_.rows()-1); x++)
+    {
+      for (int y = std::max(0, pos[1]-rad); y <= std::min(pos[1] + rad, (int)heightfield_.cols()-1); y++)
+      {
+        Eigen::Vector2d dif((double)x + 0.5 - posr[0], (double)y + 0.5 - posr[1]);
+        dif /= radius;
+        double r = dif.squaredNorm();
+        double h = height * (1.0 - r);
+        if (h > 0.0)
+        {
+          if (heightfield_(x, y) == -1e10)
+            heightfield_(x, y) = 0;
+          heightfield_(x, y) += h;
+        }
+      }    
+    }
+  }
+}
+
 void Forest::smoothHeightfield()
 {
   Eigen::ArrayXXd smooth_heights = heightfield_;
@@ -302,6 +335,8 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
       }
     }
   }
+  addTrunkHeights();
+  drawHeightField(cloud_name_stub + "_trunkhighfield.png", heightfield_);
   for (int i = 0; i<15; i++)
     smoothHeightfield();
   drawHeightField(cloud_name_stub + "_smoothhighfield.png", heightfield_);
@@ -312,8 +347,6 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   hierarchicalWatershed(trees, heads);
 
   std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
-//  calculateTreeParaboloids(trees);
-//  drawSegmentation("segmented.png", trees);
 
   drawFinalSegmentation(cloud_name_stub, trees);
   renderWatershed(cloud_name_stub, trees, heads);

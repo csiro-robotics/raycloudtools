@@ -46,7 +46,8 @@ private:
   bool findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d> &points, Eigen::Vector3d &tip);
   bool findSpace2(const TreeNode &node, Eigen::Vector3d &tip);
   void smoothHeightfield();
-  
+  void addTrunkHeights();
+
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
   Eigen::ArrayXXd lowfield_;
@@ -60,13 +61,10 @@ private:
 
 
   // watershed:
-  void drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
  // void drawTrees(const std::string &filename, const std::vector<TreeSummary> &results, int width, int height);
   void drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
   void renderWatershed(const std::string &cloud_name_stub, std::vector<TreeNode> &trees, std::set<int> &indices);
   void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
-  void calculateTreeParaboloids(std::vector<TreeNode> &trees);
-  double searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices);
   Eigen::ArrayXXi indexfield_;
 };
 
