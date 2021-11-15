@@ -32,7 +32,7 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
   if (cluster.trunk_id >= 0) // if this cluster is associated with a trunk, then use the trunk location, not the centroid
   {
     tip = trunks_[cluster.trunk_id].first - min_bounds_;
-    tip[2] = cluster.max_bound[2];
+    tip[2] = cluster.max_bound[2];    
     return true;
   }
   Eigen::Vector3d weighted_sum(0,0,0);

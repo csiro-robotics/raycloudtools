@@ -176,6 +176,8 @@ void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, con
   colour.alpha = 255;
   for (auto &cluster: point_clusters)
   {
+    if (cluster.ids.empty())
+      continue;
     colour.red = uint8_t(rand()%255);
     colour.green = uint8_t(rand()%255);
     colour.blue = uint8_t(rand()%255);
@@ -234,7 +236,13 @@ void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, con
         double height = lowfield_(i, j) + 0.2;
         double x = min_bounds_[0] + (double)i*voxel_width_;
         double y = min_bounds_[1] + (double)j*voxel_width_;
+        if (cloud_points.size() == 29798)
+        {
+          std::cout << "third: " << Eigen::Vector3d(x, y, height).transpose() << std::endl;
+        }        
         cloud_points.push_back(Eigen::Vector3d(x, y, height));
+        if (cloud_points.back().norm() > 1e5)
+          std::cout << " bad space: " << cloud_points.back() << std::endl;
         times.push_back(0.0);
         colour.red = colour.green = colour.blue = (uint8_t)(255.0*spacefield_(i,j));
         colours.push_back(colour);
