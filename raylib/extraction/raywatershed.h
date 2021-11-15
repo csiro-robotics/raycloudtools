@@ -21,7 +21,7 @@ struct RAYLIB_EXPORT TreeNode
   {
     children[0] = children[1] = -1;
     peak.setZero();
-    ground_height = 0;
+    ground_height = height = 0;
   }
   TreeNode(int i, int j, double height_, double voxel_width, int trunkid) // TODO: should this be x,y or a distance in metres? probably x,y
   {
@@ -30,7 +30,7 @@ struct RAYLIB_EXPORT TreeNode
     double x = (double)i * voxel_width;
     double y = (double)j * voxel_width;
     children[0] = children[1] = -1;
-    ground_height = 0;
+    ground_height = height = 0;
     peak = Eigen::Vector3d(x, y, height_); // in which case peak should probably be in metres horizontally
     trunk_id = trunkid;
   }
@@ -67,6 +67,7 @@ struct RAYLIB_EXPORT TreeNode
   Eigen::Vector2i min_bound, max_bound;
   Eigen::Vector3d peak; // in units of metres
   double ground_height;
+  double height;
   double approx_radius; // in metres
   int attaches_to;
   int children[2];

@@ -15,7 +15,7 @@
 #include <string.h>
 #include <iostream>
 #define USE_GROWTH_RATIO
-#define AGGLOMERATE
+//#define AGGLOMERATE
 
 namespace ray
 {
@@ -198,6 +198,36 @@ std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mes
   return extract(highs, lows, space, voxel_width, cloud_name_stub);
 }
 
+void Forest::smoothHeightfield()
+{
+  Eigen::ArrayXXd smooth_heights = heightfield_;
+  for (int x = 0; x < heightfield_.rows(); x++)
+  {
+    for (int y = 0; y < heightfield_.cols(); y++)
+    {
+      double &h = heightfield_(x, y);
+      if (h == -1e10)
+        continue;
+      double mean = h;
+      double count = 1;
+      for (int xx = std::max(0, x-1); xx <= std::min(x+1, (int)heightfield_.rows()-1); xx++)
+      {
+        for (int yy = std::max(0, y-1); yy <= std::min(y+1, (int)heightfield_.cols()-1); yy++)
+        {
+          double &h2 = heightfield_(xx, yy);
+          if (h2 != -1e10)
+          {
+            mean += h2;
+            count++;
+          }
+        }        
+      }
+      smooth_heights(x,y) = mean / count;
+    }
+  }
+  heightfield_ = smooth_heights;
+}
+
 std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub)
 {
   voxel_width_ = voxel_width;
@@ -272,24 +302,23 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
       }
     }
   }
+  for (int i = 0; i<15; i++)
+    smoothHeightfield();
+  drawHeightField(cloud_name_stub + "_smoothhighfield.png", heightfield_);
+
   std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
   std::vector<TreeNode> trees;
   std::set<int> heads;
   hierarchicalWatershed(trees, heads);
 
   std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
-  calculateTreeParaboloids(trees);
-  drawSegmentation("segmented.png", trees);
+//  calculateTreeParaboloids(trees);
+//  drawSegmentation("segmented.png", trees);
 
-  std::vector<int> indices;
-  for (auto &head: heads)
-  {
-    searchTrees(trees, head, 1.0/tree_roundness, indices);
-  }
-  drawFinalSegmentation(cloud_name_stub, trees, indices);
-  renderWatershed(cloud_name_stub, trees, indices);
+  drawFinalSegmentation(cloud_name_stub, trees);
+  renderWatershed(cloud_name_stub, trees, heads);
 
-  for (auto &ind: indices)
+  for (auto &ind: heads)
   {
     Eigen::Vector3d tip;
     int trunk_id = trees[ind].trunk_id;

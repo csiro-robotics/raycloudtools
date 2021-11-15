@@ -123,7 +123,7 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
 }
 
 
-void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vector<TreeNode> &trees, std::vector<int> &indices)
+void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vector<TreeNode> &trees)
 {
   if (!verbose)
     return;
@@ -139,20 +139,7 @@ void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vect
       else
       {
         while (trees[ind].attaches_to != -1)
-        {
-          if (std::find(indices.begin(), indices.end(), ind) != indices.end())
-            break;
           ind = trees[ind].attaches_to;
-        }
-        if (std::find(indices.begin(), indices.end(), ind) == indices.end())
-        {
-          col.a = 255;
-          col.r = 255;
-          col.g = 0;
-          col.b = 255;
-          pixels(x, y) = col;
-          continue;
-        }
         srand(1 + ind);
         col.a = 255;
         col.r = (uint8_t)(rand()%256);
