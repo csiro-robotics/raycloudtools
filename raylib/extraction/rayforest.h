@@ -29,7 +29,7 @@ struct Cluster
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : verbose(true), max_tree_canopy_width(25.0), undercroft_height(1.5) {}
+  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5) {}
   std::vector<struct TreeSummary> extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks);
   std::vector<struct TreeSummary> extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
 
@@ -38,6 +38,7 @@ public:
   // parameters
   bool verbose;
   double max_tree_canopy_width; 
+  int min_area_;
   double tree_roundness;
   double undercroft_height;
 
@@ -50,6 +51,7 @@ private:
 
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
+  Eigen::ArrayXXd original_heightfield_;
   Eigen::ArrayXXd lowfield_;
   Eigen::ArrayXXd spacefield_;
   std::vector<std::pair<Eigen::Vector3d, double> > trunks_;

@@ -140,7 +140,7 @@ void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vect
       {
         while (trees[ind].attaches_to != -1)
           ind = trees[ind].attaches_to;
-        if (trees[ind].area <= 25.0)
+        if (trees[ind].area <= min_area_)
         {
           pixels(x, y) = Col(30);
         }

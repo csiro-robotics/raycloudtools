@@ -36,36 +36,7 @@ struct RAYLIB_EXPORT TreeNode
     trunk_id = trunkid;
     area = 0;
   }
-  // for calculating paraboloid of best fit:
-  struct Node
-  {
-    Node(){ clear(); }
-    void clear() { curv_mat.setZero(); curv_vec.setZero(); abcd.setZero(); vw = 0.0; }
-    inline double avgHeight() const { return curv_vec[3] / curv_mat(3, 3); }
-    inline double height() const { return abcd[3] - (abcd[1]*abcd[1] + abcd[2]*abcd[2])/(4*abcd[0]); }
-    inline double heightAt(double x, double y) const { x /= vw; y /= vw; return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3]; }
-    inline Eigen::Vector3d tip() const { return Eigen::Vector3d(vw*-abcd[1]/(2*abcd[0]), vw*-abcd[2]/(2*abcd[0]), height()); }
-    inline double curvature() const { return abcd[0]/(vw*vw); }
-    inline double crownRadius() const { return vw*vw / -abcd[0]; }
-    inline double area() const { return curv_mat(3, 3); }
-    inline Eigen::Vector3d pixelMean() const { return Eigen::Vector3d(curv_mat(1,3), curv_mat(2,3), curv_vec[3]) / curv_mat(3, 3); }
 
-    Eigen::Matrix4d curv_mat;
-    Eigen::Vector4d curv_vec;
-    Eigen::Vector4d abcd; // the solved paraboloid
-    double vw;
-
-    inline void add(double x, double y, double z, double weight, double voxel_width) // TODO: this should probably be in SI units
-    {
-      vw = voxel_width;
-      x /= vw;
-      y /= vw;
-      Eigen::Vector4d vec(x*x + y*y, x, y, 1.0); // voxel_width); 
-      curv_mat += weight * vec * vec.transpose();
-      curv_vec += weight * z*vec;
-    }
-  };
-  Node node;
   Eigen::Vector2i min_bound, max_bound;
   Eigen::Vector3d peak; // in units of metres
   double ground_height;

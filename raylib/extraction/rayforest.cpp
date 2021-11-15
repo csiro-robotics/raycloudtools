@@ -80,22 +80,17 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
 
 bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
 {
-  bool calculate = false;
-  if (node.node.area() <= 1.0)
-  {
-    Eigen::Vector2d mid = voxel_width_ * (node.min_bound + node.max_bound).cast<double>()/2.0;
-    tip[0] = mid[0];
-    tip[1] = mid[1];
-  }
-  else if (node.trunk_id >= 0) // if this node is associated with a trunk, then use the trunk location, not the centroid
+  bool calculate = true;
+  Eigen::Vector2d mid = voxel_width_ * (node.min_bound + node.max_bound).cast<double>()/2.0;
+  tip[0] = mid[0];
+  tip[1] = mid[1];
+
+  if (node.trunk_id >= 0) // if this node is associated with a trunk, then use the trunk location, not the centroid
   {
     tip = trunks_[node.trunk_id].first - min_bounds_;
+    calculate = false;
   }
-  else
-  {
-    tip = node.node.pixelMean() * voxel_width_; 
-    calculate = true;
-  }
+
   Eigen::Vector3d tip_local = tip/voxel_width_;
   tip[2] = node.peak[2] - lowfield_((int)tip_local[0], (int)tip_local[1]);
   if (!calculate)
@@ -127,6 +122,7 @@ bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
       }
     }
   }
+  std::cout << "best score: " << best_score << std::endl;
   if (best_score > 0.0) 
   {
     tip[0] = ((double)best_x+0.5)*voxel_width_;
@@ -334,6 +330,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
       }
     }
   }
+  original_heightfield_ = heightfield_;
   addTrunkHeights();
   drawHeightField(cloud_name_stub + "_trunkhighfield.png", heightfield_);
   for (int i = 0; i<15; i++)

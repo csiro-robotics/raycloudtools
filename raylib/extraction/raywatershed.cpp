@@ -34,12 +34,14 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
         continue;
       while (trees[ind].attaches_to != -1)
         ind = trees[ind].attaches_to;
+      if (trees[ind].area <= min_area_)
+        continue;
       srand(1 + ind);
       colour.red = (uint8_t)(rand()%256);
       colour.green = (uint8_t)(rand()%256);
       colour.blue = (uint8_t)(rand()%256);
       Eigen::Vector3d pos = min_bounds_ + voxel_width_*Eigen::Vector3d(0.5 + (double)x, 0.5 + (double)y, 0);
-      pos[2] = heightfield_(x, y);
+      pos[2] = original_heightfield_(x, y);
       cloud_points.push_back(pos);
       times.push_back(0.0);
       colours.push_back(colour);
@@ -53,6 +55,8 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
     colour.red = (uint8_t)(rand()%256);
     colour.green = (uint8_t)(rand()%256);
     colour.blue = (uint8_t)(rand()%256);
+    if (trees[ind].area < min_area_)
+      continue;
     double z_max = 2.0;
     if (trees[ind].trunk_id >= 0)
       z_max = 4.0;
@@ -72,6 +76,10 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
           colours.push_back(colour);
         }
       }
+    }
+    else
+    {
+      std::cout << "no space found for index: " << ind << std::endl;
     }
   }
 
@@ -206,8 +214,14 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           double drop = peak - p.height;
           double tree_height = std::max(0.0, peak - lowfield_(xx, yy)); 
 
+          // if there is no space under one of the two areas, then do the merge
+          Eigen::Vector3d tip;
+          bool space_each = findSpace2(p_tree, tip) && findSpace2(q_tree, tip);
+          if (!space_each)
+            std::cout << "no space each" << std::endl;
+
           bool too_small = std::max(mx[0], mx[1]) <= 10;
-          if (drop < tree_height * 0.1 || too_small) // good to merge
+          if (drop < tree_height * 0.1 || too_small || !space_each) // good to merge
           {
             int new_index = (int)trees.size();
             TreeNode node;
