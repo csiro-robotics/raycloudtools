@@ -15,7 +15,7 @@
 #include <string.h>
 #include <iostream>
 #define USE_GROWTH_RATIO
-#define AGGLOMERATE
+// #define AGGLOMERATE
 
 namespace ray
 {
