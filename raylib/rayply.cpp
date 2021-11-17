@@ -315,6 +315,8 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       row_size += int(sizeof(double));
     if (line.find("property uchar") != std::string::npos)
       row_size += int(sizeof(unsigned char));
+    if (line.find("property ushort") != std::string::npos)
+      row_size += int(sizeof(unsigned short));
   }
   if (offset == -1)
   {
