@@ -215,7 +215,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           bool space_each = findSpace2(p_tree, tip) && findSpace2(q_tree, tip);
 
           bool too_small = std::max(mx[0], mx[1]) <= 10;
-          if (drop < tree_height * 0.1 || too_small || !space_each) // good to merge
+          if (drop < tree_height * drop_ratio_ || too_small || !space_each) // good to merge
           {
             int new_index = (int)trees.size();
             TreeNode node;

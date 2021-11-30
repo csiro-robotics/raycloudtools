@@ -29,8 +29,8 @@ struct Cluster
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5) {}
-  std::vector<struct TreeSummary> extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks);
+  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5), smooth_iterations_(15), drop_ratio_(0.1), agglomerate_(false), max_diameter_per_height_(1.0), min_diameter_per_height_(0.15) {}
+  std::vector<struct TreeSummary> extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width);
   std::vector<struct TreeSummary> extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
 
   bool save(const std::string &filename);
@@ -41,6 +41,16 @@ public:
   int min_area_;
   double tree_roundness;
   double undercroft_height;
+
+  /// used only when agglomerate is false:
+  int smooth_iterations_;
+  double drop_ratio_;
+
+  bool agglomerate_; // this flag segments based on proximity agglomeration clustering of canopy points. When false, it uses a watershed algorithm to cluster.
+
+  /// used only when agglomerate is true:
+  double max_diameter_per_height_; 
+  double min_diameter_per_height_; 
 
 private:
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
