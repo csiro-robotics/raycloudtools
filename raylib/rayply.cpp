@@ -359,9 +359,9 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   if (!is_ray_cloud && intensity_offset != -1)
   {
     if (colour_offset != -1)
-      std::cout << "warning: intensity and colour information found in file. Replacing alpha with intensity value." << std::endl;
+      std::cout << "warning: intensity and colour information both found in file. Replacing alpha with intensity value." << std::endl;
     else
-      std::cout << "intensity information found in file, storing this in the ray cloud alpha channel. Potential precision loss." << std::endl;
+      std::cout << "intensity information found in file, storing this in the ray cloud 8-bit alpha channel." << std::endl;
   }
 
   // pre-reserving avoids memory fragmentation
@@ -465,8 +465,26 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           intensity = (double)((float &)vertices[intensity_offset]);
         else
           intensity = (double &)vertices[intensity_offset];
-        // ceil is so very small positive intensities remain positive as a uint8_t, as 0 is reserved to non-returns
-        intensity = std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0)); 
+        
+        if (intensity >= 0.0)
+        {
+          intensity = std::max(2.0, std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0))); // clamping to 2 or above allows 1 to be used for the 'uncertain distance' cases
+        }
+        else // special case of negative intensity codes. 
+        {
+          if (intensity == -1.0) // unknown non-return. 
+          {
+            intensity = 0.0;
+          }
+          else if (intensity == -2.0) // within minimum range, so range is not certain
+          {
+            intensity = 1.0;
+          }
+          else if (intensity == -3.0) // outside maximum range, so range is uncertain
+          {
+            intensity = 1.0;
+          }
+        }
         intensities.push_back(static_cast<uint8_t>(intensity));
       }
     }
@@ -486,7 +504,16 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       if (!is_ray_cloud && intensity_offset != -1)
       {
         for (size_t j = 0; j<intensities.size(); j++)
+        {
           colours[j].alpha = intensities[j];
+          if (intensities[j] == 0)
+            colours[j].red = colours[j].green = colours[j].blue = 0;
+          else if (intensities[j] == 1) // pale magenta for the small and large range cases
+          {
+            colours[j].red = colours[j].blue = 255; 
+            colours[j].green = 200;
+          }
+        }
       }
       apply(starts, ends, times, colours);
       starts.clear();
