@@ -260,7 +260,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   spacefield_ = space;
   drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
-  const double height_per_radius = 50.0; // TODO: temporary until we have a better parameter choice
+   
   std::vector<TreeSummary> results;
   int num_spaces = 0;
 
@@ -321,7 +321,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
           result.radius = trunks_[trunk_id].second;
         else 
         {
-          result.radius = result.height / height_per_radius;
+          result.radius = result.height / approx_height_per_radius_;
           result.trunk_identified = false;
         }
         results.push_back(result);
@@ -381,6 +381,8 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
 
     for (auto &ind: heads)
     {
+      if (trees[ind].area < min_area_)
+        continue;
       Eigen::Vector3d tip;
       int trunk_id = trees[ind].trunk_id;
       if (findSpace2(trees[ind], tip))
@@ -394,7 +396,7 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
           result.radius = trunks_[trunk_id].second;
         else 
         {
-          result.radius = result.height / height_per_radius;
+          result.radius = result.height / approx_height_per_radius_;
           result.trunk_identified = false;
         }
         results.push_back(result);

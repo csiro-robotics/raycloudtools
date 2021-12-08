@@ -34,7 +34,7 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
         continue;
       while (trees[ind].attaches_to != -1)
         ind = trees[ind].attaches_to;
-      if (trees[ind].area <= min_area_)
+      if (trees[ind].area < min_area_)
         continue;
       srand(1 + ind);
       colour.red = (uint8_t)(rand()%256);
@@ -64,8 +64,7 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
     {
       Eigen::Vector3d base = min_bounds_ + tip;
       base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-      double height_per_radius = 50.0;
-      double rad = tip[2] / height_per_radius;
+      double rad = tip[2] / approx_height_per_radius_;
 
       for (double z = 0.0; z<z_max; z+=0.3)
       {

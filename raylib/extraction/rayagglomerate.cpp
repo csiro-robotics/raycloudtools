@@ -192,8 +192,7 @@ void Forest::renderAgglomeration(const std::vector<Cluster> &point_clusters, con
     }
     Eigen::Vector3d tip;
     bool found = findSpace(cluster, verts, tip);
-    double height_per_radius = 50.0;
-    double rad = tip[2] / height_per_radius;
+    double rad = tip[2] / approx_height_per_radius_;
     int x = int(tip[0]/voxel_width_);
     int y = int(tip[1]/voxel_width_);
     if (x < 0 || x >= lowfield_.rows() || y < 0 || y >= lowfield_.cols())

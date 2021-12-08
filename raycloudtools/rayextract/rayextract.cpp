@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
   bool extract_branches = ray::parseCommandLine(argc, argv, {&branches, &cloud_file}, {&verbose});
   if (!extract_trunks && !extract_branches && !extract_forest && !extract_forest_agglomerate && !extract_terrain && !extract_trees)
     usage();  
-  if (verbose.isSet())
+  if (verbose.isSet() && (extract_trunks || extract_trees || extract_branches))
   {
     ray::DebugDraw::init(argc, argv, "rayextract");
   }

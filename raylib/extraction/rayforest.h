@@ -29,7 +29,7 @@ struct Cluster
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5), smooth_iterations_(15), drop_ratio_(0.1), agglomerate_(false), max_diameter_per_height_(1.0), min_diameter_per_height_(0.15) {}
+  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5), approx_height_per_radius_(50.0), smooth_iterations_(15), drop_ratio_(0.1), agglomerate_(false), max_diameter_per_height_(1.0), min_diameter_per_height_(0.15) {}
   std::vector<struct TreeSummary> extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width);
   std::vector<struct TreeSummary> extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
 
@@ -37,10 +37,10 @@ public:
 
   // parameters
   bool verbose;
-  double max_tree_canopy_width; 
-  int min_area_;
-  double tree_roundness;
-  double undercroft_height;
+  double max_tree_canopy_width;     // maximum width in metres of the widest tree expected. This helps divide up nebulous regions
+  int min_area_;                    // minimum number of pixels that a valid tree should occupy. Below this is considered not enough evidence and discarded
+  double undercroft_height;         // points below this height above the ground are discarded and treated as undercroft
+  double approx_height_per_radius_; // a default ratio for approximate radius estimation from tree height, when trunk not observed
 
   /// used only when agglomerate is false:
   int smooth_iterations_;
