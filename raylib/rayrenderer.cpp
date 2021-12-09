@@ -12,7 +12,7 @@
 
 namespace ray
 {
-  
+
 /// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
 /// of surface angles.
 void DensityGrid::calculateDensities(const std::string &file_name)
@@ -32,7 +32,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
       const double length = dir.norm();
       const double eps = 1e-9; // to stay away from edge cases
       const double maxDist = (target - source).norm();
-      
+
       // cached values to speed up the loop below
       Eigen::Vector3i adds;
       Eigen::Vector3d offsets;
@@ -49,11 +49,11 @@ void DensityGrid::calculateDensities(const std::string &file_name)
           offsets[k] = -0.5;
         }
       }
- 
+
       Eigen::Vector3d p = source; // our moving variable as we walk over the grid
       Eigen::Vector3i inds = p.cast<int>();
       double depth = 0;
-      // walk over the grid, one voxel at a time. 
+      // walk over the grid, one voxel at a time.
       do
       {
         double ls[3] = {(round(p[0] + offsets[0]) - p[0]) / dir[0],
@@ -76,7 +76,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         }
         else
         {
-          voxels_[index].addMissRay(static_cast<float>(minL*voxel_width_)); 
+          voxels_[index].addMissRay(static_cast<float>(minL*voxel_width_));
         }
       } while (depth <= maxDist);
     }
@@ -107,8 +107,8 @@ void DensityGrid::addNeighbourPriors()
           num_hit_points++;
         float needed = DENSITY_MIN_RAYS - voxels_[ind].numRays();
         const DensityGrid::Voxel corner_vox = voxels_[ind - X - Y - Z];
-        voxels_[ind - X - Y - Z] = voxels_[ind]; // move centre up to corner 
-        DensityGrid::Voxel &voxel = voxels_[ind - X - Y - Z]; 
+        voxels_[ind - X - Y - Z] = voxels_[ind]; // move centre up to corner
+        DensityGrid::Voxel &voxel = voxels_[ind - X - Y - Z];
         if (needed < 0.0)
           continue;
         neighbours  = voxels_[ind-X];
@@ -147,27 +147,27 @@ void DensityGrid::addNeighbourPriors()
         voxel += neighbours;
         needed -= neighbours.numRays();
 
-        neighbours  = corner_vox;          
-        neighbours += voxels_[ind-X-Y+Z];          
-        neighbours += voxels_[ind-X+Y-Z];          
-        neighbours += voxels_[ind+X-Y-Z];          
-        neighbours += voxels_[ind-X+Y+Z];          
-        neighbours += voxels_[ind+X-Y+Z];          
-        neighbours += voxels_[ind+X+Y-Z];          
-        neighbours += voxels_[ind+X+Y+Z];     
+        neighbours  = corner_vox;
+        neighbours += voxels_[ind-X-Y+Z];
+        neighbours += voxels_[ind-X+Y-Z];
+        neighbours += voxels_[ind+X-Y-Z];
+        neighbours += voxels_[ind-X+Y+Z];
+        neighbours += voxels_[ind+X-Y+Z];
+        neighbours += voxels_[ind+X+Y-Z];
+        neighbours += voxels_[ind+X+Y+Z];
         if (neighbours.numRays() >= needed)
         {
           voxel += neighbours * (needed/neighbours.numRays()); // add minimal amount to reach DENSITY_MIN_RAYS
           continue;
         }
-        voxel += neighbours;    
+        voxel += neighbours;
         if (voxels_[ind].numHits() > 0)
           num_hit_points_unsatisfied++;
       }
     }
   }
   const double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
-  std::cout << "Density calculation: " << percentage << "% of voxels had insufficient (<" 
+  std::cout << "Density calculation: " << percentage << "% of voxels had insufficient (<"
     << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
   if (percentage > 50.0)
   {
@@ -181,8 +181,9 @@ void DensityGrid::addNeighbourPriors()
   }
 }
 
-bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, 
-                 RenderStyle style, double pix_width, const std::string &image_file, bool mark_origin)                 
+bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction,
+                 RenderStyle style, double pix_width, const std::string &image_file, bool mark_origin,
+                 const std::string *const transform_file)
 {
   // convert the view direction into useable parameters
   int axis = 0;
@@ -194,7 +195,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   if (view_direction == ViewDirection::Left || view_direction == ViewDirection::Front)
     dir = -1;
   const bool flip_x = view_direction == ViewDirection::Left || view_direction == ViewDirection::Back;
-  
+
   // pull out the main image axes (ax1,ax2 are the horiz,vertical axes)
   const Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
   // for each view axis (side,top,front = 0,1,2) we need to have an image x axis, and y axis.
@@ -211,10 +212,10 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   try // there is a possibility of running out of memory here. So provide a helpful message rather than just asserting
   {
     // accumulated colour buffer
-    std::vector<Eigen::Vector4d> pixels(width * height); 
+    std::vector<Eigen::Vector4d> pixels(width * height);
     std::fill(pixels.begin(), pixels.end(), Eigen::Vector4d(0,0,0,0));
     // density calculation is a special case
-    if (style == RenderStyle::Density || style == RenderStyle::Density_rgb) 
+    if (style == RenderStyle::Density || style == RenderStyle::Density_rgb)
     {
       Eigen::Vector3i dims = (extent/pix_width).cast<int>() + Eigen::Vector3i(1,1,1);
       #if DENSITY_MIN_RAYS > 0
@@ -263,27 +264,27 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           const Eigen::Vector3i p = (pos).cast<int>();
           const int x = p[ax1], y = p[ax2];
           // using 4 dimensions helps us to accumulate colours in a greater variety of ways
-          Eigen::Vector4d &pix = pixels[x + width*y]; 
+          Eigen::Vector4d &pix = pixels[x + width*y];
           switch (style)
           {
-            case RenderStyle::Ends: 
-            case RenderStyle::Starts: 
+            case RenderStyle::Ends:
+            case RenderStyle::Starts:
               // TODO: fix the == 0.0 part in future, it can cause incorrect occlusion on points with z=0 precisely
-              if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0) 
+              if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0)
                 pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
               break;
-            case RenderStyle::Mean: 
+            case RenderStyle::Mean:
               pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
               break;
-            case RenderStyle::Sum: 
+            case RenderStyle::Sum:
               pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
               break;
-            case RenderStyle::Rays: 
+            case RenderStyle::Rays:
             {
               Eigen::Vector3d cloud_start = starts[i];
               Eigen::Vector3d cloud_end = ends[i];
               // clip to within the image (since we exclude unbounded rays from the image bounds)
-              bounds.clipRay(cloud_start, cloud_end); 
+              bounds.clipRay(cloud_start, cloud_end);
               Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
               Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
               const Eigen::Vector3d dir = cloud_end - cloud_start;
@@ -295,7 +296,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
               const int width_long  = x_long ? 1 : width;
               const int width_short = x_long ? width : 1;
 
-              const double gradient = dir[axis_short] / dir[axis_long]; 
+              const double gradient = dir[axis_short] / dir[axis_long];
               if (dir[axis_long] < 0.0)
                 std::swap(start, end); // this lets us iterate from low up to high values
               const int start_long = static_cast<int>(start[axis_long]);
@@ -362,18 +363,18 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         switch (style)
         {
           case RenderStyle::Mean:
-          case RenderStyle::Rays: 
+          case RenderStyle::Rays:
             col3d /= colour[3]; // simple mean
             break;
-          case RenderStyle::Sum: 
-          case RenderStyle::Density: 
+          case RenderStyle::Sum:
+          case RenderStyle::Density:
             col3d /= max_val; // rescale to within limited colour range
             break;
-          case RenderStyle::Density_rgb: 
+          case RenderStyle::Density_rgb:
           {
             if (is_hdr)
               col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
-            else 
+            else
             {
               double shade = colour[0] / max_val;
               col3d = redGreenBlueGradient(shade);
@@ -392,7 +393,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           float_pixel_colours[3*ind + 1] = (float)col3d[1];
           float_pixel_colours[3*ind + 2] = (float)col3d[2];
         }
-        else 
+        else
         {
           RGBA col;
           col.red   = uint8_t(std::min(255.0*col3d[0], 255.0));
@@ -437,9 +438,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 #endif
         if (x >= 0 && x < width && y >= 0 && y < height)
         {
-          const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction      
+          const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction
           // using 4 dimensions helps us to accumulate colours in a greater variety of ways
-          RGBA &col = pixel_colours[indx + width *y];      
+          RGBA &col = pixel_colours[indx + width *y];
           col.red = col.blue = col.alpha = 255;
           col.green = 0;
           // we leave alpha alone as it might be needed to indicate the presence of points
@@ -449,6 +450,44 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           std::cerr << "error: the origin cannot be marked on this image as it is not within the image bounds" << std::endl;
         }
       }
+    }
+    if (transform_file != nullptr)
+    {
+      // Compute transform
+      const double scale = pix_width;
+      const double translate_x = bounds.min_bound_.x();
+      const double translate_y = bounds.min_bound_.y();
+      const Eigen::Matrix3d transform = (Eigen::Translation2d(translate_x, translate_y) * Eigen::Scaling(scale)).matrix();
+
+      // Write transform
+      std::cout << "outputting transform: " << *transform_file << std::endl;
+      std::ofstream ofs;
+      ofs.open(*transform_file, std::ios::out);
+      if (ofs.fail())
+      {
+        std::cerr << "Error: cannot open " << *transform_file << " for writing." << std::endl;
+        return false;
+      }
+      ofs << "# Generated by rayrender." << std::endl;
+      ofs << "# For a given pixel:" << std::endl;
+      ofs << "#   P_pixel = [x_pixel, y_pixel, 1]" << std::endl;
+      ofs << "# The position of the centre of the pixel in the ray cloud's frame can be" << std::endl;
+      ofs << "# computed as:" << std::endl;
+      ofs << "#   P_raycloud = [x_raycloud, y_raycloud, _]" << std::endl;
+      ofs << "#   P_raycloud = P_pixel * T" << std::endl;
+      ofs << "# Where T is the 3*3 transformation matrix defined in this file:" << std::endl;
+      ofs << "#   T = [" << std::endl;
+      ofs << "#     transform[0], transform[1], transform[2];" << std::endl;
+      ofs << "#     transform[3], transform[4], transform[5];" << std::endl;
+      ofs << "#     transform[6], transform[7], transform[8];" << std::endl;
+      ofs << "#   ]" << std::endl;
+      ofs << "# All z information is lost in rayrender." << std::endl;
+      ofs << "transform: [" << std::endl;
+      ofs << "  " << transform(0, 0) << ", " << transform(0, 1) << ", " << transform(0, 2) << "," << std::endl;
+      ofs << "  " << transform(1, 0) << ", " << transform(1, 1) << ", " << transform(1, 2) << "," << std::endl;
+      ofs << "  " << transform(2, 0) << ", " << transform(2, 1) << ", " << transform(2, 2) << "," << std::endl;
+      ofs << "]" << std::endl;
+      ofs.close();
     }
     std::cout << "outputting image: " << image_file << std::endl;
     const char *image_name = image_file.c_str();
@@ -470,7 +509,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     }
 
   }
-  catch (std::bad_alloc const&) 
+  catch (std::bad_alloc const&)
   {
     std::cout << "Not enough memory to process the " << width << "x" << height << " image." << std::endl;
     std::cout << "The --pixel_width option can be used to reduce the resolution." << std::endl;
