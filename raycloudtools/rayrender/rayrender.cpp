@@ -34,7 +34,10 @@ void usage(int exit_code = 1)
   std::cout << "                     --output name.png     - optional output file name. " << std::endl;
   std::cout << "                                             Supports .png, .tga, .hdr, .jpg, .bmp" << std::endl;
   std::cout << "                     --mark_origin         - place a 255,0,255 pixel at the coordinate origin. " << std::endl;
-  std::cout << "                     --output_transform    - generate a yaml file containing the transform from the raycloud to pixels. " << std::endl;
+  std::cout << "                     --output_transform    - generate a yaml file containing the" << std::endl;
+  std::cout << "                                             transform from the raycloud to" << std::endl;
+  std::cout << "                                             pixels. Only compatible with top" << std::endl;
+  std::cout << "                                             view." << std::endl;
   std::cout << "Default output is raycloudfile.png" << std::endl;
   exit(exit_code);
 }
@@ -78,6 +81,12 @@ int main(int argc, char *argv[])
   // quick casting allowed, taking care that the text and enums are in the same order
   const ray::ViewDirection view_dir = static_cast<ray::ViewDirection>(viewpoint.selectedID());
   const ray::RenderStyle render_style = static_cast<ray::RenderStyle>(style.selectedID());
+
+  if (transform_file_option.isSet() && (view_dir != ray::ViewDirection::Top))
+  {
+    std::cout << "--output_transform can only be used when view is top." << std::endl;
+    usage();
+  }
 
   if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(),
                         mark_origin.isSet(), transform_file_option.isSet() ? &transform_file.name() : nullptr))
