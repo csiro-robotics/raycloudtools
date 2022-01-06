@@ -24,6 +24,7 @@ cd raycloudtools
 mkdir build
 cd build
 cmake ..
+make
 ```
 
 To run the rayXXXX tools from anywhere, place in your ~/bashrc:
