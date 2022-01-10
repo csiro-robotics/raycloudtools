@@ -412,15 +412,35 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       else
       {
         const Eigen::Vector3d pos = -bounds.min_bound_ / pix_width;
+        std::cout << "origin pixel location: " << pos[0] << ", " << pos[1] << std::endl;
         const Eigen::Vector3i p = pos.cast<int>();
         const int x = p[ax1], y = p[ax2];
-
+#define DRAW_ARROW
+#if defined DRAW_ARROW
+        for (int xx = x-2; xx <= x+10; xx++)
+        {
+          std::cout << "xx: " << xx << std::endl;
+          for (int yy = y - 2; yy <= y+2; yy++)
+          {
+            if (xx >= 6 && std::abs(yy - y) > ((x+10) - xx)/2)
+              continue;
+            if (xx >= 0 && xx < width && yy >= 0 && yy < height)
+            {
+              const int indx = flip_x ? width - 1 - xx : xx;
+              RGBA &col = pixel_colours[indx + width*yy];
+              col.red = col.green = 0;
+              col.blue = col.alpha = 255;
+            }
+          }
+        }
+        std::cout << "done" << std::endl;
+#endif
         if (x >= 0 && x < width && y >= 0 && y < height)
         {
           const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction      
           // using 4 dimensions helps us to accumulate colours in a greater variety of ways
           RGBA &col = pixel_colours[indx + width *y];      
-          col.red = col.blue = 255;
+          col.red = col.blue = col.alpha = 255;
           col.green = 0;
           // we leave alpha alone as it might be needed to indicate the presence of points
         }
