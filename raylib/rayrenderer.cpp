@@ -456,8 +456,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       // Compute transform
       const double scale = pix_width;
       const double translate_x = bounds.min_bound_.x();
-      const double translate_y = bounds.min_bound_.y();
-      const Eigen::Matrix3d transform = (Eigen::Translation2d(translate_x, translate_y) * Eigen::Scaling(scale)).matrix();
+      const double translate_y = bounds.max_bound_.y();
+      const Eigen::Matrix3d transform = (Eigen::Translation2d(translate_x, translate_y) * Eigen::Scaling(scale, -scale)).matrix();
 
       // Write transform
       std::cout << "outputting transform: " << *transform_file << std::endl;
@@ -474,7 +474,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       ofs << "# The position of the centre of the pixel in the ray cloud's frame can be" << std::endl;
       ofs << "# computed as:" << std::endl;
       ofs << "#   P_raycloud = [x_raycloud, y_raycloud, _]" << std::endl;
-      ofs << "#   P_raycloud = P_pixel * T" << std::endl;
+      ofs << "#   P_raycloud = T * P_pixel" << std::endl;
       ofs << "# Where T is the 3*3 transformation matrix defined in this file:" << std::endl;
       ofs << "#   T = [" << std::endl;
       ofs << "#     transform[0], transform[1], transform[2];" << std::endl;
