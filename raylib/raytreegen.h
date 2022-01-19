@@ -47,6 +47,8 @@ public:
   const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }
   /// the position of the base of the tree trunk
   const Eigen::Vector3d &root() const { return root_; }
+
+  double volume();
   
 private:
   std::vector<Eigen::Vector3d> leaves_;

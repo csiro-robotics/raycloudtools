@@ -92,6 +92,7 @@ bool ForestGen::makeFromFile(const std::string &filename, const ForestParams &pa
   }
   if (trunks_only)
     make(bases, radii, params);
+  generated_from_trunks_ = trunks_only;
   return true;
 }
 

@@ -48,8 +48,12 @@ public:
   /// the set of trees
   std::vector<TreeGen> &trees(){ return trees_; }
   const std::vector<TreeGen> &trees() const { return trees_; }
+
+  bool generatedFromTrunks(){ return generated_from_trunks_; }
+
 private:
   std::vector<TreeGen> trees_;
+  bool generated_from_trunks_;
 };
 }  // namespace ray
 

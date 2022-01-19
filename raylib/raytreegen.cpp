@@ -143,6 +143,18 @@ void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double 
   }
 }
 
+double TreeGen::volume()
+{
+  double volume = 0.0;
+  for (auto &branch: branches_)
+  {
+    Eigen::Vector3d base = branch.parent_index == -1 ? root_ : branches_[branch.parent_index].tip;
+    volume += (branch.tip - base).norm() * branch.radius*branch.radius;
+  }
+  return volume * kPi;
+}
+
+
 bool TreeGen::makeFromString(const std::string &line)
 {
   int num_commas = (int)std::count(line.begin(), line.end(), ',');
