@@ -56,6 +56,7 @@ set(PUBLIC_HEADERS
 )
 
 set(PRIVATE_HEADERS
+  imageread.h
   imagewrite.h
 )
 

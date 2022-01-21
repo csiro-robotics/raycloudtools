@@ -5,6 +5,7 @@
 // Author: Thomas Lowe
 #include <iostream>
 #include <limits>
+#include <map>
 #include "raysplitter.h"
 #include "raycloudwriter.h"
 #include "raycuboid.h"
@@ -293,7 +294,93 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
   return true;
 }
 
+class RGBALess
+{
+public:
+  bool operator()(const RGBA &a, const RGBA &b) const
+  {
+    if (a.red != b.red)
+      return a.red < b.red;
+    if (a.green != b.green)
+      return a.green < b.green;
+    return a.blue < b.blue;
+  }
+};
 
+/// Special case for splitting based on a colour 
+bool splitColour(const std::string &file_name, const std::string &cloud_name_stub)
+{
+  std::map<RGBA, int, RGBALess> vox_map;
+  // firstly, find out how many different colours there are
+  int num_colours = 0;
+  auto count_colours = [&vox_map, &num_colours](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &, std::vector<double> &, std::vector<ray::RGBA> &colours)
+  {
+    for (auto &colour: colours)
+    {
+      if (vox_map.find(colour) == vox_map.end())
+      {
+        vox_map.insert(std::pair<RGBA,int>(colour, num_colours++));     
+      }
+    }
+  };
+  if (!ray::Cloud::read(file_name, count_colours))
+    return false;
+
+  const int max_allowable_cells = 1024; // operating systems will fail with too many open file pointers.
+  std::cout << "splitting into: " << num_colours << " files" << std::endl;
+  if (num_colours > max_allowable_cells)
+  {
+    std::cout << "Error: cloud has more unique colours than the maximum of " << max_allowable_cells << "." << std::endl;
+    return false;
+  }  
+  if (num_colours > 256)
+  {
+    std::cout << "Warning: nominally more than 256 file pointers will be open at once." << std::endl;
+    std::cout << "If simultaneous open files exceeds your operating system maximum, some output data may be lost." <<std::endl;
+  }
+
+  std::vector<CloudWriter> cells(num_colours);
+  std::vector<Cloud> chunks(num_colours);
+
+  // splitting performed per chunk
+  auto per_chunk = [&vox_map, &cells, &chunks, &cloud_name_stub, &num_colours]
+    (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
+  {
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      RGBA colour = colours[i];
+      const auto &vox = vox_map.find(colour);
+      if (vox != vox_map.end())
+      {
+        int index = vox->second;
+
+        if (cells[index].fileName() == "") // first time in this cell, so start writing to a new file
+        {
+          std::stringstream name;
+          name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue << ".ply";
+          cells[index].begin(name.str());
+        } 
+        chunks[index].addRay(starts[i], ends[i], times[i], colours[i]);
+      }
+    }
+    for (int i = 0; i<num_colours; i++)
+    {
+      if (chunks[i].ends.size() > 0)
+      {
+        cells[i].writeChunk(chunks[i]);
+        chunks[i].clear();
+      }
+    }       
+  };
+  if (!Cloud::read(file_name, per_chunk))
+    return false;
+
+  for (int i = 0; i<num_colours; i++)
+  {
+    cells[i].end(); // has no effect on writers where begin has not been called
+  }  
+  return true;
+}
 bool splitTrees(const std::string &file_name, const std::string &cloud_name_stub, const std::string &tree_file)
 {
   ray::ForestStructure forest;

@@ -38,7 +38,11 @@ bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cl
 bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
   const Eigen::Vector4d &cell_width);
 
+/// Split a ray cloud into one cloud per colour, ignoring differences in alpha. For example, when identified objects in the cloud are given a unique colour
+bool RAYLIB_EXPORT splitColour(const std::string &file_name, const std::string &cloud_name_stub);
+
 bool RAYLIB_EXPORT splitTrees(const std::string &file_name, const std::string &cloud_name_stub, const std::string &tree_file);
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYSPLITTER_H
