@@ -41,7 +41,6 @@ struct RAYLIB_EXPORT TreeNode
   Eigen::Vector3d peak; // in units of metres
   double ground_height;
   double height;
-  double approx_radius; // in metres
   int attaches_to;
   int children[2];
   int trunk_id;

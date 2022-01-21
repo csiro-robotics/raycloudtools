@@ -13,6 +13,7 @@
 
 namespace ray
 {
+  
 struct BranchSection
 {
   BranchSection() : tip(0,0,0), radius(0), parent(-1), id(-1) {}

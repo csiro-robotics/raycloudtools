@@ -53,7 +53,6 @@ set(PUBLIC_HEADERS
   extraction/rayforest.h
   extraction/raywatershed.h
   extraction/rayoccupancy2d.h
-  extraction/raytreesummary.h
 )
 
 set(PRIVATE_HEADERS

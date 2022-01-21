@@ -71,7 +71,7 @@ static const double kMinimumRadius = 0.001;
 static Eigen::Vector3d com(0, 0, 0);
 static double total_mass = 0.0;
 
-void TreeGen::addBranch(int parent_index, Pose pose, double radius, double random_factor)
+void TreeStructure::addBranch(int parent_index, Pose pose, double radius, double random_factor)
 {
   if (radius < kMinimumRadius)
   {
@@ -84,12 +84,12 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, double rando
   double phi = (sqrt(5) + 1.0) / 2.0;
   rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
   pose.rotation = pose.rotation * Eigen::Quaterniond(Eigen::AngleAxisd(2.0 * kPi * phi * rand_scale, Eigen::Vector3d(0, 0, 1)));
-  Branch branch;
+  Segment branch;
   branch.tip = pose.position;
   branch.radius = radius;
-  branch.parent_index = parent_index;
-  int index = int(branches_.size());
-  branches_.push_back(branch);
+  branch.parent_id = parent_index;
+  int index = int(segments_.size());
+  segments_.push_back(branch);
   com += radius * radius * radius * (branch.tip + p1) / 2.0;
   total_mass += radius * radius * radius;
 
@@ -113,96 +113,59 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, double rando
 }
 
 // create the tree structure, and list of leaf points
-void TreeGen::make(const Eigen::Vector3d &root_pos, double trunk_radius, double random_factor)
+void TreeStructure::make(double random_factor)
 {
   com.setZero();
   total_mass = 0.0;
-  root_ = root_pos;
+  Pose base(segments_[0].tip, Eigen::Quaterniond(Eigen::AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
 
-  Pose base(root_pos, Eigen::Quaterniond(Eigen::AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
-  Branch branch;
-  branch.tip = root_pos;
-  branch.parent_index = -1;
-  branch.radius = trunk_radius;
-  branches_.push_back(branch);
-  addBranch(0, base, trunk_radius, random_factor);
+  addBranch(0, base, segments_[0].radius, random_factor);
 
   com /= total_mass;
   // std::cout << "COM: " << COM.transpose() << ", grad = " << COM[2]/trunkRadius << std::endl;
-  double scale = branchGradient / (com[2] / trunk_radius);
+  double scale = branchGradient / (com[2] / segments_[0].radius);
+  Eigen::Vector3d root = segments_[0].tip;
   for (auto &leaf : leaves_) 
-    leaf = root_pos + (leaf - root_pos) * scale;
+    leaf = root + (leaf - root) * scale;
   for (auto &start : ray_starts_) 
-    start = root_pos + (start - root_pos) * scale;
+    start = root + (start - root) * scale;
   for (auto &end : ray_ends_) 
-    end = root_pos + (end - root_pos) * scale;
-  for (auto &branch : branches_) 
+    end = root + (end - root) * scale;
+  for (auto &branch : segments_) 
   {
-    branch.tip = root_pos + (branch.tip - root_pos) * scale;
+    branch.tip = root + (branch.tip - root) * scale;
     branch.radius *= scale;
   }
 }
 
-double TreeGen::volume()
+double TreeStructure::volume()
 {
   double volume = 0.0;
-  for (auto &branch: branches_)
+  for (size_t i = 1; i<segments_.size(); i++)
   {
-    Eigen::Vector3d base = branch.parent_index == -1 ? root_ : branches_[branch.parent_index].tip;
-    volume += (branch.tip - base).norm() * branch.radius*branch.radius;
+    auto &branch = segments_[i];
+    volume += (branch.tip - segments_[branch.parent_id].tip).norm() * branch.radius*branch.radius;
   }
   return volume * kPi;
 }
 
-
-bool TreeGen::makeFromString(const std::string &line)
-{
-  int num_commas = (int)std::count(line.begin(), line.end(), ',');
-  if ((num_commas % 5) != 4) // badly formatted
-    return false; 
-  int num_sections = (num_commas + 1)/5;
-  std::istringstream ss(line);
-  for (int s = 0; s<num_sections; s++)
-  {
-    Branch section;
-    std::string token;
-    for (int i = 0; i<3; i++)
-    {
-      std::getline(ss, token, ',');
-      section.tip[i] = std::stod(token.c_str());
-    }
-    std::getline(ss, token, ',');
-    section.radius = std::stod(token.c_str());
-    std::getline(ss, token, ',');
-    section.parent_index = std::stoi(token.c_str());
-    if (branches_.size() > 0 && branches_.back().tip == section.tip)
-    {
-      std::cout << "Error: zero length branch at " << s << std::endl;
-      return false;
-    }
-    branches_.push_back(section);
-  }
-  root_ = branches_[0].tip;
-  return true;
-}
-
 // create a set of rays covering the tree at a roughly uniform distribution
-void TreeGen::generateRays(double ray_density)
+void TreeStructure::generateRays(double ray_density)
 {
-  ASSERT(branches_.size() > 0);
+  ASSERT(segments_.size() > 0);
   const double path_trunk_multiplier = 12.0; // observe the tree from this many trunk radii away
   const double ground_path_multiplier = 5.0; // observe the tree from this many trunk radii in height
   const double flight_path_multiplier = 20.0; // overhead path is at this many trunk radii above the ground
-  double path_radius = branches_[0].radius * path_trunk_multiplier;
-  double ring_heights[2] = {branches_[0].radius * ground_path_multiplier, branches_[0].radius * flight_path_multiplier};
-  Eigen::Vector3d root = branches_[0].tip;
+  double path_radius = segments_[0].radius * path_trunk_multiplier;
+  double ring_heights[2] = {segments_[0].radius * ground_path_multiplier, segments_[0].radius * flight_path_multiplier};
+  Eigen::Vector3d root = segments_[0].tip;
 
-  std::vector<double> cumulative_size(branches_.size());
+  std::vector<double> cumulative_size(segments_.size());
   cumulative_size[0] = 0;
-  for (int i = 1; i < (int)branches_.size(); i++)
+  for (int i = 1; i < (int)segments_.size(); i++)
   {
-    Branch &branch = branches_[i];
-    Branch &parent_branch = branches_[branch.parent_index];
+    Segment &branch = segments_[i];
+    Segment &parent_branch = segments_[branch.parent_id];
     double area = (branch.tip - parent_branch.tip).norm() * 2.0 * kPi * (branch.radius + parent_branch.radius) /
                   2.0;  // slightly approximate
     area *= random(0.10, 1.0);
@@ -218,8 +181,8 @@ void TreeGen::generateRays(double ray_density)
     total_area += area_per_ray;
     while (i < (int)cumulative_size.size() - 1 && cumulative_size[i] < total_area) i++;
 
-    Branch &branch = branches_[i];
-    Branch &parent_branch = branches_[branch.parent_index];
+    Segment &branch = segments_[i];
+    Segment &parent_branch = segments_[branch.parent_id];
 
     // simplest is to randomise a point on a cone.... it will have overlap and gaps, but it is a starting point...
     double t = random(0.0, 1.0);

@@ -9,6 +9,7 @@
 #include "../raymesh.h"
 #include "../raycuboid.h"
 #include "../rayply.h"
+#include "../rayforestgen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -130,12 +131,12 @@ bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
 }
 
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
-std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width) 
+ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width) 
 {
   trunks_ = trunks;
   Cloud::Info info;
   if (!Cloud::getInfo(cloud_name_stub + ".ply", info))
-    return std::vector<TreeSummary>();
+    return ray::ForestStructure();
   min_bounds_ = info.ends_bound.min_bound_;
   max_bounds_ = info.ends_bound.max_bound_;
 
@@ -159,7 +160,7 @@ std::vector<TreeSummary> Forest::extract(const std::string &cloud_name_stub, Mes
     }
   };
   if (!ray::Cloud::read(cloud_name_stub + ".ply", fillHeightField))
-    return std::vector<TreeSummary>();
+    return ray::ForestStructure();
 
   Eigen::ArrayXXd lows;
   if (mesh.vertices().empty())
@@ -252,7 +253,7 @@ void Forest::smoothHeightfield()
   heightfield_ = smooth_heights;
 }
 
-std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub)
+ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub)
 {
   voxel_width_ = voxel_width;
   heightfield_ = highs;
@@ -261,8 +262,13 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
   drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
    
-  std::vector<TreeSummary> results;
+  
+  ray::ForestStructure forest;
   int num_spaces = 0;
+  const std::vector<std::string> attributes = {"tree_radius", "height", "trunk_identified"};
+  int tree_radius_id = 0;
+  int height_id = 1;
+  int trunk_identified_id = 2;
 
   if (agglomerate_)
   {
@@ -312,19 +318,23 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
       int trunk_id = cluster.trunk_id;    
       if (findSpace(cluster, verts, tip))
       {
-        TreeSummary result;
-        result.base = min_bounds_ + tip;
-        result.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-        result.height = tip[2];
-        result.trunk_identified = true;
+        ray::TreeStructure tree;
+        ray::TreeStructure::Segment result;
+        tree.attributes() = attributes;
+
+        result.tip = min_bounds_ + tip;
+        result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+        result.attributes[height_id] = tip[2]; 
+        result.attributes[trunk_identified_id] = 1; 
         if (trunk_id >= 0)
           result.radius = trunks_[trunk_id].second;
         else 
         {
-          result.radius = result.height / approx_height_per_radius_;
-          result.trunk_identified = false;
+          result.radius = result.attributes[height_id] / approx_height_per_radius_;
+          result.attributes[trunk_identified_id] = 0;
         }
-        results.push_back(result);
+        tree.segments().push_back(result);
+        forest.trees.push_back(tree);
       }
       else
       {
@@ -387,19 +397,24 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
       int trunk_id = trees[ind].trunk_id;
       if (findSpace2(trees[ind], tip))
       {
-        TreeSummary result;
-        result.base = min_bounds_ + tip;
-        result.base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-        result.height = tip[2];
-        result.trunk_identified = true;
+        ray::TreeStructure tree;
+        tree.attributes() = attributes;
+        ray::TreeStructure::Segment result;
+        result.tip = min_bounds_ + tip;
+        result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+        result.attributes[height_id] = tip[2]; 
+        int num_pixels = trees[ind].area;
+        result.attributes[tree_radius_id] = std::sqrt(((double)num_pixels * voxel_width_*voxel_width_)/kPi); // get from num pixels
+        result.attributes[trunk_identified_id] = 1; 
         if (trunk_id >= 0)
           result.radius = trunks_[trunk_id].second;
         else 
         {
-          result.radius = result.height / approx_height_per_radius_;
-          result.trunk_identified = false;
+          result.radius = result.attributes[height_id] / approx_height_per_radius_;
+          result.attributes[trunk_identified_id] = 0; 
         }
-        results.push_back(result);
+        tree.segments().push_back(result);
+        forest.trees.push_back(tree);
       }
       else
       {
@@ -407,11 +422,11 @@ std::vector<TreeSummary> Forest::extract(const Eigen::ArrayXXd &highs, const Eig
       }
     }    
   }
-  std::cout << "number of disallowed trees: " << num_spaces << " / " << results.size() << std::endl;
+  std::cout << "number of disallowed trees: " << num_spaces << " / " << forest.trees.size() << std::endl;
 
-  std::sort(results.begin(), results.end(), [](const TreeSummary &a, const TreeSummary &b){ return a.height > b.height; });
+  std::sort(forest.trees.begin(), forest.trees.end(), [](const ray::TreeStructure &a, const ray::TreeStructure &b){ return a.segments()[0].attributes[0] > b.segments()[0].attributes[0]; });
 
-  return results;
+  return forest;
 }
 
 

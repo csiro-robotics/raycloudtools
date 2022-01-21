@@ -7,13 +7,13 @@
 #define RAYLIB_RAYFOREST_H
 
 #include "raylib/raylibconfig.h"
+#include "raylib/rayforestgen.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
 #include "../raymesh.h"
 #include "raybranches.h"
 #include "raywatershed.h"
 #include "rayoccupancy2d.h"
-#include "raytreesummary.h"
 
 namespace ray
 {
@@ -30,8 +30,8 @@ class RAYLIB_EXPORT Forest
 {
 public:
   Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5), approx_height_per_radius_(50.0), smooth_iterations_(15), drop_ratio_(0.1), agglomerate_(false), max_diameter_per_height_(1.0), min_diameter_per_height_(0.15) {}
-  std::vector<struct TreeSummary> extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width);
-  std::vector<struct TreeSummary> extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
+  ray::ForestStructure extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width);
+  ray::ForestStructure extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
 
   bool save(const std::string &filename);
 

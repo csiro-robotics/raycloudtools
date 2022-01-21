@@ -62,6 +62,8 @@ struct RAYLIB_EXPORT DensityGrid
     Voxel(){ num_hits_ = num_rays_ = path_length_ = 0.0; }
     /// return the density that the voxel represents
     inline double density() const;
+    inline double numerator() const;
+    inline double denominator() const;
     /// the densities can be summed element-wise
     inline void operator +=(const Voxel &other);
     /// the densities can be multiplied by a scalar, element-wise
@@ -99,6 +101,14 @@ private:
 };
 
 // inline functions
+inline double DensityGrid::Voxel::numerator() const
+{
+  return spherical_distribution_scale * (num_rays_-1.0) * num_hits_;
+}
+inline double DensityGrid::Voxel::denominator() const
+{
+  return 1e-10 + num_rays_*path_length_;
+}
 inline double DensityGrid::Voxel::density() const 
 { 
   if (num_rays_ <= min_voxel_hits)

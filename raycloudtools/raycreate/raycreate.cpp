@@ -104,8 +104,11 @@ int main(int argc, char *argv[])
     double time = 0.0;
     if (type == "tree")
     {
-      ray::TreeGen tree_gen;
-      tree_gen.make(Eigen::Vector3d(0, 0, 0), 0.1, 0.25);
+      ray::TreeStructure tree_gen;
+      tree_gen.segments().resize(1);
+      tree_gen.segments()[0].tip = Eigen::Vector3d(0, 0, 0);
+      tree_gen.segments()[0].radius = 0.1;
+      tree_gen.make(0.25);
       tree_gen.generateRays(density);
       cloud.starts = tree_gen.rayStarts();
       cloud.ends = tree_gen.rayEnds();
@@ -124,7 +127,7 @@ int main(int argc, char *argv[])
       ray::ForestGen forest_gen;
       if (from_file)
       {
-        if (!forest_gen.makeFromFile(input_file.name(), params))
+        if (!forest_gen.makeFromFile(input_file.name(), params.random_factor))
         {
           usage();
         }
@@ -134,7 +137,7 @@ int main(int argc, char *argv[])
         forest_gen.make(params);
       }
       forest_gen.generateRays(density);
-      for (auto &tree : forest_gen.trees())
+      for (auto &tree : forest_gen.trees)
       {  
         const std::vector<Eigen::Vector3d> &ray_starts = tree.rayStarts();
         const std::vector<Eigen::Vector3d> &ray_ends = tree.rayEnds();

@@ -561,7 +561,7 @@ bool Trees::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "# Tree structure. One row per tree, which repeats: 'x,y,z,radius,parent_id, ' per segment" << std::endl;
+  ofs << "# tree file: x,y,z,radius,parent_id" << std::endl;
   for (auto &root: root_nodes)
   {
     ofs << sections[root].tip[0] << "," << sections[root].tip[1] << "," << sections[root].tip[2] << "," << sections[root].radius << ",-1";

@@ -14,6 +14,7 @@
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
 #include "raylib/extraction/rayclusters.h"
+#include "raylib/rayforestgen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -141,8 +142,8 @@ int main(int argc, char *argv[])
         usage(true);
       }
     }
-    std::vector<ray::TreeSummary> results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
-    ray::TreeSummary::save(cloud_file.nameStub() + "_forest.txt", results);
+    ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
+    results.save(cloud_file.nameStub() + "_forest.txt");
   }
   else if (extract_forest_agglomerate)
   {
@@ -177,8 +178,8 @@ int main(int argc, char *argv[])
         usage(true);
       }
     }
-    std::vector<ray::TreeSummary> results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
-    ray::TreeSummary::save(cloud_file.nameStub() + "_forest_ag.txt", results);
+    ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
+    results.save(cloud_file.nameStub() + "_forest_ag.txt");
   }
   else if (extract_terrain)
   {

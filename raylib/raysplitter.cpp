@@ -296,8 +296,9 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
 
 bool splitTrees(const std::string &file_name, const std::string &cloud_name_stub, const std::string &tree_file)
 {
-  std::vector<TreeSummary> trees = TreeSummary::load(tree_file);
-  int length = (int)trees.size();
+  ray::ForestStructure forest;
+  forest.load(tree_file);
+  int length = (int)forest.trees.size();
 
   const int max_allowable_cells = 1024; // operating systems will fail with too many open file pointers.
   if (length > 256)
@@ -312,9 +313,11 @@ bool splitTrees(const std::string &file_name, const std::string &cloud_name_stub
   }
   std::vector<CloudWriter> cells(length);
   std::vector<Cloud> chunks(length);
+  auto &ats = forest.trees[0].attributes();
+  int height_attribute = (int)(std::find(ats.begin(), ats.end(), "height") - ats.begin()); 
 
   // splitting performed per chunk
-  auto per_chunk = [&trees, &cells, &chunks, &cloud_name_stub]
+  auto per_chunk = [&forest, &cells, &chunks, &cloud_name_stub, height_attribute]
     (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
   {
     const double max_diameter_per_height = 0.9;
@@ -324,11 +327,11 @@ bool splitTrees(const std::string &file_name, const std::string &cloud_name_stub
     {
       int min_t = -1;
       double min_d_sqr = 1e10;
-      for (size_t t = 0; t<trees.size(); t++)
+      for (size_t t = 0; t<forest.trees.size(); t++)
       {
-        Eigen::Vector3d dif = trees[t].base - ends[i];
+        Eigen::Vector3d dif = forest.trees[t].segments()[0].tip - ends[i];
         dif[2] = 0.0;
-        double d_sqr = dif.squaredNorm() / sqr(trees[t].height*radius_per_height);
+        double d_sqr = dif.squaredNorm() / sqr(forest.trees[t].segments()[0].attributes[height_attribute]*radius_per_height);
         if (d_sqr < 1.0)
         {
           if (d_sqr < min_d_sqr)
