@@ -533,7 +533,7 @@ bool Wood::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "# Tree base location list: x, y, z, radius" << std::endl;
+  ofs << "# tree file: x,y,z,radius" << std::endl;
   for (auto &trunk: trunk_bases)
   {
     Eigen::Vector3d base = trunk.centre - vector3d(trunk.lean, 1)*trunk.length*0.5;
