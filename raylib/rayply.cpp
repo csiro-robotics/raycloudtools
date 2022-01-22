@@ -556,8 +556,16 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   std::cout << "saving to " << file_name << ", " << mesh.vertices().size() << " vertices." << std::endl;
 
   std::vector<Eigen::Vector4f> vertices(mesh.vertices().size());  // 4d to give space for colour
-  for (size_t i = 0; i < mesh.vertices().size(); i++)
-    vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2], 1.0;
+  if (mesh.colours().size() > 0)
+  {
+    for (size_t i = 0; i < mesh.vertices().size(); i++)
+      vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2], (float &)mesh.colours()[i];
+  }
+  else
+  {
+    for (size_t i = 0; i < mesh.vertices().size(); i++)
+      vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2], 1.0;
+  }
 
   FILE *fid = fopen(file_name.c_str(), "w+");
   if (!fid)

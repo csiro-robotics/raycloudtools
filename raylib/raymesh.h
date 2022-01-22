@@ -30,6 +30,9 @@ public:
   /// access the mesh's index list
   inline std::vector<Eigen::Vector3i> &indexList(){ return index_list_; }
   inline const std::vector<Eigen::Vector3i> &indexList() const { return index_list_; }
+  /// access the mesh's colours
+  inline std::vector<RGBA> &colours(){ return colours_; }
+  inline const std::vector<RGBA> &colours() const { return colours_; }
 
   /// Get first and second order moments of mesh. This can be used as a simple way to compare meshes
   /// numerically. Note that different stats guarantee different meshes, but same stats do not guarantee same meshes
@@ -41,6 +44,7 @@ public:
 private:
   std::vector<Eigen::Vector3d> vertices_;
   std::vector<Eigen::Vector3i> index_list_; // one per triangle, gives the index into the vertices_ array for each corner
+  std::vector<RGBA> colours_; // optional, if empty then not used
 };
 
 
