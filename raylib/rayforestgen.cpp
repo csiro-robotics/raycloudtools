@@ -11,6 +11,7 @@ namespace ray
 // Parse the tree file into a vector of tree structures
 bool ForestStructure::load(const std::string &filename)
 {
+  std::cout << "loading tree file: " << filename << std::endl;
   std::ifstream ifs(filename.c_str(), std::ios::out);
   if (!ifs.is_open())
   {
@@ -29,11 +30,9 @@ bool ForestStructure::load(const std::string &filename)
     return false;
   }
   int commas_per_segment = 1 + (int)std::count(line.begin(), line.end(), ',');
-  std::cout << "commas per segment: " << commas_per_segment << std::endl;
   line = line.substr(mandatory_text.length());
   if (line[0] == ',')
     line = line.substr(1);
-  std::cout << "extra attribute format: " << line << std::endl;
   std::istringstream ss(line);
   std::vector<std::string> attributes;
   bool has_parent_id = false;
@@ -46,10 +45,13 @@ bool ForestStructure::load(const std::string &filename)
     else
       attributes.push_back(token);
   }
-  std::cout << "attributes: ";
-  for (auto &at: attributes)
-    std::cout << at << "; ";
-  std::cout << std::endl;
+  if (attributes.size() > 0)
+  {
+    std::cout << "reading extra tree attributes: ";
+    for (auto &at: attributes)
+      std::cout << at << "; ";
+    std::cout << std::endl;
+  }
 
   int line_number = 0;
   while (!ifs.eof())
@@ -59,7 +61,6 @@ bool ForestStructure::load(const std::string &filename)
     if (line.length() == 0 || line[0] == '#')
       continue;
     int num_commas = 1 + (int)std::count(line.begin(), line.end(), ',');
-    std::cout << "line " << line_number << " number of commas " << num_commas << std::endl;
     TreeStructure tree;
     tree.attributes() = attributes;
     if (num_commas > commas_per_segment && !has_parent_id)
