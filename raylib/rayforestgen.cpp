@@ -18,11 +18,14 @@ bool ForestStructure::load(const std::string &filename)
     return false;
   }  
   std::string line;
-  std::getline(ifs, line);
-  std::string mandatory_text = "# tree file: x,y,z,radius";
+  do
+  {
+    std::getline(ifs, line);
+  } while (line[0] == '#');
+  std::string mandatory_text = "x,y,z,radius";
   if (line.substr(0, mandatory_text.length()) != mandatory_text)
   {
-    std::cerr << "Error: tree files must start with the mandatory files: " << mandatory_text << std::endl;
+    std::cerr << "Error: tree files must start with the mandatory format: " << mandatory_text << std::endl;
     return false;
   }
   int commas_per_segment = 1 + (int)std::count(line.begin(), line.end(), ',');
@@ -107,7 +110,8 @@ bool ForestStructure::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "# Tree file: x,y,z,radius";
+  ofs << "# Tree file:" << std::endl;
+  ofs << "x,y,z,radius" << std::endl;
   if (trees[0].segments().size() > 1)
     ofs << ",parent_id";
   for (auto &att: trees[0].attributes())

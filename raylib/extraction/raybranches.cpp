@@ -661,7 +661,8 @@ bool Bush::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "# tree file: x,y,z,radius" << std::endl;
+  ofs << "# tree branches file:" << std::endl;
+  ofs << "x,y,z,radius" << std::endl;
   for (auto &branch: best_branches)
   {
     if (!branch.active)
