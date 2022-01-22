@@ -448,7 +448,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       std::cerr << "Error: image format " << image_ext << " not known" << std::endl;
       return false;
     }
-
+    std::cout << "image 0,0 at: " << (flip_x ? bounds.max_bound_[ax1] : bounds.min_bound_[ax1]) << "," << bounds.min_bound_[ax2] << std::endl;
   }
   catch (std::bad_alloc const&) 
   {

@@ -105,6 +105,7 @@ bool ForestStructure::save(const std::string &filename)
     std::cerr << "No data to save to " << filename << std::endl;
     return false;
   }
+  std::cout << "outputting tree file: " << filename << std::endl;
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
   {
