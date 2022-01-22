@@ -121,14 +121,16 @@ bool ForestStructure::save(const std::string &filename)
   ofs << std::endl;
   for (auto &tree: trees)
   {
-    for (auto &segment: tree.segments())
+    for (size_t i = 0; i<tree.segments().size(); i++)
     {
+      auto &segment = tree.segments()[i];
       ofs << segment.tip[0] << "," << segment.tip[1] << "," << segment.tip[2] << "," << segment.radius;
       if (tree.segments().size() > 1)
         ofs << "," << segment.parent_id;
       for (auto &att: segment.attributes)
         ofs << "," << att;
-      ofs << " ";
+      if (i != tree.segments().size()-1)
+        ofs << ", ";
     }
     ofs << std::endl;
   }
