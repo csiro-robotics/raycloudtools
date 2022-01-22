@@ -112,7 +112,7 @@ bool ForestStructure::save(const std::string &filename)
     return false;
   }  
   ofs << "# Tree file:" << std::endl;
-  ofs << "x,y,z,radius" << std::endl;
+  ofs << "x,y,z,radius";
   if (trees[0].segments().size() > 1)
     ofs << ",parent_id";
   for (auto &att: trees[0].attributes())
