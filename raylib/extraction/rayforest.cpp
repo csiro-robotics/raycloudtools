@@ -265,7 +265,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   
   ray::ForestStructure forest;
   int num_spaces = 0;
-  const std::vector<std::string> attributes = {"tree_radius", "height", "trunk_identified"};
+  const std::vector<std::string> attributes = {"subtree_radius", "height", "trunk_identified"};
   int tree_radius_id = 0;
   int height_id = 1;
   int trunk_identified_id = 2;
