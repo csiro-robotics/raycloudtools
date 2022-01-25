@@ -169,7 +169,7 @@ void ForestGen::make(const ForestParams &params)
       segment.radius = radius;
       tree.segments().push_back(segment);
       trees.push_back(tree);
-      trees.back().make(params.random_factor);
+      trees.back().make(params);
     }
     rad /= 2.0;
     num_trees *= pow(2.0, params.dimension);
@@ -177,14 +177,14 @@ void ForestGen::make(const ForestParams &params)
 }
 
 
-bool ForestGen::makeFromFile(const std::string &filename, double random_factor)
+bool ForestGen::makeFromFile(const std::string &filename, const TreeParams &params)
 {
   if (!load(filename))
     return false;
   if (trees[0].segments().size() == 1) // must have loaded trunks only
   {
     for (auto &tree: trees)
-      tree.make(random_factor);
+      tree.make(params);
   }
   return true;
 }

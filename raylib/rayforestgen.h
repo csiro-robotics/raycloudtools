@@ -14,7 +14,7 @@
 namespace ray
 {
 
-struct ForestStructure
+struct ForestStructure 
 {
   std::vector<TreeStructure> trees;
   
@@ -22,15 +22,13 @@ struct ForestStructure
   bool save(const std::string &filename);
 };
 
-struct ForestParams
+struct ForestParams : TreeParams
 {
-  ForestParams() : field_width(20.0), max_tree_radius(0.2), dimension(2.0), adult_tree_density(0.01),
-                   random_factor(0.0) {}
+  ForestParams() : field_width(20.0), max_tree_radius(0.2), dimension(2.0), adult_tree_density(0.01) {}
   double field_width;
   double max_tree_radius;
   double dimension;           // number of trees = radius^-d
   double adult_tree_density;  // number of trees per m^2
-  double random_factor;
 };
 
 /// Forest ray cloud generation class. This generates a realistic random distribution of trees, each of which
@@ -41,7 +39,7 @@ public:
   /// makes the forest geometry
   void make(const ForestParams &params = ForestParams());
   /// make a forest from a file of base locations and radii
-  bool makeFromFile(const std::string &filename, double random_factor);
+  bool makeFromFile(const std::string &filename, const TreeParams &params);
   /// converts the forest geometry into a set of rays, for a chosen @c ray_density
   void generateRays(double ray_density);
 

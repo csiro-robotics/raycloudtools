@@ -71,18 +71,18 @@ static const double kMinimumRadius = 0.001;
 static Eigen::Vector3d com(0, 0, 0);
 static double total_mass = 0.0;
 
-void TreeStructure::addBranch(int parent_index, Pose pose, double radius, double random_factor)
+void TreeStructure::addBranch(int parent_index, Pose pose, double radius, const TreeParams &params)
 {
-  if (radius < kMinimumRadius)
+  if (radius < params.min_branch_radius)
   {
     leaves_.push_back(pose.position);
     return;
   }
   Eigen::Vector3d p1 = pose.position;
-  double rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
+  double rand_scale = random(1.0 - params.random_factor, 1.0 + params.random_factor);
   pose.position = pose * Eigen::Vector3d(0, 0, radius * branchGradient * rand_scale);
   double phi = (sqrt(5) + 1.0) / 2.0;
-  rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
+  rand_scale = random(1.0 - params.random_factor, 1.0 + params.random_factor);
   pose.rotation = pose.rotation * Eigen::Quaterniond(Eigen::AngleAxisd(2.0 * kPi * phi * rand_scale, Eigen::Vector3d(0, 0, 1)));
   Segment branch;
   branch.tip = pose.position;
@@ -95,10 +95,10 @@ void TreeStructure::addBranch(int parent_index, Pose pose, double radius, double
 
   Pose child1 = pose, child2 = pose;
   double angle1, angle2, radius1, radius2;
-  rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
+  rand_scale = random(1.0 - params.random_factor, 1.0 + params.random_factor);
   angle1 = getMainBranchAngle(kPi * 0.5 - pitchAngle * rand_scale);  // splitAngle*0.5 * mainBranchAngleRatio;
   getBranchInfo(angle1, angle2, radius1, radius2);
-  rand_scale = random(1.0 - random_factor, 1.0 + random_factor);
+  rand_scale = random(1.0 - params.random_factor, 1.0 + params.random_factor);
   angle2 *= rand_scale;
   radius1 *= radius;
   radius2 *= radius;
@@ -108,18 +108,18 @@ void TreeStructure::addBranch(int parent_index, Pose pose, double radius, double
 
   child1.rotation = child1.rotation * q1;
   child2.rotation = child2.rotation * q2;
-  addBranch(index, child1, radius1, random_factor);
-  addBranch(index, child2, radius2, random_factor);
+  addBranch(index, child1, radius1, params);
+  addBranch(index, child2, radius2, params);
 }
 
 // create the tree structure, and list of leaf points
-void TreeStructure::make(double random_factor)
+void TreeStructure::make(const TreeParams &params)
 {
   com.setZero();
   total_mass = 0.0;
-  Pose base(segments_[0].tip, Eigen::Quaterniond(Eigen::AngleAxisd(random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
+  Pose base(segments_[0].tip, Eigen::Quaterniond(Eigen::AngleAxisd(params.random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
 
-  addBranch(0, base, segments_[0].radius, random_factor);
+  addBranch(0, base, segments_[0].radius, params);
 
   com /= total_mass;
   // std::cout << "COM: " << COM.transpose() << ", grad = " << COM[2]/trunkRadius << std::endl;

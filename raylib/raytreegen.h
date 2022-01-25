@@ -21,13 +21,21 @@ namespace ray
 double RAYLIB_EXPORT getMainBranchAngle(double covariance_angle);
 void RAYLIB_EXPORT fillBranchAngleLookup();
 
+struct TreeParams
+{
+  TreeParams() : min_branch_radius(0.001),
+                 random_factor(0.0) {}
+  double min_branch_radius;  
+  double random_factor; // 0 to 1 value
+};
+
 /// Random generation of semi-realistic trees. These are based on a self-similar branching structure
 /// for the @c pitchAngle @c splitAngle and @c branchGradient constants, with an additional @c random_factor
 class RAYLIB_EXPORT TreeStructure
 {
 public:
   /// create the tree structure, and list of leaf points
-  void make(double random_factor = 0.0);  // 0 to 1
+  void make(const TreeParams &params);
   void generateRays(double ray_density);
 
   /// the ray cloud attributes
@@ -62,7 +70,7 @@ private:
   std::vector<Segment> segments_;
   std::vector<std::string> attribute_names_;
 
-  void addBranch(int parent_index, Pose pose, double radius, double random_factor);
+  void addBranch(int parent_index, Pose pose, double radius, const TreeParams &params);
 };
 
 }  // namespace ray
