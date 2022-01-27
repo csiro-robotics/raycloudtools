@@ -7,6 +7,7 @@
 #include "../raydebugdraw.h"
 #include "../raygrid.h"
 #include "../raycuboid.h"
+#include "../rayforestgen.h"
 #include <map>
 
 namespace ray
@@ -545,41 +546,12 @@ bool Wood::save(const std::string &filename)
 
 std::vector<std::pair<Eigen::Vector3d, double> > Wood::load(const std::string &filename)
 {
-  std::ifstream ifs(filename.c_str(), std::ios::in);
-  if (!ifs.is_open())
-  {
-    std::cerr << "Error: cannot open " << filename << " for reading." << std::endl;
-    return std::vector<std::pair<Eigen::Vector3d, double> >();
-  }  
+  ForestStructure forest;
   std::vector<std::pair<Eigen::Vector3d, double> > trunks;
-  while (!ifs.eof())
+  forest.load(filename);
+  for (auto &tree: forest.trees)
   {
-    Eigen::Vector3d base;
-    double radius;
-    std::string line;
-    std::getline(ifs, line);
-    if (line.length() == 0 || line[0] == '#')
-      continue;
-    int num_commas = (int)std::count(line.begin(), line.end(), ',');
-    if (num_commas == 3) // just the base
-    {
-      std::istringstream ss(line);
-      for (int i = 0; i<4; i++)
-      {
-        std::string token;
-        std::getline(ss, token, ',');
-        if (i<3)
-          base[i] = std::stod(token.c_str());
-        else
-          radius = std::stod(token.c_str());
-      }
-      trunks.push_back(std::pair<Eigen::Vector3d, double>(base, radius));
-    }
-    else
-    {
-      std::cerr << "bad input, there should be 4 fields per line: x, y, z, radius." << std::endl;
-      return std::vector<std::pair<Eigen::Vector3d, double> >();
-    }
+    trunks.push_back(std::pair<Eigen::Vector3d, double>(tree.segments()[0].tip, tree.segments()[0].radius));
   }
   return trunks;  
 }

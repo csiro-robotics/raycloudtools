@@ -354,7 +354,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         std::cout << "extract from ends, so working backwards has found " << nodes.size() << " nodes in total" << std::endl;
     }
     // Finally we have it, a set of nodes from which to get a centroid and radius estimation
-    if (true)
+    if (verbose)
     {
       std::vector<Eigen::Vector3d> debug_points;
       std::vector<double> shades;
@@ -530,27 +530,22 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   }
 
 
-  // generate children links
-/*  for (unsigned int i = 0; i<sections.size(); i++)
-  {
-    if (sections[i].parent == -1)
-      sections[sections[i].parent].children.push_back(i);
-    else if (sections[i].parent == -2)
-      root_nodes.push_back(i);
-  }
   // generate local parent links
-  for (auto &root: root_nodes)
+  for (auto &section: sections)
   {
+    std::cout << "section parent: " << section.parent << std::endl;
+    if (section.parent >= 0)
+      break;
     int child_id = 0;
-    sections[root].id = child_id++;
-    std::vector<int> children = sections[root].children;
+    section.id = child_id++;
+    std::vector<int> children = section.children;
     for (unsigned int c = 0; c<children.size(); c++)
     {
       sections[children[c]].id = child_id++;
       for (auto i: sections[children[c]].children)
         children.push_back(i);
     }
-  }*/
+  }
 }
 
 bool Trees::save(const std::string &filename)
@@ -561,13 +556,15 @@ bool Trees::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "# trees file:" << std::endl;
+  ofs << "# tree structure file:" << std::endl;
   ofs << "x,y,z,radius,parent_id" << std::endl;
-  for (auto &root: root_nodes)
+  for (auto &section: sections)
   {
-    ofs << sections[root].tip[0] << "," << sections[root].tip[1] << "," << sections[root].tip[2] << "," << sections[root].radius << ",-1";
+    if (section.parent >= 0)
+      break;
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << section.radius << ",-1";
 
-    std::vector<int> children = sections[root].children;
+    std::vector<int> children = section.children;
     for (unsigned int c = 0; c<children.size(); c++)
     {
       BranchSection &node = sections[children[c]];
