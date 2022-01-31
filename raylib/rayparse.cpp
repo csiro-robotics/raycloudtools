@@ -10,16 +10,16 @@
 
 namespace ray
 {
-std::string getFileNameStub(const std::string &name) 
-{ 
+std::string getFileNameStub(const std::string &name)
+{
   const size_t last_dot = name.find_last_of('.');
   if (last_dot != std::string::npos)
     return name.substr(0, last_dot);
   return name;
 }
 
-std::string getFileNameExtension(const std::string &name) 
-{ 
+std::string getFileNameExtension(const std::string &name)
+{
   const size_t last_dot = name.find_last_of('.');
   if (last_dot != std::string::npos)
     return name.substr(last_dot + 1);
@@ -31,7 +31,7 @@ std::string getFileNameExtension(const std::string &name)
 bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments, std::vector<OptionalArgument *> optional_arguments, bool set_values_)
 {
   // if we are setting the argument values_ then first run the parsing without setting them, and then only continue (to set them) if the format matches.
-  if (set_values_ && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false)) 
+  if (set_values_ && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false))
     return false;
   int c = 1;
   for (auto &l: fixed_arguments)
@@ -75,16 +75,21 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
 
   // we don't check file existence, that is up to whatever uses the file.
   // but we do check that the string contains a '.' and (if set)
-  // that it has a valid 3-letter file extension 
+  // that it has a valid 3-letter file extension
   // This lets us disambiguate files_ from other arguments
   // and isn't too restrictive, we would rather users use extensions on their file names.
-  if (file.find('.') == std::string::npos) // no '.' in file name
+  size_t extension_pos = file.rfind('.');
+  if (extension_pos == std::string::npos) // no '.' in file name
     return false;
   if (check_extension_)
   {
-    std::string ext = file.substr(file.length() - 4);
-    bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1)) && std::isalnum(ext.at(2)) && std::isalnum(ext.at(3));
-    if (!valid_ext) 
+    const std::string ext = file.substr(extension_pos);
+    bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1));
+    for (size_t index = 2; index < ext.size(); ++index)
+    {
+      valid_ext = valid_ext && std::isalnum(ext.at(index));
+    }
+    if (!valid_ext)
       return false;
   }
   if (set_value)
@@ -94,7 +99,7 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
 }
 
 DoubleArgument::DoubleArgument()
-{ 
+{
   max_value_ = std::numeric_limits<double>::max();
   min_value_ = std::numeric_limits<double>::lowest();
 }
@@ -112,14 +117,14 @@ bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
   bool in_range = val >= min_value_ && val <= max_value_;
   if (!in_range)
     std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
-  value_ = val; 
+  value_ = val;
   return in_range;
 }
 
-IntArgument::IntArgument() 
-{ 
+IntArgument::IntArgument()
+{
   max_value_ = std::numeric_limits<int>::max();
-  min_value_ = std::numeric_limits<int>::min(); 
+  min_value_ = std::numeric_limits<int>::min();
 }
 
 bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -140,8 +145,8 @@ bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
   return in_range;
 }
 
-Vector3dArgument::Vector3dArgument() 
-{ 
+Vector3dArgument::Vector3dArgument()
+{
   max_value_ = std::numeric_limits<double>::max();
   min_value_ = std::numeric_limits<double>::lowest();
 }
@@ -178,8 +183,8 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
   return true;
 }
 
-Vector4dArgument::Vector4dArgument() 
-{ 
+Vector4dArgument::Vector4dArgument()
+{
   max_value_ = std::numeric_limits<double>::max();
   min_value_ = std::numeric_limits<double>::lowest();
 }
@@ -227,7 +232,7 @@ bool FileArgumentList::parse(int argc, char *argv[], int &index, bool set_value)
     count++;
   }
   return count >= min_number_;
-} 
+}
 
 bool KeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
 {
@@ -241,7 +246,7 @@ bool KeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
     {
       if (set_value)
       {
-        selected_id_ = (int)i; 
+        selected_id_ = (int)i;
         selected_key_ = str;
       }
       return true;
@@ -315,7 +320,7 @@ bool OptionalKeyValueArgument::parse(int argc, char *argv[], int &index, bool se
   std::string str(argv[index]);
   if (str == ("--" + name_) || str == ("-" + std::string(1, character_)))
   {
-    if (set_value) 
+    if (set_value)
       is_set_ = true;
     index++; // for optional parameters, we only increment the argument index when it has been found
     value_->parse(argc, argv, index, set_value);
