@@ -210,7 +210,17 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     if (par >= 0)
       thickness = 4.0*sections[par].radius;
     if (sec > 3000)
+    {
+      sections[sec].tip.setZero();
+      for (auto &i: sections[sec].roots)
+        sections[sec].tip += points[i].pos;
+      for (auto &i: sections[sec].ends)
+        sections[sec].tip += points[i].pos;
+      size_t sum = sections[sec].roots.size() + sections[sec].ends.size();
+      if (sum > 0)
+        sections[sec].tip /= (double)sum;
       break;
+    }
 
     double thickness_sqr = thickness*thickness;
     Eigen::Vector3d base(0,0,0);
@@ -224,7 +234,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     if (!extract_from_ends)
     {
       nodes = sections[sec].roots;
-      // 2. find all the points in this section:
+      // 2. find all the points (and the end points) for this section:
       for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
       {
         int i = nodes[ijk];
@@ -242,16 +252,34 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
     
       std::vector<int> all_ends = sections[sec].ends;
-      // 3. do floodfill on child roots to find if we have separate branches
+      // 3. cluster child roots to find if we have separate branches
+      // first, get interpolated edge points
       for (auto &j: all_ends)
       {
+        #define EXTRAPOLATE_FORWARDS // if we look farther up the branch, then we have a more reliable indicator of splitting
+        const double extended_thickness = thickness * 1.5; // look half a segment farther
+        int i = j;
+        while ((points[i].pos - base).squaredNorm() < extended_thickness*extended_thickness && children[i].size()>0)
+          i = children[i][0]; // choose the first branch, slightly better would be to choose all branches and get the centroid, but this would be unecessarily complex
+        const double dist1j = (points[i].pos - base).norm();
+        if (dist1j < extended_thickness) // then extrapolate
+        {
+          points[j].edge_pos = base + (points[i].pos - base) * extended_thickness / dist1j;
+        }
+        else
+        {
+          double dist0j = (points[points[i].parent].pos - base).norm();
+          double blendj = (extended_thickness - dist0j) / (dist1j - dist0j);
+          points[j].edge_pos = points[points[i].parent].pos*(1.0-blendj) + points[i].pos*blendj;   
+        }
+        #if defined EXTRAPOLATE_FORWARDS
+        #else
         double dist1j = (points[j].pos - base).norm();
         double dist0j = (points[points[j].parent].pos - base).norm();
         double blendj = (thickness - dist0j) / (dist1j - dist0j);
         points[j].edge_pos = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
+        #endif
       }
-      #define CLUSTER
-      #if defined CLUSTER
       std::vector<Eigen::Vector3d> ps;
       std::vector<int> v_indices;
       for (auto &i: all_ends)
@@ -259,7 +287,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         ps.push_back(points[i].edge_pos);
         v_indices.push_back(i);
       }
-      std::vector< std::vector<int> > clusters = generateClusters(ps, 1.5*sections[sec].radius, 3.0*sections[sec].radius, true);
+      std::vector< std::vector<int> > clusters = generateClusters(ps, 2.5*sections[sec].radius, 4.5*sections[sec].radius, true);
       for (auto &cluster: clusters)
       {
         for (auto &id: cluster)
@@ -270,7 +298,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         std::cout << "first branch with " << clusters[0].size() << " / " << all_ends.size() << " points" << std::endl;
         extract_from_ends = true;
         nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
-        sections[sec].ends = clusters[0]; // not quite, we need to translate back to real indices!
+        sections[sec].ends = clusters[0]; 
       }
       for (size_t i = 1; i<clusters.size(); i++)
       {
@@ -281,53 +309,6 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
           sections[new_node.parent].children.push_back((int)sections.size());
         sections.push_back(new_node);
       }
-      #else
-      int cc = -1;
-      for (auto &end: all_ends)
-      {
-        cc++;
-        #define DIRECTED_DIFF // interpolates each point so it is exactly at max_distance, to avoid spurious splitting
-        if (points[end].visited)
-          continue;        
-        std::vector<int> new_ends;
-        new_ends.push_back(end);
-        for (size_t ijk = 0; ijk<new_ends.size(); ijk++)
-        {
-          int i = new_ends[ijk];
-          points[i].visited = true;
-          for (auto &j: all_ends)
-          {
-            if (points[j].visited)
-              continue;
-            Eigen::Vector3d diff = points[i].edge_pos - points[j].edge_pos;
-            if (diff.norm() < 1.5*sections[sec].radius)
-            {
-              new_ends.push_back(j);
-              points[j].visited = true;
-            }
-          }        
-        }
-        if (new_ends.size() < all_ends.size()) // 4. if we are splitting then split and remove roots
-        {
-          if (end == all_ends[0]) // if first clique
-          {
-            std::cout << "first branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
-            extract_from_ends = true;
-            nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
-            sections[sec].ends = new_ends;
-          }
-          else
-          {
-            std::cout << "subsequent branch with " << new_ends.size() << " / " << all_ends.size() << " points " << cc << std::endl;
-            BranchSection new_node = sections[sec];
-            new_node.ends = new_ends;
-            if (new_node.parent != -1)
-              sections[new_node.parent].children.push_back((int)sections.size());
-            sections.push_back(new_node);
-          }
-        }
-      }
-      #endif
     }
 
     if (extract_from_ends) // 5. we have split the ends, so we need to extract the set of nodes in a backwards manner
@@ -360,9 +341,14 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       std::vector<double> shades;
       for (auto &i: sections[sec].ends)
       {
+        debug_points.push_back(points[i].edge_pos);
+        shades.push_back(0.0);
+      } 
+      for (auto &i: sections[sec].ends)
+      {
         debug_points.push_back(points[i].pos);
         shades.push_back(0.5);
-      }      
+      }            
       for (auto &i: nodes)
       {
         debug_points.push_back(points[i].pos);
@@ -388,12 +374,12 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
 
     // find points in this segment, and the root points for the child segment
     sections[sec].tip.setZero();
-    for (auto &i: nodes)
+    auto &list = nodes.empty() ? (sections[sec].ends.empty() ? sections[sec].roots : sections[sec].ends) : nodes;
+    for (auto &i: list)
       sections[sec].tip += points[i].pos;
-    if (nodes.size() > 0)
-      sections[sec].tip /= (double)nodes.size();
+    if (list.size() > 0)
+      sections[sec].tip /= (double)list.size();
 
-    
     // estimate radius
     if (par >= 0)
     {
@@ -494,7 +480,6 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       }    
     }
 
-
     // now add the single child for this particular tree node, assuming there are still ends
     if (sections[sec].ends.size() > 0)
     {
@@ -503,6 +488,13 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       new_node.roots = sections[sec].ends;
       new_node.radius = sections[sec].radius;
       sections[sec].children.push_back((int)sections.size());
+
+      new_node.tip.setZero();
+      for (auto &end: new_node.roots)
+        new_node.tip += points[end].pos;
+      if (new_node.roots.size() > 0)
+        new_node.tip /= (double)new_node.roots.size();
+
       sections.push_back(new_node);
     }    
   }
@@ -533,7 +525,6 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   // generate local parent links
   for (auto &section: sections)
   {
-    std::cout << "section parent: " << section.parent << std::endl;
     if (section.parent >= 0)
       break;
     int child_id = 0;
