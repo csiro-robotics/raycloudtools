@@ -27,6 +27,7 @@ void usage(bool error=false)
   std::cout << "usage:" << std::endl;
   std::cout << "rayextract terrain cloud.ply                - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
   std::cout << "rayextract trunks cloud.ply                 - extract tree trunk base locations and radii to text file" << std::endl;
+  std::cout << "                            --exclude_rays  - does not use rays to exclude candidates with rays passing through" << std::endl;
   std::cout << "rayextract forest cloud.ply                 - extracts tree locations, radii and heights to file" << std::endl;
   std::cout << "                            --ground ground_mesh.ply - ground mesh file (otherwise assume flat)" << std::endl; 
   std::cout << "                            --trunks cloud_trunks.txt - known tree trunks file" << std::endl;
@@ -54,6 +55,7 @@ int main(int argc, char *argv[])
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), branches("branches"), terrain("terrain"), forest_agglomerated("forest_ag");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
+  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
   ray::IntArgument smooth(0, 50);
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth), drop_option("drop_ratio", 'd', &drop);
@@ -63,7 +65,7 @@ int main(int argc, char *argv[])
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
-  bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&verbose});
+  bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
   bool extract_forest_agglomerate = ray::parseCommandLine(argc, argv, {&forest_agglomerated, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &min_gradient_option, &max_gradient_option, &verbose});
   bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &trunks_file}, {&verbose});
@@ -82,7 +84,7 @@ int main(int argc, char *argv[])
       usage(true);
 
     const double radius = 0.1; // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm 
-    ray::Bush woods(cloud, radius, verbose.isSet(), true);
+    ray::Bush woods(cloud, radius, verbose.isSet(), true, exclude_rays.isSet());
     woods.save(cloud_file.nameStub() + "_trunks.txt");
   }
 /*  else if (extract_branches)

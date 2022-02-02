@@ -238,7 +238,7 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
   }
 }
 
-Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
+Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only, bool exclude_passing_rays)
 {
   double spacing = cloud.estimatePointSpacing();
   if (verbose)
@@ -350,78 +350,79 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only)
     std::cout << "num non-overlapping branches: " << branches.size() << std::endl;
   }   
 
-  #if 1 // add in internal points due to passing rays...
-  for (auto &branch: branches)
-  {
-    if (branch.active)
-      grid2D.pixel(branch.centre).filled = true;
-  }
-  grid2D.fillRays(cloud); 
-
-  std::vector<Eigen::Vector3d> extra_points1, extra_points2;
-  int num_removed = 0;
-  for (auto &branch: branches)
-  {
-    if (!branch.active)
-      continue;
-
-    Eigen::Vector3d base = branch.centre - branch.length*0.5*branch.dir;
-    auto &ray_ids = grid2D.pixel(branch.centre).ray_ids;
-    double mean_rad = 0.0;
-    double mean_num = 0.0;
-    std::vector<Eigen::Vector3d> poins;
-    for (size_t i = 0; i<ray_ids.size(); i++)
+  if (exclude_passing_rays)
+  { // add in internal points due to passing rays...
+    for (auto &branch: branches)
     {
-      Eigen::Vector3d start = cloud.starts[ray_ids[i]];
-      Eigen::Vector3d end = cloud.ends[ray_ids[i]];
-      
-      Eigen::Vector3d line_dir = end - start;
-      Eigen::Vector3d across = line_dir.cross(branch.dir);
-      Eigen::Vector3d side = across.cross(branch.dir);
+      if (branch.active)
+        grid2D.pixel(branch.centre).filled = true;
+    }
+    grid2D.fillRays(cloud); 
 
-      double d = std::max(0.0, std::min((base - start).dot(side) / line_dir.dot(side), 1.0));
-      Eigen::Vector3d closest_point = start + line_dir * d;
+    std::vector<Eigen::Vector3d> extra_points1, extra_points2;
+    int num_removed = 0;
+    for (auto &branch: branches)
+    {
+      if (!branch.active)
+        continue;
 
-      double d2 = std::max(0.0, std::min((closest_point - base).dot(branch.dir), branch.length + 2.0*branch.radius));
-      Eigen::Vector3d closest_point2 = base + branch.dir * d2;
-      
-      double dist = (closest_point - closest_point2).norm();
-      if (dist < branch.radius)
+      Eigen::Vector3d base = branch.centre - branch.length*0.5*branch.dir;
+      auto &ray_ids = grid2D.pixel(branch.centre).ray_ids;
+      double mean_rad = 0.0;
+      double mean_num = 0.0;
+      std::vector<Eigen::Vector3d> poins;
+      for (size_t i = 0; i<ray_ids.size(); i++)
       {
-        mean_rad += dist;
-        mean_num++;
-        poins.push_back(closest_point);
+        Eigen::Vector3d start = cloud.starts[ray_ids[i]];
+        Eigen::Vector3d end = cloud.ends[ray_ids[i]];
+        
+        Eigen::Vector3d line_dir = end - start;
+        Eigen::Vector3d across = line_dir.cross(branch.dir);
+        Eigen::Vector3d side = across.cross(branch.dir);
+
+        double d = std::max(0.0, std::min((base - start).dot(side) / line_dir.dot(side), 1.0));
+        Eigen::Vector3d closest_point = start + line_dir * d;
+
+        double d2 = std::max(0.0, std::min((closest_point - base).dot(branch.dir), branch.length + 2.0*branch.radius));
+        Eigen::Vector3d closest_point2 = base + branch.dir * d2;
+        
+        double dist = (closest_point - closest_point2).norm();
+        if (dist < branch.radius)
+        {
+          mean_rad += dist;
+          mean_num++;
+          poins.push_back(closest_point);
+        }
+      }
+      if (mean_num > 1)
+      {
+        mean_rad /= mean_num;
+        if (mean_rad < 0.7*branch.radius)
+        {
+          branch.active = false;
+          num_removed++;
+          extra_points2.insert(extra_points2.begin(), poins.begin(), poins.end());
+        }
+        else
+        {
+          extra_points1.insert(extra_points1.begin(), poins.begin(), poins.end());
+        }
       }
     }
-    if (mean_num > 1)
+    if (verbose)
     {
-      mean_rad /= mean_num;
-      if (mean_rad < 0.7*branch.radius)
-      {
-        branch.active = false;
-        num_removed++;
-        extra_points2.insert(extra_points2.begin(), poins.begin(), poins.end());
-      }
-      else
-      {
-        extra_points1.insert(extra_points1.begin(), poins.begin(), poins.end());
-      }
+      std::cout << "num trunks removed: " << num_removed << std::endl;
+      drawBranches(branches, &extra_points1, &extra_points2);
     }
-  }
-  if (verbose)
-  {
-    std::cout << "num trunks removed: " << num_removed << std::endl;
-    drawBranches(branches, &extra_points1, &extra_points2);
-  }
 
-  best_branches = branches;
-  branches.clear();
-  for (auto &branch: best_branches)
-  {
-    if (branch.active) 
-      branches.push_back(branch);         
-  }    
-  #endif
+    best_branches = branches;
+    branches.clear();
+    for (auto &branch: best_branches)
+    {
+      if (branch.active) 
+        branches.push_back(branch);         
+    }    
+  }
 
   // get lowest branches:
   // now get ground height for each branch:

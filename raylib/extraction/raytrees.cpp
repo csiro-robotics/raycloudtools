@@ -76,6 +76,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     base.radius = trunk.second;
     closest_node.push(QueueNode(0, 0, base.radius, (int)points.size()));
     base.roots.push_back((int)points.size());
+    base.rank = 0;
     points.push_back(Vertex(root));
     points.back().distance_to_ground = 0;
     points.back().score = 0;
@@ -190,26 +191,49 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       std::cout << "sec " << sec << std::endl;
     // 1. Apply Leonardo's rule
     int par = sections[sec].parent;
-    #if 0  // Leonardo's rule
-    const double radius_change_scale = 1.1; // we're allowed to scale the total radius slightly each section
-    if (par != -1 && sections[par].parent != -1) 
+    #if 1  // Leonardo's rule
+    if (par != -1 && sections[par].parent != -1 && sections[sections[par].parent].children.size() > 1) 
     {
-      double rad = sections[sections[par].parent].radius;
-      double child_rad = 0.0;
-      for (auto &child: sections[sections[par].parent].children)
-        child_rad += sqr(sections[child].radius);
-      child_rad = std::sqrt(child_rad);
-      rad = std::max(rad/radius_change_scale, std::min(child_rad, rad*radius_change_scale)); // try to head some way towards child_rad
-      double scale = rad / child_rad;
-      std::cout << "parent parent r " << rad << " has " << sections[sections[par].parent].children.size() << " children r " << child_rad << std::endl;
-      for (auto &child: sections[sections[par].parent].children) // normalise children radii. Doesn't matter if we do this multiple times
-        sections[child].radius *= scale;
+      int parpar = sections[par].parent;
+      Eigen::Vector3d prevdir(0,0,1);
+      if (sections[parpar].parent != -1)
+        prevdir = (sections[parpar].tip - sections[sections[parpar].parent].tip).normalized();
+
+      std::vector<double> weights;
+      double total_weight = 0.0;
+      double total_rad_sqr = 0.0;
+      for (auto &child: sections[parpar].children)
+      {
+        Eigen::Vector3d dir = (sections[child].tip - sections[parpar].tip).normalized();
+        #if 1 // angle based
+        double ang = std::atan2(dir.cross(prevdir).norm(), dir.dot(prevdir));
+        double weight = std::pow(1.0 - std::abs(ang / 3.1415), 8.0); // bigger power for smaller side branches
+        #else
+        double weight = std::pow((1.0 + dir.dot(prevdir))/2.0, 4.0); // bigger power for smaller side branches
+        #endif
+        weights.push_back(weight);
+        total_weight += weight;
+        total_rad_sqr += sqr(sections[child].radius);
+      }
+      int i = 0;
+      double desired_total = sqr(sections[parpar].radius);
+      desired_total = std::max(desired_total*0.9, std::min(total_rad_sqr, desired_total*1.1));
+      for (auto &child: sections[parpar].children) // normalise children radii. Doesn't matter if we do this multiple times
+      {
+        double rad_sqr = weights[i++] * desired_total / total_weight;
+        sections[child].radius = std::sqrt(rad_sqr);
+      }
     }
     #endif
     double thickness = 4.0*sections[sec].radius;
     if (par >= 0)
+    {
       thickness = 4.0*sections[par].radius;
-    if (sec > 3000)
+      if (sections[par].parent >= 0)
+        thickness = (thickness + 8.0*sections[sections[par].parent].radius) / 3.0; // modify thickness more slowly
+    }
+    thickness = std::max(4.0 * 0.04, thickness); // TODO: do we use a minimum thickness??
+    if (sections[sec].radius < 0.02)
     {
       sections[sec].tip.setZero();
       for (auto &i: sections[sec].roots)
@@ -219,7 +243,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       size_t sum = sections[sec].roots.size() + sections[sec].ends.size();
       if (sum > 0)
         sections[sec].tip /= (double)sum;
-      break;
+      continue;
     }
 
     double thickness_sqr = thickness*thickness;
@@ -256,29 +280,10 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       // first, get interpolated edge points
       for (auto &j: all_ends)
       {
-        #define EXTRAPOLATE_FORWARDS // if we look farther up the branch, then we have a more reliable indicator of splitting
-        const double extended_thickness = thickness * 1.5; // look half a segment farther
-        int i = j;
-        while ((points[i].pos - base).squaredNorm() < extended_thickness*extended_thickness && children[i].size()>0)
-          i = children[i][0]; // choose the first branch, slightly better would be to choose all branches and get the centroid, but this would be unecessarily complex
-        const double dist1j = (points[i].pos - base).norm();
-        if (dist1j < extended_thickness) // then extrapolate
-        {
-          points[j].edge_pos = base + (points[i].pos - base) * extended_thickness / dist1j;
-        }
-        else
-        {
-          double dist0j = (points[points[i].parent].pos - base).norm();
-          double blendj = (extended_thickness - dist0j) / (dist1j - dist0j);
-          points[j].edge_pos = points[points[i].parent].pos*(1.0-blendj) + points[i].pos*blendj;   
-        }
-        #if defined EXTRAPOLATE_FORWARDS
-        #else
         double dist1j = (points[j].pos - base).norm();
         double dist0j = (points[points[j].parent].pos - base).norm();
         double blendj = (thickness - dist0j) / (dist1j - dist0j);
         points[j].edge_pos = points[points[j].parent].pos*(1.0-blendj) + points[j].pos*blendj;
-        #endif
       }
       std::vector<Eigen::Vector3d> ps;
       std::vector<int> v_indices;
@@ -287,7 +292,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         ps.push_back(points[i].edge_pos);
         v_indices.push_back(i);
       }
-      std::vector< std::vector<int> > clusters = generateClusters(ps, 2.5*sections[sec].radius, 4.5*sections[sec].radius, true);
+      std::vector< std::vector<int> > clusters = generateClusters(ps, 2.5*thickness/4.0, 4.5*thickness/4.0, true);
       for (auto &cluster: clusters)
       {
         for (auto &id: cluster)
@@ -304,6 +309,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       {
         std::cout << "subsequent branch with " << clusters[i].size() << " / " << all_ends.size() << " points" << std::endl;
         BranchSection new_node = sections[sec];
+        new_node.rank++;
         new_node.ends = clusters[i];
         if (new_node.parent != -1)
           sections[new_node.parent].children.push_back((int)sections.size());
@@ -446,38 +452,17 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       } 
       #endif   
 
-      double rad = 0.0, rad_sqr = 0.0;
+      double n = 4.0;
+      double rad_sqr = n * sqr(sections[par].radius);
       for (auto &node: nodes)
       {
         Eigen::Vector3d offset = points[node].pos - sections[sec].tip;
         double dist_sqr = (offset - dir*offset.dot(dir)).squaredNorm();
-        rad += std::sqrt(dist_sqr);
         rad_sqr += dist_sqr;
+        n++;
       }
-      if (nodes.size() > 5)
-      {
-        double n = (double)nodes.size();
-        double variance = (rad_sqr/n - sqr(rad / n)) * n/(n-4.0); // end part gives sample variance
-        sections[sec].radius = std::sqrt(rad_sqr / n);
-        std::cout << "estimated radius: " << sections[sec].radius << ", sigma: " << std::sqrt(variance) << std::endl;
-
-        sections[sec].radius = std::max(sections[par].radius*0.75, sections[sec].radius);
-        // constrain radius:
-        if (std::sqrt(variance) > 0.025) 
-        {
-          sections[sec].radius = std::min(sections[sec].radius, sections[par].radius);
-        }
-      }
-      else
-      {
-        sections[sec].radius = sections[par].radius;
-        if (extract_from_ends) // multi-branching and not enough nodes for a reliable estimate... what do we do? use branch angle?
-        {
-          double sin_angle = dir.cross(prevdir).norm();
-          std::cout << "not enough radius info on split, so using lateral change: " << sin_angle << " giving radius scale: " << 1.0/std::sqrt(1.0 + 2.0*sin_angle) << std::endl;
-          sections[sec].radius /= std::sqrt(1.0 + 2.0*sin_angle); // increase the coefficient for more angle sensitivity 
-        }
-      }    
+ //     sections[sec].radius = std::max(sections[par].radius*0.9, std::min(std::sqrt(rad_sqr / n), sections[par].radius*1.1));
+      sections[sec].radius = std::min(std::sqrt(rad_sqr / n), sections[par].radius*1.1);
     }
 
     // now add the single child for this particular tree node, assuming there are still ends
@@ -487,6 +472,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       new_node.parent = (int)sec;
       new_node.roots = sections[sec].ends;
       new_node.radius = sections[sec].radius;
+      new_node.rank = sections[sec].rank + 1;
       sections[sec].children.push_back((int)sections.size());
 
       new_node.tip.setZero();

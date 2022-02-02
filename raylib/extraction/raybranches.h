@@ -17,7 +17,7 @@ namespace ray
 {
 struct Bush
 {
-  Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only);
+  Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only, bool exclude_passing_rays);
   bool save(const std::string &filename);
   static std::vector<std::pair<Eigen::Vector3d, double> > load(const std::string &filename);
   std::vector<Branch> best_branches;
