@@ -7,49 +7,9 @@
 #include "../raydebugdraw.h"
 #include "rayclusters.h"
 #include <nabo/nabo.h>
-#include <queue>
 
 namespace ray
 {
-struct QueueNode
-{
-  QueueNode(){}
-  QueueNode(double distance_to_ground, double score, double radius, int index) : distance_to_ground(distance_to_ground), score(score), radius(radius), id(index) {}
-
-  double distance_to_ground;
-  double score;
-  double radius;
-  int id;
-};
-
-#define MINIMISE_SQUARE_DISTANCE // bad: end points are so distant that it creates separate branches
-#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
-class QueueNodeComparator 
-{ 
-public: 
-    bool operator() (const QueueNode &p1, const QueueNode &p2) 
-    { 
-#if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
-        return p1.score > p2.score; 
-#else
-        return p1.distance_to_ground > p2.distance_to_ground; 
-#endif
-    } 
-}; 
-
-static const double inf = 1e10;
-
-struct Vertex
-{
-  Vertex(){}
-  Vertex(const Eigen::Vector3d &pos) : pos(pos), edge_pos(0,0,0), parent(-1), distance_to_ground(inf), score(inf), visited(false) {}
-  Eigen::Vector3d pos;
-  Eigen::Vector3d edge_pos;
-  int parent;
-  double distance_to_ground;
-  double score;
-  bool visited;
-};
 
 Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, bool verbose)
 {
@@ -74,7 +34,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     Eigen::Vector3d root(trunk.first[0], trunk.first[1], min_height - trunk.second);
     BranchSection base;
     base.radius = trunk.second;
-    closest_node.push(QueueNode(0, 0, base.radius, (int)points.size()));
+    closest_node.push(QueueNode(0, 0, base.radius, (int)points.size(), (int)points.size()));
     base.roots.push_back((int)points.size());
     base.rank = 0;
     points.push_back(Vertex(root));
@@ -87,65 +47,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
-  // 1. get nearest neighbours
-  const int search_size = 20;
-  Eigen::MatrixXd points_p(3, points.size());
-  for (unsigned int i = 0; i < points.size(); i++) 
-    points_p.col(i) = points[i].pos;
-  Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
-  // Run the search
-  Eigen::MatrixXi indices;
-  Eigen::MatrixXd dists2;
-  indices.resize(search_size, points.size());
-  dists2.resize(search_size, points.size());
-  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
-  
-  // 2b. climb up from lowest points...
-	while(!closest_node.empty())
-  {
-		QueueNode node = closest_node.top(); closest_node.pop();
-		if(!points[node.id].visited)
-    {
-      for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
-      {
-        int child = indices(i, node.id);
-        double dist = std::sqrt(dists2(i, node.id));
-        double new_dist = node.distance_to_ground + dist/node.radius;
-        double new_score = 0;
-        #if defined MINIMISE_SQUARE_DISTANCE
-        dist *= dist;
-        #endif
-        #if defined MINIMISE_ANGLE
-        Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
-        Eigen::Vector3d dir(0,0,1);
-        int ppar = points[node.id].parent;
-        if (ppar != -1)
-        {
-          if (points[ppar].parent != -1)
-            dir = (points[node.id].pos - points[points[ppar].parent].pos).normalized(); // this is a bit smoother than...
-          else
-            dir = (points[node.id].pos - points[ppar].pos).normalized();  // ..just this
-        }
-        const double power = 2.0;
-        dist /= std::pow(std::max(0.001, dif.dot(dir)), power);
-        #endif
-        dist /= node.radius;
-        #if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
-        new_score = node.score + dist;
-        if (new_score < points[child].score)
-        #else
-        if (new_dist < points[child].distance_to_ground)
-        #endif
-        {
-					points[child].score = new_score;
-					points[child].distance_to_ground = new_dist;
-          points[child].parent = node.id;
-					closest_node.push(QueueNode(points[child].distance_to_ground, points[child].score, node.radius, child));
-				}
-			}
-		  points[node.id].visited = true;
-		}
-	}
+  connectPointsShortestPath(points, closest_node);
 
   if (verbose)
   {

@@ -228,41 +228,28 @@ void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, doubl
     point[2] = -point[2];
 }
 
-
-void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
+void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double pixel_width, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double gradient)
 {
 #if RAYLIB_WITH_QHULL  
-  #define PRE_PROCESS 
-  #if defined PRE_PROCESS
-  // preprocessing to make the cloud smaller.
-  Eigen::Vector3d min_bound, max_bound;
-  cloud.calcBounds(&min_bound, &max_bound);
-  double spacing = cloud.estimatePointSpacing();
-  double pixel_width = 2.0 * spacing;
   Eigen::Vector3d extent = max_bound - min_bound;
   Eigen::Vector2i dims((int)std::ceil(extent[0]/pixel_width), (int)std::ceil(extent[1]/pixel_width));
   std::vector<Eigen::Vector3d> lowests(dims[0]*dims[1]);
   for (int i = 0; i<dims[0]; i++)
     for (int j = 0; j<dims[1]; j++)
       lowests[i + dims[0]*j] = Eigen::Vector3d(0,0,1e10);
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  for (size_t i = 0; i<ends.size(); i++)
   {
-    if (!cloud.rayBounded(i))
-      continue;
-    Eigen::Vector3d pos = (cloud.ends[i] - min_bound) / (double)pixel_width;
+    Eigen::Vector3d pos = (ends[i] - min_bound) / (double)pixel_width;
     int index = (int)pos[0] + dims[0] * (int)pos[1];
-    if (cloud.ends[i][2] < lowests[index][2])
-      lowests[index] = cloud.ends[i];
+    if (ends[i][2] < lowests[index][2])
+      lowests[index] = ends[i];
   }
-#endif
 
   std::vector<Eigen::Vector3d> points;
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  for (size_t i = 0; i<ends.size(); i++)
   {
-    if (!cloud.rayBounded(i))
-      continue;
-    Eigen::Vector3d p = cloud.ends[i];
-    #if defined PRE_PROCESS
+    Eigen::Vector3d p = ends[i];
+
     Eigen::Vector3d point = (p - min_bound) / (double)pixel_width;
     int I = (int)point[0];
     int J = (int)point[1];
@@ -289,14 +276,30 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
     }
     if (remove)
       continue;
-    #endif
+
     points.push_back(p);
   }
-#if defined PRE_PROCESS
-  std::cout << "size before: " << cloud.ends.size() << ", size after: " << points.size() << std::endl;
-#endif
+  std::cout << "size before: " << ends.size() << ", size after: " << points.size() << std::endl;
 
   growUpwards(points, gradient);
+#endif  
+}
+
+void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
+{
+#if RAYLIB_WITH_QHULL  
+  // preprocessing to make the cloud smaller.
+  Eigen::Vector3d min_bound, max_bound;
+  cloud.calcBounds(&min_bound, &max_bound);
+  double spacing = cloud.estimatePointSpacing();
+  double pixel_width = 2.0 * spacing;
+  std::vector<Eigen::Vector3d> ends;
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+  {
+    if (cloud.rayBounded(i))
+      ends.push_back(cloud.ends[i]);
+  }
+  growUpwardsFast(ends, pixel_width, min_bound, max_bound, gradient);
   mesh_.reduce();
 
   writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);

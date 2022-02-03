@@ -28,6 +28,9 @@ public:
   void growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
   void growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
 
+  /// performs voxel-based culling prior to growing upwards
+  void growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double pixel_width, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double gradient);
+
   /// access the generated mesh
   Mesh &mesh(){ return mesh_; }
   const Mesh &mesh() const { return mesh_; }  

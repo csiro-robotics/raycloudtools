@@ -51,6 +51,7 @@ set(PUBLIC_HEADERS
   extraction/rayterrain.h 
   extraction/raytrees.h
   extraction/rayforest.h
+  extraction/raysegment.h
   extraction/raywatershed.h
   extraction/rayoccupancy2d.h
 )
@@ -96,6 +97,7 @@ set(SOURCES
   extraction/raytrees.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp
+  extraction/raysegment.cpp
   extraction/raywatershed.cpp
   extraction/rayagglomerate.cpp
 )

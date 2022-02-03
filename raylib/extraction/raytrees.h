@@ -9,11 +9,10 @@
 #include "raylib/raylibconfig.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
-
+#include "raysegment.h"
 
 namespace ray
 {
-  
 struct BranchSection
 {
   BranchSection() : tip(0,0,0), radius(0), parent(-1), id(-1), rank(0) {}
