@@ -56,7 +56,7 @@ struct Vertex
 };
 
 void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node);
-void segmentTrees(const Cloud &cloud, const std::string &output_name, double max_diameter, double gradient);
+void segmentTrees(Cloud &cloud, double max_diameter, double gradient);
 
 } // namespace ray
 #endif // RAYLIB_RAYSEGMENT_H

@@ -73,19 +73,22 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
 	}
 }
 
-void segmentTrees(const Cloud &cloud, const std::string &output_name, double max_diameter, double gradient)
+void segmentTrees(Cloud &cloud, double max_diameter, double gradient)
 {
   std::cout << "segmenting cloud with tree diameter: " << max_diameter << " and gradient: " << gradient << std::endl;
   std::vector<Vertex> points;  
   points.reserve(cloud.ends.size());
   std::vector<Eigen::Vector3d> raw_points;
   raw_points.reserve(cloud.ends.size());
+  std::vector<int> original_ids;
+  original_ids.reserve(cloud.ends.size());
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
   {
     if (cloud.rayBounded(i))
     {
       points.push_back(Vertex(cloud.ends[i]));
       raw_points.push_back(cloud.ends[i]);
+      original_ids.push_back(i);
     }      
   }
 
@@ -153,9 +156,9 @@ void segmentTrees(const Cloud &cloud, const std::string &output_name, double max
   }
 
   // now colour the cloud based on start index
-  Cloud new_cloud;
-  for (auto &point: points)
+  for (int i = 0; i<roots_start; i++)
   {
+    Vertex &point = points[i];
     if (point.root == -1)
       continue;
     Eigen::Vector3i index = ((points[point.root].pos - box_min)/pixel_width).cast<int>();    
@@ -174,13 +177,11 @@ void segmentTrees(const Cloud &cloud, const std::string &output_name, double max
     }
     index = best_index;
 
-    RGBA colour;
+    RGBA &colour = cloud.colours[original_ids[i]];
     colour.red   = uint8_t(255.0 * (0.5 + 0.5*std::sin((double)index[0]*0.8)));
     colour.green = uint8_t(255.0 * (0.5 + 0.5*std::sin((double)index[1]*0.8)));
     colour.blue  = uint8_t(255.0 * (0.5 + 0.5*std::sin((double)index[0]*0.6 + (double)index[1]*0.5)));
-    new_cloud.addRay(points[point.root].pos, point.pos, 0.0, colour);
   }
-  new_cloud.save(output_name);
 }
 
 } // namespace ray

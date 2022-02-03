@@ -122,7 +122,8 @@ int main(int argc, char *argv[])
     cloud.load(in_file);
     double max_diam = max_diameter_option.isSet() ? max_diameter.value() : 0.9;
     double grad = gradient_option.isSet() ? gradient.value() : 1.0;
-    segmentTrees(cloud, out_file, max_diam, grad);
+    segmentTrees(cloud, max_diam, grad);
+    cloud.save(out_file);
     return 1;
   }
   const std::string type = colour_type.selectedKey();
