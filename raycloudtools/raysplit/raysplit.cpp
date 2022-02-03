@@ -22,6 +22,7 @@ void usage(int exit_code = 1)
   std::cout << "raysplit raycloud plane 10,0,0           - splits around plane at 10 m along x axis" << std::endl;
   std::cout << "                  colour                 - splits by colour, one cloud per colour" << std::endl;
   std::cout << "                  colour 0.5,0,0         - splits by colour, around half red component" << std::endl;
+  std::cout << "                  single_colour 255,0,0  - splits out a single colour, in 0-255 units" << std::endl;
   std::cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity" << std::endl;
   std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << std::endl;
   std::cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << std::endl;
@@ -40,11 +41,11 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
-  ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
+  ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), tube_radius(0.001, 1000.0);
-  ray::KeyValueChoice choice({"plane", "time", "colour", "alpha", "raydir", "range"}, 
-                             {&plane,  &time,  &colour,  &alpha,  &raydir,  &range});
+  ray::KeyValueChoice choice({"plane", "time", "colour", "single_colour", "alpha", "raydir", "range"}, 
+                             {&plane,  &time,  &colour,  &single_colour, &alpha,  &raydir,  &range});
   ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), tree_text("trees"), percent_text("%");
   ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), tube_text("tube");
@@ -56,9 +57,8 @@ int main(int argc, char *argv[])
   bool grid_format = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width});
   bool grid_format2 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width2});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
-  bool tree_split = ray::parseCommandLine(argc, argv, {&cloud_file, &tree_text, &tree_file});
   bool tube_split = ray::parseCommandLine(argc, argv, {&cloud_file, &tube_text, &tube_start, &tube_end, &tube_radius});
-  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent && !tree_split && !tube_split)
+  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent && !tube_split)
   {
     usage();
   }
@@ -129,10 +129,6 @@ int main(int argc, char *argv[])
       return cloud.times[i] > time_thresh; 
     });
   }
-  else if (tree_split)
-  {
-    res = ray::splitTrees(rc_name, cloud_file.nameStub(), tree_file.name());
-  }  
   else if (box_format)
   {
     // Can't use cloud::split as sets are not mutually exclusive here.
@@ -183,6 +179,16 @@ int main(int argc, char *argv[])
         Eigen::Vector3d col((double)cloud.colours[i].red / 255.0, (double)cloud.colours[i].green / 255.0,
                      (double)cloud.colours[i].blue / 255.0);
         return col.dot(vec) > 1.0;
+      });
+    }    
+    else if (parameter == "single_colour")
+    {
+      ray::RGBA col;
+      col.red = (uint8_t)single_colour.value()[0];
+      col.green = (uint8_t)single_colour.value()[1];
+      col.blue = (uint8_t)single_colour.value()[2];
+      res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
+        return !(cloud.colours[i].red == col.red && cloud.colours[i].green == col.green && cloud.colours[i].blue == col.blue);
       });
     }
     else if (parameter == "range")
