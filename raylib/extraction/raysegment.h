@@ -46,11 +46,12 @@ static constexpr double inf = 1e10;
 struct Vertex
 {
   Vertex(){}
-  Vertex(const Eigen::Vector3d &pos) : pos(pos), edge_pos(0,0,0), parent(-1), root(-1), distance_to_ground(inf), score(inf), visited(false) {}
+  Vertex(const Eigen::Vector3d &pos) : pos(pos), edge_pos(0,0,0), parent(-1), root(-1), distance_to_ground(inf), distance_to_end(0.0), score(inf), visited(false) {}
   Eigen::Vector3d pos;
   Eigen::Vector3d edge_pos;
   int parent, root;
   double distance_to_ground;
+  double distance_to_end;
   double score;
   bool visited;
 };

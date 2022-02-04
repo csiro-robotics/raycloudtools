@@ -15,12 +15,12 @@ namespace ray
 {
 struct BranchSection
 {
-  BranchSection() : tip(0,0,0), radius(0), parent(-1), id(-1), rank(0) {}
+  BranchSection() : tip(0,0,0), radius(0), parent(-1), id(-1), max_distance_to_end(0.0) {}
   Eigen::Vector3d tip;
   double radius;
   int parent;
   int id; // 0 based per tree
-  int rank; // number of segments up from the bottom segment
+  double max_distance_to_end;
   std::vector<int> roots; // root points
   std::vector<int> ends;
   std::vector<int> children;

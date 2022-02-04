@@ -19,6 +19,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     if (cloud.rayBounded(i))
       points.push_back(Vertex(cloud.ends[i]));
 
+  const double length_to_radius = 220.0;
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
   for (auto &trunk: trunks)
   {
@@ -36,7 +37,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     base.radius = trunk.second;
     closest_node.push(QueueNode(0, 0, base.radius, (int)points.size(), (int)points.size()));
     base.roots.push_back((int)points.size());
-    base.rank = 0;
+  //  base.max_distance_to_end = length_to_radius * base.radius;
     points.push_back(Vertex(root));
     points.back().distance_to_ground = 0;
     points.back().score = 0;
@@ -47,7 +48,29 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
-  connectPointsShortestPath(points, closest_node, 0);
+  connectPointsShortestPath(points, closest_node, 1000);
+
+  for (auto &section: sections)
+  {
+    std::cout << "initial end distances: " << points[section.roots[0]].distance_to_end << std::endl;
+    section.max_distance_to_end = points[section.roots[0]].distance_to_end;
+  }
+
+  // now get distance to end
+  for (size_t i = 0; i<points.size(); i++)
+  {
+    int id = (int)i;
+    int parent = points[i].parent;
+    while (parent != -1)
+    {
+      double end_dist = points[id].distance_to_end + (points[id].distance_to_ground - points[parent].distance_to_ground);
+      if (points[parent].distance_to_end > end_dist)
+        break;
+      points[parent].distance_to_end = end_dist;
+      id = parent;
+      parent = points[id].parent;
+    }
+  }
 
   if (verbose)
   {
@@ -91,51 +114,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
   {   
     if (!(sec%1000))
       std::cout << "sec " << sec << std::endl;
-    // 1. Apply Leonardo's rule
     int par = sections[sec].parent;
-    #if 1  // Leonardo's rule
-    if (par != -1 && sections[par].parent != -1 && sections[sections[par].parent].children.size() > 1) 
-    {
-      int parpar = sections[par].parent;
-      Eigen::Vector3d prevdir(0,0,1);
-      if (sections[parpar].parent != -1)
-        prevdir = (sections[parpar].tip - sections[sections[parpar].parent].tip).normalized();
-
-      std::vector<double> weights;
-      double total_weight = 0.0;
-      double total_rad_sqr = 0.0;
-      for (auto &child: sections[parpar].children)
-      {
-        Eigen::Vector3d dir = (sections[child].tip - sections[parpar].tip).normalized();
-        #if 1 // angle based
-        double ang = std::atan2(dir.cross(prevdir).norm(), dir.dot(prevdir));
-        double weight = std::pow(1.0 - std::abs(ang / 3.1415), 8.0); // bigger power for smaller side branches
-        #else
-        double weight = std::pow((1.0 + dir.dot(prevdir))/2.0, 4.0); // bigger power for smaller side branches
-        #endif
-        weights.push_back(weight);
-        total_weight += weight;
-        total_rad_sqr += sqr(sections[child].radius);
-      }
-      int i = 0;
-      double desired_total = sqr(sections[parpar].radius);
-      desired_total = std::max(desired_total*0.9, std::min(total_rad_sqr, desired_total*1.1));
-      for (auto &child: sections[parpar].children) // normalise children radii. Doesn't matter if we do this multiple times
-      {
-        double rad_sqr = weights[i++] * desired_total / total_weight;
-        sections[child].radius = std::sqrt(rad_sqr);
-      }
-    }
-    #endif
-    double thickness = 4.0*sections[sec].radius;
-    if (par >= 0)
-    {
-      thickness = 4.0*sections[par].radius;
-      if (sections[par].parent >= 0)
-        thickness = (thickness + 8.0*sections[sections[par].parent].radius) / 3.0; // modify thickness more slowly
-    }
-    thickness = std::max(4.0 * 0.04, thickness); // TODO: do we use a minimum thickness??
-    if (sections[sec].radius < 0.02)
+    if (sections[sec].max_distance_to_end < 8.0)
     {
       sections[sec].tip.setZero();
       for (auto &i: sections[sec].roots)
@@ -148,17 +128,19 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       continue;
     }
 
-    double thickness_sqr = thickness*thickness;
-    Eigen::Vector3d base(0,0,0);
-    for (auto &root: sections[sec].roots)
-      base += points[root].pos;
-    base /= (double)sections[sec].roots.size();
-
     std::vector<int> nodes;
-    std::cout << "tree " << sec << " radius used: " << thickness/4.0 << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
+    std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
     bool extract_from_ends = sections[sec].ends.size() > 0;
+    double thickness = 4.0 * sections[sec].max_distance_to_end / length_to_radius;
+    double thickness_sqr = thickness*thickness;
     if (!extract_from_ends)
     {
+      Eigen::Vector3d base(0,0,0);
+      for (auto &root: sections[sec].roots)
+        base += points[root].pos;
+      base /= (double)sections[sec].roots.size();
+
+
       nodes = sections[sec].roots;
       // 2. find all the points (and the end points) for this section:
       for (unsigned int ijk = 0; ijk<nodes.size(); ijk++)
@@ -211,8 +193,10 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       {
         std::cout << "subsequent branch with " << clusters[i].size() << " / " << all_ends.size() << " points" << std::endl;
         BranchSection new_node = sections[sec];
-        new_node.rank++;
         new_node.ends = clusters[i];
+ //       new_node.max_distance_to_end = 0.0;
+ //       for (auto &end: new_node.ends)
+ //         new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points[end].distance_to_end);        
         if (new_node.parent != -1)
           sections[new_node.parent].children.push_back((int)sections.size());
         sections.push_back(new_node);
@@ -363,8 +347,9 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         rad_sqr += dist_sqr;
         n++;
       }
- //     sections[sec].radius = std::max(sections[par].radius*0.9, std::min(std::sqrt(rad_sqr / n), sections[par].radius*1.1));
-      sections[sec].radius = std::min(std::sqrt(rad_sqr / n), sections[par].radius*1.1);
+      sections[sec].radius = std::min(std::sqrt(rad_sqr / n), thickness / 4.0);
+      if (par != -1)
+        sections[sec].radius = std::min(sections[sec].radius, sections[par].radius*1.1);
     }
 
     // now add the single child for this particular tree node, assuming there are still ends
@@ -374,7 +359,9 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       new_node.parent = (int)sec;
       new_node.roots = sections[sec].ends;
       new_node.radius = sections[sec].radius;
-      new_node.rank = sections[sec].rank + 1;
+      new_node.max_distance_to_end = 0.0;
+      for (auto &root: new_node.roots)
+        new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points[root].distance_to_end);
       sections[sec].children.push_back((int)sections.size());
 
       new_node.tip.setZero();
