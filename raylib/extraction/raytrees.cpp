@@ -10,7 +10,7 @@
 
 namespace ray
 {
-
+// TODO: we need a concept of straightish line distance to end, not wiggly-all-over-the-place distance to end
 Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, bool verbose)
 {
   std::vector<Vertex> points;  
@@ -19,7 +19,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     if (cloud.rayBounded(i))
       points.push_back(Vertex(cloud.ends[i]));
 
-  const double length_to_radius = 220.0;
+  const double length_to_radius = 240.0;
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
   for (auto &trunk: trunks)
   {
@@ -37,7 +37,6 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     base.radius = trunk.second;
     closest_node.push(QueueNode(0, 0, base.radius, (int)points.size(), (int)points.size()));
     base.roots.push_back((int)points.size());
-  //  base.max_distance_to_end = length_to_radius * base.radius;
     points.push_back(Vertex(root));
     points.back().distance_to_ground = 0;
     points.back().score = 0;
@@ -48,13 +47,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
-  connectPointsShortestPath(points, closest_node, 1000);
-
-  for (auto &section: sections)
-  {
-    std::cout << "initial end distances: " << points[section.roots[0]].distance_to_end << std::endl;
-    section.max_distance_to_end = points[section.roots[0]].distance_to_end;
-  }
+  connectPointsShortestPath(points, closest_node, 1.0);
 
   // now get distance to end
   for (size_t i = 0; i<points.size(); i++)
@@ -70,6 +63,12 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       id = parent;
       parent = points[id].parent;
     }
+  }
+
+  for (auto &section: sections)
+  {
+    std::cout << "initial end distances: " << points[section.roots[0]].distance_to_end << std::endl;
+    section.max_distance_to_end = points[section.roots[0]].distance_to_end;
   }
 
   if (verbose)
@@ -131,7 +130,8 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     std::vector<int> nodes;
     std::cout << "tree " << sec << " roots: " << sections[sec].roots.size() << ", ends: " << sections[sec].ends.size() << std::endl;
     bool extract_from_ends = sections[sec].ends.size() > 0;
-    double thickness = 4.0 * sections[sec].max_distance_to_end / length_to_radius;
+    double max_radius = sections[sec].max_distance_to_end / length_to_radius;
+    double thickness = 4.0 * max_radius;
     double thickness_sqr = thickness*thickness;
     if (!extract_from_ends)
     {
@@ -176,7 +176,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
         ps.push_back(points[i].edge_pos);
         v_indices.push_back(i);
       }
-      std::vector< std::vector<int> > clusters = generateClusters(ps, 2.5*thickness/4.0, 4.5*thickness/4.0, true);
+      std::vector< std::vector<int> > clusters = generateClusters(ps, 2.5*max_radius, 4.5*max_radius, true);
       for (auto &cluster: clusters)
       {
         for (auto &id: cluster)
@@ -339,17 +339,16 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
       #endif   
 
       double n = 4.0;
-      double rad_sqr = n * sqr(sections[par].radius);
+      double rad = n * sections[par].radius;
       for (auto &node: nodes)
       {
         Eigen::Vector3d offset = points[node].pos - sections[sec].tip;
-        double dist_sqr = (offset - dir*offset.dot(dir)).squaredNorm();
-        rad_sqr += dist_sqr;
+        rad += (offset - dir*offset.dot(dir)).norm();
         n++;
       }
-      sections[sec].radius = std::min(std::sqrt(rad_sqr / n), thickness / 4.0);
+      sections[sec].radius = std::min(rad / n, max_radius);
       if (par != -1)
-        sections[sec].radius = std::min(sections[sec].radius, sections[par].radius*1.1);
+        sections[sec].radius = std::min(sections[sec].radius, sections[par].radius);
     }
 
     // now add the single child for this particular tree node, assuming there are still ends
