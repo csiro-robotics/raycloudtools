@@ -9,7 +9,7 @@
 
 namespace ray
 {
-void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node)
+void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit)
 {
   // 1. get nearest neighbours
   const int search_size = 20;
@@ -22,7 +22,7 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
   Eigen::MatrixXd dists2;
   indices.resize(search_size, points.size());
   dists2.resize(search_size, points.size());
-  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
+  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0, distance_limit);
   
   // 2b. climb up from lowest points...
 	while(!closest_node.empty())
@@ -73,7 +73,7 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
 	}
 }
 
-void segmentTrees(Cloud &cloud, double max_diameter, double gradient)
+void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double distance_limit, double height_min)
 {
   std::cout << "segmenting cloud with tree diameter: " << max_diameter << " and gradient: " << gradient << std::endl;
   std::vector<Vertex> points;  
@@ -132,16 +132,18 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient)
     closest_node.push(QueueNode(0, 0, heightfield(index[0], index[1]), ind, ind));
   }
 
-  connectPointsShortestPath(points, closest_node);
+  connectPointsShortestPath(points, closest_node, distance_limit);
 
   // now create a count array
   Eigen::ArrayXXi counts = Eigen::ArrayXXi::Constant((int)heightfield.rows(), (int)heightfield.cols(), 0);
+  Eigen::ArrayXXd heights = Eigen::ArrayXXd::Constant((int)heightfield.rows(), (int)heightfield.cols(), 0);
   for (auto &point: points)
   {
     if (point.root == -1)
       continue;
     Eigen::Vector3i index = ((points[point.root].pos - box_min)/pixel_width).cast<int>();    
     counts(index[0], index[1])++;
+    heights(index[0], index[1]) = std::max(heights(index[0], index[1]), point.pos[2] - lowfield(index[0], index[1]));
   }
   // now create a 2x2 summed array:
   Eigen::ArrayXXi sums = Eigen::ArrayXXi::Constant((int)counts.rows(), (int)counts.cols(), 0);
@@ -154,33 +156,73 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient)
       sums(i,j) = counts(i,j)+counts(i,j2)+counts(i2,j)+counts(i2,j2);
     }
   }
+  // now find the best 2x2 sum for each cell:
+  std::vector<Eigen::Vector2i> bests((int)counts.rows() * (int)counts.cols());
+  for (int x = 0; x<(int)sums.rows(); x++)
+  {
+    for (int y = 0; y<(int)sums.cols(); y++)
+    {
+      Eigen::Vector2i best_index(-1,-1);
+      int largest_sum = -1;
+      for (int i = std::max(0, x-1); i<=x; i++)
+      {
+        for (int j = std::max(0, y-1); j<=y; j++)
+        {
+          if (sums(i,j) > largest_sum)
+          {
+            largest_sum = sums(i,j);
+            best_index = Eigen::Vector2i(i,j);
+          }
+        }
+      }
+      bests[x + sums.rows()*y] = best_index;
+    }
+  }
+  // next we need to find the highest point for each cell....
+  Eigen::ArrayXXd max_heights = Eigen::ArrayXXd::Constant((int)counts.rows(), (int)counts.cols(), 0);
+  for (int i = 0; i<(int)sums.rows(); i++)
+  {
+    for (int j = 0; j<(int)sums.cols(); j++)
+    {
+      Eigen::Vector2i best_index = bests[i + sums.rows()*j];
+      double max_height = 0.0;
+      for (int x = best_index[0]; x<std::min(best_index[0]+2, (int)sums.rows()); x++)
+      {
+        for (int y = best_index[1]; y<std::min(best_index[1]+2, (int)sums.cols()); y++)
+        {
+          if (bests[x + sums.rows()*y] == best_index)
+          {
+            max_height = std::max(max_height, heights(x,y));
+          }
+        }
+      }
+      max_heights(i, j) = max_height;
+    }
+  }  
 
   // now colour the cloud based on start index
   for (int i = 0; i<roots_start; i++)
   {
+    RGBA &colour = cloud.colours[original_ids[i]];
     Vertex &point = points[i];
     if (point.root == -1)
-      continue;
-    Eigen::Vector3i index = ((points[point.root].pos - box_min)/pixel_width).cast<int>();    
-    Eigen::Vector3i best_index(-1,-1,-1);
-    int largest_sum = -1;
-    for (int i = std::max(0, index[0]-1); i<=index[0]; i++)
     {
-      for (int j = std::max(0, index[1]-1); j<=index[1]; j++)
-      {
-        if (sums(i,j) > largest_sum)
-        {
-          largest_sum = sums(i,j);
-          best_index = Eigen::Vector3i(i,j,0);
-        }
-      }
+      colour.red = colour.green = colour.blue = 0;
+      continue;
     }
-    index = best_index;
-
-    RGBA &colour = cloud.colours[original_ids[i]];
-    colour.red   = uint8_t(255.0 * (0.5 + 0.5*std::sin((double)index[0]*0.8)));
-    colour.green = uint8_t(255.0 * (0.5 + 0.5*std::sin((double)index[1]*0.8)));
-    colour.blue  = uint8_t(255.0 * (0.5 + 0.5*std::sin((double)index[0]*0.6 + (double)index[1]*0.5)));
+    Eigen::Vector3i index = ((points[point.root].pos - box_min)/pixel_width).cast<int>();    
+    Eigen::Vector2i best_index = bests[index[0] + sums.rows()*index[1]];
+    double max_height = max_heights(index[0], index[1]);
+    if (max_height < height_min)
+    {
+      colour.red = colour.green = colour.blue = 0;
+      continue;
+    }
+    index[0] = best_index[0]; index[1] = best_index[1];
+    srand(index[0] + 3127*index[1]);
+    colour.red   = uint8_t(50 + rand()%205);
+    colour.green = uint8_t(50 + rand()%205);
+    colour.blue  = uint8_t(50 + rand()%205);
   }
 }
 

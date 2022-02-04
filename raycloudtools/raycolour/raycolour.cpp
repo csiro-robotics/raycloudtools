@@ -28,12 +28,9 @@ void usage(int exit_code = 1)
   std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
   std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
   std::cout << "                   1,1,1         - set r,g,b" << std::endl;
+  std::cout << "                   branches      - red and green are lidar intensity and cylindricality respectively, greater for branches than for leaves" << std::endl;
   std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds" << std::endl;
   std::cout << "                         --lit   - shaded (slow on large datasets)" << std::endl;
-  std::cout << "                   foliage       - uses lidar intensity to split around best split point. r,g,b are different blur levels" << std::endl;
-  std::cout << "                   trees         - colours each tree a different colour, assuming the trunk is visible" << std::endl;
-  std::cout << "                        --max_diameter 0.9 - maximum trunk diameter for tree" << std::endl;
-  std::cout << "                        --gradient 0.5     - maximum gradient for identifying ground points" << std::endl;
   exit(exit_code);
 }
 
@@ -97,39 +94,24 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, image_file;
-  ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha", "foliage"});
+  ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha", "branches"});
   ray::OptionalFlagArgument lit("lit", 'l');
   ray::Vector3dArgument col(0.0, 1.0);
   ray::DoubleArgument alpha(0.0, 1.0);
-  ray::TextArgument alpha_text("alpha"), image_text("image"), trees_text("trees");
-  ray::DoubleArgument max_diameter(0.01, 10.0), gradient(0.01, 20.0);
-  ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
-  ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
+  ray::TextArgument alpha_text("alpha"), image_text("image");
   const bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&lit});
   const bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col}, {&lit});
   const bool flat_alpha = ray::parseCommandLine(argc, argv, {&cloud_file, &alpha_text, &alpha}, {&lit});
   const bool image_format = ray::parseCommandLine(argc, argv, {&cloud_file, &image_text, &image_file}, {&lit});
-  const bool tree_format = ray::parseCommandLine(argc, argv, {&cloud_file, &trees_text}, {&max_diameter_option, &gradient_option});
-  if (!standard_format && !flat_colour && !flat_alpha && !image_format && !tree_format)
+  if (!standard_format && !flat_colour && !flat_alpha && !image_format)
     usage();
-  
 
   std::string in_file = cloud_file.name();
   const std::string out_file = cloud_file.nameStub() + "_coloured.ply";
-  if (tree_format)
-  {
-    ray::Cloud cloud;
-    cloud.load(in_file);
-    double max_diam = max_diameter_option.isSet() ? max_diameter.value() : 0.9;
-    double grad = gradient_option.isSet() ? gradient.value() : 1.0;
-    segmentTrees(cloud, max_diam, grad);
-    cloud.save(out_file);
-    return 1;
-  }
   const std::string type = colour_type.selectedKey();
   uint8_t split_alpha = 100; 
 
-  if (type != "shape" && type != "normal" && type != "foliage") // chunk loading possible for simple cases
+  if (type != "shape" && type != "normal" && type != "branches") // chunk loading possible for simple cases
   {
     ray::CloudWriter writer;
     if (!writer.begin(out_file))
@@ -233,7 +215,7 @@ int main(int argc, char *argv[])
     norms = &normals;
   else if (type == "shape")
     dims = &dimensions;
-  else if (type == "foliage")
+  else if (type == "branches")
   {
     inds = &indices;
     dims = &dimensions;
@@ -274,7 +256,7 @@ int main(int argc, char *argv[])
       cloud.colours[i].blue = (uint8_t)(255.0 * (0.5 + 0.5 * normals[i][2]));
     }
   }
-  else if (type == "foliage")
+  else if (type == "branches")
   {
     std::vector<uint8_t> cols;
     for (int i = 0; i < (int)cloud.ends.size(); i++)

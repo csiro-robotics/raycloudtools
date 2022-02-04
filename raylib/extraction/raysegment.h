@@ -55,8 +55,8 @@ struct Vertex
   bool visited;
 };
 
-void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node);
-void segmentTrees(Cloud &cloud, double max_diameter, double gradient);
+void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit);
+void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double distance_limit, double height_min);
 
 } // namespace ray
 #endif // RAYLIB_RAYSEGMENT_H

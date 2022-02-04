@@ -47,7 +47,7 @@ Trees::Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, do
     DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 0);
   }
 
-  connectPointsShortestPath(points, closest_node);
+  connectPointsShortestPath(points, closest_node, 0);
 
   if (verbose)
   {
