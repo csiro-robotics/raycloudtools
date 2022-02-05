@@ -107,6 +107,7 @@ int main(int argc, char *argv[])
     ray::readPlyMesh(mesh_file.name(), mesh);
     ray::Trees trees(cloud, mesh, verbose.isSet());
     trees.save(cloud_file.nameStub() + "_trees.txt");
+    cloud.save(cloud_file.nameStub() + "_segmented.ply");
   }
   else if (extract_forest)
   {

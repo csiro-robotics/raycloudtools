@@ -20,6 +20,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
   const double height_min = 2.0;
   const double minimum_radius = 0.03;
   std::vector< std::vector<int> > roots_list = getRootsAndSegment(points, cloud, mesh, max_diameter, distance_limit, height_min);
+  const int orig_points = (int)points.size() - (int)mesh.vertices().size();
   if (verbose)
     cloud.save("test_output.ply");
 
@@ -28,6 +29,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
   {
     BranchSection base;
     base.roots = roots_list[i];
+    for (auto &root: base.roots)
+      if (root < orig_points)
+        std::cout << "error: " << root << std::endl;
     sections.push_back(base);
   }
   if (verbose)
@@ -60,20 +64,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
   for (int i = (int)sections.size()-1; i>=0; i--)
   {
     for (auto &root: sections[i].roots)
-    {
       sections[i].max_distance_to_end = std::max(sections[i].max_distance_to_end, points[root].distance_to_end);
-    }
-    if (sections[i].max_distance_to_end < height_min)
-    {
-      std::cout << "distance to end: " << sections[i].max_distance_to_end << " should not be less than min height " << height_min << std::endl;
-      sections[i] = sections.back();
-      sections.pop_back();
-    }
-    else 
-    {
-      sections[i].radius = sections[i].max_distance_to_end / length_to_radius;
-      std::cout << "initial end distances: " << sections[i].roots.size() << ": " << sections[i].max_distance_to_end << " rad: " << sections[i].radius << std::endl;
-    }
+    sections[i].radius = sections[i].max_distance_to_end / length_to_radius;
+    std::cout << "initial end distances: " << sections[i].roots.size() << ": " << sections[i].max_distance_to_end << " rad: " << sections[i].radius << std::endl;
   }
 
   // 2c. generate skeletons. 
@@ -87,6 +80,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
   // now generate initial sections
   for (size_t i = 0; i<points.size(); i++)
     points[i].visited = false;
+  std::vector<int> section_ids(points.size(), -1);
 
 
   // now trace from root tree nodes upwards, getting node centroids
@@ -136,8 +130,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
             sections[sec].ends.push_back(child); 
         }
       }
-      if (verbose)
-        std::cout << "no ends, so found " << sections[sec].ends.size() << " ends" << std::endl;
     
       std::vector<int> all_ends = sections[sec].ends;
       // 3. cluster child roots to find if we have separate branches
@@ -217,7 +209,21 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
             break;
           node = points[node].parent;
         }
+        if (par == -1)
+        {
+          section_ids[nodes.back()] = (int)sec;
+        }
       }
+      if (par == -1 && sections[sec].ends.size() > 0)
+        std::cout << "sub section " << sec << " given roots" << std::endl;
+    }
+    else if (par == -1)
+    {
+      std::cout << "section " << sec << " given roots" << std::endl;
+      for (auto &root: sections[sec].roots)
+      {
+        section_ids[root] = (int)sec;
+      }    
     }
 
     // find points in this segment, and the root points for the child segment
@@ -287,7 +293,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
           if (shift2 > 1.0) // don't shift more than one radius each iteration, for safety
             shift /= std::sqrt(shift2);
 
-          std::cout << "shifting the centroid by " << shift.norm() * sections[sec].radius << " metres. New radius " << sections[sec].radius << std::endl;
           sections[sec].tip += (ax1*shift[0] + ax2*shift[1]) * sections[sec].radius;   
         }
       } 
@@ -374,6 +379,36 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
       for (auto i: sections[children[c]].children)
         children.push_back(i);
     }
+  }
+
+  int j = -1;
+  for (unsigned int i = 0; i < cloud.ends.size(); i++)
+  {
+    RGBA &colour = cloud.colours[i];
+    if (cloud.rayBounded(i))
+    {
+      j++;
+      int root = points[j].root;
+      if (root == -1)
+      {
+        colour.red = colour.green = colour.blue = 0;
+        continue;
+      }
+      int seg = section_ids[root];
+      if (seg == -1)
+      {
+        colour.red = colour.green = colour.blue = 0;
+        continue;
+      }
+      srand(1 + seg);
+      colour.red   = uint8_t(50 + rand()%205);
+      colour.green = uint8_t(50 + rand()%205);
+      colour.blue  = uint8_t(50 + rand()%205);
+    }
+    else
+    {
+      colour.red = colour.green = colour.blue = 0;
+    }      
   }
 }
 

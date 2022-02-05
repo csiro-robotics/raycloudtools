@@ -77,14 +77,11 @@ std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, 
 {
   std::cout << "segmenting cloud with tree diameter: " << max_diameter << std::endl;
   points.reserve(cloud.ends.size());
-  std::vector<int> original_ids;
-  original_ids.reserve(cloud.ends.size());
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
   {
     if (cloud.rayBounded(i))
     {
       points.push_back(Vertex(cloud.ends[i]));
-      original_ids.push_back(i);
     }      
   }
 
@@ -198,42 +195,6 @@ std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, 
       max_heights(best_index[0], best_index[1]) = max_height;
     }
   }  
-
-  // now colour the cloud based on start index
-  for (int i = 0; i<roots_start; i++)
-  {
-    RGBA &colour = cloud.colours[original_ids[i]];
-    Vertex &point = points[i];
-    if (point.root != -1 && point.root < roots_start)
-      std::cout << "weird root: " << point.root << std::endl;
-    if (point.root == -1)
-    {
-      cloud.starts[original_ids[i]] = cloud.ends[original_ids[i]];
-      colour.red = colour.green = colour.blue = 0;
-      continue;
-    }
-    Eigen::Vector3i index = ((points[point.root].pos - box_min)/pixel_width).cast<int>();    
-    Eigen::Vector2i best_index = bests[index[0] + sums.rows()*index[1]];
-    double max_height = max_heights(index[0], index[1]);
-    if (max_height < height_min)
-    {
-      cloud.starts[original_ids[i]] = cloud.ends[original_ids[i]];
-      colour.red = colour.green = colour.blue = 0;
-      continue;
-    }
-    index[0] = best_index[0]; index[1] = best_index[1];
-    srand(1 + index[0] + 3127*index[1]);
-    colour.red   = uint8_t(50 + rand()%205);
-    colour.green = uint8_t(50 + rand()%205);
-    colour.blue  = uint8_t(50 + rand()%205);
-    if (point.parent == -1 || point.parent >= roots_start)
-      cloud.starts[original_ids[i]] = cloud.ends[original_ids[i]];    
-    else 
-      cloud.starts[original_ids[i]] = cloud.ends[original_ids[point.parent]];
-  }
-  for (size_t i = 0; i<cloud.ends.size(); i++)
-    if (!cloud.rayBounded(i))
-      cloud.starts[i] = cloud.ends[i];
 
   std::vector< std::vector<int> > roots_lists(sums.rows() * sums.cols());
   for (int i = roots_start; i < (int)points.size(); i++)
