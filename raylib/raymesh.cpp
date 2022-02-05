@@ -93,7 +93,7 @@ void Mesh::reduce()
   vertices_ = verts;
 }
 
-void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max, double width)
+void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max, double width) const
 {
   double top = box_max[2];
   box_max[2] = box_min[2] + 0.5*width; // ensure that the grid is only 1 voxel high

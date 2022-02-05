@@ -40,7 +40,7 @@ void usage(bool error=false)
   std::cout << "                            --width 0.25    - grid cell width" << std::endl;
   std::cout << "                            --min_gradient 0.15 - smallest distance per height to separate clusters" << std::endl;
   std::cout << "                            --max_gradient 1.0  - (-x) largest distance per height to separate clusters" << std::endl;
-  std::cout << "rayextract trees cloud.ply cloud_trunks.txt - estimate trees using trunks as seeds, and save to text file" << std::endl;
+  std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file" << std::endl;
 //  std::cout << "rayextract branches cloud.ply               - estimate tree branches and save to text file" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
 
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
   bool extract_forest_agglomerate = ray::parseCommandLine(argc, argv, {&forest_agglomerated, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &min_gradient_option, &max_gradient_option, &verbose});
-  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &trunks_file}, {&verbose});
+  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&verbose});
   bool extract_branches = ray::parseCommandLine(argc, argv, {&branches, &cloud_file}, {&verbose});
   if (!extract_trunks && !extract_branches && !extract_forest && !extract_forest_agglomerate && !extract_terrain && !extract_trees)
     usage();  
@@ -103,13 +103,9 @@ int main(int argc, char *argv[])
     if (!cloud.load(cloud_file.name()))
       usage(true);
 
-    std::vector<std::pair<Eigen::Vector3d, double> > trunks = ray::Wood::load(trunks_file.name());
-    if (trunks.empty())
-    {
-      std::cerr << "no trunks found in file: " << trunks_file.name() << std::endl;
-      usage(true);
-    }
-    ray::Trees trees(cloud, trunks, verbose.isSet());
+    ray::Mesh mesh;
+    ray::readPlyMesh(mesh_file.name(), mesh);
+    ray::Trees trees(cloud, mesh, verbose.isSet());
     trees.save(cloud_file.nameStub() + "_trees.txt");
   }
   else if (extract_forest)

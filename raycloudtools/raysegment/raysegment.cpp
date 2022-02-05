@@ -47,6 +47,6 @@ int main(int argc, char *argv[])
   double grad = gradient_option.isSet() ? gradient.value() : 1.0;
   double dist_limit = distance_limit_option.isSet() ? distance_limit.value() : 1.0;
   double height_minimum = height_min_option.isSet() ? height_min.value() : 2.0;
-  segmentTrees(cloud, max_diam, grad, dist_limit, height_minimum);
+ // segmentTrees(cloud, max_diam, grad, dist_limit, height_minimum);
   cloud.save(cloud_file.nameStub() + "_segmented.ply");
 }

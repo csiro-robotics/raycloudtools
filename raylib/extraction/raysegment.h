@@ -9,6 +9,7 @@
 #include "raylib/raylibconfig.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
+#include "../raymesh.h"
 #include <queue>
 
 
@@ -57,7 +58,7 @@ struct Vertex
 };
 
 void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit);
-void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double distance_limit, double height_min);
+std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh, double max_diameter, double distance_limit, double height_min);
 
 } // namespace ray
 #endif // RAYLIB_RAYSEGMENT_H

@@ -34,7 +34,7 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
       {
         int child = indices(i, node.id);
         double dist = std::sqrt(dists2(i, node.id));
-        double new_dist = node.distance_to_ground + dist/node.radius;
+        double new_dist = node.distance_to_ground + dist;
         double new_score = 0;
         #if defined MINIMISE_SQUARE_DISTANCE
         dist *= dist;
@@ -73,13 +73,10 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
 	}
 }
 
-void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double distance_limit, double height_min)
+std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh, double max_diameter, double distance_limit, double height_min)
 {
-  std::cout << "segmenting cloud with tree diameter: " << max_diameter << " and gradient: " << gradient << std::endl;
-  std::vector<Vertex> points;  
+  std::cout << "segmenting cloud with tree diameter: " << max_diameter << std::endl;
   points.reserve(cloud.ends.size());
-  std::vector<Eigen::Vector3d> raw_points;
-  raw_points.reserve(cloud.ends.size());
   std::vector<int> original_ids;
   original_ids.reserve(cloud.ends.size());
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
@@ -87,7 +84,6 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double dis
     if (cloud.rayBounded(i))
     {
       points.push_back(Vertex(cloud.ends[i]));
-      raw_points.push_back(cloud.ends[i]);
       original_ids.push_back(i);
     }      
   }
@@ -97,16 +93,18 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double dis
   cloud.calcBounds(&box_min, &box_max);
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
-  Terrain hull;
+  int roots_start = (int)points.size();
+/*  Terrain hull;
   double pix_width = 2.0 * cloud.estimatePointSpacing();
   hull.growUpwardsFast(raw_points, pix_width, box_min, box_max, gradient);
-  int roots_start = (int)points.size();
-  for (auto &vert: hull.mesh().vertices())
+  std::cout << "gradient: " << gradient << ", hull points: " << hull.mesh().vertices().size() << std::endl;
+  for (auto &vert: hull.mesh().vertices())*/
+  for (auto &vert: mesh.vertices())
   {
     points.push_back(Vertex(vert));
   }
   Eigen::ArrayXXd lowfield;
-  hull.mesh().toHeightField(lowfield, box_min, box_max, pixel_width);
+  mesh.toHeightField(lowfield, box_min, box_max, pixel_width);
 
   // set the height field to the height of the canopy above the ground
   Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant((int)lowfield.rows(), (int)lowfield.cols(), -1e10);
@@ -123,6 +121,7 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double dis
     }
   }
 
+  std::cout << "dif: " << (int)points.size() - roots_start << std::endl;
   for (int ind = roots_start; ind<(int)points.size(); ind++) 
   {
     points[ind].distance_to_ground = 0.0;
@@ -185,18 +184,18 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double dis
     for (int j = 0; j<(int)sums.cols(); j++)
     {
       Eigen::Vector2i best_index = bests[i + sums.rows()*j];
-      double max_height = 0.0;
+      double max_height = 0.0;    
       for (int x = best_index[0]; x<std::min(best_index[0]+2, (int)sums.rows()); x++)
       {
         for (int y = best_index[1]; y<std::min(best_index[1]+2, (int)sums.cols()); y++)
         {
-          if (bests[x + sums.rows()*y] == best_index)
+          if (bests[x + (int)sums.rows()*y] == best_index)
           {
             max_height = std::max(max_height, heights(x,y));
           }
         }
       }
-      max_heights(i, j) = max_height;
+      max_heights(best_index[0], best_index[1]) = max_height;
     }
   }  
 
@@ -205,8 +204,11 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double dis
   {
     RGBA &colour = cloud.colours[original_ids[i]];
     Vertex &point = points[i];
+    if (point.root != -1 && point.root < roots_start)
+      std::cout << "weird root: " << point.root << std::endl;
     if (point.root == -1)
     {
+      cloud.starts[original_ids[i]] = cloud.ends[original_ids[i]];
       colour.red = colour.green = colour.blue = 0;
       continue;
     }
@@ -215,15 +217,51 @@ void segmentTrees(Cloud &cloud, double max_diameter, double gradient, double dis
     double max_height = max_heights(index[0], index[1]);
     if (max_height < height_min)
     {
+      cloud.starts[original_ids[i]] = cloud.ends[original_ids[i]];
       colour.red = colour.green = colour.blue = 0;
       continue;
     }
     index[0] = best_index[0]; index[1] = best_index[1];
-    srand(index[0] + 3127*index[1]);
+    srand(1 + index[0] + 3127*index[1]);
     colour.red   = uint8_t(50 + rand()%205);
     colour.green = uint8_t(50 + rand()%205);
     colour.blue  = uint8_t(50 + rand()%205);
+    if (point.parent == -1 || point.parent >= roots_start)
+      cloud.starts[original_ids[i]] = cloud.ends[original_ids[i]];    
+    else 
+      cloud.starts[original_ids[i]] = cloud.ends[original_ids[point.parent]];
   }
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+    if (!cloud.rayBounded(i))
+      cloud.starts[i] = cloud.ends[i];
+
+  std::vector< std::vector<int> > roots_lists(sums.rows() * sums.cols());
+  for (int i = roots_start; i < (int)points.size(); i++)
+  {
+    Eigen::Vector3i index = ((points[i].pos - box_min)/pixel_width).cast<int>();    
+    Eigen::Vector2i best_index = bests[index[0] + (int)sums.rows()*index[1]];
+    double max_height = max_heights(best_index[0], best_index[1]);
+    if (max_height >= height_min)
+    {
+      int id = best_index[0] + (int)sums.rows()*best_index[1];
+      roots_lists[id].push_back(i);
+    }
+  }
+  std::vector< std::vector<int> > roots_set; // contiguous form of root_lists
+  for (int i = 0; i<(int)sums.rows(); i++)
+  {
+    for (int j = 0; j<(int)sums.cols(); j++)
+    {
+      auto &roots = roots_lists[i + (int)sums.rows()*j];
+      if (roots.size() > 0)
+      {
+        roots_set.push_back(roots);
+        std::cout << "max heights: " << max_heights(i, j) << std::endl;
+      }
+    }
+  }
+
+  return roots_set;
 }
 
 } // namespace ray

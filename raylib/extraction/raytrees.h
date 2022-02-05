@@ -9,6 +9,7 @@
 #include "raylib/raylibconfig.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
+#include "../raymesh.h"
 #include "raysegment.h"
 
 namespace ray
@@ -28,7 +29,7 @@ struct BranchSection
 
 struct Trees
 {
-  Trees(const Cloud &cloud, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, bool verbose);
+  Trees(Cloud &cloud, const Mesh &mesh, bool verbose);
   bool save(const std::string &filename);
   std::vector<BranchSection> sections;
 };
