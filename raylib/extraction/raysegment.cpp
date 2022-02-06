@@ -75,7 +75,6 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
 
 std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh, double max_diameter, double distance_limit, double height_min)
 {
-  std::cout << "segmenting cloud with tree diameter: " << max_diameter << std::endl;
   points.reserve(cloud.ends.size());
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
   {
@@ -91,11 +90,6 @@ std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, 
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
   int roots_start = (int)points.size();
-/*  Terrain hull;
-  double pix_width = 2.0 * cloud.estimatePointSpacing();
-  hull.growUpwardsFast(raw_points, pix_width, box_min, box_max, gradient);
-  std::cout << "gradient: " << gradient << ", hull points: " << hull.mesh().vertices().size() << std::endl;
-  for (auto &vert: hull.mesh().vertices())*/
   for (auto &vert: mesh.vertices())
   {
     points.push_back(Vertex(vert));
@@ -118,7 +112,6 @@ std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, 
     }
   }
 
-  std::cout << "dif: " << (int)points.size() - roots_start << std::endl;
   for (int ind = roots_start; ind<(int)points.size(); ind++) 
   {
     points[ind].distance_to_ground = 0.0;
@@ -217,7 +210,6 @@ std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, 
       if (roots.size() > 0)
       {
         roots_set.push_back(roots);
-        std::cout << "max heights: " << max_heights(i, j) << std::endl;
       }
     }
   }
