@@ -95,8 +95,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       size_t sum = sections[sec].roots.size() + sections[sec].ends.size();
       if (sum > 0)
         sections[sec].tip /= (double)sum;
-      if (sections[sec].radius <= 0.0)
-        std::cout << "bad " << sections[sec].radius << std::endl;
       continue;
     }
 
@@ -363,10 +361,12 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
   }
   // generate local parent links
+  int num = 0;
   for (auto &section: sections)
   {
     if (section.parent >= 0)
-      break;
+      continue;
+    num++;
     int child_id = 0;
     section.id = child_id++;
     std::vector<int> children = section.children;
@@ -377,6 +377,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         children.push_back(i);
     }
   }
+  std::cout << num << " trees saved" << std::endl;
 
   int j = -1;
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
@@ -419,10 +420,10 @@ bool Trees::save(const std::string &filename)
   }  
   ofs << "# tree structure file:" << std::endl;
   ofs << "x,y,z,radius,parent_id" << std::endl;
-  for (auto &section: sections)
+  for (const auto &section: sections)
   {
     if (section.parent >= 0)
-      break;
+      continue;
     ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << section.radius << ",-1";
 
     std::vector<int> children = section.children;
