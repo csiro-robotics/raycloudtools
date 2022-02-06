@@ -11,20 +11,14 @@
 namespace ray
 {
 
-Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
+Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose)
 {
   std::vector<Vertex> points;  
-  const double max_diameter = 0.9;
-  const double gradient = 1.0;
-  const double distance_limit = 1.0;
-  const double height_min = 2.0;
-  const double minimum_radius = 0.03;
-  std::vector< std::vector<int> > roots_list = getRootsAndSegment(points, cloud, mesh, max_diameter, distance_limit, height_min);
+  std::vector< std::vector<int> > roots_list = getRootsAndSegment(points, cloud, mesh, params.max_diameter, params.distance_limit, params.height_min);
   const int orig_points = (int)points.size() - (int)mesh.vertices().size();
   if (verbose)
     cloud.save("test_output.ply");
 
-  const double length_to_radius = 80.0;
   for (size_t i = 0; i<roots_list.size(); i++)
   {
     BranchSection base;
@@ -65,7 +59,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
   {
     for (auto &root: sections[i].roots)
       sections[i].max_distance_to_end = std::max(sections[i].max_distance_to_end, points[root].distance_to_end);
-    sections[i].radius = sections[i].max_distance_to_end / length_to_radius;
+    sections[i].radius = sections[i].max_distance_to_end / params.length_to_radius;
     std::cout << "initial end distances: " << sections[i].roots.size() << ": " << sections[i].max_distance_to_end << " rad: " << sections[i].radius << std::endl;
   }
 
@@ -91,8 +85,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
       std::cout << "sec " << sec << std::endl;
     int par = sections[sec].parent;
 
-    double max_radius = sections[sec].max_distance_to_end / length_to_radius;
-    if (max_radius < minimum_radius)
+    double max_radius = sections[sec].max_distance_to_end / params.length_to_radius;
+    if (max_radius < params.minimum_radius)
     {
       sections[sec].tip.setZero();
       for (auto &i: sections[sec].roots)
@@ -105,7 +99,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
       continue;
     }
 
-    double thickness = 4.0 * max_radius;
+    double thickness = params.cylinder_length_to_width * max_radius;
     double thickness_sqr = thickness*thickness;
     std::vector<int> nodes;
     bool extract_from_ends = sections[sec].ends.size() > 0;
@@ -148,7 +142,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
         ps.push_back(points[i].edge_pos);
         v_indices.push_back(i);
       }
-      std::vector< std::vector<int> > clusters = generateClusters(ps, 2.5*max_radius, 4.5*max_radius, true);
+      std::vector< std::vector<int> > clusters = generateClusters(ps, params.gap_ratio*max_radius, params.span_ratio*max_radius, true);
       for (auto &cluster: clusters)
       {
         for (auto &id: cluster)
@@ -165,9 +159,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
           {
             max_dist = std::max(max_dist, points[end].distance_to_end);
           }
-          if (max_dist < height_min)
+          if (max_dist < params.height_min)
           {
-            std::cout << "initial sapling is too short " << max_dist << " < " << height_min << " so removing" << std::endl;
+            std::cout << "initial sapling is too short " << max_dist << " < " << params.height_min << " so removing" << std::endl;
             clusters[i] = clusters.back();
             clusters.pop_back();
             min_size = 0;            
@@ -312,7 +306,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, bool verbose)
       }
       else
       {
-        double n = 4.0, rad = n * sections[par].radius;
+        double n = 4.0;
+        double rad = n * sections[par].radius;
         for (auto &node: nodes)
         {
           Eigen::Vector3d offset = points[node].pos - sections[sec].tip;

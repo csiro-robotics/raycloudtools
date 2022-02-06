@@ -14,6 +14,20 @@
 
 namespace ray
 {
+struct TreesParams
+{
+  TreesParams() : max_diameter(0.9), distance_limit(1.0), height_min(2.0), minimum_radius(0.03), length_to_radius(80.0), 
+                  cylinder_length_to_width(4.0), gap_ratio(2.5), span_ratio(4.5) {}
+  double max_diameter;
+  double distance_limit;
+  double height_min;
+  double minimum_radius;
+  double length_to_radius;
+  double cylinder_length_to_width;
+  double gap_ratio;
+  double span_ratio;
+};
+
 struct BranchSection
 {
   BranchSection() : tip(0,0,0), radius(0), parent(-1), id(-1), max_distance_to_end(0.0) {}
@@ -29,7 +43,7 @@ struct BranchSection
 
 struct Trees
 {
-  Trees(Cloud &cloud, const Mesh &mesh, bool verbose);
+  Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
   bool save(const std::string &filename);
   std::vector<BranchSection> sections;
 };

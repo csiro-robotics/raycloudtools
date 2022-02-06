@@ -26,6 +26,7 @@ void usage(bool error=false)
   std::cout << "Extract natural features into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayextract terrain cloud.ply                - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
+  std::cout << "                            --gradient 1    - maximum gradient counted as terrain" << std::endl;
   std::cout << "rayextract trunks cloud.ply                 - extract tree trunk base locations and radii to text file" << std::endl;
   std::cout << "                            --exclude_rays  - does not use rays to exclude candidates with rays passing through" << std::endl;
   std::cout << "rayextract forest cloud.ply                 - extracts tree locations, radii and heights to file" << std::endl;
@@ -41,6 +42,15 @@ void usage(bool error=false)
   std::cout << "                            --min_gradient 0.15 - smallest distance per height to separate clusters" << std::endl;
   std::cout << "                            --max_gradient 1.0  - (-x) largest distance per height to separate clusters" << std::endl;
   std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file" << std::endl;
+  std::cout << "                            --max_diameter 0.9   - maximum trunk diameter in segmenting trees" << std::endl;
+  std::cout << "                            --distance_limit 1   - maximum distance between neighbour points in a tree" << std::endl;
+  std::cout << "                            --height_min 2       - minimum height counted as a tree" << std::endl;
+  std::cout << "                            --minimum_radius 0.03- minimum brnach radius" << std::endl;
+  std::cout << "                            --min_length_per_radius 80- the tapering rate of branches" << std::endl;
+  std::cout << "                            --cylinder_length_to_width 4- how slender the cylinders are" << std::endl;
+  std::cout << "                            --gap_ratio 2.5      - will split for lateral gaps at this multiple of radius" << std::endl;
+  std::cout << "                            --span_ratio 4.5     - will split when branch width spans this multiple of radius" << std::endl;
+
 //  std::cout << "rayextract branches cloud.ply               - estimate tree branches and save to text file" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
 
@@ -55,8 +65,22 @@ int main(int argc, char *argv[])
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), branches("branches"), terrain("terrain"), forest_agglomerated("forest_ag");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
+  ray::DoubleArgument gradient(0.001, 1000.0);
+  ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
+
+  ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0), minimum_radius(0.01, 100.0);
+  ray::DoubleArgument length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0), span_ratio(0.01, 10.0);
+  ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
+  ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
+  ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
+  ray::OptionalKeyValueArgument minimum_radius_option("minimum_radius", 'r', &minimum_radius);
+  ray::OptionalKeyValueArgument length_to_radius_option("min_length_per_radius", 'l', &length_to_radius);
+  ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c', &cylinder_length_to_width);
+  ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
+  ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
+
   ray::IntArgument smooth(0, 50);
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth), drop_option("drop_ratio", 'd', &drop);
   ray::OptionalKeyValueArgument max_gradient_option("max_gradient", 'x', &max_gradient), min_gradient_option("min_gradient", 'm', &min_gradient);
@@ -64,7 +88,7 @@ int main(int argc, char *argv[])
 
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
-  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
+  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&gradient_option, &verbose});
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
   bool extract_forest_agglomerate = ray::parseCommandLine(argc, argv, {&forest_agglomerated, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &min_gradient_option, &max_gradient_option, &verbose});
@@ -105,7 +129,25 @@ int main(int argc, char *argv[])
 
     ray::Mesh mesh;
     ray::readPlyMesh(mesh_file.name(), mesh);
-    ray::Trees trees(cloud, mesh, verbose.isSet());
+    ray::TreesParams params;
+    if (max_diameter_option.isSet())
+      params.max_diameter = max_diameter.value();
+    if (distance_limit_option.isSet())
+      params.distance_limit = distance_limit.value();
+    if (height_min_option.isSet())
+      params.height_min = height_min.value();
+    if (minimum_radius_option.isSet())
+      params.minimum_radius = minimum_radius.value();
+    if (length_to_radius_option.isSet())
+      params.length_to_radius = length_to_radius.value();
+    if (cylinder_length_to_width_option.isSet())
+      params.cylinder_length_to_width = cylinder_length_to_width.value();
+    if (gap_ratio_option.isSet())
+      params.gap_ratio = gap_ratio.value();
+    if (span_ratio_option.isSet())
+      params.span_ratio = span_ratio.value();
+  
+    ray::Trees trees(cloud, mesh, params, verbose.isSet());
     trees.save(cloud_file.nameStub() + "_trees.txt");
     cloud.save(cloud_file.nameStub() + "_segmented.ply");
   }
@@ -187,8 +229,8 @@ int main(int argc, char *argv[])
       usage(true);
 
     ray::Terrain terrain;
-    const double gradient = 1.0; // a half-way divide between ground and wall
-    terrain.extract(cloud, cloud_file.nameStub(), gradient, verbose.isSet());
+    const double grad = gradient_option.isSet() ? gradient.value() : 1.0; 
+    terrain.extract(cloud, cloud_file.nameStub(), grad, verbose.isSet());
   }
   else
     usage(true);
