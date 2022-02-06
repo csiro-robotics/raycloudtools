@@ -95,6 +95,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       size_t sum = sections[sec].roots.size() + sections[sec].ends.size();
       if (sum > 0)
         sections[sec].tip /= (double)sum;
+      if (sections[sec].radius <= 0.0)
+        std::cout << "bad " << sections[sec].radius << std::endl;
       continue;
     }
 
@@ -160,7 +162,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           }
           if (max_dist < params.height_min)
           {
-            std::cout << "initial sapling is too short " << max_dist << " < " << params.height_min << " so removing" << std::endl;
+ //           std::cout << "initial sapling is too short " << max_dist << " < " << params.height_min << " so removing" << std::endl;
             clusters[i] = clusters.back();
             clusters.pop_back();
             min_size = 0;            
@@ -207,12 +209,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           section_ids[nodes.back()] = (int)sec;
         }
       }
-      if (par == -1 && sections[sec].ends.size() > 0)
-        std::cout << "sub section " << sec << " given roots" << std::endl;
     }
     else if (par == -1)
     {
-      std::cout << "section " << sec << " given roots" << std::endl;
       for (auto &root: sections[sec].roots)
       {
         section_ids[root] = (int)sec;
@@ -276,10 +275,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           plane.yz += q[1]*q[2];        
         }  
         const double eps = 1e-10;
-        if (par == -1)
-        {
-          std::cout << "abs: " << std::abs(plane.x2*plane.y2 - plane.xy*plane.xy) << ", " << std::abs(plane.y2) << std::endl;
-        }
         if (std::abs(plane.x2*plane.y2 - plane.xy*plane.xy) > eps && std::abs(plane.y2) > eps)
         {
           double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
@@ -309,7 +304,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           rad += (offset - dir*offset.dot(dir)).norm();
           n++;
         }
-        sections[sec].radius = std::min(rad / n, max_radius);
+        double radius = list.size() < 2 ? max_radius : rad / n;
+        sections[sec].radius = std::min(radius, max_radius);
       }
       else
       {
