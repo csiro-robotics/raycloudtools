@@ -34,8 +34,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   }
 
   // now get distance to end
-  double max_dist = 0;
-  int max_dist_i = -1;
   for (size_t i = 0; i<points.size(); i++)
   {
     int id = (int)i;
@@ -48,12 +46,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       points[parent].distance_to_end = end_dist;
       id = parent;
       parent = points[id].parent;
-      if (end_dist > max_dist)
-        max_dist_i = id;
-      max_dist = std::max(max_dist, end_dist);
     }
   }
-  std::cout << "max dist: " << max_dist << " for root: " << max_dist_i;
 
   for (int i = (int)sections.size()-1; i>=0; i--)
   {
@@ -88,11 +82,15 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     if (max_radius < params.minimum_radius)
     {
       sections[sec].tip.setZero();
-      for (auto &i: sections[sec].roots)
-        sections[sec].tip += points[i].pos;
       for (auto &i: sections[sec].ends)
         sections[sec].tip += points[i].pos;
-      size_t sum = sections[sec].roots.size() + sections[sec].ends.size();
+      size_t sum = sections[sec].ends.size();
+      if (sections[sec].ends.empty())
+      {
+        for (auto &i: sections[sec].roots)
+          sections[sec].tip += points[i].pos;
+        sum = sections[sec].roots.size();
+      }
       if (sum > 0)
         sections[sec].tip /= (double)sum;
       continue;
@@ -185,8 +183,10 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
     if (extract_from_ends) // 5. we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
+      sections[sec].max_distance_to_end = 0.0;
       for (auto &end: sections[sec].ends)
       {
+        sections[sec].max_distance_to_end = std::max(sections[sec].max_distance_to_end, points[end].distance_to_end);
         int node = points[end].parent;
         if (node == -1)
         {
@@ -207,6 +207,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           section_ids[nodes.back()] = (int)sec;
         }
       }
+      sections[sec].max_distance_to_end += thickness;
+      max_radius = sections[sec].max_distance_to_end / params.length_to_radius;
     }
     else if (par == -1)
     {
@@ -218,6 +220,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
     // find points in this segment, and the root points for the child segment
     sections[sec].tip.setZero();
+    if (nodes.empty())
+      std::cout << "this shouldn't happen!!!! empty nodes" << std::endl;
     auto &list = nodes.empty() ? (sections[sec].ends.empty() ? sections[sec].roots : sections[sec].ends) : nodes;
     for (auto &i: list)
       sections[sec].tip += points[i].pos;
@@ -325,10 +329,12 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       BranchSection new_node;
       new_node.parent = (int)sec;
       new_node.roots = sections[sec].ends;
-      new_node.radius = sections[sec].radius;
       new_node.max_distance_to_end = 0.0;
       for (auto &root: new_node.roots)
         new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points[root].distance_to_end);
+      max_radius = new_node.max_distance_to_end / params.length_to_radius;
+      new_node.radius = std::min(sections[sec].radius, std::max(params.minimum_radius/2.0, max_radius));
+
       sections[sec].children.push_back((int)sections.size());
 
       new_node.tip.setZero();
