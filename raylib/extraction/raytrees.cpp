@@ -76,7 +76,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     points[i].visited = false;
   std::vector<int> section_ids(points.size(), -1);
 
-
   // now trace from root tree nodes upwards, getting node centroids
   // a tree_node is a segment, and these are added as we iterate through the list
   for (size_t sec = 0; sec < sections.size(); sec++)
@@ -236,31 +235,31 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
       #define REAL_CENTROID
       #if defined REAL_CENTROID
-      if (nodes.size() > 5)
+      Eigen::Vector3d mean_p(0,0,0);
+      std::vector<Eigen::Vector3d> ps;
+      Eigen::Vector3d vec(1,2,3);
+      Eigen::Vector3d ax1 = dir.cross(vec).normalized();
+      Eigen::Vector3d ax2 = dir.cross(ax1).normalized();
+      double n = 0;
+      int start_ii = par >= 0 || sections[sec].ends.empty() ? 0 : 1;
+      for (int ii = start_ii; ii<2; ii++)
       {
-        Eigen::Vector3d mean_p(0,0,0);
-        std::vector<Eigen::Vector3d> ps;
-        Eigen::Vector3d vec(1,2,3);
-        Eigen::Vector3d ax1 = dir.cross(vec).normalized();
-        Eigen::Vector3d ax2 = dir.cross(ax1).normalized();
-        double n = 0;
-        int start_ii = par >= 0 || sections[sec].ends.empty() ? 0 : 1;
-        for (int ii = start_ii; ii<2; ii++)
+        std::vector<int> &node_list = ii==0 ? nodes : sections[sec].ends;
+        for (auto &i: node_list) // one iteration of operation to find centre, using centroid, direction and radius estimation as a prior guess
         {
-          std::vector<int> &node_list = ii==0 ? nodes : sections[sec].ends;
-          for (auto &i: node_list) // one iteration of operation to find centre, using centroid, direction and radius estimation as a prior guess
-          {
-            Eigen::Vector3d pos = points[i].pos - sections[sec].tip;
-            Eigen::Vector2d offset(ax1.dot(pos), ax2.dot(pos));
-            Eigen::Vector2d xy = offset/sections[sec].radius;
-            double l2 = xy.squaredNorm();
-            Eigen::Vector3d point(xy[0], xy[1], 0.5*l2); // a paraboloid that has gradient 1 at 1
-            ps.push_back(point);
-            mean_p += point;   
-            n++;  
-          }
+          Eigen::Vector3d pos = points[i].pos - sections[sec].tip;
+          Eigen::Vector2d offset(ax1.dot(pos), ax2.dot(pos));
+          Eigen::Vector2d xy = offset/sections[sec].radius;
+          double l2 = xy.squaredNorm();
+          Eigen::Vector3d point(xy[0], xy[1], 0.5*l2); // a paraboloid that has gradient 1 at 1
+          ps.push_back(point);
+          mean_p += point;   
+          n++;  
         }
-        mean_p /= n; 
+      }
+      mean_p /= n; 
+      if (n > 5)
+      {
         struct Acc
         {
           Acc(){ x2 = y2 = xy = xz = yz = 0; }
@@ -277,6 +276,10 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           plane.yz += q[1]*q[2];        
         }  
         const double eps = 1e-10;
+        if (par == -1)
+        {
+          std::cout << "abs: " << std::abs(plane.x2*plane.y2 - plane.xy*plane.xy) << ", " << std::abs(plane.y2) << std::endl;
+        }
         if (std::abs(plane.x2*plane.y2 - plane.xy*plane.xy) > eps && std::abs(plane.y2) > eps)
         {
           double A = (plane.xz*plane.y2 - plane.yz*plane.xy) / (plane.x2*plane.y2 - plane.xy*plane.xy);
@@ -284,12 +287,16 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
           Eigen::Vector2d shift(A,B);
           double shift2 = shift.squaredNorm();
-          if (shift2 > 1.0) // don't shift more than one radius each iteration, for safety
+          if (par >= 0 && shift2 > 1.0) // don't shift more than one radius each iteration, for safety
             shift /= std::sqrt(shift2);
 
           sections[sec].tip += (ax1*shift[0] + ax2*shift[1]) * sections[sec].radius;   
         }
       } 
+      else if (n > 0)
+      {
+        sections[sec].tip += (ax1*mean_p[0] + ax2*mean_p[1]) * sections[sec].radius; 
+      }
       #endif   
 
       if (par == -1)
@@ -359,7 +366,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     }
     DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
   }
-
   // generate local parent links
   for (auto &section: sections)
   {
