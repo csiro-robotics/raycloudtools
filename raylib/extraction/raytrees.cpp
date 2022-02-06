@@ -158,35 +158,55 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           }
           if (max_dist < params.height_min)
           {
- //           std::cout << "initial sapling is too short " << max_dist << " < " << params.height_min << " so removing" << std::endl;
             clusters[i] = clusters.back();
             clusters.pop_back();
             min_size = 0;            
           }
         }
       }
+      std::vector<double> max_distances(clusters.size());
+      double maxmax = 0;
+      int maxi = -1;
+      for (size_t i = 0; i<clusters.size(); i++)
+      {
+        max_distances[i] = 0;
+        for (auto &end: clusters[i])
+          max_distances[i] = std::max(max_distances[i], points[end].distance_to_end);
+        if (max_distances[i] > maxmax)
+        {
+          maxmax = max_distances[i];
+          maxi = (int)i;
+        }
+      }
       if (clusters.size() > min_size)
       {
         extract_from_ends = true;
         nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
-        sections[sec].ends = clusters[0]; 
+        sections[sec].ends = clusters[maxi]; 
+        sections[sec].max_distance_to_end = max_distances[maxi] + thickness;
+        max_radius = sections[sec].max_distance_to_end / params.length_to_radius;
       }
-      for (size_t i = 1; i<clusters.size(); i++)
+      for (size_t i = 0; i<clusters.size(); i++)
       {
+        if ((int)i == maxi)
+          continue;
         BranchSection new_node = sections[sec];
-        new_node.ends = clusters[i];      
-        if (par != -1)
-          sections[par].children.push_back((int)sections.size());
-        sections.push_back(new_node);
+        new_node.max_distance_to_end = max_distances[i] + thickness;
+        double maxrad = new_node.max_distance_to_end / params.length_to_radius;
+        if (maxrad > params.minimum_radius)
+        {
+          new_node.ends = clusters[i];      
+          if (par != -1)
+            sections[par].children.push_back((int)sections.size());
+          sections.push_back(new_node);
+        }
       }
     }
 
     if (extract_from_ends) // 5. we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
-      sections[sec].max_distance_to_end = 0.0;
       for (auto &end: sections[sec].ends)
       {
-        sections[sec].max_distance_to_end = std::max(sections[sec].max_distance_to_end, points[end].distance_to_end);
         int node = points[end].parent;
         if (node == -1)
         {
@@ -207,8 +227,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           section_ids[nodes.back()] = (int)sec;
         }
       }
-      sections[sec].max_distance_to_end += thickness;
-      max_radius = sections[sec].max_distance_to_end / params.length_to_radius;
     }
     else if (par == -1)
     {
@@ -333,17 +351,19 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       for (auto &root: new_node.roots)
         new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points[root].distance_to_end);
       max_radius = new_node.max_distance_to_end / params.length_to_radius;
-      new_node.radius = std::min(sections[sec].radius, std::max(params.minimum_radius/2.0, max_radius));
+      new_node.radius = std::min(sections[sec].radius, max_radius);
+      if (new_node.radius > params.minimum_radius) // if it is the first node, then we need a second noded
+      {
+        sections[sec].children.push_back((int)sections.size());
 
-      sections[sec].children.push_back((int)sections.size());
+        new_node.tip.setZero();
+        for (auto &end: new_node.roots)
+          new_node.tip += points[end].pos;
+        if (new_node.roots.size() > 0)
+          new_node.tip /= (double)new_node.roots.size();
 
-      new_node.tip.setZero();
-      for (auto &end: new_node.roots)
-        new_node.tip += points[end].pos;
-      if (new_node.roots.size() > 0)
-        new_node.tip /= (double)new_node.roots.size();
-
-      sections.push_back(new_node);
+        sections.push_back(new_node);
+      }
     }    
   }
   if (verbose)
@@ -428,7 +448,7 @@ bool Trees::save(const std::string &filename)
   ofs << "x,y,z,radius,parent_id" << std::endl;
   for (const auto &section: sections)
   {
-    if (section.parent >= 0)
+    if (section.parent >= 0 || section.children.empty())
       continue;
     ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << section.radius << ",-1";
 

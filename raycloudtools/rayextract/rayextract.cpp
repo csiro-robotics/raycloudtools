@@ -45,7 +45,7 @@ void usage(bool error=false)
   std::cout << "                            --max_diameter 0.9   - maximum trunk diameter in segmenting trees" << std::endl;
   std::cout << "                            --distance_limit 1   - maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - minimum height counted as a tree" << std::endl;
-  std::cout << "                            --minimum_radius 0.03- minimum brnach radius" << std::endl;
+  std::cout << "                            --minimum_radius 0.02- minimum brnach radius" << std::endl;
   std::cout << "                            --min_length_per_radius 80- the tapering rate of branches" << std::endl;
   std::cout << "                            --cylinder_length_to_width 4- how slender the cylinders are" << std::endl;
   std::cout << "                            --gap_ratio 2.5      - will split for lateral gaps at this multiple of radius" << std::endl;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
   bool extract_forest_agglomerate = ray::parseCommandLine(argc, argv, {&forest_agglomerated, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &min_gradient_option, &max_gradient_option, &verbose});
-  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&verbose});
+  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&max_diameter_option, &distance_limit_option, &height_min_option, &minimum_radius_option, &length_to_radius_option, &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &verbose});
   bool extract_branches = ray::parseCommandLine(argc, argv, {&branches, &cloud_file}, {&verbose});
   if (!extract_trunks && !extract_branches && !extract_forest && !extract_forest_agglomerate && !extract_terrain && !extract_trees)
     usage();  
