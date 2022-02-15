@@ -36,7 +36,12 @@ bool readLas(const std::string &file_name,
   liblas::Reader reader = f.CreateWithStream(ifs);
   liblas::Header const &header = reader.GetHeader();
 
+  Eigen::Vector3d offset(header.GetOffsetX(), header.GetOffsetY(), header.GetOffsetZ());
+  std::cout << "Removing global offset " << offset.transpose() << " to maintain floating point precision. Use raytranslate by this value to translate to the original coordinate frame." << std::endl;
+  
+
   const size_t number_of_points = header.GetPointRecordsCount();
+  
   bool using_time = (header.GetDataFormatId() & 1) > 0;
   bool using_colour = (header.GetDataFormatId() & 2) > 0;
   if (!using_time)
@@ -69,9 +74,13 @@ bool readLas(const std::string &file_name,
     liblas::Point point = reader.GetPoint();
 
     Eigen::Vector3d position;
-    position[0] = point.GetX();
-    position[1] = point.GetY();
-    position[2] = point.GetZ();
+    position[0] = point.GetX() - offset[0];
+    position[1] = point.GetY() - offset[1];
+    position[2] = point.GetZ() - offset[2];
+
+//    position[0] = point.GetRawX();
+//    position[1] = point.GetRawY();
+//    position[2] = point.GetRawZ();    
     ends.push_back(position);
     starts.push_back(position); // equal to position for laz files, as we do not store the start points
 

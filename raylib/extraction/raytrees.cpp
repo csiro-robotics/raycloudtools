@@ -54,7 +54,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     for (auto &root: sections[i].roots)
       sections[i].max_distance_to_end = std::max(sections[i].max_distance_to_end, points[root].distance_to_end);
     sections[i].radius = sections[i].max_distance_to_end / params.length_to_radius;
-    std::cout << "initial end distances: " << sections[i].roots.size() << ": " << sections[i].max_distance_to_end << " rad: " << sections[i].radius << std::endl;
+ //   std::cout << "initial end distances: " << sections[i].roots.size() << ": " << sections[i].max_distance_to_end << " rad: " << sections[i].radius << std::endl;
   }
 
   // 2c. generate skeletons. 
@@ -75,7 +75,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   for (size_t sec = 0; sec < sections.size(); sec++)
   {   
     if (!(sec%1000))
-      std::cout << "sec " << sec << std::endl;
+      std::cout << "generating segment " << sec << std::endl;
     int par = sections[sec].parent;
 
     double max_radius = sections[sec].max_distance_to_end / params.length_to_radius;
@@ -165,7 +165,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         }
       }
       std::vector<double> max_distances(clusters.size());
-      double maxmax = 0;
+      double maxmax = -1;
       int maxi = -1;
       for (size_t i = 0; i<clusters.size(); i++)
       {
@@ -180,6 +180,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       }
       if (clusters.size() > min_size)
       {
+        if (maxi == -1)
+          std::cout << "error: bad maxi" << std::endl;
         extract_from_ends = true;
         nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
         sections[sec].ends = clusters[maxi]; 
