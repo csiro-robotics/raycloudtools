@@ -50,14 +50,13 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
         const double power = 2.0;
         dist2 /= std::pow(std::max(0.001, dif.dot(dir)), power);
 
-        const double gravity_factor = 0.0; // 2.5; // higher keeps trees more vertical
+        const double gravity_factor = 0.0; // 0.3; // 2.5; // higher keeps trees more vertical
         if (gravity_factor > 0.0)
         {
           Eigen::Vector3d to_node = points[node.id].pos - points[node.root].pos;
           to_node[2] = 0.0;
           double lateral_sqr = to_node.squaredNorm();
-          double length = std::max(1e-10, node.distance_to_ground);
-          double gravity_scale = 1.0 + gravity_factor*lateral_sqr/length; // the squaring means gravity plays little role for normal trees, kicking in stronger on outlier lateral ones
+          double gravity_scale = 1.0 + gravity_factor*lateral_sqr; // the squaring means gravity plays little role for normal trees, kicking in stronger on outlier lateral ones
           dist2 *= gravity_scale;
         }
 
