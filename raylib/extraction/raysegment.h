@@ -27,18 +27,12 @@ struct QueueNode
   int id;
 };
 
-#define MINIMISE_SQUARE_DISTANCE // bad: end points are so distant that it creates separate branches
-#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
 class QueueNodeComparator 
 { 
 public: 
     bool operator() (const QueueNode &p1, const QueueNode &p2) 
     { 
-#if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
-        return p1.score > p2.score; 
-#else
-        return p1.distance_to_ground > p2.distance_to_ground; 
-#endif
+      return p1.score > p2.score; 
     } 
 }; 
 

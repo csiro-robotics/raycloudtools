@@ -9,6 +9,7 @@
 
 namespace ray
 {
+
 void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit)
 {
   // 1. get nearest neighbours
@@ -33,13 +34,9 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
       for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
-        double dist = std::sqrt(dists2(i, node.id));
-        double new_dist = node.distance_to_ground + dist;
+        double dist2 = dists2(i, node.id);
+        double dist = std::sqrt(dist2);
         double new_score = 0;
-        #if defined MINIMISE_SQUARE_DISTANCE
-        dist *= dist;
-        #endif
-        #if defined MINIMISE_ANGLE
         Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
         Eigen::Vector3d dir(0,0,1);
         int ppar = points[node.id].parent;
@@ -51,18 +48,25 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
             dir = (points[node.id].pos - points[ppar].pos).normalized();  // ..just this
         }
         const double power = 2.0;
-        dist /= std::pow(std::max(0.001, dif.dot(dir)), power);
-        #endif
-        dist /= node.radius;
-        #if defined MINIMISE_SQUARE_DISTANCE || defined MINIMISE_ANGLE
-        new_score = node.score + dist;
+        dist2 /= std::pow(std::max(0.001, dif.dot(dir)), power);
+
+        const double gravity_factor = 0.0; // 2.5; // higher keeps trees more vertical
+        if (gravity_factor > 0.0)
+        {
+          Eigen::Vector3d to_node = points[node.id].pos - points[node.root].pos;
+          to_node[2] = 0.0;
+          double lateral_sqr = to_node.squaredNorm();
+          double length = std::max(1e-10, node.distance_to_ground);
+          double gravity_scale = 1.0 + gravity_factor*lateral_sqr/length; // the squaring means gravity plays little role for normal trees, kicking in stronger on outlier lateral ones
+          dist2 *= gravity_scale;
+        }
+
+        dist2 /= node.radius;
+        new_score = node.score + dist2;
         if (new_score < points[child].score)
-        #else
-        if (new_dist < points[child].distance_to_ground)
-        #endif
         {
 					points[child].score = new_score;
-					points[child].distance_to_ground = new_dist;
+					points[child].distance_to_ground = node.distance_to_ground + dist;
           points[child].parent = node.id;
           points[child].root = node.root;
 					closest_node.push(QueueNode(points[child].distance_to_ground, points[child].score, node.radius, node.root, child));

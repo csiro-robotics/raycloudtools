@@ -74,7 +74,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   // a tree_node is a segment, and these are added as we iterate through the list
   for (size_t sec = 0; sec < sections.size(); sec++)
   {   
-    if (!(sec%1000))
+    if (!(sec%10000))
       std::cout << "generating segment " << sec << std::endl;
     int par = sections[sec].parent;
 
