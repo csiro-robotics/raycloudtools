@@ -10,7 +10,7 @@
 namespace ray
 {
 
-void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit)
+void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit, double gravity_factor)
 {
   // 1. get nearest neighbours
   const int search_size = 20;
@@ -50,7 +50,6 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
         const double power = 2.0;
         dist2 /= std::pow(std::max(0.001, dif.dot(dir)), power);
 
-        const double gravity_factor = 0.0; // 0.3; // 2.5; // higher keeps trees more vertical
         if (gravity_factor > 0.0)
         {
           Eigen::Vector3d to_node = points[node.id].pos - points[node.root].pos;
@@ -76,7 +75,7 @@ void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<
 	}
 }
 
-std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh, double max_diameter, double distance_limit, double height_min)
+std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh, double max_diameter, double distance_limit, double height_min, double gravity_factor)
 {
   points.reserve(cloud.ends.size());
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
@@ -124,7 +123,7 @@ std::vector< std::vector<int> > getRootsAndSegment(std::vector<Vertex> &points, 
     closest_node.push(QueueNode(0, 0, heightfield(index[0], index[1]), ind, ind));
   }
 
-  connectPointsShortestPath(points, closest_node, distance_limit);
+  connectPointsShortestPath(points, closest_node, distance_limit, gravity_factor);
 
   // now create a count array
   Eigen::ArrayXXi counts = Eigen::ArrayXXi::Constant((int)heightfield.rows(), (int)heightfield.cols(), 0);

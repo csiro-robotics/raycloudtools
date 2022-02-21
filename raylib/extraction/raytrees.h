@@ -17,7 +17,7 @@ namespace ray
 struct TreesParams
 {
   TreesParams() : max_diameter(0.9), distance_limit(1.0), height_min(2.0), minimum_radius(0.02), length_to_radius(80.0), 
-                  cylinder_length_to_width(4.0), gap_ratio(2.5), span_ratio(4.5) {}
+                  cylinder_length_to_width(4.0), gap_ratio(2.5), span_ratio(4.5), gravity_factor(0.3) {}
   double max_diameter;
   double distance_limit;
   double height_min;
@@ -26,6 +26,7 @@ struct TreesParams
   double cylinder_length_to_width;
   double gap_ratio;
   double span_ratio;
+  double gravity_factor;
 };
 
 struct BranchSection

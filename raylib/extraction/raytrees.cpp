@@ -14,7 +14,7 @@ namespace ray
 Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose)
 {
   std::vector<Vertex> points;  
-  std::vector< std::vector<int> > roots_list = getRootsAndSegment(points, cloud, mesh, params.max_diameter, params.distance_limit, params.height_min);
+  std::vector< std::vector<int> > roots_list = getRootsAndSegment(points, cloud, mesh, params.max_diameter, params.distance_limit, params.height_min, params.gravity_factor);
   const int orig_points = (int)points.size() - (int)mesh.vertices().size();
   if (verbose)
     cloud.save("test_output.ply");
