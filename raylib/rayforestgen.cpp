@@ -93,8 +93,17 @@ bool ForestStructure::load(const std::string &filename)
       }
       tree.segments().push_back(segment);
     }
+    if (has_parent_id && tree.segments().size() == 1)
+    {
+      std::cerr << "Error: format contains parent id, but trunk only (single segment) detected on line " << line_number << std::endl;
+      return false;
+    }
     trees.push_back(tree);
   }
+  if (trees.empty())
+    return false;
+  if (trees[0].segments().empty())
+    return false;
   return true;
 }
 
