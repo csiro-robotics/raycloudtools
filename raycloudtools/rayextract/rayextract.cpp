@@ -45,8 +45,9 @@ void usage(bool error=false)
   std::cout << "                            --max_diameter 0.9   - maximum trunk diameter in segmenting trees" << std::endl;
   std::cout << "                            --distance_limit 1   - maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - minimum height counted as a tree" << std::endl;
-  std::cout << "                            --minimum_radius 0.02- minimum brnach radius" << std::endl;
+  std::cout << "                            --minimum_radius 0.02- minimum branch radius" << std::endl;
   std::cout << "                            --min_length_per_radius 80- the tapering rate of branches" << std::endl;
+  std::cout << "                            --radius_exponent 1  - exponent of radius in estimating length" << std::endl;
   std::cout << "                            --cylinder_length_to_width 4- how slender the cylinders are" << std::endl;
   std::cout << "                            --gap_ratio 2.5      - will split for lateral gaps at this multiple of radius" << std::endl;
   std::cout << "                            --span_ratio 4.5     - will split when branch width spans this multiple of radius" << std::endl;
@@ -73,12 +74,13 @@ int main(int argc, char *argv[])
 
   ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0), minimum_radius(0.01, 100.0);
   ray::DoubleArgument length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0), span_ratio(0.01, 10.0);
-  ray::DoubleArgument gravity_factor(0.0, 100.0);
+  ray::DoubleArgument gravity_factor(0.0, 100.0), radius_exponent(0.0, 100.0);
   ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
   ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
   ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
   ray::OptionalKeyValueArgument minimum_radius_option("minimum_radius", 'r', &minimum_radius);
   ray::OptionalKeyValueArgument length_to_radius_option("min_length_per_radius", 'l', &length_to_radius);
+  ray::OptionalKeyValueArgument radius_exponent_option("radius_exponent", 'e', &radius_exponent);
   ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c', &cylinder_length_to_width);
   ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
@@ -95,7 +97,7 @@ int main(int argc, char *argv[])
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
   bool extract_forest_agglomerate = ray::parseCommandLine(argc, argv, {&forest_agglomerated, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &min_gradient_option, &max_gradient_option, &verbose});
-  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&max_diameter_option, &distance_limit_option, &height_min_option, &minimum_radius_option, &length_to_radius_option, &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option, &verbose});
+  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&max_diameter_option, &distance_limit_option, &height_min_option, &minimum_radius_option, &length_to_radius_option, &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option, &radius_exponent_option, &verbose});
   bool extract_branches = ray::parseCommandLine(argc, argv, {&branches, &cloud_file}, {&verbose});
   if (!extract_trunks && !extract_branches && !extract_forest && !extract_forest_agglomerate && !extract_terrain && !extract_trees)
     usage();  
@@ -143,6 +145,8 @@ int main(int argc, char *argv[])
       params.minimum_radius = minimum_radius.value();
     if (length_to_radius_option.isSet())
       params.length_to_radius = length_to_radius.value();
+    if (radius_exponent_option.isSet())
+      params.radius_exponent = radius_exponent.value();
     if (cylinder_length_to_width_option.isSet())
       params.cylinder_length_to_width = cylinder_length_to_width.value();
     if (gap_ratio_option.isSet())

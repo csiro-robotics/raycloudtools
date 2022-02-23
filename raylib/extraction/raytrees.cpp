@@ -53,7 +53,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   {
     for (auto &root: sections[i].roots)
       sections[i].max_distance_to_end = std::max(sections[i].max_distance_to_end, points[root].distance_to_end);
-    sections[i].radius = sections[i].max_distance_to_end / params.length_to_radius;
+    sections[i].radius = std::pow(sections[i].max_distance_to_end / params.length_to_radius, 1.0/params.radius_exponent);
  //   std::cout << "initial end distances: " << sections[i].roots.size() << ": " << sections[i].max_distance_to_end << " rad: " << sections[i].radius << std::endl;
   }
 
@@ -78,7 +78,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       std::cout << "generating segment " << sec << std::endl;
     int par = sections[sec].parent;
 
-    double max_radius = sections[sec].max_distance_to_end / params.length_to_radius;
+    double max_radius = std::pow(sections[sec].max_distance_to_end / params.length_to_radius, 1.0/params.radius_exponent);
     if (max_radius < params.minimum_radius)
     {
       sections[sec].tip.setZero();
@@ -186,7 +186,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         nodes.clear(); // don't trust the found nodes as it is now two separate tree nodes
         sections[sec].ends = clusters[maxi]; 
         sections[sec].max_distance_to_end = max_distances[maxi] + thickness;
-        max_radius = sections[sec].max_distance_to_end / params.length_to_radius;
+        max_radius = std::pow(sections[sec].max_distance_to_end / params.length_to_radius, 1.0/params.radius_exponent);
       }
       for (size_t i = 0; i<clusters.size(); i++)
       {
@@ -194,7 +194,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           continue;
         BranchSection new_node = sections[sec];
         new_node.max_distance_to_end = max_distances[i] + thickness;
-        double maxrad = new_node.max_distance_to_end / params.length_to_radius;
+        double maxrad = std::pow(new_node.max_distance_to_end / params.length_to_radius, 1.0/params.radius_exponent);
         if (maxrad > params.minimum_radius)
         {
           new_node.ends = clusters[i];      
@@ -352,7 +352,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       new_node.max_distance_to_end = 0.0;
       for (auto &root: new_node.roots)
         new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points[root].distance_to_end);
-      max_radius = new_node.max_distance_to_end / params.length_to_radius;
+      max_radius = std::pow(new_node.max_distance_to_end / params.length_to_radius, 1.0/params.radius_exponent);
       new_node.radius = std::min(sections[sec].radius, max_radius);
       if (new_node.radius > params.minimum_radius) // if it is the first node, then we need a second noded
       {
