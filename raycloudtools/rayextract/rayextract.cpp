@@ -45,9 +45,9 @@ void usage(bool error=false)
   std::cout << "                            --max_diameter 0.9   - maximum trunk diameter in segmenting trees" << std::endl;
   std::cout << "                            --distance_limit 1   - maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - minimum height counted as a tree" << std::endl;
-  std::cout << "                            --minimum_radius 0.02- minimum branch radius" << std::endl;
+  std::cout << "                            --minimum_radius 0.01- minimum branch radius" << std::endl;
   std::cout << "                            --min_length_per_radius 80- the tapering rate of branches" << std::endl;
-  std::cout << "                            --radius_exponent 1  - exponent of radius in estimating length" << std::endl;
+  std::cout << "                            --radius_exponent 0.67 - exponent of radius in estimating length" << std::endl;
   std::cout << "                            --cylinder_length_to_width 4- how slender the cylinders are" << std::endl;
   std::cout << "                            --gap_ratio 2.5      - will split for lateral gaps at this multiple of radius" << std::endl;
   std::cout << "                            --span_ratio 4.5     - will split when branch width spans this multiple of radius" << std::endl;
