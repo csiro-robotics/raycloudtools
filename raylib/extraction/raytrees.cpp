@@ -88,7 +88,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     int par = sections[sec].parent;
 
     double max_radius = radFromLength(sections[sec].max_distance_to_end, params);
-    if (max_radius < params.minimum_radius)
+    if (max_radius < 0.5*params.min_diameter)
     {
       sections[sec].tip.setZero();
       for (auto &i: sections[sec].ends)
@@ -204,7 +204,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         BranchSection new_node = sections[sec];
         new_node.max_distance_to_end = max_distances[i] + thickness;
         double maxrad = radFromLength(new_node.max_distance_to_end, params);
-        if (maxrad > params.minimum_radius)
+        if (maxrad > 0.5*params.min_diameter)
         {
           new_node.ends = clusters[i];      
           if (par != -1)
@@ -363,7 +363,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points[root].distance_to_end);
       max_radius = radFromLength(new_node.max_distance_to_end, params);
       new_node.radius = std::min(sections[sec].radius, max_radius);
-      if (new_node.radius > params.minimum_radius) // if it is the first node, then we need a second noded
+      if (new_node.radius > 0.5*params.min_diameter) // if it is the first node, then we need a second noded
       {
         sections[sec].children.push_back((int)sections.size());
 
