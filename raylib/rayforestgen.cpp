@@ -12,7 +12,7 @@ namespace ray
 bool ForestStructure::load(const std::string &filename)
 {
   std::cout << "loading tree file: " << filename << std::endl;
-  std::ifstream ifs(filename.c_str(), std::ios::out);
+  std::ifstream ifs(filename.c_str(), std::ios::in);
   if (!ifs.is_open())
   {
     std::cerr << "Error: cannot open " << filename << std::endl;
