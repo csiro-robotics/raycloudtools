@@ -54,12 +54,13 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
 }
 
 void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
-                              const std::vector<double> &radii, int id)
+                              const std::vector<double> &radii, int id, const std::vector<Eigen::Vector4d> &colours)
 {
   RAYLIB_UNUSED(starts);
   RAYLIB_UNUSED(ends);
   RAYLIB_UNUSED(radii);
   RAYLIB_UNUSED(id);
+  RAYLIB_UNUSED(colours);
 }
 
 void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,

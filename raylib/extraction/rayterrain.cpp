@@ -174,6 +174,7 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
 
 void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
 {
+#if RAYLIB_WITH_QHULL  
   // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
   // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
   const double root_half = sqrt(0.5);
@@ -216,6 +217,7 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
 
   mesh_.indexList() = hull.mesh().indexList();
   mesh_.vertices() = vecs;
+#endif
 }
 
 void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
