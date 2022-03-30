@@ -77,7 +77,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   // now generate initial sections
   for (size_t i = 0; i<points.size(); i++)
     points[i].visited = false;
-  std::vector<int> section_ids(points.size(), -1);
 
   // now trace from root tree nodes upwards, getting node centroids
   // a tree_node is a segment, and these are added as we iterate through the list
@@ -233,19 +232,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
             break;
           node = points[node].parent;
         }
-        if (par == -1)
-        {
-          section_ids[nodes.back()] = (int)sec;
-        }
       }
     }
-    else if (par == -1)
-    {
-      for (auto &root: sections[sec].roots)
-      {
-        section_ids[root] = (int)sec;
-      }    
-    }
+
 
     // find points in this segment, and the root points for the child segment
     sections[sec].tip.setZero();
@@ -377,6 +366,53 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       }
     }    
   }
+  // Now calculate the section ids for all of the points, for the segmented cloud
+  std::vector<int> section_ids(points.size(), -1);
+  for (size_t sec = 0; sec < sections.size(); sec++)
+  {
+    std::vector<int> nodes;
+    if (sections[sec].ends.size() > 0)
+    {
+      for (auto &end: sections[sec].ends)
+      {
+        int node = points[end].parent;
+        while (node != -1)
+        {
+          if (std::find(nodes.begin(), nodes.end(), node) != nodes.end())
+            break;
+          nodes.push_back(node);
+          if (std::find(sections[sec].roots.begin(), sections[sec].roots.end(), node) != sections[sec].roots.end())
+            break;
+          node = points[node].parent;
+        }
+      }
+    }
+    std::vector<int> ends;
+    if (sections[sec].children.size() == 0) // then also add any offshoots...
+    {
+      ends = sections[sec].ends;
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        for (auto &c: children[ends[i]])
+          ends.push_back(c);
+      }
+    }
+    for (auto &node: nodes)
+      section_ids[node] = sec;
+    for (auto &end: ends)
+      section_ids[end] = sec;
+  }
+  for (size_t i = 0; i<points.size(); i++)
+  {
+    if (section_ids[i] == -1) // an unfound point
+    {
+      int j = points[i].parent;
+      while (j != -1 && section_ids[j] == -1)
+        j = points[j].parent;
+      if (j != -1)
+        section_ids[i] = section_ids[j];
+    }
+  }
   if (verbose)
   {
     std::vector<Eigen::Vector3d> starts;
@@ -423,13 +459,17 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     if (cloud.rayBounded(i))
     {
       j++;
-      int root = points[j].root;
-      if (root == -1)
+      int seg = section_ids[j];
+      if (!params.segment_branches)
       {
-        colour.red = colour.green = colour.blue = 0;
-        continue;
+        int root = points[j].root;
+        if (root == -1)
+        {
+          colour.red = colour.green = colour.blue = 0;
+          continue;
+        }
+        seg = section_ids[root];
       }
-      int seg = section_ids[root];
       if (seg == -1)
       {
         colour.red = colour.green = colour.blue = 0;
