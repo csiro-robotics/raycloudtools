@@ -398,9 +398,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       }
     }
     for (auto &node: nodes)
-      section_ids[node] = sec;
+      section_ids[node] = (int)sec;
     for (auto &end: ends)
-      section_ids[end] = sec;
+      section_ids[end] = (int)sec;
   }
   for (size_t i = 0; i<points.size(); i++)
   {
