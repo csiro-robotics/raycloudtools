@@ -14,6 +14,39 @@
 
 namespace ray
 {
+// only ints up to 255*255*255-1   (as it leaves black as a special colour)
+void convertIntToColour(int x, RGBA &colour)
+{
+  colour.red = colour.green = colour.blue = 0;
+  x++;
+  for (int i = 0; i<24; ++i)
+  {
+    if (x & (1<<i))
+    {
+      int channel = i%3;
+      int offset = i/3;
+      uint8_t &ch = channel == 0 ? colour.red : (channel == 1 ? colour.green : colour.blue);
+      ch |= 1<<(7-offset);
+    }
+  }
+}
+
+// returns -1 for the special case of the colour black, otherwise the integer index that the colour represents
+int convertColourToInt(const RGBA &colour)
+{
+  int result = 0;
+  for (int i = 0; i<24; ++i)
+  {
+    int channel = i%3;
+    int offset = i/3;
+    const uint8_t &ch = channel==0 ? colour.red : (channel == 1 ? colour.green : colour.blue);
+    if ( ch & (1<<(7-offset)))
+      result |= 1<<i;
+  }
+  return result-1;
+}
+
+
 struct TreesParams
 {
   TreesParams() : max_diameter(0.9), min_diameter(0.02), distance_limit(1.0), height_min(2.0), length_to_radius(140.0), 

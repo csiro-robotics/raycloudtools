@@ -435,10 +435,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         colour.red = colour.green = colour.blue = 0;
         continue;
       }
-      srand(1 + seg);
-      colour.red   = uint8_t(50 + rand()%205);
-      colour.green = uint8_t(50 + rand()%205);
-      colour.blue  = uint8_t(50 + rand()%205);
+      convertIntToColour(seg, colour);
     }
     else
     {
@@ -456,18 +453,20 @@ bool Trees::save(const std::string &filename)
     return false;
   }  
   ofs << "# tree structure file:" << std::endl;
-  ofs << "x,y,z,radius,parent_id" << std::endl;
-  for (const auto &section: sections)
+  ofs << "x,y,z,radius,parent_id,section_id" << std::endl;
+  for (size_t sec = 0; sec < sections.size(); sec++)
   {
+    const auto &section = sections[sec];
     if (section.parent >= 0 || section.children.empty())
       continue;
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << section.radius << ",-1";
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << section.radius << ",-1," << sec;
 
     std::vector<int> children = section.children;
     for (unsigned int c = 0; c<children.size(); c++)
     {
       BranchSection &node = sections[children[c]];
       ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << "," << sections[node.parent].id;
+      ofs << ", " << children[c];
       for (auto i: sections[children[c]].children)
         children.push_back(i);
     }
