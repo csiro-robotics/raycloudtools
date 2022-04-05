@@ -352,8 +352,8 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   }
   if (time_offset == -1)
   {
-    std::cerr << "error: no time information found in " << file_name << std::endl;
-    return false;
+//    std::cerr << "error: no time information found in " << file_name << std::endl;
+//    return false;
   }
   if (colour_offset == -1)
     std::cout << "warning: no colour information found in " << file_name

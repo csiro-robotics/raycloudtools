@@ -52,6 +52,7 @@ void usage(bool error=false)
   std::cout << "                            --gap_ratio 2.5      - (-g) will split for lateral gaps at this multiple of radius" << std::endl;
   std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
+  std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
 
 //  std::cout << "rayextract branches cloud.ply               - estimate tree branches and save to text file" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;

@@ -24,6 +24,7 @@ void usage(int exit_code = 1)
   std::cout << "rayimport pointcloudfile ray 0,0,-10     - use 0,0,-10 as the constant ray vector from start to point" << std::endl;
   std::cout << "                                        --max_intensity 100 - specify maximum intensity value (default 100)." << std::endl;
   std::cout << "                                                              0 sets all to full intensity (bounded rays)." << std::endl;
+  std::cout << "                                        --remove_start_pos  - translate so first point is at 0,0,0" << std::endl;
   std::cout << "The output is a .ply file of the same name (or with suffix _raycloud if the input was a .ply file)." << std::endl;
   exit(exit_code);
 }
@@ -34,10 +35,11 @@ int main(int argc, char *argv[])
   ray::Vector3dArgument position, ray_vec;
   ray::TextArgument ray_text("ray");
   ray::OptionalKeyValueArgument max_intensity_option("max_intensity", 'm', &max_intensity);
+  ray::OptionalFlagArgument remove("remove_start_pos", 'r');
   ray::FileArgument cloud_file, trajectory_file;
-  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &trajectory_file}, {&max_intensity_option});
-  bool position_format = ray::parseCommandLine(argc, argv, {&cloud_file, &position}, {&max_intensity_option});
-  bool ray_format      = ray::parseCommandLine(argc, argv, {&cloud_file, &ray_text, &ray_vec}, {&max_intensity_option});
+  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &trajectory_file}, {&max_intensity_option, &remove});
+  bool position_format = ray::parseCommandLine(argc, argv, {&cloud_file, &position}, {&max_intensity_option, &remove});
+  bool ray_format      = ray::parseCommandLine(argc, argv, {&cloud_file, &ray_text, &ray_vec}, {&max_intensity_option, &remove});
   if (!standard_format && !position_format && !ray_format)
     usage();
 
@@ -74,8 +76,13 @@ int main(int argc, char *argv[])
   ray::RayPlyBuffer buffer;
   if (!ray::writeRayCloudChunkStart(save_file + ".ply", ofs))
     usage();
+  Eigen::Vector3d start_pos(0,0,0);
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
+    if (start_pos.squaredNorm() == 0.0)
+    {
+      start_pos = ends[0];
+    }
     if (position_format)
     {
       starts = ends;
@@ -102,6 +109,13 @@ int main(int argc, char *argv[])
           ends[i] = starts[i] + dir*minimal_distance_for_nonreturns; 
         }
       }
+    }
+    if (remove.isSet())
+    {
+      for (auto &end: ends)
+        end -= start_pos;
+      for (auto &start: starts)
+        start -= start_pos;
     }
     if (maximum_intensity == 0.0)
     {
@@ -132,5 +146,9 @@ int main(int argc, char *argv[])
     std::cout << "rayimport <point cloud> <trajectory file> --max_intensity 0" << std::endl;
   }  
   ray::writeRayCloudChunkEnd(ofs);
+  if (remove.isSet())
+  {
+    std::cout << "start position: " << start_pos.transpose() << " removed from all points" << std::endl;
+  }
   return 0;
 }
