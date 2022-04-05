@@ -57,14 +57,26 @@ end_header
 ```
 followed by the binary data. By default it uses floats for x,y,z,nx,ny,nz and doubles for time. nx,ny,nz is the vector from the end point x,y,z to the sensor's location at the time that the point was observed. It is not a surface normal, but the ray representing free space from point to source.
 
+Imported .ply point cloud files have a similar format, but without the nx,ny,nz fields, and optionally an intensity field instead of the red,green,blue,alpha:
+```console
+ply
+format binary_little_endian 1.0
+comment Any comment here
+element vertex 0000000000<number of points>
+property <float/double> x
+property <float/double> y
+property <float/double> z
+property <float/double> time
+property <float/double> intensity
+end_header
+``` 
+The range of this intensity mapped onto the raycloud's 0-255 alpha value using rayimport's max_intensity optional parameter.
+
+The imported .laz point cloud format is the 3D point, time and intensity fields. Plus the optional colour field. 
+
 ## Examples:
 
-**rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line.
-
-Input point clouds can be .laz or .ply files. In both cases, the file is expected to contain position and time fields. The .laz file must contain an 'intensity' field. The range of this field is mapped onto the raycloud's alpha 0-255 value using the max_intensity optional parameter. Colour is an optional field in both cases, and the raycloud will default to colouring by time if the field is absent.
-
-Imported .ply files need the same format as for ray clouds shown above, but need not contain the nx,ny,nz, and they either need to contain the colour fields, or a 'property <float/double> intensity' field.  
-
+**rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line. 
 
 **raycreate room 1** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 1.
 <p align="center">
