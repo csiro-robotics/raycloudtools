@@ -30,6 +30,7 @@ void usage(int exit_code = 1)
   std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
   std::cout << "                  box rx,ry,rz           - splits around a centred axis-aligned box of the given radii" << std::endl;
   std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
+  std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
   std::cout << "                  trees cloud_forest.txt - splits trees into one file each, allowing a buffer around each tree" << std::endl;
   std::cout << "                  tube 1,2,3 10,11,12 5  - splits within a tube (cylinder) using start, end and radius" << std::endl;
@@ -43,6 +44,7 @@ int main(int argc, char *argv[])
   double max_val = std::numeric_limits<double>::max();
   ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
+  ray::DoubleArgument overlap(0.0, 10000.0);
   ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), tube_radius(0.001, 1000.0);
   ray::KeyValueChoice choice({"plane", "time", "colour", "single_colour", "alpha", "raydir", "range"}, 
                              {&plane,  &time,  &colour,  &single_colour, &alpha,  &raydir,  &range});
@@ -56,9 +58,10 @@ int main(int argc, char *argv[])
   bool box_format = ray::parseCommandLine(argc, argv, {&cloud_file, &box_text, &box_radius});
   bool grid_format = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width});
   bool grid_format2 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width2});
+  bool grid_format3 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width, &overlap});
   bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
   bool tube_split = ray::parseCommandLine(argc, argv, {&cloud_file, &tube_text, &tube_start, &tube_end, &tube_radius});
-  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !mesh_split && !time_percent && !tube_split)
+  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 && !mesh_split && !time_percent && !tube_split)
   {
     usage();
   }
@@ -143,7 +146,11 @@ int main(int argc, char *argv[])
   else if (grid_format2)
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width2.value());
-  }    
+  }  
+  else if (grid_format3)
+  {
+    res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value(), overlap.value());
+  }      
   else
   {
     const std::string &parameter = choice.selectedKey();
