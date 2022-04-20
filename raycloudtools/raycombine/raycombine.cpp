@@ -25,29 +25,14 @@ void usage(int exit_code = 1)
     << std::endl;
   std::cout << "Outputs the combined cloud and the residual cloud of differences." << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout
-    << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at "
-       "differences"
-    << std::endl;
-  std::cout
-    << "                                                           20 is the number of pass through rays to define "
-       "a difference"
-    << std::endl;
-  std::cout
-    << "           max    - maximal objects included. This is a form of volume intersection (rather than min: union)."
-    << std::endl;
-  std::cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds."
-            << std::endl;
-  std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds."
-            << std::endl;
-  std::cout << "           order  - conflicts are resolved in argument order, with the first taking priority."
-            << std::endl;
-  std::cout
-    << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')."
-    << std::endl;
-  std::cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from "
-               "basecloud) at any differences. "
-            << std::endl;
+  std::cout << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at differences" << std::endl;
+  std::cout << "                                                           20 is the number of pass through rays to define " << std::endl;
+  std::cout << "           max    - maximal objects included. This is a form of volume intersection (rather than min: union)." << std::endl;
+  std::cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << std::endl;
+  std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << std::endl;
+  std::cout << "           order  - conflicts are resolved in argument order, with the first taking priority." << std::endl;
+  std::cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')." << std::endl;
+  std::cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from basecloud) at any differences. " << std::endl;
   std::cout << "                                                       For merge conflicts it uses the specified merge type." << std::endl;
   std::cout << "        --output raycloud_combined.ply               - optionally specify the output file name." << std::endl;
   exit(exit_code);
