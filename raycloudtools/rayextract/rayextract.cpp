@@ -158,48 +158,11 @@ int main(int argc, char *argv[])
       params.span_ratio = span_ratio.value();    
     if (gravity_factor_option.isSet())
       params.gravity_factor = gravity_factor.value();
+    if (grid_width_option.isSet())
+      params.grid_width = grid_width.value();
     params.segment_branches = segment_branches.isSet();
   
     ray::Trees trees(cloud, mesh, params, verbose.isSet());
-
-    if (grid_width_option.isSet())
-    {
-      double width = grid_width.value();
-      Eigen::Vector3d min_bound, max_bound;
-      cloud.calcBounds(&min_bound, &max_bound);
-      Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
-      Eigen::Vector2i inds(std::round(mid[0]/width), std::round(mid[1]/width));
-      min_bound[0] = width*((double)inds[0] - 0.5);
-      min_bound[1] = width*((double)inds[1] - 0.5);
-      max_bound[0] = width*((double)inds[0] + 0.5);
-      max_bound[1] = width*((double)inds[1] + 0.5);
-
-      // crop the cloud
-      for (int i = (int)cloud.ends.size()-1; i >= 0; i--)
-      {
-        if (cloud.ends[i][0] < min_bound[0] || cloud.ends[i][0] > max_bound[0] ||
-            cloud.ends[i][1] < min_bound[1] || cloud.ends[i][1] > max_bound[1])
-        {
-          cloud.starts[i] = cloud.starts.back();  cloud.starts.pop_back();
-          cloud.ends[i] = cloud.ends.back();  cloud.ends.pop_back();
-          cloud.colours[i] = cloud.colours.back();  cloud.colours.pop_back();
-          cloud.times[i] = cloud.times.back();  cloud.times.pop_back();
-        }
-      }
-
-      // now crop the trees 
-      for (auto &section: trees.sections)
-      {
-        if (section.parent >= 0 || section.children.empty())
-          continue;        
-        Eigen::Vector3d pos = section.tip;
-        if (pos[0] < min_bound[0] || pos[0] > max_bound[0] ||
-            pos[1] < min_bound[1] || pos[1] > max_bound[1])
-        {
-          section.children.clear(); // make it a non-tree
-        }
-      }
-    }
 
     trees.save(cloud_file.nameStub() + "_trees.txt");
     cloud.save(cloud_file.nameStub() + "_segmented.ply");

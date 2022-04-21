@@ -51,7 +51,7 @@ struct TreesParams
 {
   TreesParams() : max_diameter(0.9), min_diameter(0.02), distance_limit(1.0), height_min(2.0), length_to_radius(140.0), 
                   cylinder_length_to_width(4.0), gap_ratio(2.5), span_ratio(4.5), gravity_factor(0.3), radius_exponent(0.67),
-                  linear_range(3.0), segment_branches(false) {}
+                  linear_range(3.0), grid_width(0.0), segment_branches(false) {}
   double max_diameter;
   double min_diameter;
   double distance_limit;
@@ -65,6 +65,7 @@ struct TreesParams
                           // in "Wind loads and competition for light sculpt trees into self-similar structures" they
                           // suggest a range from 0.54 up to 0.89
   double linear_range; // number of metres that branch radius is linear
+  double grid_width;
   bool segment_branches;
 };
 

@@ -452,23 +452,53 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   }
   std::cout << num << " trees saved" << std::endl;
 
+  Eigen::Vector3d min_bound(0,0,0), max_bound(0,0,0);
+  if (params.grid_width)
+  {
+    double width = params.grid_width;
+    cloud.calcBounds(&min_bound, &max_bound);
+    Eigen::Vector3d mid = (min_bound + max_bound)/2.0;
+    Eigen::Vector2i inds(std::round(mid[0]/width), std::round(mid[1]/width));
+    min_bound[0] = width*((double)inds[0] - 0.5);
+    min_bound[1] = width*((double)inds[1] - 0.5);
+    max_bound[0] = width*((double)inds[0] + 0.5);
+    max_bound[1] = width*((double)inds[1] + 0.5);
+    std::cout << "min bound: " << min_bound.transpose() << ", max bound: " << max_bound.transpose() << std::endl;
+
+    // disable trees out of bounds
+    for (auto &section: sections)
+    {
+      if (section.parent >= 0 || section.children.empty())
+        continue;        
+      Eigen::Vector3d pos = section.tip;
+      if (pos[0] < min_bound[0] || pos[0] > max_bound[0] ||
+          pos[1] < min_bound[1] || pos[1] > max_bound[1])
+      {
+        section.children.clear(); // make it a non-tree
+      }
+    }
+  }  
+
   int j = -1;
-  for (unsigned int i = 0; i < cloud.ends.size(); i++)
+  std::vector<int> root_segs(cloud.ends.size(), -1);
+  for (size_t i = 0; i<cloud.ends.size(); i++)
   {
     RGBA &colour = cloud.colours[i];
     if (cloud.rayBounded(i))
     {
       j++;
       int seg = section_ids[j];
+      int root_id = points[j].root;
+      root_segs[i] = root_id == -1 ? -1 : section_ids[root_id];
+
       if (!params.segment_branches)
       {
-        int root = points[j].root;
-        if (root == -1)
+        if (root_id == -1)
         {
           colour.red = colour.green = colour.blue = 0;
           continue;
         }
-        seg = section_ids[root];
+        seg = section_ids[root_id];
       }
       if (seg == -1)
       {
@@ -481,6 +511,25 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     {
       colour.red = colour.green = colour.blue = 0;
     }      
+  }
+
+  if (params.grid_width) // remove edges
+  {
+    for (int i = (int)cloud.ends.size()-1; i>=0; i--)
+    {
+      if (!cloud.rayBounded(i))
+        continue;
+      Eigen::Vector3d pos = root_segs[i] == -1 ? cloud.ends[i] : sections[root_segs[i]].tip;
+
+      if (pos[0] < min_bound[0] || pos[0] > max_bound[0] ||
+          pos[1] < min_bound[1] || pos[1] > max_bound[1]) // nope, can't do this here!
+      {
+        cloud.starts[i] = cloud.starts.back();  cloud.starts.pop_back();
+        cloud.ends[i] = cloud.ends.back();  cloud.ends.pop_back();
+        cloud.colours[i] = cloud.colours.back();  cloud.colours.pop_back();
+        cloud.times[i] = cloud.times.back();  cloud.times.pop_back();      
+      }
+    }
   }
 }
 
