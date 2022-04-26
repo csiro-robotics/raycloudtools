@@ -28,13 +28,17 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   if (verbose)
     cloud.save("test_output.ply");
 
+  std::vector<int> section_ids(points.size(), -1);
   for (size_t i = 0; i<roots_list.size(); i++)
   {
     BranchSection base;
     base.roots = roots_list[i];
     for (auto &root: base.roots)
+    {
+      section_ids[root] = sections.size();
       if (root < orig_points)
         std::cout << "error: " << root << std::endl;
+    }
     sections.push_back(base);
   }
   if (verbose)
@@ -205,8 +209,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         double maxrad = radFromLength(new_node.max_distance_to_end, params);
         if (maxrad > 0.5*params.min_diameter)
         {
-          new_node.ends = clusters[i];      
-          if (par != -1)
             sections[par].children.push_back((int)sections.size());
           sections.push_back(new_node);
         }
@@ -361,13 +363,11 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
           new_node.tip += points[end].pos;
         if (new_node.roots.size() > 0)
           new_node.tip /= (double)new_node.roots.size();
-
         sections.push_back(new_node);
       }
     }    
   }
   // Now calculate the section ids for all of the points, for the segmented cloud
-  std::vector<int> section_ids(points.size(), -1);
   for (size_t sec = 0; sec < sections.size(); sec++)
   {
     std::vector<int> nodes;
@@ -387,10 +387,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         }
       }
     }
-    std::vector<int> ends;
+    std::vector<int> ends = sections[sec].ends;
     if (sections[sec].children.size() == 0) // then also add any offshoots...
     {
-      ends = sections[sec].ends;
       for (size_t i = 0; i<ends.size(); i++)
       {
         for (auto &c: children[ends[i]])
@@ -437,7 +436,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   int num = 0;
   for (auto &section: sections)
   {
-    if (section.parent >= 0)
+    if (section.parent >= 0 || section.children.empty())
       continue;
     num++;
     int child_id = 0;
