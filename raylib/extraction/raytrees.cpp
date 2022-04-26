@@ -209,6 +209,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         double maxrad = radFromLength(new_node.max_distance_to_end, params);
         if (maxrad > 0.5*params.min_diameter)
         {
+          new_node.ends = clusters[i];      
+          if (par != -1)
             sections[par].children.push_back((int)sections.size());
           sections.push_back(new_node);
         }
