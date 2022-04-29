@@ -55,6 +55,8 @@ bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
   return true;
 }
 
+static bool warned = false;
+
 bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
      const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times, const std::vector<RGBA> &colours)
 {
@@ -70,7 +72,6 @@ bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::v
   }
   vertices.resize(ends.size());
 
-  bool warned = false;
   for (size_t i = 0; i < ends.size(); i++)
   {
     if (!warned)
@@ -194,7 +195,6 @@ bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const st
   }
   vertices.resize(points.size()); // allocates the chunk size the first time, and nullop on subsequent chunks
 
-  bool warned = false;
   for (size_t i = 0; i < points.size(); i++)
   {
     if (!warned)

@@ -53,14 +53,22 @@ int main(int argc, char *argv[])
   if (standard_format)
   {
     const std::string traj_end = traj_file.substr(traj_file.size() - 4);
-    if (traj_end == ".ply")
+    if (traj_end == ".ply" || traj_end == ".las" || traj_end == ".laz")
     {
       std::vector<Eigen::Vector3d> starts;
       std::vector<Eigen::Vector3d> ends;
       std::vector<double> times;
       std::vector<ray::RGBA> colours;
-      if (!ray::readPly(traj_file, starts, ends, times, colours, false))
-        return false;
+      if (traj_end == ".ply")
+      {
+        if (!ray::readPly(traj_file, starts, ends, times, colours, false))
+          return false;
+      }
+      else
+      {
+        if (!ray::readLas(traj_file, ends, times, colours, maximum_intensity))
+          return false;        
+      }
       trajectory.points() = std::move(ends);
       trajectory.times() = std::move(times);
     }
@@ -76,7 +84,7 @@ int main(int argc, char *argv[])
   ray::RayPlyBuffer buffer;
   if (!ray::writeRayCloudChunkStart(save_file + ".ply", ofs))
     usage();
-  Eigen::Vector3d start_pos(0,0,0);
+  Eigen::Vector3d start_pos(0,0,0);    
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
   {
     if (start_pos.squaredNorm() == 0.0)
