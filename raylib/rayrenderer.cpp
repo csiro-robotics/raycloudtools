@@ -20,7 +20,7 @@
 namespace ray
 {
 #if RAYLIB_WITH_TIFF
-bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file, double origin_x, double origin_y)
+bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file, const Eigen::Vector3d &geooffset, double origin_x, double origin_y)
 { 
   /* Open TIFF descriptor to write GeoTIFF tags */
   TIFF *tif = XTIFFOpen(filename.c_str(), "w");  
@@ -125,6 +125,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     const double coord_long = std::stod(values[5]);
     const double coord_lat = std::stod(values[4]);
 
+/*
+    if ("....")
+      GTIFKeySet(gtif, GT , TYPE_SHORT, 1, Ellipse_GRS_1980);
+
+    GTProjectedCSCode?  PCS_GDA94_MGA_zone_56  */
+
     // Set GeoTIFF information 
     GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelProjected); 
     GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
@@ -162,6 +168,29 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     }
     GTIFKeySet(gtif, ProjCenterLongGeoKey, TYPE_DOUBLE, 1, coord_long);
     GTIFKeySet(gtif, ProjCenterLatGeoKey, TYPE_DOUBLE, 1, coord_lat);
+
+    // Store the keys into the TIFF Tags 
+    GTIFWriteKeys(gtif); 
+  }
+  else if (geooffset.squaredNorm() > 0.0)
+  {
+    const double scales[3] = {pixel_width, pixel_width, pixel_width};
+    TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  
+
+    const double tiepoints[6]={0, 0, 0, origin_x + geooffset[0], origin_y + geooffset[1], 0}; // , geooffset[0], geooffset[1], geooffset[2]};
+	  TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 9, tiepoints);    
+
+    // Set GeoTIFF information 
+    GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);   
+    GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
+
+    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, 7856);
+    GTIFKeySet(gtif, VerticalCSTypeGeoKey, TYPE_SHORT, 1, 5711);
+    GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
+    GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
+
+    GTIFKeySet(gtif, ProjLinearUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
+    GTIFKeySet(gtif, VerticalUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
 
     // Store the keys into the TIFF Tags 
     GTIFWriteKeys(gtif); 
@@ -346,7 +375,7 @@ void DensityGrid::addNeighbourPriors()
 }
 
 bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, 
-                 RenderStyle style, double pix_width, const std::string &image_file, const std::string &projection_file)                 
+                 RenderStyle style, double pix_width, const std::string &image_file, const std::string &projection_file, const Eigen::Vector3d &geooffset)                 
 {
   // convert the view direction into useable parameters
   int axis = 0;
@@ -595,7 +624,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       const Eigen::Vector3d origin(0,0,0);
       const Eigen::Vector3d pos = -(origin - bounds.min_bound_);// / pix_width; // TODO: do we divide by pixel width here?
       const double x = pos[ax1], y = pos[ax2] + (double)height * pix_width;
-      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); // true does scalar / monochrome float
+      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, geooffset, x, y); // true does scalar / monochrome float
     }
   #endif
     else
