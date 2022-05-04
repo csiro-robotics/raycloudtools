@@ -132,6 +132,7 @@ int main(int argc, char *argv[])
     }
     ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours);
   };
+  Eigen::Vector3d *offset = remove.isSet() ? &start_pos : nullptr;
   if (cloud_file.nameExt() == "ply")
   {
     if (!ray::readPly(cloud_file.name(), false, add_chunk, maximum_intensity)) // special case of reading a non-ray-cloud ply
@@ -139,7 +140,7 @@ int main(int argc, char *argv[])
   }
   else if (cloud_file.nameExt() == "laz" || cloud_file.nameExt() == "las")
   {
-    if (!ray::readLas(cloud_file.name(), add_chunk, num_bounded, maximum_intensity))
+    if (!ray::readLas(cloud_file.name(), add_chunk, num_bounded, maximum_intensity, offset))
       usage();
   }
   else

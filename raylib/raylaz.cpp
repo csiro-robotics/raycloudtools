@@ -18,7 +18,7 @@ namespace ray
 bool readLas(const std::string &file_name,
      std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
      std::vector<double> &times, std::vector<RGBA> &colours)> apply, size_t &num_bounded, double max_intensity, 
-     size_t chunk_size)
+     Eigen::Vector3d *offset_to_remove, size_t chunk_size)
 {
 #if RAYLIB_WITH_LAS
   std::cout << "readLas: filename: " << file_name << std::endl;
@@ -36,7 +36,12 @@ bool readLas(const std::string &file_name,
   liblas::Reader reader = f.CreateWithStream(ifs);
   liblas::Header const &header = reader.GetHeader();
 
-//  Eigen::Vector3d offset(header.GetOffsetX(), header.GetOffsetY(), header.GetOffsetZ());
+  Eigen::Vector3d offset(header.GetOffsetX(), header.GetOffsetY(), header.GetOffsetZ());
+  std::cout << "offset to remove: " << offset_to_remove << std::endl;
+  if (offset_to_remove)
+  {
+    *offset_to_remove = offset;
+  }
 //  std::cout << "Removing global offset " << offset.transpose() << " to maintain floating point precision. Use raytranslate by this value to translate to the original coordinate frame." << std::endl;
   
 
@@ -74,13 +79,10 @@ bool readLas(const std::string &file_name,
     liblas::Point point = reader.GetPoint();
 
     Eigen::Vector3d position;
-    position[0] = point.GetX();// - offset[0];
-    position[1] = point.GetY();// - offset[1];
-    position[2] = point.GetZ();// - offset[2];
-
-//    position[0] = point.GetRawX();
-//    position[1] = point.GetRawY();
-//    position[2] = point.GetRawZ();    
+    position[0] = point.GetX();
+    position[1] = point.GetY();
+    position[2] = point.GetZ();
+ 
     ends.push_back(position);
     starts.push_back(position); // equal to position for laz files, as we do not store the start points
 
@@ -139,7 +141,7 @@ bool readLas(const std::string &file_name,
 }  
 
 bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, 
-             std::vector<RGBA> &colours, double max_intensity)
+             std::vector<RGBA> &colours, double max_intensity, Eigen::Vector3d *offset_to_remove)
 {
   std::vector<Eigen::Vector3d> starts; // dummy as lax just reads in point clouds, not ray clouds
   auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points, 
@@ -153,7 +155,7 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
     colours = std::move(colour_values);
   };
   size_t num_bounded;
-  bool success = readLas(file_name, apply, num_bounded, max_intensity, std::numeric_limits<size_t>::max());
+  bool success = readLas(file_name, apply, num_bounded, max_intensity, offset_to_remove, std::numeric_limits<size_t>::max());
   if (num_bounded == 0)
   {
     std::cout << "warning: all laz file intensities are 0, which would make all rays unbounded. Setting them to 1." << std::endl;
