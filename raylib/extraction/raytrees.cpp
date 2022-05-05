@@ -35,7 +35,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     base.roots = roots_list[i];
     for (auto &root: base.roots)
     {
-      section_ids[root] = sections.size();
+      section_ids[root] = (int)sections.size();
       if (root < orig_points)
         std::cout << "error: " << root << std::endl;
     }

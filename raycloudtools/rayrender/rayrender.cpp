@@ -11,6 +11,7 @@
 #include "raylib/raycuboid.h"
 #include "raylib/raycloud.h"
 #include "raylib/rayrenderer.h"
+#include "raylib/raylibconfig.h"
 
 void usage(int exit_code = 1)
 {
@@ -26,6 +27,7 @@ void usage(int exit_code = 1)
     << std::endl;
   std::cout << "                               starts      - render the ray start points" << std::endl;
   std::cout << "                               rays        - render the full set of rays" << std::endl;
+  std::cout << "                               height      - render the maximum heights in the view axis" << std::endl;
   std::cout << "                               density     - shade according to estimated density within pixel"
     << std::endl;
   std::cout << "                               density_rgb - r->g->b colour by estimated density"
@@ -34,6 +36,8 @@ void usage(int exit_code = 1)
   std::cout << "                     --output name.png     - optional output file name. " << std::endl;
   std::cout << "                                             Supports .png, .tga, .hdr, .jpg, .bmp" << std::endl;
   std::cout << "                     --mark_origin         - place a 255,0,255 pixel at the coordinate origin. " << std::endl;
+  std::cout << "                     --georeference name.proj- projection file name, to output (geo)tif file. " << std::endl;
+  std::cout << "                     --geooffset 1,2,3 - offset assuming the GCS_WGS_84 geokey. " << std::endl;
   std::cout << "Default output is raycloudfile.png" << std::endl;
   exit(exit_code);
 }
@@ -41,19 +45,39 @@ void usage(int exit_code = 1)
 int main(int argc, char *argv[])
 {
   ray::KeyChoice viewpoint({"top", "left", "right", "front", "back"});
-  ray::KeyChoice style({"ends", "mean", "sum", "starts", "rays", "density", "density_rgb"});
+  ray::KeyChoice style({"ends", "mean", "sum", "starts", "rays", "height", "density", "density_rgb"});
   ray::DoubleArgument pixel_width(0.0001, 1000.0);
-  ray::FileArgument cloud_file, image_file;
+  ray::Vector3dArgument geooffset;
+  ray::FileArgument cloud_file, image_file, projection_file(false);
   ray::OptionalFlagArgument mark_origin("mark_origin", 'm');
   ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
   ray::OptionalKeyValueArgument output_file_option("output", 'o', &image_file);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style}, {&pixel_width_option, &output_file_option, &mark_origin}))
+  ray::OptionalKeyValueArgument projection_file_option("georeference", 'g', &projection_file);
+  ray::OptionalKeyValueArgument geooffset_option("geooffset", 'e', &geooffset);
+  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style}, {&pixel_width_option, &output_file_option, &mark_origin, &projection_file_option, &geooffset_option}))
   {
     usage();
   }
   if (!output_file_option.isSet())
   {
-    image_file.name() = cloud_file.nameStub() + ".png";
+    image_file.name() = cloud_file.nameStub() + (projection_file_option.isSet() ? ".tif" : ".png");
+  }
+  if (projection_file_option.isSet() || geooffset_option.isSet())
+  {
+    #if !RAYLIB_WITH_TIFF
+    std::cerr << "Error: georeferencing requires the WITH_TIFF build flag enabled. See README.md." << std::endl;
+    usage();
+    #endif
+    if (image_file.nameExt() != "tif")
+    {
+      std::cerr << "Error: projection files can only be used when outputting a .tif file" << std::endl;
+      usage();
+    }
+    if (viewpoint.selectedKey() != "top")
+    {
+      std::cerr << "Error: can only geolocate a top-down render" << std::endl;
+      usage();
+    }
   }
 
   ray::Cloud::Info info;
@@ -76,8 +100,9 @@ int main(int argc, char *argv[])
   // quick casting allowed, taking care that the text and enums are in the same order
   const ray::ViewDirection view_dir = static_cast<ray::ViewDirection>(viewpoint.selectedID());
   const ray::RenderStyle render_style = static_cast<ray::RenderStyle>(style.selectedID());
+  auto geooff = geooffset_option.isSet() ? geooffset.value() : Eigen::Vector3d(0,0,0);
 
-  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(), mark_origin.isSet()))
+  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(), projection_file.name(), geooff, mark_origin.isSet()))
   {
     usage();
   }

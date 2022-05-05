@@ -115,6 +115,7 @@ else(WITH_3ES)
 endif(WITH_3ES)
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
+add_compile_options("-fPIC")
 
 if(WITH_QHULL)
 set(QHULL_LIBS

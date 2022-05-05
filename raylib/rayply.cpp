@@ -20,6 +20,15 @@ unsigned long chunk_header_length = 0;
 unsigned long point_cloud_chunk_header_length = 0; 
 unsigned long vertex_size_pos = 0;     
 unsigned long point_cloud_vertex_size_pos = 0;  
+
+enum DataType
+{
+  kDTfloat,
+  kDTdouble,
+  kDTushort,
+  kDTuchar,
+  kDTnone
+};
 }  
 
 bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
@@ -279,10 +288,22 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   bool time_is_float = false;
   bool pos_is_float = false;
   bool normal_is_float = false;
-  bool intensity_is_float = false;
+  DataType intensity_type = kDTnone;
+  int rowsteps[] = {int(sizeof(float)), int(sizeof(double)), int(sizeof(unsigned short)), int(sizeof(unsigned char)), 0}; // to match each DataType enum
+
   while (line != "end_header\r" && line != "end_header")
   {
     getline(input, line);
+    DataType data_type = kDTnone;
+    if (line.find("property float") != std::string::npos)
+      data_type = kDTfloat;
+    else if (line.find("property double") != std::string::npos)
+      data_type = kDTdouble;
+    else if (line.find("property uchar") != std::string::npos)
+      data_type = kDTuchar;
+    else if (line.find("property ushort") != std::string::npos)
+      data_type = kDTushort;
+
     if (line.find("property float x") != std::string::npos || line.find("property double x") != std::string::npos)
     {
       offset = row_size;
@@ -304,19 +325,12 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     if (line.find("intensity") != std::string::npos)
     {
       intensity_offset = row_size;
-      if (line.find("float") != std::string::npos)
-        intensity_is_float = true;
+      intensity_type = data_type;
     }
     if (line.find("property uchar red") != std::string::npos)
       colour_offset = row_size;
-    if (line.find("float") != std::string::npos)
-      row_size += int(sizeof(float));
-    if (line.find("double") != std::string::npos)
-      row_size += int(sizeof(double));
-    if (line.find("property uchar") != std::string::npos)
-      row_size += int(sizeof(unsigned char));
-    if (line.find("property ushort") != std::string::npos)
-      row_size += int(sizeof(unsigned short));
+
+    row_size += rowsteps[data_type];
   }
   if (offset == -1)
   {
@@ -463,11 +477,12 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       if (intensity_offset != -1)
       {
         double intensity;
-        if (intensity_is_float)
+        if (intensity_type == kDTfloat)
           intensity = (double)((float &)vertices[intensity_offset]);
-        else
+        else if (intensity_type == kDTdouble)
           intensity = (double &)vertices[intensity_offset];
-        
+        else // (intensity_type == kDTushort)
+          intensity = (double)((unsigned short &)vertices[intensity_offset]);
         if (intensity >= 0.0)
         {
           intensity = std::max(2.0, std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0))); // clamping to 2 or above allows 1 to be used for the 'uncertain distance' cases

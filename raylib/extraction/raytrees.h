@@ -26,7 +26,7 @@ void convertIntToColour(int x, RGBA &colour)
       int channel = i%3;
       int offset = i/3;
       uint8_t &ch = channel == 0 ? colour.red : (channel == 1 ? colour.green : colour.blue);
-      ch |= 1<<(7-offset);
+      ch |= 1<<(uint8_t)(7-offset);
     }
   }
 }
