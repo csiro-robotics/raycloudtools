@@ -48,9 +48,15 @@ bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
     out << "0";  // fill in with zeros. I will replace rightmost characters later, to give actual number
   vertex_size_pos = out.tellp();
   out << std::endl; 
-  out << "property float x" << std::endl;
-  out << "property float y" << std::endl;
-  out << "property float z" << std::endl;
+  #if RAYLIB_DOUBLE_RAYS
+    out << "property double x" << std::endl;
+    out << "property double y" << std::endl;
+    out << "property double z" << std::endl;
+  #else
+    out << "property float x" << std::endl;
+    out << "property float y" << std::endl;
+    out << "property float z" << std::endl;
+  #endif
   out << "property double time" << std::endl;
   out << "property float nx" << std::endl;
   out << "property float ny" << std::endl;
@@ -90,11 +96,13 @@ bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::v
         std::cout << "WARNING: nans in point: " << i << ": " << ends[i].transpose() << std::endl;
         warned = true;
       }
+      #if !RAYLIB_DOUBLE_RAYS
       if (abs(ends[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << ends[i].transpose() << ", suspicious" << std::endl;
         warned = true;
       }
+      #endif
       bool b = starts[i] == starts[i];
       if (!b)
       {
@@ -110,8 +118,16 @@ bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::v
     };
     U u;
     u.d = times[i];
-    vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], (float)u.f[0], (float)u.f[1], (float)n[0],
+
+    #if RAYLIB_DOUBLE_RAYS
+    U end0, end1, end2;
+    end0.d = ends[i][0]; end1.d = ends[i][1]; end2.d = ends[i][2];
+    vertices[i] << end0.f[0], end0.f[1], end1.f[0], end1.f[1], end2.f[0], end2.f[1], u.f[0], u.f[1], (float)n[0],
       (float)n[1], (float)n[2], (float &)colours[i];
+    #else
+    vertices[i] << (float)ends[i][0], (float)ends[i][1], (float)ends[i][2], u.f[0], u.f[1], (float)n[0],
+      (float)n[1], (float)n[2], (float &)colours[i];
+    #endif
   }
   out.write((const char *)&vertices[0], sizeof(RayPlyEntry) * vertices.size());   
   if (!out.good())
@@ -176,9 +192,15 @@ bool writePointCloudChunkStart(const std::string &file_name, std::ofstream &out)
     out << "0";  // fill in with zeros. I will replace rightmost characters later, to give actual number
   point_cloud_vertex_size_pos = out.tellp(); // same value as for ray cloud, so we can use the same varia
   out << std::endl; 
+  #if RAYLIB_DOUBLE_RAYS
+  out << "property double x" << std::endl;
+  out << "property double y" << std::endl;
+  out << "property double z" << std::endl;
+  #else
   out << "property float x" << std::endl;
   out << "property float y" << std::endl;
   out << "property float z" << std::endl;
+  #endif
   out << "property double time" << std::endl;
   out << "property uchar red" << std::endl;
   out << "property uchar green" << std::endl;
@@ -213,11 +235,13 @@ bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const st
         std::cout << "WARNING: nans in point: " << i << ": " << points[i].transpose() << std::endl;
         warned = true;
       }
+      #if !RAYLIB_DOUBLE_RAYS
       if (abs(points[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << points[i].transpose() << ", suspicious" << std::endl;
         warned = true;
       }
+      #endif
     }
     union U  // TODO: this is nasty, better to just make vertices an unsigned char vector
     {
@@ -226,7 +250,13 @@ bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const st
     };
     U u;
     u.d = times[i];
+    #if RAYLIB_DOUBLE_RAYS
+    U end0, end1, end2;
+    end0.d = points[i][0]; end1.d = points[i][1]; end2.d = points[i][2];
+    vertices[i] << end0.f[0], end0.f[1], end1.f[0], end1.f[1], end2.f[0], end2.f[1], u.f[0], u.f[1], (float &)colours[i];
+    #else    
     vertices[i] << (float)points[i][0], (float)points[i][1], (float)points[i][2], (float)u.f[0], (float)u.f[1], (float &)colours[i];
+    #endif
   }
   out.write((const char *)&vertices[0], sizeof(PointPlyEntry) * vertices.size());   
   if (!out.good())
