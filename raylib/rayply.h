@@ -12,9 +12,14 @@
 
 namespace ray
 {
+#if RAYLIB_DOUBLE_RAYS
+using PointPlyEntry = Eigen::Matrix<float, 9, 1>;
+using RayPlyEntry = Eigen::Matrix<float, 12, 1>;    // structure of raycloud cloud rays, written to ply file
+#else
 using PointPlyEntry = Eigen::Matrix<float, 6, 1>;
-using PointPlyBuffer = std::vector<PointPlyEntry>;
 using RayPlyEntry = Eigen::Matrix<float, 9, 1>;    // structure of raycloud cloud rays, written to ply file
+#endif
+using PointPlyBuffer = std::vector<PointPlyEntry>;
 using RayPlyBuffer = std::vector<RayPlyEntry>;     // buffer for storing a list of rays to be written
 
 /// read in a .ply file into the fields given by reference

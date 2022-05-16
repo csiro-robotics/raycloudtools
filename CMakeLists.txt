@@ -45,6 +45,10 @@ ras_bool_to_int(WITH_QHULL)
 ras_bool_to_int(WITH_ROS)
 ras_bool_to_int(WITH_TBB)
 
+# other build-time options
+option(DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
+ras_bool_to_int(DOUBLE_RAYS)
+
 # Required packages.
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
