@@ -262,10 +262,17 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         depth += minL + eps;
         p = source + dir * (depth / length);
         int index = getIndex(inds);
-        if (colours[i].alpha > 0 && depth > maxDist)
+        if (depth > maxDist)
         {
           double length_in_voxel = minL + maxDist - depth;
-          voxels_[index].addHitRay(static_cast<float>(length_in_voxel*voxel_width_));
+          if (colours[i].alpha > 0)
+          {
+            voxels_[index].addHitRay(static_cast<float>(length_in_voxel*voxel_width_));
+          }
+          else
+          {
+            voxels_[index].addMissRay(static_cast<float>(length_in_voxel*voxel_width_));
+          }
         }
         else
         {
