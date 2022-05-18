@@ -125,8 +125,14 @@ bool ForestStructure::save(const std::string &filename)
   ofs << "x,y,z,radius";
   if (trees[0].segments().size() > 1)
     ofs << ",parent_id";
+  if (trees[0].attributes().size() > 0)
+    std::cout << "Saving additional attributes: ";
   for (auto &att: trees[0].attributes())
+  {
     ofs << "," << att;
+    std::cout << att << ", ";
+  }
+  std::cout << std::endl;
   ofs << std::endl;
   for (auto &tree: trees)
   {

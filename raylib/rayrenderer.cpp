@@ -280,6 +280,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
 void DensityGrid::addNeighbourPriors()
 {
+#if DENSITY_MIN_RAYS > 0
   const int X = 1;
   const int Y = voxel_dims_[0];
   const int Z = voxel_dims_[0]*voxel_dims_[1];
@@ -372,6 +373,7 @@ void DensityGrid::addNeighbourPriors()
     std::cout << "This is low enough that you could get more fidelity from using a smaller pixel size" << std::endl;
     std::cout << "or more accuracy by increasing DENSITY_MIN_RAYS" << std::endl;
   }
+  #endif
 }
 
 bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, 
@@ -420,9 +422,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 
       grid.calculateDensities(cloud_file);
 
-      #if DENSITY_MIN_RAYS > 0
       grid.addNeighbourPriors();
-      #endif
 
       for (int x = 0; x < width; x++)
       {

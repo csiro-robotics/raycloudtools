@@ -91,6 +91,7 @@ struct RAYLIB_EXPORT DensityGrid
   /// Note, for performance, this index function does not check that the specified indices are in valid bounds. 
   /// It is up to the calling function to assure this condition
   inline int getIndex(const Eigen::Vector3i &inds) const;
+  inline int getIndexFromPos(const Eigen::Vector3d &pos) const;
   /// Return the vector of density voxels
   inline const std::vector<Voxel> &voxels() const { return voxels_; }
 
@@ -145,5 +146,11 @@ int DensityGrid::getIndex(const Eigen::Vector3i &inds) const
 {
   return inds[0] + inds[1]*voxel_dims_[0] + inds[2] * voxel_dims_[0]*voxel_dims_[1];
 }
+int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
+{
+  Eigen::Vector3d gridspace = (pos - bounds_.min_bound_) / voxel_width_;
+  return getIndex(gridspace.cast<int>());
+}
+
 }
 #endif // RAYLIB_RAYRENDERER_H
