@@ -15,7 +15,7 @@
 namespace ray
 {
 // only ints up to 255*255*255-1   (as it leaves black as a special colour)
-void convertIntToColour(int x, RGBA &colour)
+inline void convertIntToColour(int x, RGBA &colour)
 {
   colour.red = colour.green = colour.blue = 0;
   x++;
@@ -32,7 +32,7 @@ void convertIntToColour(int x, RGBA &colour)
 }
 
 // returns -1 for the special case of the colour black, otherwise the integer index that the colour represents
-int convertColourToInt(const RGBA &colour)
+inline int convertColourToInt(const RGBA &colour)
 {
   int result = 0;
   for (int i = 0; i<24; ++i)

@@ -13,6 +13,7 @@
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "raylib/imagewrite.h"
 #include "raylib/raycloudwriter.h"
+#include "raytrees.h"
 
 namespace ray
 {
@@ -125,8 +126,6 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
 
 void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vector<TreeNode> &trees)
 {
-  if (!verbose)
-    return;
   ColourField pixels((int)indexfield_.rows(), (int)indexfield_.cols());
   for (int x = 0; x < pixels.dims[0]; x++)
   {
@@ -135,22 +134,23 @@ void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vect
       int ind = indexfield_(x, y);
       Col col;
       if (ind == -1)
-        pixels(x, y) = Col(30);
+        pixels(x, y) = Col(0);
       else
       {
         while (trees[ind].attaches_to != -1)
           ind = trees[ind].attaches_to;
         if (trees[ind].area <= min_area_)
         {
-          pixels(x, y) = Col(30);
+          pixels(x, y) = Col(0);
         }
         else
         {
-          srand(1 + ind);
+          RGBA colour;
           col.a = 255;
-          col.r = (uint8_t)(rand()%256);
-          col.g = (uint8_t)(rand()%256);
-          col.b = (uint8_t)(rand()%256);
+          convertIntToColour(ind, colour);
+          col.r = colour.red;
+          col.g = colour.green;
+          col.b = colour.blue;
           pixels(x, y) = col;
         }
       }
@@ -160,7 +160,7 @@ void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vect
 
   segmentCloud(cloud_name_stub, pixels, min_bounds_, voxel_width_);
 
-  std::string output_file = cloud_name_stub + "_trees.png";
+  std::string output_file = cloud_name_stub + "_segmented.png";
   
   stbi_write_png(output_file.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }

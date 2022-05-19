@@ -265,10 +265,11 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   
   ray::ForestStructure forest;
   int num_spaces = 0;
-  const std::vector<std::string> attributes = {"subtree_radius", "height", "trunk_identified"};
+  const std::vector<std::string> attributes = {"subtree_radius", "height", "trunk_identified", "section_id"};
   int tree_radius_id = 0;
   int height_id = 1;
   int trunk_identified_id = 2;
+  int section_id = 3;
 
   if (agglomerate_)
   {
@@ -321,7 +322,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
         ray::TreeStructure tree;
         ray::TreeStructure::Segment result;
         tree.attributes() = attributes;
-
+        result.attributes.resize(attributes.size());
         result.tip = min_bounds_ + tip;
         result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
         result.attributes[height_id] = tip[2]; 
@@ -400,12 +401,14 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
         ray::TreeStructure tree;
         tree.attributes() = attributes;
         ray::TreeStructure::Segment result;
+        result.attributes.resize(attributes.size());
         result.tip = min_bounds_ + tip;
         result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
         result.attributes[height_id] = tip[2]; 
         int num_pixels = trees[ind].area;
         result.attributes[tree_radius_id] = std::sqrt(((double)num_pixels * voxel_width_*voxel_width_)/kPi); // get from num pixels
         result.attributes[trunk_identified_id] = 1; 
+        result.attributes[section_id] = ind;
         if (trunk_id >= 0)
           result.radius = trunks_[trunk_id].second;
         else 
