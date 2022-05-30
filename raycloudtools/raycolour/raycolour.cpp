@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
     double curvature;
   };
   std::vector<Data> data(cloud.ends.size());
-  int search_size = 20;
+  int search_size = std::min(20, (int)cloud.ends.size() - 1);
   std::vector<Eigen::Vector3d> centroids;
   std::vector<Eigen::Vector3d> dimensions;
   std::vector<Eigen::Vector3d> normals;

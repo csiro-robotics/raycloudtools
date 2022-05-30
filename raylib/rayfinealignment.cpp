@@ -100,9 +100,9 @@ void FineAlignment::generateSurfels()
     }
 
     // Now find all the finely decimated points that are close neighbours of each coarse candidate point
-    int search_size = 20;
     size_t q_size = candidates.size();
     size_t p_size = decimated_points.size();
+    int search_size = std::min(20, (int)p_size-1);
     Nabo::NNSearchD *nns;
     Eigen::MatrixXd points_q(3, q_size);
     for (size_t i = 0; i < q_size; i++) points_q.col(i) = candidate_points[i];

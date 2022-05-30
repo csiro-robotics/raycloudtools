@@ -23,7 +23,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
 {
   ellipsoids->clear();
   ellipsoids->resize(cloud.rayCount());
-  int search_size = 16;
+  int search_size = std::min(16, (int)cloud.rayCount()-1);
   const double max_double = std::numeric_limits<double>::max();
   Eigen::Vector3d ellipsoids_min(max_double, max_double, max_double);
   Eigen::Vector3d ellipsoids_max(-max_double, -max_double, -max_double);

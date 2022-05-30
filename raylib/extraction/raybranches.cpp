@@ -525,7 +525,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only,
     return;
   }
   // 1. get nearest neighbours
-  const int search_size = 20;
+  const int search_size = std::min(20, (int)branches.size()-1);
   Eigen::MatrixXd points_p(3, branches.size());
   for (unsigned int i = 0; i < branches.size(); i++) 
     points_p.col(i) = branches[i].centre;

@@ -132,7 +132,8 @@ int main(int argc, char *argv[])
   else if (extract_trees)
   {
     ray::Cloud cloud;
-    if (!cloud.load(cloud_file.name()))
+    const int min_num_rays = 40;
+    if (!cloud.load(cloud_file.name(), true, min_num_rays))
       usage(true);
 
     ray::Mesh mesh;

@@ -13,7 +13,7 @@ namespace ray
 void connectPointsShortestPath(std::vector<Vertex> &points, std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit, double gravity_factor)
 {
   // 1. get nearest neighbours
-  const int search_size = 20;
+  const int search_size = std::min(20, (int)points.size() - 1);
   Eigen::MatrixXd points_p(3, points.size());
   for (unsigned int i = 0; i < points.size(); i++) 
     points_p.col(i) = points[i].pos;
