@@ -599,6 +599,11 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
 bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_normals)
 {
   std::cout << "saving to " << file_name << ", " << mesh.vertices().size() << " vertices." << std::endl;
+  if (mesh.indexList().size() == 0 || mesh.vertices().size() < 3)
+  {
+    std::cout << "Warning: mesh is empty or too small to save. Num vertices: " << mesh.vertices().size() << std::endl;
+    return false;
+  }
 
   std::vector<Eigen::Vector4f> vertices(mesh.vertices().size());  // 4d to give space for colour
   if (mesh.colours().size() > 0)

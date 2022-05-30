@@ -32,6 +32,10 @@ public:
 
 void ConvexHull::construct(const std::vector<Eigen::Vector3d> &points, const Eigen::Vector3d ignoreDirection)
 {
+  if (points.size() < 3) // two or fewer points generate an empty mesh
+  {
+    return;
+  }
   std::vector<double> coordinates(points.size() * 3);
   for (int i = 0; i < (int)points.size(); i++)
   {

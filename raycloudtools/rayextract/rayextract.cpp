@@ -136,7 +136,8 @@ int main(int argc, char *argv[])
       usage(true);
 
     ray::Mesh mesh;
-    ray::readPlyMesh(mesh_file.name(), mesh);
+    if (!ray::readPlyMesh(mesh_file.name(), mesh))
+      usage(true);
     ray::TreesParams params;
     if (max_diameter_option.isSet())
       params.max_diameter = max_diameter.value();
@@ -184,10 +185,7 @@ int main(int argc, char *argv[])
     if (groundmesh_option.isSet())
     {
       if (!ray::readPlyMesh(mesh_file.name(), mesh))
-      {
-        std::cerr << "cannot read ground mesh file: " << mesh_file.name() << std::endl;
-         usage(true);
-      }
+        usage(true);
     }
     std::vector<std::pair<Eigen::Vector3d, double> > trunks;
     if (trunks_option.isSet())

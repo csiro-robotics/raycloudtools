@@ -34,19 +34,21 @@ void Cloud::save(const std::string &file_name) const
   writePlyRayCloud(name, starts, ends, times, colours);
 }
 
-bool Cloud::load(const std::string &file_name, bool check_extension)
+bool Cloud::load(const std::string &file_name, bool check_extension, int min_num_rays)
 {
   // look first for the raycloud PLY
   if (file_name.substr(file_name.size() - 4) == ".ply" || !check_extension)
-    return loadPLY(file_name);
+    return loadPLY(file_name, min_num_rays);
     
   std::cerr << "Attempting to load ray cloud " << file_name << " which doesn't have expected file extension .ply" << std::endl;
   return false;
 }
 
-bool Cloud::loadPLY(const std::string &file)
+bool Cloud::loadPLY(const std::string &file, int min_num_rays)
 {
   bool res = readPly(file, starts, ends, times, colours, true);
+  if (ends.size() < min_num_rays)
+    return false;
   #if defined OUTPUT_CLOUD_MOMENTS
   getMoments();
   #endif // defined OUTPUT_CLOUD_MOMENTS
