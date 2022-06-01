@@ -5,7 +5,7 @@
 // Author: Thomas Lowe
 #include "rayforestgen.h"
 #include "rayutils.h"
-// #define OUTPUT_MOMENTS
+ #define OUTPUT_MOMENTS
 
 namespace ray
 {

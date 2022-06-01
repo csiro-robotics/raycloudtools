@@ -9,7 +9,7 @@
 #include "raylib/rayprogressthread.h"
 
 #include <iostream>
- #define OUTPUT_MOMENTS // useful when setting up unit test expected ray clouds
+// #define OUTPUT_MOMENTS // useful when setting up unit test expected ray clouds
 
 namespace ray
 {

@@ -207,6 +207,12 @@ namespace raytest
     ray::ForestStructure forest2;
     EXPECT_TRUE(forest2.load("forest_forest.txt"));
     compareMoments(forest2.getMoments(), {11, 8.43828, 586.427, 1.40054, 0.200644, 0});
+
+    EXPECT_EQ(command("rayextract trunks forest.ply"), 0);
+
+    ray::ForestStructure forest3;
+    EXPECT_TRUE(forest3.load("forest_trunks.txt"));
+    compareMoments(forest3.getMoments(), {21, 20.0797, 1124.61, 1.60427, 0.135159, 0});
   }  
 #endif  // RAYLIB_WITH_QHULL
 } // raytest
