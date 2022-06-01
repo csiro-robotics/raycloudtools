@@ -241,8 +241,4 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
   updateTes(*imp_->server);
 }
 
-void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
-{
-  RAYLIB_UNUSED(trunks);
-}
 #endif  // RAYLIB_WITH_3ES

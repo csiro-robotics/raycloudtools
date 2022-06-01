@@ -4,7 +4,6 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
-#include "raylib/extraction/raytrunks.h"
 #include "raylib/extraction/raybranches.h"
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/rayforest.h"
@@ -35,12 +34,6 @@ void usage(bool error=false)
   std::cout << "                            --width 0.25    - grid cell width" << std::endl;
   std::cout << "                            --smooth 15     - canopy smooth iterations, higher for rough canopies" << std::endl;
   std::cout << "                            --drop_ratio 0.1- here a drop of 10% in canopy height is classed as separate trees" << std::endl;
-  std::cout << "rayextract forest_ag cloud.ply              - agglomeration clustering version of above forest extraction method" << std::endl;
-  std::cout << "                            --ground ground_mesh.ply - ground mesh file (otherwise assume flat)" << std::endl; 
-  std::cout << "                            --trunks cloud_trunks.txt - known tree trunks file" << std::endl;
-  std::cout << "                            --width 0.25    - grid cell width" << std::endl;
-  std::cout << "                            --min_gradient 0.15 - smallest distance per height to separate clusters" << std::endl;
-  std::cout << "                            --max_gradient 1.0  - (-x) largest distance per height to separate clusters" << std::endl;
   std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file" << std::endl;
   std::cout << "                            --max_diameter 0.9   - (-m) maximum trunk diameter in segmenting trees" << std::endl;
   std::cout << "                            --min_diameter 0.02  - (-n) minimum branch diameter" << std::endl;
@@ -54,8 +47,6 @@ void usage(bool error=false)
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
-
-//  std::cout << "rayextract branches cloud.ply               - estimate tree branches and save to text file" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
 
   exit(error);
@@ -66,7 +57,7 @@ void usage(bool error=false)
 int main(int argc, char *argv[])
 { 
   ray::FileArgument cloud_file, mesh_file, trunks_file;
-  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), branches("branches"), terrain("terrain"), forest_agglomerated("forest_ag");
+  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
   ray::DoubleArgument gradient(0.001, 1000.0);
@@ -91,20 +82,16 @@ int main(int argc, char *argv[])
 
   ray::IntArgument smooth(0, 50);
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth), drop_option("drop_ratio", 'd', &drop);
-  ray::OptionalKeyValueArgument max_gradient_option("max_gradient", 'x', &max_gradient), min_gradient_option("min_gradient", 'm', &min_gradient);
-
 
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
   bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&gradient_option, &verbose});
   bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
   bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
-  bool extract_forest_agglomerate = ray::parseCommandLine(argc, argv, {&forest_agglomerated, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &min_gradient_option, &max_gradient_option, &verbose});
   bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option, &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option, &radius_exponent_option, &segment_branches, &grid_width_option, &verbose});
-  bool extract_branches = ray::parseCommandLine(argc, argv, {&branches, &cloud_file}, {&verbose});
-  if (!extract_trunks && !extract_branches && !extract_forest && !extract_forest_agglomerate && !extract_terrain && !extract_trees)
+  if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
     usage();  
-  if (verbose.isSet() && (extract_trunks || extract_trees || extract_branches))
+  if (verbose.isSet() && (extract_trunks || extract_trees))
   {
     ray::DebugDraw::init(argc, argv, "rayextract");
   }
@@ -116,19 +103,9 @@ int main(int argc, char *argv[])
       usage(true);
 
     const double radius = 0.1; // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm 
-    ray::Bush woods(cloud, radius, verbose.isSet(), true, exclude_rays.isSet());
+    ray::Bush woods(cloud, radius, verbose.isSet(), exclude_rays.isSet());
     woods.save(cloud_file.nameStub() + "_trunks.txt");
   }
-/*  else if (extract_branches)
-  {
-    ray::Cloud cloud;
-    if (!cloud.load(cloud_file.name()))
-      usage(true);
-
-    const double radius = 0.1; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
-    ray::Bush woods(cloud, radius, verbose.isSet(), false);
-    woods.save(cloud_file.nameStub() + "_branches.txt");
-  }  */
   else if (extract_trees)
   {
     ray::Cloud cloud;
@@ -191,51 +168,18 @@ int main(int argc, char *argv[])
     std::vector<std::pair<Eigen::Vector3d, double> > trunks;
     if (trunks_option.isSet())
     {
-      trunks = ray::Wood::load(trunks_file.name());
-      if (trunks.empty())
+      ray::ForestStructure forest;
+      if (!forest.load(trunks_file.name()))
       {
-        std::cerr << "no trunks found in file: " << trunks_file.name() << std::endl;
         usage(true);
+      }
+      for (auto &tree: forest.trees)
+      {
+        trunks.push_back(std::pair<Eigen::Vector3d, double>(tree.segments()[0].tip, tree.segments()[0].radius));
       }
     }
     ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
     results.save(cloud_file.nameStub() + "_forest.txt");
-  }
-  else if (extract_forest_agglomerate)
-  {
-    ray::Forest forest;
-    double cell_width = width_option.isSet() ? width.value() : 0.25;
-    forest.verbose = verbose.isSet();
-    forest.agglomerate_ = true;
-    if (max_gradient_option.isSet())
-    {
-      forest.max_diameter_per_height_ = max_gradient.value();
-    }
-    if (min_gradient_option.isSet())
-    {
-      forest.min_diameter_per_height_ = min_gradient.value();     
-    }
-    ray::Mesh mesh;
-    if (groundmesh_option.isSet())
-    {
-      if (!ray::readPlyMesh(mesh_file.name(), mesh))
-      {
-        std::cerr << "cannot read ground mesh file: " << mesh_file.name() << std::endl;
-         usage(true);
-      }
-    }
-    std::vector<std::pair<Eigen::Vector3d, double> > trunks;
-    if (trunks_option.isSet())
-    {
-      trunks = ray::Wood::load(trunks_file.name());
-      if (trunks.empty())
-      {
-        std::cerr << "no trunks found in file: " << trunks_file.name() << std::endl;
-        usage(true);
-      }
-    }
-    ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
-    results.save(cloud_file.nameStub() + "_forest_ag.txt");
   }
   else if (extract_terrain)
   {

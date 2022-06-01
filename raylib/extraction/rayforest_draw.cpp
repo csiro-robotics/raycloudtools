@@ -165,47 +165,4 @@ void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vect
   stbi_write_png(output_file.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawAgglomeration(const std::vector<Cluster> &point_clusters, const std::vector<Eigen::Vector3d> &verts, const std::string &cloud_name_stub)
-{
-  if (!verbose)
-    return;
-  ColourField pixels((int)heightfield_.rows(), (int)heightfield_.cols());
-
-  std::vector<double> times;
-  Col colour;
-  colour.r = colour.g = colour.b = 0;
-  colour.a = 255;
-  for (int x = 0; x < pixels.dims[0]; x++)
-  {
-    for (int y = 0; y < pixels.dims[1]; y++)
-    {
-      pixels(x, y) = colour;
-    }
-  }  
-  for (auto &cluster: point_clusters)
-  {
-    if (cluster.ids.empty())
-      continue;
-    colour.r = uint8_t(rand()%255);
-    colour.g = uint8_t(rand()%255);
-    colour.b = uint8_t(rand()%255);
-    for (auto &i: cluster.ids)
-    {
-      Eigen::Vector3i coord = (verts[i] / voxel_width_).cast<int>();
-      for (int x = std::max(0, coord[0] - 1); x <= std::min(coord[0] + 1, pixels.dims[0]-1); x++)
-      {
-        for (int y = std::max(0, coord[1] - 1); y <= std::min(coord[1] + 1, pixels.dims[1]-1); y++)
-        {
-          pixels(x, y) = colour;
-        }
-      }
-    }
-  }
-  stbi_flip_vertically_on_write(1);
-  std::string output_file = cloud_name_stub + "_agglom_trees.png";
-  stbi_write_png(output_file.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
-}
-
-
-
 } // namespace ray

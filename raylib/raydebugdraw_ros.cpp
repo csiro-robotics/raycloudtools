@@ -132,67 +132,6 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
     imp_->cloud_publisher[id].publish(point_cloud);
 }
 
-void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
-{
-  visualization_msgs::Marker marker;
-
-  marker.header.frame_id = imp_->fixed_frame_id;
-  marker.header.stamp = ros::Time::now();
-  marker.ns = "cylinder_marker";
-  marker.type = visualization_msgs::Marker::LINE_LIST;
-  marker.pose.orientation.x = 0.0;
-  marker.pose.orientation.y = 0.0;
-  marker.pose.orientation.z = 0.0;
-  marker.pose.orientation.w = 1.0; 
-  marker.color.r = 1.0;
-  marker.color.g = 0.5;
-  marker.color.b = 0.0;
-  marker.color.a = 1.0;
-  marker.scale.x = 0.02;
-  marker.scale.y = 0.02;
-  marker.scale.z = 0.02;
-  marker.id = 0;
-//  marker.lifetime = ros::Duration();
-  marker.action = visualization_msgs::Marker::ADD;
-
-  for (int i = 0; i<(int)trunks.size(); i++)
-  {
-    for (double angle = 0; angle < 2.0*kPi; angle += kPi/6.0)
-    {
-      for (int height = 0; height<2; height++)
-      {
-        double h = (double)height - 0.5;
-        for (double dir = -1; dir < 1.1; dir += 2.0)
-        {
-          for (int j = 0; j<2; j++)
-          {
-            double ang = angle + (double)j * kPi/6.0;
-            geometry_msgs::Point p;
-            p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + dir*trunks[i].thickness) + h*trunks[i].lean[0]*trunks[i].length;
-            p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + dir*trunks[i].thickness) + h*trunks[i].lean[1]*trunks[i].length;
-            p.z = trunks[i].centre[2] + h*trunks[i].length;
-            marker.points.push_back(p);
-          }
-        }
-      }
-    }
-    for (double angle = 0; angle < 2.0*kPi; angle += kPi/3.0)
-    {
-      for (int height = 0; height<2; height++)
-      {
-        double h = (double)height - 0.5;
-        double ang = angle;
-        geometry_msgs::Point p;
-        p.x = trunks[i].centre[0] + std::sin(ang) * (trunks[i].radius + trunks[i].thickness) + h*trunks[i].lean[0]*trunks[i].length;
-        p.y = trunks[i].centre[1] + std::cos(ang) * (trunks[i].radius + trunks[i].thickness) + h*trunks[i].lean[1]*trunks[i].length;
-        p.z = trunks[i].centre[2] + h*trunks[i].length;
-        marker.points.push_back(p);
-      }
-    }
-  }  
-  imp_->cylinderPublisher.publish(marker);
-}
-
 void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
                  const std::vector<Eigen::Vector3d> &colours)
 {

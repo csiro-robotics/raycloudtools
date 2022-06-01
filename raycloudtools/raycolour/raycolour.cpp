@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
       if (cols.size() == 1)
         cloud.colours[i].red = cloud.colours[i].alpha;
       else 
-        cloud.colours[i].red = ray::median(cols);
+        cloud.colours[i].red = (uint8_t)ray::median(cols);
 
       double range = (cloud.ends[i] - cloud.starts[i]).norm();
       double half_range = 100.0;

@@ -74,7 +74,7 @@ void Branch::estimatePose(const std::vector<Eigen::Vector3d> &points)
   dir = eigen_solver.eigenvectors().col(2);       
 }
 
-void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool trunks_only)
+void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points)
 {
   struct Accumulator
   {
@@ -95,7 +95,7 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool tr
     Eigen::Vector3d to_point = points[i] - centre;
     Eigen::Vector2d offset(to_point.dot(ax1), to_point.dot(ax2));
     //const double dist = offset.norm();
-    double w = 1.0;// trunks_only ? 1.0 - dist/(radius * boundary_radius_scale) : 1.0; // lateral fade off
+    double w = 1.0;// 1.0 - dist/(radius * boundary_radius_scale) // lateral fade off?
     // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated branch centred on that edge
     //                If radius_removal_factor=1 then v thin branches may accidentally get a radius and it won't shrink down
     const double radius_removal_factor = 0.5;
@@ -111,8 +111,7 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool tr
     sum.weight += w;      
   }
   double n = sum.weight;
-  if (trunks_only)
-    centre += dir*(sum.x / n); 
+  centre += dir*(sum.x / n); 
 
   // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
   Eigen::Vector2d sXY = sum.xy - sum.x*sum.y/n;
@@ -121,11 +120,8 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points, bool tr
     sXY /= sXX;
 
   dir = (dir + ax1*sXY[0] + ax2*sXY[1]).normalized();
-  if (trunks_only)
-  {
-    actual_length = 4.0*(sum.abs_x/n);
-    length = std::max(actual_length, 2.0*radius * branch_height_to_width);    
-  }
+  actual_length = 4.0*(sum.abs_x/n);
+  length = std::max(actual_length, 2.0*radius * branch_height_to_width);    
 }
 
 // shift to an estimation of the centre of the cylinder's circle
@@ -172,7 +168,7 @@ void Branch::updateCentre(const std::vector<Eigen::Vector3d> &points)
   centre += (ax1*shift[0] + ax2*shift[1]) * radius;       
 }
 
-void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, double /*spacing*/, bool trunks_only)
+void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points)
 {
   double rad = 0;
   std::vector<double> scores(points.size());
@@ -190,8 +186,6 @@ void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points, do
     double rad = (to_point - dir*dir.dot(to_point)).norm();
     raddiff += std::abs(rad - radius);
   }
-  if (!trunks_only)
-    length = 2.0*radius * branch_height_to_width;
   double num_points = (double)points.size() - 4.0; 
   double variation = raddiff / num_points; // end part gives sample variation
   

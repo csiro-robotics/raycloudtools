@@ -271,160 +271,85 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   int trunk_identified_id = 2;
   int section_id = 3;
 
-  if (agglomerate_)
+  indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
+  // ignore the undercroft
+  int count = 0;
+  for (int x = 0; x < heightfield_.rows(); x++)
   {
-    int count = 0;
-    std::vector<Eigen::Vector3d> points;
-    for (int x = 0; x < heightfield_.rows(); x++)
+    for (int y = 0; y < heightfield_.cols(); y++)
     {
-      for (int y = 0; y < heightfield_.cols(); y++)
+      if (heightfield_(x, y) < lowfield_(x, y)+undercroft_height)
       {
-        double &h = heightfield_(x, y);
-        double l = lowfield_(x, y);
-        if (h < l+undercroft_height)
-        {
-          h = -1e10;
-          count++;
-        }
-        if (h > -1e10 && l > -1e10 && h>=l)
-          points.push_back(Eigen::Vector3d(voxel_width_*((double)x + 0.5), voxel_width_*((double)y + 0.5), h-l)); // get heightfield relative to ground
+        heightfield_(x, y) = -1e10;
+        count++;
       }
     }
-    std::cout << "undercroft at height " << undercroft_height << " removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
-
-    Terrain terrain;
-    terrain.growDownwards(points, wrap_gradient);
-    Mesh &mesh = terrain.mesh();
-
-    std::cout << "num points " << mesh.vertices().size() << std::endl;
-    mesh.reduce();
-    std::cout << "num verts: " << mesh.vertices().size() << std::endl;
-
-
-    // 2. cluster according to radius based on height of points
-    std::vector<Cluster> point_clusters;
-    agglomerate(mesh.vertices(), mesh.indexList(), min_diameter_per_height_, max_diameter_per_height_, point_clusters);
-    std::cout << "number found: " << point_clusters.size() << std::endl;
-    std::vector<Eigen::Vector3d> &verts = mesh.vertices();
-
-    if (verbose)
-    {
-      renderAgglomeration(point_clusters, verts, cloud_name_stub);
-      drawAgglomeration(point_clusters, verts, cloud_name_stub);
-    }
-    
-    for (auto &cluster: point_clusters)
-    {
-      Eigen::Vector3d tip;
-      int trunk_id = cluster.trunk_id;    
-      if (findSpace(cluster, verts, tip))
-      {
-        ray::TreeStructure tree;
-        ray::TreeStructure::Segment result;
-        tree.attributes() = attributes;
-        result.attributes.resize(attributes.size());
-        result.tip = min_bounds_ + tip;
-        result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-        result.attributes[height_id] = tip[2]; 
-        result.attributes[trunk_identified_id] = 1; 
-        if (trunk_id >= 0)
-          result.radius = trunks_[trunk_id].second;
-        else 
-        {
-          result.radius = result.attributes[height_id] / approx_height_per_radius_;
-          result.attributes[trunk_identified_id] = 0;
-        }
-        tree.segments().push_back(result);
-        forest.trees.push_back(tree);
-      }
-      else
-      {
-        num_spaces++;
-      }
-    }  
   }
-  else
+  original_heightfield_ = heightfield_;
+  addTrunkHeights();
+  drawHeightField(cloud_name_stub + "_trunkhighfield.png", heightfield_);
+  for (int i = 0; i<smooth_iterations_; i++)
+    smoothHeightfield();
+  drawHeightField(cloud_name_stub + "_smoothhighfield.png", heightfield_);
+
+  std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
+  std::vector<TreeNode> trees;
+  std::set<int> heads;
+  hierarchicalWatershed(trees, heads);
+
+  std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
+
+  // calculate the area of pixels occupied by each index
+  for (int x = 0; x < indexfield_.rows(); x++)
   {
-    indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
-    // ignore the undercroft
-    int count = 0;
-    for (int x = 0; x < heightfield_.rows(); x++)
+    for (int y = 0; y < indexfield_.cols(); y++)
     {
-      for (int y = 0; y < heightfield_.cols(); y++)
-      {
-        if (heightfield_(x, y) < lowfield_(x, y)+undercroft_height)
-        {
-          heightfield_(x, y) = -1e10;
-          count++;
-        }
-      }
-    }
-    original_heightfield_ = heightfield_;
-    addTrunkHeights();
-    drawHeightField(cloud_name_stub + "_trunkhighfield.png", heightfield_);
-    for (int i = 0; i<smooth_iterations_; i++)
-      smoothHeightfield();
-    drawHeightField(cloud_name_stub + "_smoothhighfield.png", heightfield_);
-
-    std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
-    std::vector<TreeNode> trees;
-    std::set<int> heads;
-    hierarchicalWatershed(trees, heads);
-
-    std::cout << "number of raw candidates: " << trees.size() << " number largest size: " << heads.size() << std::endl;
-
-    // calculate the area of pixels occupied by each index
-    for (int x = 0; x < indexfield_.rows(); x++)
-    {
-      for (int y = 0; y < indexfield_.cols(); y++)
-      {
-        int ind = indexfield_(x, y);
-        if (ind == -1)
-          continue;
-        while (trees[ind].attaches_to != -1)
-          ind = trees[ind].attaches_to;
-        trees[ind].area++;
-      }
-    }
-
-    drawFinalSegmentation(cloud_name_stub, trees);
-    renderWatershed(cloud_name_stub, trees, heads);
-
-    for (auto &ind: heads)
-    {
-      if (trees[ind].area < min_area_)
+      int ind = indexfield_(x, y);
+      if (ind == -1)
         continue;
-      Eigen::Vector3d tip;
-      int trunk_id = trees[ind].trunk_id;
-      if (findSpace2(trees[ind], tip))
-      {
-        ray::TreeStructure tree;
-        tree.attributes() = attributes;
-        ray::TreeStructure::Segment result;
-        result.attributes.resize(attributes.size());
-        result.tip = min_bounds_ + tip;
-        result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-        result.attributes[height_id] = tip[2]; 
-        int num_pixels = trees[ind].area;
-        result.attributes[tree_radius_id] = std::sqrt(((double)num_pixels * voxel_width_*voxel_width_)/kPi); // get from num pixels
-        result.attributes[trunk_identified_id] = 1; 
-        result.attributes[section_id] = ind;
-        if (trunk_id >= 0)
-          result.radius = trunks_[trunk_id].second;
-        else 
-        {
-          result.radius = result.attributes[height_id] / approx_height_per_radius_;
-          result.attributes[trunk_identified_id] = 0; 
-        }
-        tree.segments().push_back(result);
-        forest.trees.push_back(tree);
-      }
-      else
-      {
-        num_spaces++;
-      }
-    }    
+      while (trees[ind].attaches_to != -1)
+        ind = trees[ind].attaches_to;
+      trees[ind].area++;
+    }
   }
+
+  drawFinalSegmentation(cloud_name_stub, trees);
+  renderWatershed(cloud_name_stub, trees, heads);
+
+  for (auto &ind: heads)
+  {
+    if (trees[ind].area < min_area_)
+      continue;
+    Eigen::Vector3d tip;
+    int trunk_id = trees[ind].trunk_id;
+    if (findSpace2(trees[ind], tip))
+    {
+      ray::TreeStructure tree;
+      tree.attributes() = attributes;
+      ray::TreeStructure::Segment result;
+      result.attributes.resize(attributes.size());
+      result.tip = min_bounds_ + tip;
+      result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
+      result.attributes[height_id] = tip[2]; 
+      int num_pixels = trees[ind].area;
+      result.attributes[tree_radius_id] = std::sqrt(((double)num_pixels * voxel_width_*voxel_width_)/kPi); // get from num pixels
+      result.attributes[trunk_identified_id] = 1; 
+      result.attributes[section_id] = ind;
+      if (trunk_id >= 0)
+        result.radius = trunks_[trunk_id].second;
+      else 
+      {
+        result.radius = result.attributes[height_id] / approx_height_per_radius_;
+        result.attributes[trunk_identified_id] = 0; 
+      }
+      tree.segments().push_back(result);
+      forest.trees.push_back(tree);
+    }
+    else
+    {
+      num_spaces++;
+    }
+  }    
   std::cout << "number of disallowed trees: " << num_spaces << " / " << forest.trees.size() << std::endl;
 
   std::sort(forest.trees.begin(), forest.trees.end(), [](const ray::TreeStructure &a, const ray::TreeStructure &b){ return a.segments()[0].attributes[0] > b.segments()[0].attributes[0]; });

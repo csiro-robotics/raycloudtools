@@ -73,8 +73,4 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
   RAYLIB_UNUSED(id);
 }
 
-void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
-{
-  RAYLIB_UNUSED(trunks);
-}
 }  // namespace ray

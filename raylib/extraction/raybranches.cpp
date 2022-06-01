@@ -238,7 +238,7 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
   }
 }
 
-Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only, bool exclude_passing_rays)
+Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays)
 {
   double spacing = cloud.estimatePointSpacing();
   if (verbose)
@@ -294,15 +294,9 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only,
         continue;
       }
 
-      if (branch.dir[2] == 1.0 && !trunks_only)
-      {
-        branch.estimatePose(points);
-        continue;
-      }
-
-      branch.updateDirection(points, trunks_only);
+      branch.updateDirection(points);
       branch.updateCentre(points);
-      branch.updateRadiusAndScore(points, spacing, trunks_only);
+      branch.updateRadiusAndScore(points);
 
       if (branch.score > best_branches[branch_id].score) // got worse, so analyse the best result now
         best_branches[branch_id] = branch;      
@@ -310,8 +304,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only,
         branch.active = false;
 
       bool leaning_too_much = false;
-      if (trunks_only)
-        leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.85;
+      leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.85;
       if (branch.length < 4.0*midRadius || leaning_too_much) // not enough data to use
         branch.active = false;
 
@@ -324,15 +317,14 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only,
     std::cout << active_count << " active" << std::endl;
     if (verbose)
     {
-      drawBranches(branches); // best_branches);
+      drawBranches(branches); 
     } 
   }
   branches.clear();
   for (auto &branch: best_branches)
   {
     bool leaning_too_much = false;
-    if (trunks_only)
-      leaning_too_much = std::abs(branch.dir[2]) < 0.9;
+    leaning_too_much = std::abs(branch.dir[2]) < 0.9;
     if (branch.active && branch.score >= minimum_score && !leaning_too_much) // then remove the branch
       branches.push_back(branch);       
   }  
@@ -513,145 +505,11 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool trunks_only,
     writePlyPointCloud("trunks_verbose.ply", cloud_points, times, colours);
   }
 
-
-  if (trunks_only)
+  best_branches.clear();
+  for (auto &id: lowest_branch_ids)
   {
-    best_branches.clear();
-    for (auto &id: lowest_branch_ids)
-    {
-      best_branches.push_back(branches[id]);
-    }
-    // now save
-    return;
+    best_branches.push_back(branches[id]);
   }
-  // 1. get nearest neighbours
-  const int search_size = std::min(20, (int)branches.size()-1);
-  Eigen::MatrixXd points_p(3, branches.size());
-  for (unsigned int i = 0; i < branches.size(); i++) 
-    points_p.col(i) = branches[i].centre;
-  Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
-  // Run the search
-  Eigen::MatrixXi indices;
-  Eigen::MatrixXd dists2;
-  indices.resize(search_size, branches.size());
-  dists2.resize(search_size, branches.size());
-  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
-  
-  // 2b. climb up from lowest branches...
-	while(!closest_node.empty())
-  {
-		QueueNode node = closest_node.top(); closest_node.pop();
-		if(!branches[node.id].visited)
-    {
-      int par = branches[node.id].parent;
-      if (par != -1)
-      {
-        Eigen::Vector3d from_parent = branches[node.id].centre - branches[par].centre;
-        if (branches[node.id].dir.dot(from_parent) < 0.0)
-          branches[node.id].dir *= -1.0;
-      }
-      for (int i = 0; i<search_size && indices(i, node.id) > -1; i++)
-      {
-        int child = indices(i, node.id);
-        // branches[node.id].centre.setZero();
-        // branches[node.id].dir = Eigen::Vector3d(0,0,1);
-        // branches[child].centre = Eigen::Vector3d(1.0, 0.5, 1.0);
-        // branches[child].dir = Eigen::Vector3d(1,0,0);
-        
-        Eigen::Vector3d to_child = branches[child].centre - branches[node.id].centre;
-        // we cylinder dirs could be the opposite direction, we don't know yet
-        Eigen::Vector3d dir1 = branches[node.id].dir;
-        Eigen::Vector3d dir2 = branches[child].dir;
-        if (dir2.dot(to_child) < 0.0)
-          dir2 = -dir2;
-#if 1  // Good but it needs testing!
-        Eigen::Vector3d across = dir1.cross(dir2).normalized();
-        Eigen::Vector3d orth1 = across.cross(dir1);
-        Eigen::Vector3d orth2 = across.cross(dir2); 
-
-        double d1 = to_child.dot(orth2)/dir1.dot(orth2);
-        d1 = std::max(0.25*branches[node.id].length, d1);
-        Eigen::Vector3d mid1 = branches[node.id].centre + dir1*d1;
-        double d2 = to_child.dot(orth1)/dir2.dot(orth1);
-        d2 = std::max(0.25*branches[child].length, d2);
-        Eigen::Vector3d mid2 = branches[child].centre - dir2*d2;
-
-        const double scale = 3.0;
-        double dist = (mid1 - branches[node.id].centre).norm() + scale*(mid2 - mid1).norm() + (branches[child].centre - mid2).norm();
- //       std::cout << "d1: " << d1 << ", d2: " << d2 << ", dist: " << dist << std::endl;       
-#else
-        // generate square distance from 1st order approximation of the Bezier curve between branches
-        double length = to_child.norm();
-        double len1 = std::max(length/3.0, branches[node.id].length/4.0);
-        double len2 = std::max(length/3.0, branches[child].length/4.0);
-        Eigen::Vector3d mid1 = branches[node.id].centre + dir1*len1;
-        Eigen::Vector3d mid2 = branches[child].centre - dir2*len2;
-
-        const double scale = 2.0; // larger requires more straightness
-        double iscale = 1.0/scale;
-        Eigen::Vector3d vec1 = mid1 - branches[node.id].centre;
-        Eigen::Vector3d vec2 = mid2 - mid1;
-        Eigen::Vector3d vec3 = branches[child].centre - mid2;
-        vec1 += dir1*(iscale - 1.0)*dir1.dot(vec1);
-        vec2 += dir1*(iscale - 1.0)*dir1.dot(vec2);
-        vec3 += dir1*(iscale - 1.0)*dir1.dot(vec3);
-        double dist = (vec1.norm() + vec2.norm() + vec3.norm())*scale;
-#endif
-        double dist_sqr = dist*dist / branches[node.id].radius;
-
-        #if defined MINIMISE_ANGLE
-        const double power = 1.0;
-        dist_sqr /= std::pow(std::max(0.001, to_child.dot(dir) / length), power);
-        #endif
-        double new_score = node.score + dist_sqr;
-        if (new_score < branches[child].tree_score)
-        {
-					branches[child].tree_score = new_score;
-					branches[child].distance_to_ground = branches[node.id].distance_to_ground + dist;
-          branches[child].parent = node.id;
-					closest_node.push(QueueNode(branches[child].tree_score, child));
-				}
-			}
-		  branches[node.id].visited = true;
-		}
-	}
-  // now we need to render the structure as a tree... I'll use lines
-  std::vector<Eigen::Vector3d> starts, ends, colours;
-  for (auto &branch: branches)
-  {
-    if (branch.parent == -1)
-      continue;
-    
-    Eigen::Vector3d to_child = branch.centre - branches[branch.parent].centre;
-    // we cylinder dirs could be the opposite direction, we don't know yet
-    Eigen::Vector3d dir = branches[branch.parent].dir;
-    Eigen::Vector3d dir_child = branch.dir;
-
-    // generate square distance from 1st order approximation of the Bezier curve between branches
-    double length = to_child.norm();
-    double len1 = std::max(length/3.0, branches[branch.parent].length/2.0);
-    double len2 = std::max(length/3.0, branch.length/2.0);
-    Eigen::Vector3d mid1 = branches[branch.parent].centre + dir*len1;
-    Eigen::Vector3d mid2 = branch.centre - dir_child*len2;
-
-    Eigen::Vector3d col;
-    col[0] = std::fmod(branch.tree_score,       1.0);
-    col[1] = std::fmod(branch.tree_score/10.0,  1.0);
-    col[2] = std::fmod(branch.tree_score/100.0, 1.0);
-    
-    starts.push_back(branches[branch.parent].centre);
-    ends.push_back(mid1);
-    colours.push_back(col);
-    
-    starts.push_back(mid1);
-    ends.push_back(mid2);
-    colours.push_back(col);
-    
-    starts.push_back(mid2);
-    ends.push_back(branch.centre);
-    colours.push_back(col);
-  }
-  DebugDraw::instance()->drawLines(starts, ends, colours);
 }
 
 bool Bush::save(const std::string &filename)

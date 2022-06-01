@@ -47,7 +47,7 @@ bool Cloud::load(const std::string &file_name, bool check_extension, int min_num
 bool Cloud::loadPLY(const std::string &file, int min_num_rays)
 {
   bool res = readPly(file, starts, ends, times, colours, true);
-  if (ends.size() < min_num_rays)
+  if ((int)ends.size() < min_num_rays)
     return false;
   #if defined OUTPUT_CLOUD_MOMENTS
   getMoments();

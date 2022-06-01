@@ -29,7 +29,7 @@ struct Cluster
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5), approx_height_per_radius_(50.0), smooth_iterations_(15), drop_ratio_(0.1), agglomerate_(false), max_diameter_per_height_(1.0), min_diameter_per_height_(0.15) {}
+  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5), approx_height_per_radius_(50.0), smooth_iterations_(15), drop_ratio_(0.1) {}
   ray::ForestStructure extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width);
   ray::ForestStructure extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
 
@@ -42,15 +42,8 @@ public:
   double undercroft_height;         // points below this height above the ground are discarded and treated as undercroft
   double approx_height_per_radius_; // a default ratio for approximate radius estimation from tree height, when trunk not observed
 
-  /// used only when agglomerate is false:
   int smooth_iterations_;
   double drop_ratio_;
-
-  bool agglomerate_; // this flag segments based on proximity agglomeration clustering of canopy points. When false, it uses a watershed algorithm to cluster.
-
-  /// used only when agglomerate is true:
-  double max_diameter_per_height_; 
-  double min_diameter_per_height_; 
 
 private:
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
@@ -66,12 +59,6 @@ private:
   Eigen::ArrayXXd spacefield_;
   std::vector<std::pair<Eigen::Vector3d, double> > trunks_;
   Eigen::Vector3d min_bounds_, max_bounds_;
-
-  // agglomerate:
-  void agglomerate(const std::vector<Eigen::Vector3d> &points, const std::vector<Eigen::Vector3i> index_list, double min_diameter_per_height, double max_diameter_per_height, std::vector<Cluster> &point_clusters);
-  void renderAgglomeration(const std::vector<Cluster> &point_clusters, const std::vector<Eigen::Vector3d> &verts, const std::string &cloud_name_stub);
-  void drawAgglomeration(const std::vector<Cluster> &point_clusters, const std::vector<Eigen::Vector3d> &verts, const std::string &cloud_name_stub);
-
 
   // watershed:
  // void drawTrees(const std::string &filename, const std::vector<TreeSummary> &results, int width, int height);
