@@ -14,12 +14,12 @@ namespace ray
 {
 // Tuning: minimum_score defines how sparse your tree feature can be, compared to the decimation spacing
 static const double minimum_score = 40.0; 
-static const double branch_height_to_width = 4.0; // height extent relative to real diameter of branch
+static const double trunk_height_to_width = 4.0; // height extent relative to real diameter of branch
 static const double boundary_radius_scale = 3.0; // how much farther out is the expected boundary compared to real branch radius? Larger requires more space to declare it a branch
 
-struct Branch
+struct Trunk
 {
-  Branch();
+  Trunk();
   Eigen::Vector3d centre; 
   double radius;
   double score;

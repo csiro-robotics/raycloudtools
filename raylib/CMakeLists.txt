@@ -44,8 +44,8 @@ set(PUBLIC_HEADERS
   rayparse.h
   rayrandom.h
   rayrenderer.h
-  extraction/raybranch.h
-  extraction/raybranches.h
+  extraction/raytrunk.h
+  extraction/raytrunks.h
   extraction/rayclusters.h
   extraction/rayterrain.h 
   extraction/raytrees.h
@@ -88,8 +88,8 @@ set(SOURCES
   rayparse.cpp
   rayrandom.cpp
   rayrenderer.cpp
-  extraction/raybranch.cpp
-  extraction/raybranches.cpp
+  extraction/raytrunk.cpp
+  extraction/raytrunks.cpp
   extraction/rayclusters.cpp
   extraction/rayterrain.cpp
   extraction/raytrees.cpp

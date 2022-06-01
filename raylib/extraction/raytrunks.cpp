@@ -3,7 +3,7 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raybranches.h"
+#include "raytrunks.h"
 #include "../raydebugdraw.h"
 #include "../raygrid.h"
 #include "../raycuboid.h"
@@ -17,26 +17,26 @@ namespace
 {
 const double inf = 1e10;
 
-void drawBranches(const std::vector<Branch> &branches, const std::vector<Eigen::Vector3d> *extra_points1 = NULL, const std::vector<Eigen::Vector3d> *extra_points2 = NULL)
+void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *extra_points1 = NULL, const std::vector<Eigen::Vector3d> *extra_points2 = NULL)
 {
   #if USE_RVIZ
   std::vector<Eigen::Vector3d> starts, ends;
   std::vector<double> radii;
   std::vector<Eigen::Vector3d> colours;
-  for (size_t i = 0; i<branches.size(); i++)
+  for (size_t i = 0; i<trunks.size(); i++)
   {
-    if (!branches[i].active)
+    if (!trunks[i].active)
       continue;
-    if (!(branches[i].radius == branches[i].radius))
-      std::cout << "nan branch radius at " << i << std::endl;
-    if (branches[i].radius <= 0.0)
-      std::cout << "bad branch radius at " << i << std::endl;
-    if (!(branches[i].centre == branches[i].centre))
-      std::cout << "nan branch centre at " << i << std::endl;
-    starts.push_back(branches[i].centre - branches[i].dir*branches[i].length*0.5);
-    ends.push_back(branches[i].centre + branches[i].dir*branches[i].length*0.5);
-    radii.push_back(branches[i].radius);
-    double shade = std::min(branches[i].score / (2.0 * minimum_score), 1.0);
+    if (!(trunks[i].radius == trunks[i].radius))
+      std::cout << "nan trunk radius at " << i << std::endl;
+    if (trunks[i].radius <= 0.0)
+      std::cout << "bad trunk radius at " << i << std::endl;
+    if (!(trunks[i].centre == trunks[i].centre))
+      std::cout << "nan trunk centre at " << i << std::endl;
+    starts.push_back(trunks[i].centre - trunks[i].dir*trunks[i].length*0.5);
+    ends.push_back(trunks[i].centre + trunks[i].dir*trunks[i].length*0.5);
+    radii.push_back(trunks[i].radius);
+    double shade = std::min(trunks[i].score / (2.0 * minimum_score), 1.0);
     Eigen::Vector3d col(0,0,0);
     col[0] = col[1] = shade;
     col[2] = shade > 0.5 ? 1.0 : 0.0;
@@ -71,32 +71,32 @@ void drawBranches(const std::vector<Branch> &branches, const std::vector<Eigen::
         colours.push_back(colour);
       }
     }    
-    for (auto &branch: branches)
+    for (auto &trunk: trunks)
     {
-      if (!branch.active)
+      if (!trunk.active)
         continue;
   //    colour.red = uint8_t(rand()%255);
   //    colour.green = uint8_t(rand()%255);
   //    colour.blue = uint8_t(rand()%255);
-      colour.red = colour.green = colour.blue = (uint8_t)std::min(255.0*branch.score / (2.0*minimum_score), 255.0);
-      if (branch.score < minimum_score)
+      colour.red = colour.green = colour.blue = (uint8_t)std::min(255.0*trunk.score / (2.0*minimum_score), 255.0);
+      if (trunk.score < minimum_score)
         colour.green = colour.blue = 0;
 
-      Eigen::Vector3d side1 = branch.dir.cross(Eigen::Vector3d(1,2,3)).normalized();
-      Eigen::Vector3d side2 = side1.cross(branch.dir);
-      double rad = branch.radius;
+      Eigen::Vector3d side1 = trunk.dir.cross(Eigen::Vector3d(1,2,3)).normalized();
+      Eigen::Vector3d side2 = side1.cross(trunk.dir);
+      double rad = trunk.radius;
       for (double z = -0.5; z<0.5; z+=0.15)
       {
         for (double ang = 0.0; ang<2.0*kPi; ang += 0.6)
         {
-          Eigen::Vector3d pos = branch.centre + branch.dir*branch.length*z + side1*std::sin(ang)*rad + side2*std::cos(ang)*rad;
+          Eigen::Vector3d pos = trunk.centre + trunk.dir*trunk.length*z + side1*std::sin(ang)*rad + side2*std::cos(ang)*rad;
           cloud_points.push_back(pos);
           times.push_back(0.0);
           colours.push_back(colour);
         }
       }
     }
-    writePlyPointCloud("branches_verbose.ply", cloud_points, times, colours);
+    writePlyPointCloud("trunks_verbose.ply", cloud_points, times, colours);
   #endif
 }
 
@@ -109,7 +109,7 @@ struct QueueNode
   int id;
 };
 
-//#define MINIMISE_ANGLE // works quite well in flowing along branches, but sometimes causes multi-branch problem, where radius was too small. 
+//#define MINIMISE_ANGLE // works quite well in flowing along trunks, but sometimes causes multi-trunk problem, where radius was too small. 
 class QueueNodeComparator 
 { 
 public: 
@@ -120,7 +120,7 @@ public:
 }; 
 }
 
-void initialiseBranches(std::vector<Branch> &branches, const Cloud &cloud, const Eigen::Vector3d &min_bound, double voxel_width)
+void initialiseTrunks(std::vector<Trunk> &trunks, const Cloud &cloud, const Eigen::Vector3d &min_bound, double voxel_width)
 {
   Eigen::Vector3d half_voxel(0.5*voxel_width, 0.5*voxel_width, 0.5*voxel_width);
   // normal size, with offset grid
@@ -138,7 +138,7 @@ void initialiseBranches(std::vector<Branch> &branches, const Cloud &cloud, const
       voxels[j]->increment(cloud.ends[i]);
     }
   }
-  auto addBranch = [&branches]
+  auto addTrunk = [&trunks]
     (const struct IntegerVoxels &voxels, double voxel_width, const Eigen::Vector3d &offset, const Eigen::Vector3i &index, int count)
   {
     Eigen::Vector3d centre = (index.cast<double>() + Eigen::Vector3d(0.5,0.5,0.5))*voxel_width + offset;
@@ -152,33 +152,33 @@ void initialiseBranches(std::vector<Branch> &branches, const Cloud &cloud, const
     bool tall_enough = (above1 && below1) || (above1 && above2) || (below1 && below2);
     if (!tall_enough)
       return; 
-    Branch branch;
+    Trunk trunk;
     double diameter = voxel_width / std::sqrt(2.0);
-    branch.centre = centre;
-    branch.radius = diameter / 2.0;
-    branch.length = diameter * branch_height_to_width;
-    branch.score = 0;
-    branch.dir = Eigen::Vector3d(0,0,1);
-    branches.push_back(branch);    
+    trunk.centre = centre;
+    trunk.radius = diameter / 2.0;
+    trunk.length = diameter * trunk_height_to_width;
+    trunk.score = 0;
+    trunk.dir = Eigen::Vector3d(0,0,1);
+    trunks.push_back(trunk);    
   };
   for (int j = 0; j<4; j++)
   {
-    voxels[j]->forEach(addBranch);
+    voxels[j]->forEach(addTrunk);
   }  
 }
 
-void removeOverlappingBranches(std::vector<Branch> &best_branches)
+void removeOverlappingTrunks(std::vector<Trunk> &best_trunks)
 {
   // Brute force approach at the moment!
-  for (size_t i = 0; i<best_branches.size(); i++)
+  for (size_t i = 0; i<best_trunks.size(); i++)
   {
     if (!(i%1000))
-      std::cout << i << " / " << best_branches.size() << std::endl;
-    Branch &branch = best_branches[i];
-    if (!branch.active)
+      std::cout << i << " / " << best_trunks.size() << std::endl;
+    Trunk &trunk = best_trunks[i];
+    if (!trunk.active)
       continue;
-    Eigen::Vector3d ax1 = Eigen::Vector3d(1,2,3).cross(branch.dir).normalized();
-    Eigen::Vector3d ax2 = branch.dir.cross(ax1);
+    Eigen::Vector3d ax1 = Eigen::Vector3d(1,2,3).cross(trunk.dir).normalized();
+    Eigen::Vector3d ax2 = trunk.dir.cross(ax1);
     const int num = 5;
     double s = 0.8;
     double xs[num] = {0, s, 0, -s, 0};
@@ -186,16 +186,16 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
     double zs[num] = {-0.5*s, -0.25*s, 0, 0.25*s, 0.5*s};
 
     // for coarse intersection
-    Eigen::Vector3d base = branch.centre - 0.5*branch.length*branch.dir;
-    Eigen::Vector3d top = branch.centre + 0.5*branch.length*branch.dir;
-    Eigen::Vector3d rad(branch.radius, branch.radius, branch.radius);
+    Eigen::Vector3d base = trunk.centre - 0.5*trunk.length*trunk.dir;
+    Eigen::Vector3d top = trunk.centre + 0.5*trunk.length*trunk.dir;
+    Eigen::Vector3d rad(trunk.radius, trunk.radius, trunk.radius);
     Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);    
 
-    for (size_t j = 0; j<best_branches.size(); j++)
+    for (size_t j = 0; j<best_trunks.size(); j++)
     {
       if (i==j)
         continue;
-      Branch &cylinder = best_branches[j];
+      Trunk &cylinder = best_trunks[j];
       if (!cylinder.active)
         continue;
       Eigen::Vector3d base2 = cylinder.centre - 0.5*cylinder.length*cylinder.dir;
@@ -211,7 +211,7 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
       {
         for (int l = 0; l<num; l++)
         {
-          Eigen::Vector3d pos = branch.centre + branch.dir*zs[k]*branch.length + (ax1*xs[l] + ax2*ys[l])*branch.radius;
+          Eigen::Vector3d pos = trunk.centre + trunk.dir*zs[k]*trunk.length + (ax1*xs[l] + ax2*ys[l])*trunk.radius;
           pos -= cylinder.centre;
           // is pos inside cylinder j?
           double d = pos.dot(cylinder.dir);
@@ -225,11 +225,11 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
       double inside_ratio = (double)num_inside / (double)(num*num);
       if (inside_ratio > 0.4)
       {
-        double vol_branch = sqr(branch.radius)*branch.length;
+        double vol_trunk = sqr(trunk.radius)*trunk.length;
         double vol_cylinder = sqr(cylinder.radius)*cylinder.length;
         // remove the smaller one
-        if (vol_branch < vol_cylinder)
-          branch.active = false;
+        if (vol_trunk < vol_cylinder)
+          trunk.active = false;
         else
           cylinder.active = false;
         break;
@@ -238,7 +238,7 @@ void removeOverlappingBranches(std::vector<Branch> &best_branches)
   }
 }
 
-Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays)
+Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays)
 {
   double spacing = cloud.estimatePointSpacing();
   if (verbose)
@@ -250,7 +250,7 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
   Eigen::Vector3d max_bound = cloud.calcMaxBound();
   std::cout << "cloud from: " << min_bound.transpose() << " to: " << max_bound.transpose() << std::endl;
 
-  std::vector<Branch> branches;
+  std::vector<Trunk> trunks;
   
   // 1. voxel grid of points (an acceleration structure)
   const double voxel_width = midRadius * 2.0;
@@ -264,102 +264,102 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
   }
   const int min_num_points = 6;
 
-  // 2. initialise one branch candidate for each occupied voxel
-  initialiseBranches(branches, cloud, min_bound, voxel_width);
-  std::cout << "initialised to " << branches.size() << " branches" << std::endl;
+  // 2. initialise one trunk candidate for each occupied voxel
+  initialiseTrunks(trunks, cloud, min_bound, voxel_width);
+  std::cout << "initialised to " << trunks.size() << " trunks" << std::endl;
 
   RayGrid2D grid2D;
   grid2D.init(min_bound, max_bound, 2.0);
  
   // 3. iterate every candidate several times
-  best_branches = branches;
-  for (auto &branch: best_branches)
-    branch.active = false;
+  best_trunks = trunks;
+  for (auto &trunk: best_trunks)
+    trunk.active = false;
   const int num_iterations = 5;
   for (int it = 0; it<num_iterations; it++)
   {
     double above_count = 0;
     double active_count = 0;
-    for (int branch_id = 0; branch_id < (int)branches.size(); branch_id++)
+    for (int trunk_id = 0; trunk_id < (int)trunks.size(); trunk_id++)
     {
-      auto &branch = branches[branch_id];
-      if (!branch.active)
+      auto &trunk = trunks[trunk_id];
+      if (!trunk.active)
         continue;
-      // get overlapping points to this branch
+      // get overlapping points to this trunk
       std::vector<Eigen::Vector3d> points;
-      branch.getOverlap(grid, points, spacing);
+      trunk.getOverlap(grid, points, spacing);
       if (points.size() < min_num_points) // not enough data to use
       {
-        branch.active = false;
+        trunk.active = false;
         continue;
       }
 
-      branch.updateDirection(points);
-      branch.updateCentre(points);
-      branch.updateRadiusAndScore(points);
+      trunk.updateDirection(points);
+      trunk.updateCentre(points);
+      trunk.updateRadiusAndScore(points);
 
-      if (branch.score > best_branches[branch_id].score) // got worse, so analyse the best result now
-        best_branches[branch_id] = branch;      
-      if (branch.last_score > 0.0 && branch.score + 3.0*(branch.score - branch.last_score) < minimum_score)
-        branch.active = false;
+      if (trunk.score > best_trunks[trunk_id].score) // got worse, so analyse the best result now
+        best_trunks[trunk_id] = trunk;      
+      if (trunk.last_score > 0.0 && trunk.score + 3.0*(trunk.score - trunk.last_score) < minimum_score)
+        trunk.active = false;
 
       bool leaning_too_much = false;
-      leaning_too_much = std::abs(best_branches[branch_id].dir[2]) < 0.85;
-      if (branch.length < 4.0*midRadius || leaning_too_much) // not enough data to use
-        branch.active = false;
+      leaning_too_much = std::abs(best_trunks[trunk_id].dir[2]) < 0.85;
+      if (trunk.length < 4.0*midRadius || leaning_too_much) // not enough data to use
+        trunk.active = false;
 
-      if (branch.active)
+      if (trunk.active)
         active_count++;
-      if (branch.score > minimum_score)
+      if (trunk.score > minimum_score)
         above_count++;
     }
-    std::cout << "iteration " << it << " / " << num_iterations << " " << branches.size() << " branches, " << above_count << " valid" << std::endl;
+    std::cout << "iteration " << it << " / " << num_iterations << " " << trunks.size() << " trunks, " << above_count << " valid" << std::endl;
     std::cout << active_count << " active" << std::endl;
     if (verbose)
     {
-      drawBranches(branches); 
+      drawTrunks(trunks); 
     } 
   }
-  branches.clear();
-  for (auto &branch: best_branches)
+  trunks.clear();
+  for (auto &trunk: best_trunks)
   {
     bool leaning_too_much = false;
-    leaning_too_much = std::abs(branch.dir[2]) < 0.9;
-    if (branch.active && branch.score >= minimum_score && !leaning_too_much) // then remove the branch
-      branches.push_back(branch);       
+    leaning_too_much = std::abs(trunk.dir[2]) < 0.9;
+    if (trunk.active && trunk.score >= minimum_score && !leaning_too_much) // then remove the trunk
+      trunks.push_back(trunk);       
   }  
-  best_branches = branches;
-  removeOverlappingBranches(best_branches);
-  branches.clear();
-  for (auto &branch: best_branches)
+  best_trunks = trunks;
+  removeOverlappingTrunks(best_trunks);
+  trunks.clear();
+  for (auto &trunk: best_trunks)
   {
-    if (branch.active) // then remove the branch
-      branches.push_back(branch);         
+    if (trunk.active) // then remove the trunk
+      trunks.push_back(trunk);         
   }    
   if (verbose)
   {
-    drawBranches(branches);
-    std::cout << "num non-overlapping branches: " << branches.size() << std::endl;
+    drawTrunks(trunks);
+    std::cout << "num non-overlapping trunks: " << trunks.size() << std::endl;
   }   
 
   if (exclude_passing_rays)
   { // add in internal points due to passing rays...
-    for (auto &branch: branches)
+    for (auto &trunk: trunks)
     {
-      if (branch.active)
-        grid2D.pixel(branch.centre).filled = true;
+      if (trunk.active)
+        grid2D.pixel(trunk.centre).filled = true;
     }
     grid2D.fillRays(cloud); 
 
     std::vector<Eigen::Vector3d> extra_points1, extra_points2;
     int num_removed = 0;
-    for (auto &branch: branches)
+    for (auto &trunk: trunks)
     {
-      if (!branch.active)
+      if (!trunk.active)
         continue;
 
-      Eigen::Vector3d base = branch.centre - branch.length*0.5*branch.dir;
-      auto &ray_ids = grid2D.pixel(branch.centre).ray_ids;
+      Eigen::Vector3d base = trunk.centre - trunk.length*0.5*trunk.dir;
+      auto &ray_ids = grid2D.pixel(trunk.centre).ray_ids;
       double mean_rad = 0.0;
       double mean_num = 0.0;
       std::vector<Eigen::Vector3d> poins;
@@ -369,17 +369,17 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
         Eigen::Vector3d end = cloud.ends[ray_ids[i]];
         
         Eigen::Vector3d line_dir = end - start;
-        Eigen::Vector3d across = line_dir.cross(branch.dir);
-        Eigen::Vector3d side = across.cross(branch.dir);
+        Eigen::Vector3d across = line_dir.cross(trunk.dir);
+        Eigen::Vector3d side = across.cross(trunk.dir);
 
         double d = std::max(0.0, std::min((base - start).dot(side) / line_dir.dot(side), 1.0));
         Eigen::Vector3d closest_point = start + line_dir * d;
 
-        double d2 = std::max(0.0, std::min((closest_point - base).dot(branch.dir), branch.length + 2.0*branch.radius));
-        Eigen::Vector3d closest_point2 = base + branch.dir * d2;
+        double d2 = std::max(0.0, std::min((closest_point - base).dot(trunk.dir), trunk.length + 2.0*trunk.radius));
+        Eigen::Vector3d closest_point2 = base + trunk.dir * d2;
         
         double dist = (closest_point - closest_point2).norm();
-        if (dist < branch.radius)
+        if (dist < trunk.radius)
         {
           mean_rad += dist;
           mean_num++;
@@ -389,9 +389,9 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
       if (mean_num > 1)
       {
         mean_rad /= mean_num;
-        if (mean_rad < 0.7*branch.radius)
+        if (mean_rad < 0.7*trunk.radius)
         {
-          branch.active = false;
+          trunk.active = false;
           num_removed++;
           extra_points2.insert(extra_points2.begin(), poins.begin(), poins.end());
         }
@@ -404,20 +404,20 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
     if (verbose)
     {
       std::cout << "num trunks removed: " << num_removed << std::endl;
-      drawBranches(branches, &extra_points1, &extra_points2);
+      drawTrunks(trunks, &extra_points1, &extra_points2);
     }
 
-    best_branches = branches;
-    branches.clear();
-    for (auto &branch: best_branches)
+    best_trunks = trunks;
+    trunks.clear();
+    for (auto &trunk: best_trunks)
     {
-      if (branch.active) 
-        branches.push_back(branch);         
+      if (trunk.active) 
+        trunks.push_back(trunk);         
     }    
   }
 
-  // get lowest branches:
-  // now get ground height for each branch:
+  // get lowest trunks:
+  // now get ground height for each trunk:
   double pixel_width = 2.0;
   int dimx = (int)std::ceil((max_bound[0] - min_bound[0])/pixel_width);
   int dimy = (int)std::ceil((max_bound[1] - min_bound[1])/pixel_width);
@@ -432,46 +432,46 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
     if (h == 0.0 || cloud.ends[i][2] < h)
       h = cloud.ends[i][2];
   }
-  for (auto &branch: branches)
+  for (auto &trunk: trunks)
   {
-    Eigen::Vector3i index = ((branch.centre - min_bound)/pixel_width).cast<int>();
-    branch.ground_height = ground_heights(index[0], index[1]) - 1.0;  // TODO: fix!
-    if (branch.dir[2] < 0.0)
-      branch.dir *= -1.0;
+    Eigen::Vector3i index = ((trunk.centre - min_bound)/pixel_width).cast<int>();
+    trunk.ground_height = ground_heights(index[0], index[1]) - 1.0;  // TODO: fix!
+    if (trunk.dir[2] < 0.0)
+      trunk.dir *= -1.0;
   }
 
   // Next a forest nearest path search
 	std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
-  std::vector<int> lowest_branch_ids;
+  std::vector<int> lowest_trunk_ids;
   // get the lowest points and fill in closest_node
-  for (size_t i = 0; i<branches.size(); i++)
+  for (size_t i = 0; i<trunks.size(); i++)
   {
     size_t j;
-    for (j = 0; j<branches.size(); j++)
+    for (j = 0; j<trunks.size(); j++)
     {
-      Eigen::Vector3d dif = branches[j].centre - branches[i].centre;
+      Eigen::Vector3d dif = trunks[j].centre - trunks[i].centre;
       dif[2] = 0.0;
       double x2 = dif.squaredNorm();
-      double height = std::max(0.001, branches[j].centre[2] - branches[j].ground_height); 
+      double height = std::max(0.001, trunks[j].centre[2] - trunks[j].ground_height); 
 
       double z = x2/(2.0*height);
-      Eigen::Vector3d basei = branches[i].centre - branches[i].dir*0.5*branches[i].length;
-      Eigen::Vector3d basej = branches[j].centre - branches[j].dir*0.5*branches[j].length;
+      Eigen::Vector3d basei = trunks[i].centre - trunks[i].dir*0.5*trunks[i].length;
+      Eigen::Vector3d basej = trunks[j].centre - trunks[j].dir*0.5*trunks[j].length;
       if (basei[2] > basej[2] + z)
       {
-//        std::cout << "branch " << i << ": " << basei.transpose() << " is above branch " << j << ": " << basej.transpose() << " with ground height: " << branches[j].ground_height << " so removing" << std::endl;
+//        std::cout << "trunk " << i << ": " << basei.transpose() << " is above trunk " << j << ": " << basej.transpose() << " with ground height: " << trunks[j].ground_height << " so removing" << std::endl;
         break;
       }
     }
-    if (j==branches.size())
+    if (j==trunks.size())
     {
-      if (branches[i].dir[2] < 0.0)
-        branches[i].dir *= -1;
-      closest_node.push(QueueNode(sqr(branches[i].centre[2]), (int)i));
-      lowest_branch_ids.push_back((int)i);
+      if (trunks[i].dir[2] < 0.0)
+        trunks[i].dir *= -1;
+      closest_node.push(QueueNode(sqr(trunks[i].centre[2]), (int)i));
+      lowest_trunk_ids.push_back((int)i);
     }
   }
-  std::cout << "number of ground trunks: " << closest_node.size() << " so " << branches.size() - closest_node.size() << " trunks have been removed" << std::endl;
+  std::cout << "number of ground trunks: " << closest_node.size() << " so " << trunks.size() - closest_node.size() << " trunks have been removed" << std::endl;
 
   // render these trunk points to disk:
   if (verbose)
@@ -481,21 +481,21 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
     std::vector<RGBA> colours;
     RGBA colour;
     colour.alpha = 255;
-    for (auto &id: lowest_branch_ids)
+    for (auto &id: lowest_trunk_ids)
     {
-      Branch &branch = branches[id];
+      Trunk &trunk = trunks[id];
       colour.red = uint8_t(rand()%255);
       colour.green = uint8_t(rand()%255);
       colour.blue = uint8_t(rand()%255);
 
-      Eigen::Vector3d side1 = branch.dir.cross(Eigen::Vector3d(1,2,3)).normalized();
-      Eigen::Vector3d side2 = side1.cross(branch.dir);
-      double rad = branch.radius;
+      Eigen::Vector3d side1 = trunk.dir.cross(Eigen::Vector3d(1,2,3)).normalized();
+      Eigen::Vector3d side2 = side1.cross(trunk.dir);
+      double rad = trunk.radius;
       for (double z = -0.5; z<0.5; z+=0.1)
       {
         for (double ang = 0.0; ang<2.0*kPi; ang += 0.3)
         {
-          Eigen::Vector3d pos = branch.centre + branch.dir*branch.length*z + side1*std::sin(ang)*rad + side2*std::cos(ang)*rad;
+          Eigen::Vector3d pos = trunk.centre + trunk.dir*trunk.length*z + side1*std::sin(ang)*rad + side2*std::cos(ang)*rad;
           cloud_points.push_back(pos);
           times.push_back(0.0);
           colours.push_back(colour);
@@ -505,14 +505,14 @@ Bush::Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_pass
     writePlyPointCloud("trunks_verbose.ply", cloud_points, times, colours);
   }
 
-  best_branches.clear();
-  for (auto &id: lowest_branch_ids)
+  best_trunks.clear();
+  for (auto &id: lowest_trunk_ids)
   {
-    best_branches.push_back(branches[id]);
+    best_trunks.push_back(trunks[id]);
   }
 }
 
-bool Bush::save(const std::string &filename)
+bool Trunks::save(const std::string &filename)
 {
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
@@ -520,19 +520,19 @@ bool Bush::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }  
-  ofs << "# tree branches file:" << std::endl;
+  ofs << "# tree trunks file:" << std::endl;
   ofs << "x,y,z,radius" << std::endl;
-  for (auto &branch: best_branches)
+  for (auto &trunk: best_trunks)
   {
-    if (!branch.active)
+    if (!trunk.active)
       continue;
-    Eigen::Vector3d base = branch.centre - branch.dir*branch.length*0.5;
-    ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << branch.radius << std::endl;
+    Eigen::Vector3d base = trunk.centre - trunk.dir*trunk.length*0.5;
+    ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << trunk.radius << std::endl;
   }
   return true;
 }
 
-std::vector<std::pair<Eigen::Vector3d, double> > Bush::load(const std::string &filename)
+std::vector<std::pair<Eigen::Vector3d, double> > Trunks::load(const std::string &filename)
 {
   std::ifstream ifs(filename.c_str(), std::ios::in);
   if (!ifs.is_open())
@@ -540,7 +540,7 @@ std::vector<std::pair<Eigen::Vector3d, double> > Bush::load(const std::string &f
     std::cerr << "Error: cannot open " << filename << " for reading." << std::endl;
     return std::vector<std::pair<Eigen::Vector3d, double> >();
   }  
-  std::vector<std::pair<Eigen::Vector3d, double> > branches;
+  std::vector<std::pair<Eigen::Vector3d, double> > trunks;
   while (!ifs.eof())
   {
     Eigen::Vector3d base;
@@ -562,7 +562,7 @@ std::vector<std::pair<Eigen::Vector3d, double> > Bush::load(const std::string &f
         else
           radius = std::stod(token.c_str());
       }
-      branches.push_back(std::pair<Eigen::Vector3d, double>(base, radius));
+      trunks.push_back(std::pair<Eigen::Vector3d, double>(base, radius));
     }
     else
     {
@@ -570,7 +570,7 @@ std::vector<std::pair<Eigen::Vector3d, double> > Bush::load(const std::string &f
       return std::vector<std::pair<Eigen::Vector3d, double> >();
     }
   }
-  return branches;  
+  return trunks;  
 }
 
 

@@ -4,7 +4,7 @@
 //
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
-#include "raylib/extraction/raybranches.h"
+#include "raylib/extraction/raytrunks.h"
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/rayforest.h"
 #include "raylib/extraction/raytrees.h"
@@ -103,8 +103,8 @@ int main(int argc, char *argv[])
       usage(true);
 
     const double radius = 0.1; // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm 
-    ray::Bush woods(cloud, radius, verbose.isSet(), exclude_rays.isSet());
-    woods.save(cloud_file.nameStub() + "_trunks.txt");
+    ray::Trunks trunks(cloud, radius, verbose.isSet(), exclude_rays.isSet());
+    trunks.save(cloud_file.nameStub() + "_trunks.txt");
   }
   else if (extract_trees)
   {

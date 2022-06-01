@@ -7,7 +7,7 @@
 #define RAYLIB_RAYBRANCHES_H
 
 #include "raylib/raylibconfig.h"
-#include "raybranch.h"
+#include "raytrunk.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
 #include <map>
@@ -15,12 +15,12 @@
 
 namespace ray
 {
-struct Bush
+struct Trunks
 {
-  Bush(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays);
+  Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays);
   bool save(const std::string &filename);
   static std::vector<std::pair<Eigen::Vector3d, double> > load(const std::string &filename);
-  std::vector<Branch> best_branches;
+  std::vector<Trunk> best_trunks;
 };
 
 struct IntegerVoxels

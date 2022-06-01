@@ -3,7 +3,7 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raybranch.h"
+#include "raytrunk.h"
 #include "../raydebugdraw.h"
 #include "../raygrid.h"
 #include "../raycuboid.h"
@@ -15,11 +15,11 @@ namespace ray
 {
 const double inf = 1e10;
 
-Branch::Branch() : centre(0,0,0), radius(0), score(0), last_score(0), length(0), dir(0,0,0), parent(-1), tree_score(inf), distance_to_ground(inf), active(true), visited(false) 
+Trunk::Trunk() : centre(0,0,0), radius(0), score(0), last_score(0), length(0), dir(0,0,0), parent(-1), tree_score(inf), distance_to_ground(inf), active(true), visited(false) 
 {
 }
 
-void Branch::getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Vector3d> &points, double spacing)
+void Trunk::getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Vector3d> &points, double spacing)
 {
   Eigen::Vector3d base = centre - 0.5*length*dir;
   Eigen::Vector3d top = centre + 0.5*length*dir;
@@ -62,7 +62,7 @@ void Branch::getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Ve
   }
 }   
 
-void Branch::estimatePose(const std::vector<Eigen::Vector3d> &points)
+void Trunk::estimatePose(const std::vector<Eigen::Vector3d> &points)
 {
   centre = mean(points);
   Eigen::Matrix3d scatter;
@@ -74,7 +74,7 @@ void Branch::estimatePose(const std::vector<Eigen::Vector3d> &points)
   dir = eigen_solver.eigenvectors().col(2);       
 }
 
-void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points)
+void Trunk::updateDirection(const std::vector<Eigen::Vector3d> &points)
 {
   struct Accumulator
   {
@@ -96,8 +96,8 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points)
     Eigen::Vector2d offset(to_point.dot(ax1), to_point.dot(ax2));
     //const double dist = offset.norm();
     double w = 1.0;// 1.0 - dist/(radius * boundary_radius_scale) // lateral fade off?
-    // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated branch centred on that edge
-    //                If radius_removal_factor=1 then v thin branches may accidentally get a radius and it won't shrink down
+    // remove radius. If radius_removal_factor=0 then half-sided trees will have estimated trunk centred on that edge
+    //                If radius_removal_factor=1 then v thin trunks may accidentally get a radius and it won't shrink down
     const double radius_removal_factor = 0.5;
     offset -= offset * radius_removal_factor * radius / offset.norm(); 
 
@@ -121,11 +121,11 @@ void Branch::updateDirection(const std::vector<Eigen::Vector3d> &points)
 
   dir = (dir + ax1*sXY[0] + ax2*sXY[1]).normalized();
   actual_length = 4.0*(sum.abs_x/n);
-  length = std::max(actual_length, 2.0*radius * branch_height_to_width);    
+  length = std::max(actual_length, 2.0*radius * trunk_height_to_width);    
 }
 
 // shift to an estimation of the centre of the cylinder's circle
-void Branch::updateCentre(const std::vector<Eigen::Vector3d> &points)
+void Trunk::updateCentre(const std::vector<Eigen::Vector3d> &points)
 {
   Eigen::Vector3d ax1 = Eigen::Vector3d(1,2,3).cross(dir).normalized();
   Eigen::Vector3d ax2 = ax1.cross(dir);
@@ -168,7 +168,7 @@ void Branch::updateCentre(const std::vector<Eigen::Vector3d> &points)
   centre += (ax1*shift[0] + ax2*shift[1]) * radius;       
 }
 
-void Branch::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points)
+void Trunk::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points)
 {
   double rad = 0;
   std::vector<double> scores(points.size());
