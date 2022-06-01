@@ -5,6 +5,7 @@
 // Author: Thomas Lowe
 #include "rayforestgen.h"
 #include "rayutils.h"
+// #define OUTPUT_MOMENTS
 
 namespace ray
 {
@@ -104,6 +105,14 @@ bool ForestStructure::load(const std::string &filename)
     return false;
   if (trees[0].segments().empty())
     return false;
+
+#if defined OUTPUT_MOMENTS
+  Eigen::Array<double, 6, 1> mom = getMoments();
+  std::cout << "stats: " << std::endl;
+  for (int i = 0; i<mom.rows(); i++)
+    std::cout << ", " << mom[i];
+  std::cout << std::endl;
+#endif // defined OUTPUT_MOMENTS    
   return true;
 }
 
@@ -189,6 +198,41 @@ void ForestGen::make(const ForestParams &params)
     rad /= 2.0;
     num_trees *= pow(2.0, params.dimension);
   }
+}
+
+Eigen::Array<double, 6, 1> ForestStructure::getMoments() const
+{
+  Eigen::Array<double, 6, 1> moments;
+  moments[0] = (double)trees.size();
+  Eigen::Vector3d sum(0,0,0);
+  Eigen::Vector3d sum_sqr(0,0,0);
+  double rad = 0;
+  double rad_sqr = 0.0;
+  double volume = 0.0;
+  for (auto &tree: trees)
+  {
+    Eigen::Vector3d p = tree.segments()[0].tip;
+    sum += p;
+    sum_sqr += Eigen::Vector3d(p[0]*p[0], p[1]*p[1], p[2]*p[2]);
+    double r = tree.segments()[0].radius;
+    rad += r;
+    rad_sqr += r*r;
+    for (auto &segment: tree.segments())
+    {
+      if (segment.parent_id != -1)
+      {
+        double length = (segment.tip - tree.segments()[segment.parent_id].tip).norm();
+        double r = segment.radius;
+        volume += length * r * r;
+      }
+    }
+  }
+  moments[1] = sum.norm();
+  moments[2] = sum_sqr.norm();
+  moments[3] = rad;
+  moments[4] = rad_sqr;
+  moments[5] = volume * kPi;
+  return moments;
 }
 
 

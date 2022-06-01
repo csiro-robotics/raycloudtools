@@ -7,6 +7,7 @@
 #include "raycloud.h"
 #include "raymesh.h"
 #include "rayply.h"
+#include "rayforestgen.h"
 #include <vector>
 #include <gtest/gtest.h>
 #include <cstdlib>
@@ -185,6 +186,27 @@ namespace raytest
     ray::Mesh mesh;
     EXPECT_TRUE(ray::readPlyMesh("terrain_mesh.ply", mesh));
     compareMoments(mesh.getMoments(), {0.0386662, -1.52168, -0.139079, 3.30621, 3.35391, 0.705937});
+  }  
+
+  /// Tests extraction of terrain and extraction of trees
+  TEST(Basic, RayExtract)
+  {
+    EXPECT_EQ(command("raycreate forest 2"), 0);
+    EXPECT_EQ(command("rayextract terrain forest.ply"), 0);
+    ray::Mesh mesh;
+    EXPECT_TRUE(ray::readPlyMesh("forest_mesh.ply", mesh));
+    compareMoments(mesh.getMoments(), {-0.00147491, -0.00191917, -0.0617946, 5.77995, 5.80266, 0.0426993});
+    EXPECT_EQ(command("rayextract trees forest.ply forest_mesh.ply"), 0);
+
+    ray::ForestStructure forest;
+    EXPECT_TRUE(forest.load("forest_trees.txt"));
+    compareMoments(forest.getMoments(), {20, 22.2059, 1059.27, 1.06402, 0.0647786, 0.881711});
+
+    EXPECT_EQ(command("rayextract forest forest.ply --ground forest_mesh.ply"), 0);
+
+    ray::ForestStructure forest2;
+    EXPECT_TRUE(forest2.load("forest_forest.txt"));
+    compareMoments(forest2.getMoments(), {11, 8.43828, 586.427, 1.40054, 0.200644, 0});
   }  
 #endif  // RAYLIB_WITH_QHULL
 } // raytest

@@ -21,6 +21,7 @@ struct ForestStructure
   bool load(const std::string &filename);
   bool save(const std::string &filename);
   bool trunksOnly(){ return trees.size() > 0 && trees[0].segments().size() == 1; }
+  Eigen::Array<double, 6, 1> getMoments() const;
 };
 
 struct ForestParams : TreeParams
