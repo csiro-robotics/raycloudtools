@@ -130,7 +130,10 @@ int main(int argc, char *argv[])
       for (auto &c: colours)
         c.alpha = 255;
     }
-    ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours);
+    if (!ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours))
+    {
+      usage();
+    }
   };
   Eigen::Vector3d *offset = remove.isSet() ? &start_pos : nullptr;
   if (cloud_file.nameExt() == "ply")

@@ -37,10 +37,10 @@ bool readLas(const std::string &file_name,
   liblas::Header const &header = reader.GetHeader();
 
   Eigen::Vector3d offset(header.GetOffsetX(), header.GetOffsetY(), header.GetOffsetZ());
-  std::cout << "offset to remove: " << offset_to_remove << std::endl;
   if (offset_to_remove)
   {
     *offset_to_remove = offset;
+    std::cout << "offset to remove: " << offset.transpose() << std::endl;
   }
 //  std::cout << "Removing global offset " << offset.transpose() << " to maintain floating point precision. Use raytranslate by this value to translate to the original coordinate frame." << std::endl;
   
