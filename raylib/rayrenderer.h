@@ -38,7 +38,7 @@ enum class RAYLIB_EXPORT RenderStyle
 
 /// Render a ray cloud according to the supplied parameters
 bool RAYLIB_EXPORT renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, RenderStyle style, 
-               double pix_width, const std::string &image_file, const std::string &projection_file, const Eigen::Vector3d &geooffset, bool mark_origin);
+               double pix_width, const std::string &image_file, const std::string &projection_file, bool mark_origin);
 
 /// This is used for estimating the per-voxel density of a ray cloud
 /// Density represents the surface area per volume, assuming an unbiased distribution of surface angles
