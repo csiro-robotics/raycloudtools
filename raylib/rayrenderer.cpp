@@ -153,18 +153,22 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     const double tiepoints[6]={0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0}; 
     TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
 
-    size_t index = 0;
-    int geokey = std::stoi(values[1], &index);
     if (values[1] == "WGS84")
       GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, GCS_WGS_84);
-    else if (index != 0) // we are using a direct number here, so
+    else 
     {
-      GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geokey);
-    }
-    else
-    {
-      std::cout << "unknown geographic projection type: " << values[1] << std::endl;
-      return false;
+      std::stringstream ss(values[1]);
+      int geokey = 0;
+      ss >> geokey;
+      if (!ss.fail()) // we are using a direct number here, so
+      {
+        GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geokey);
+      }
+      else
+      {
+        std::cout << "unknown geographic projection type: " << values[1] << std::endl;
+        return false;
+      } 
     }
     if (values[2] == "WGS84")
       GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);

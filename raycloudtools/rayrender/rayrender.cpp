@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
   {
     image_file.name() = cloud_file.nameStub() + (projection_file_option.isSet() ? ".tif" : ".png");
   }
-  if (projection_file_option.isSet() || geooffset_option.isSet())
+  if (projection_file_option.isSet())
   {
     #if !RAYLIB_WITH_TIFF
     std::cerr << "Error: georeferencing requires the WITH_TIFF build flag enabled. See README.md." << std::endl;
@@ -97,9 +97,8 @@ int main(int argc, char *argv[])
   // quick casting allowed, taking care that the text and enums are in the same order
   const ray::ViewDirection view_dir = static_cast<ray::ViewDirection>(viewpoint.selectedID());
   const ray::RenderStyle render_style = static_cast<ray::RenderStyle>(style.selectedID());
-  auto geooff = geooffset_option.isSet() ? geooffset.value() : Eigen::Vector3d(0,0,0);
 
-  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(), projection_file.name(), geooff, mark_origin.isSet()))
+  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(), projection_file.name(), mark_origin.isSet()))
   {
     usage();
   }
