@@ -7,167 +7,66 @@
 #define RAYLIB_RAYFOREST_H
 
 #include "raylib/raylibconfig.h"
+#include "raylib/rayforestgen.h"
 #include "../rayutils.h"
 #include "../raycloud.h"
 #include "../raymesh.h"
-typedef Eigen::Matrix<double, 4, 4> Matrix4d;
-typedef Eigen::Matrix<double, 4, 1> Vector4d;
-
-#define TEST_SCALE 1.0
+#include "raytrunks.h"
+#include "raywatershed.h"
+#include "rayoccupancy2d.h"
 
 namespace ray
 {
-struct RAYLIB_EXPORT TreeNode; 
+struct Cluster
+{
+  Eigen::Vector3d min_bound, max_bound;
+  std::vector<int> ids;
+  bool active;
+  int trunk_id;
+};
 
 /// For storing and extracting basic forest information 
 class RAYLIB_EXPORT Forest
 {
 public:
-  Forest() : max_tree_canopy_width(25*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
-// avocadoes: Forest() : max_tree_canopy_width(5.0*TEST_SCALE), maximum_drop_within_tree(2.5e10*TEST_SCALE), undercroft_height(1.5*TEST_SCALE)
-  {
-  }
-  void extract(const Cloud &cloud, Mesh &mesh, double voxel_width);
-  void extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, double voxel_width);
-  struct Result
-  {
-    Eigen::Vector3d tree_tip; // this is in units of pixels horizontally, and metres vertically!
-    double ground_height;
-    double radius, curvature;
-  };
+  Forest() : verbose(true), max_tree_canopy_width(25.0), min_area_(25), undercroft_height(1.5), approx_height_per_radius_(50.0), smooth_iterations_(15), drop_ratio_(0.1) {}
+  ray::ForestStructure extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width);
+  ray::ForestStructure extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub);
 
-  // in rayforest_draw.cpp
-  void drawLowfield(const std::string &filename, const std::vector<TreeNode> &trees);
-  void drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
-  void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
-  void drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height);
-  void drawTreeShapes(const std::string &filename, const std::vector<TreeNode> &results, int width, int height);
-  void drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees, std::vector<int> &indices);
   bool save(const std::string &filename);
 
   // parameters
   bool verbose;
-  double tree_roundness;
-  double max_tree_canopy_width;  
-  double maximum_drop_within_tree;
-  double undercroft_height;
+  double max_tree_canopy_width;     // maximum width in metres of the widest tree expected. This helps divide up nebulous regions
+  int min_area_;                    // minimum number of pixels that a valid tree should occupy. Below this is considered not enough evidence and discarded
+  double undercroft_height;         // points below this height above the ground are discarded and treated as undercroft
+  double approx_height_per_radius_; // a default ratio for approximate radius estimation from tree height, when trunk not observed
+
+  int smooth_iterations_;
+  double drop_ratio_;
 
 private:
-  void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
-  void calculateTreeParaboloids(std::vector<TreeNode> &trees);
-  double estimateRoundnessAndGroundHeight(std::vector<TreeNode> &trees);
-  double searchTrees(const std::vector<TreeNode> &trees, int ind, double length_per_radius, std::vector<int> &indices);
+  void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
+  bool findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d> &points, Eigen::Vector3d &tip);
+  bool findSpace2(const TreeNode &node, Eigen::Vector3d &tip);
+  void smoothHeightfield();
+  void addTrunkHeights();
+
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
+  Eigen::ArrayXXd original_heightfield_;
   Eigen::ArrayXXd lowfield_;
-  Eigen::ArrayXXi indexfield_;
-  std::vector<Result> results_;
+  Eigen::ArrayXXd spacefield_;
+  std::vector<std::pair<Eigen::Vector3d, double> > trunks_;
   Eigen::Vector3d min_bounds_, max_bounds_;
+
+  // watershed:
+ // void drawTrees(const std::string &filename, const std::vector<TreeSummary> &results, int width, int height);
+  void drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
+  void renderWatershed(const std::string &cloud_name_stub, std::vector<TreeNode> &trees, std::set<int> &indices);
+  void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
+  Eigen::ArrayXXi indexfield_;
 };
-
-// A 2D field structure, like a scalar field or vector field
-// Normally I would use an Eigen::ArrayXX, but it only works on scalar types, I'm using below on a Col type.
-template <class T>
-struct Field2D
-{
-  Field2D() {}
-  Field2D(int x, int y){ init(Eigen::Vector2i(x, y)); }
-  Field2D(const Eigen::Vector2i &dimensions){ init(dimensions); }
-  inline void init(const Eigen::Vector2i &dimensions)
-  {
-    dims = dimensions;
-    data.resize(dims[0] * dims[1]);
-  }
-  inline T &operator()(const Eigen::Vector2i &ind){ return data[ind[0] + dims[0]*ind[1]]; } 
-  inline const T &operator()(const Eigen::Vector2i &ind) const { return data[ind[0] + dims[0]*ind[1]]; }
-  inline T &operator()(int x, int y){ return data[x + dims[0]*y]; } 
-  inline const T &operator()(int x, int y) const { return data[x + dims[0]*y]; }
-  std::vector<T> data;
-  Eigen::Vector2i dims;
-};
-
-struct RAYLIB_EXPORT TreeNode
-{
-  TreeNode() : min_bound(1e10,1e10), max_bound(-1e10,-1e10), attaches_to(-1) 
-  {
-    children[0] = children[1] = -1;
-    peak.setZero();
-    ground_height = 0;
-  }
-  TreeNode(int i, int j, double height_, double voxel_width) // TODO: should this be x,y or a distance in metres? probably x,y
-  {
-    attaches_to = -1;
-    min_bound = max_bound = Eigen::Vector2i(i,j);
-    double x = (double)i * voxel_width;
-    double y = (double)j * voxel_width;
-    children[0] = children[1] = -1;
-    ground_height = 0;
-    peak = Eigen::Vector3d(x, y, height_); // in which case peak should probably be in metres horizontally
-  }
-  // for calculating paraboloid of best fit:
-  struct Node
-  {
-    Node(){ clear(); }
-    void clear() { curv_mat.setZero(); curv_vec.setZero(); abcd.setZero(); vw = 0.0; }
-    inline double avgHeight() const { return curv_vec[3] / curv_mat(3, 3); }
-    inline double height() const { return abcd[3] - (abcd[1]*abcd[1] + abcd[2]*abcd[2])/(4*abcd[0]); }
-    inline double heightAt(double x, double y) const { x /= vw; y /= vw; return abcd[0]*(x*x + y*y) + abcd[1]*x + abcd[2]*y + abcd[3]; }
-    inline Eigen::Vector3d tip() const { return Eigen::Vector3d(vw*-abcd[1]/(2*abcd[0]), vw*-abcd[2]/(2*abcd[0]), height()); }
-    inline double curvature() const { return abcd[0]/(vw*vw); }
-    inline double crownRadius() const { return vw*vw / -abcd[0]; }
- //   inline double area() const { return curv_mat(3, 3); }
-    inline Eigen::Vector3d pixelMean() const { return Eigen::Vector3d(curv_mat(1,3), curv_mat(2,3), curv_vec[3]) / curv_mat(3, 3); }
-
-    Eigen::Matrix4d curv_mat;
-    Eigen::Vector4d curv_vec;
-    Eigen::Vector4d abcd; // the solved paraboloid
-    double vw;
-
-    inline void add(double x, double y, double z, double weight, double voxel_width) // TODO: this should probably be in SI units
-    {
-      vw = voxel_width;
-      x /= vw;
-      y /= vw;
-      Eigen::Vector4d vec(x*x + y*y, x, y, 1.0); // voxel_width); 
-      curv_mat += weight * vec * vec.transpose();
-      curv_vec += weight * z*vec;
-    }
-  };
-  Node node;
-  Eigen::Vector2i min_bound, max_bound;
-  Eigen::Vector3d peak; // in units of metres
-  double ground_height;
-  double approx_radius; // in metres
-  int attaches_to;
-  int children[2];
-
-//  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
- // inline Eigen::Vector3d weightedMean() const { return Eigen::Vector3d(curv_vec[1] / curv_vec[3], curv_vec[2] / curv_vec[3], peak[2]); }
-  inline bool validParaboloid(double /*max_tree_width*/, double /*voxel_width*/) const 
-  {
-    // Add voxel_width*voxel_width* to below two lines, to verify voxel_width independence
-/*    const double minimum_crown_radius = 0.5;
-    const double maximum_crown_radius = max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is an outer bound
-    double r = node.crownRadius();
-    if (r<minimum_crown_radius || r > maximum_crown_radius)
-      return false;
-    Eigen::Vector3d top = node.tip();
-    for (int i = 0; i<2; i++)
-      if (top[i] < (double)min_bound[i]*voxel_width || top[i] > (double)max_bound[i]*voxel_width)
-        return false;  */
-    return true;
-  }
-  void updateBound(const Eigen::Vector2i &bmin, const Eigen::Vector2i &bmax)
-  {
-    for (int i = 0; i<2; i++)
-    {
-      min_bound[i] = std::min(min_bound[i], bmin[i]);
-      max_bound[i] = std::max(max_bound[i], bmax[i]);
-    }
-  }
-};
-
-
 
 }  // namespace ray
 

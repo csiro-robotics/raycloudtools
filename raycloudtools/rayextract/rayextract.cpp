@@ -7,10 +7,13 @@
 #include "raylib/extraction/raytrunks.h"
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/rayforest.h"
+#include "raylib/extraction/raytrees.h"
 #include "raylib/raydebugdraw.h"
 #include "raylib/rayparse.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
+#include "raylib/extraction/rayclusters.h"
+#include "raylib/rayforestgen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,169 +22,174 @@
 
 void usage(bool error=false)
 {
-  std::cout << "Extract feature into a text file structure" << std::endl;
+  std::cout << "Extract natural features into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayextract trunks cloud.ply                 - estimate tree trunks and save to text file" << std::endl;
-  std::cout << "rayextract forest cloud.ply ground_mesh.ply - extracts tree locations to file, using a supplied ground mesh" << std::endl;
-  std::cout << "                         --tree_roundness 2 - 1: willow, 0.5: birch, 0.2: pine (length per crown radius)." << std::endl;
-  std::cout << std::endl;
   std::cout << "rayextract terrain cloud.ply                - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
-  std::cout << std::endl;
+  std::cout << "                            --gradient 1    - maximum gradient counted as terrain" << std::endl;
+  std::cout << "rayextract trunks cloud.ply                 - extract tree trunk base locations and radii to text file" << std::endl;
+  std::cout << "                            --exclude_rays  - does not use rays to exclude candidates with rays passing through" << std::endl;
+  std::cout << "rayextract forest cloud.ply                 - extracts tree locations, radii and heights to file" << std::endl;
+  std::cout << "                            --ground ground_mesh.ply - ground mesh file (otherwise assume flat)" << std::endl; 
+  std::cout << "                            --trunks cloud_trunks.txt - known tree trunks file" << std::endl;
+  std::cout << "                            --width 0.25    - grid cell width" << std::endl;
+  std::cout << "                            --smooth 15     - canopy smooth iterations, higher for rough canopies" << std::endl;
+  std::cout << "                            --drop_ratio 0.1- here a drop of 10% in canopy height is classed as separate trees" << std::endl;
+  std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file" << std::endl;
+  std::cout << "                            --max_diameter 0.9   - (-m) maximum trunk diameter in segmenting trees" << std::endl;
+  std::cout << "                            --min_diameter 0.02  - (-n) minimum branch diameter" << std::endl;
+  std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
+  std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
+  std::cout << "                            --min_length_per_radius 140- (-l) the tapering rate of branches" << std::endl;
+//  std::cout << "                            --radius_exponent 0.67 - (-e) exponent of radius in estimating length" << std::endl;
+//  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
+//  std::cout << "                            --gap_ratio 2.5      - (-g) will split for lateral gaps at this multiple of radius" << std::endl;
+//  std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
+  std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
+  std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
+  std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
 
   exit(error);
 }
 
-// Decimates the ray cloud, spatially or in time
-int main(int argc, char *argv[])
-{
-  ray::DebugDraw::init(argc, argv, "rayextract");
 
-  ray::FileArgument cloud_file, mesh_file;
-  ray::TextArgument forest("forest"), trunks("trunks"), terrain("terrain");
-  ray::DoubleArgument tree_roundness(0.01, 3.0);
-  ray::OptionalKeyValueArgument roundness_option("tree_roundness", 't', &tree_roundness);
+// extracts natural features from scene
+int main(int argc, char *argv[])
+{ 
+  ray::FileArgument cloud_file, mesh_file, trunks_file;
+  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
+  ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
+  ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
+  ray::DoubleArgument gradient(0.001, 1000.0);
+  ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
+  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b');
+  ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
+
+  ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0), min_diameter(0.01, 100.0);
+  ray::DoubleArgument length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0), span_ratio(0.01, 10.0);
+  ray::DoubleArgument gravity_factor(0.0, 100.0), radius_exponent(0.0, 100.0), grid_width(1.0, 100000.0), grid_overlap(0.0, 0.9);
+  ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
+  ray::OptionalKeyValueArgument min_diameter_option("min_diameter", 'n', &min_diameter);
+  ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
+  ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
+  ray::OptionalKeyValueArgument length_to_radius_option("min_length_per_radius", 'l', &length_to_radius);
+  ray::OptionalKeyValueArgument radius_exponent_option("radius_exponent", 'e', &radius_exponent);
+  ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c', &cylinder_length_to_width);
+  ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
+  ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
+  ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
+  ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
+
+  ray::IntArgument smooth(0, 50);
+  ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth), drop_option("drop_ratio", 'd', &drop);
+
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
-  bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&verbose});
-  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file, &mesh_file}, {&roundness_option, &verbose});
-  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&verbose});
-  if (!extract_trunks && !extract_forest && !extract_terrain)
+  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&gradient_option, &verbose});
+  bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
+  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
+  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option, &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option, &radius_exponent_option, &segment_branches, &grid_width_option, &verbose});
+  if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
     usage();  
-
-  ray::Cloud cloud;
-  if (!cloud.load(cloud_file.name()))
-    usage(true);
+  if (verbose.isSet() && (extract_trunks || extract_trees))
+  {
+    ray::DebugDraw::init(argc, argv, "rayextract");
+  }
 
   if (extract_trunks)
   {
-    const double radius = 0.15; // ~ /2 up to *2. So tree diameters 15 cm up to 60 cm 
-    ray::Wood woods(cloud, radius, verbose.isSet());
-    woods.save(cloud_file.nameStub() + "_trunks.txt");
+    ray::Cloud cloud;
+    if (!cloud.load(cloud_file.name()))
+      usage(true);
+
+    const double radius = 0.1; // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm 
+    ray::Trunks trunks(cloud, radius, verbose.isSet(), exclude_rays.isSet());
+    trunks.save(cloud_file.nameStub() + "_trunks.txt");
+  }
+  else if (extract_trees)
+  {
+    ray::Cloud cloud;
+    const int min_num_rays = 40;
+    if (!cloud.load(cloud_file.name(), true, min_num_rays))
+      usage(true);
+
+    ray::Mesh mesh;
+    if (!ray::readPlyMesh(mesh_file.name(), mesh))
+      usage(true);
+    ray::TreesParams params;
+    if (max_diameter_option.isSet())
+      params.max_diameter = max_diameter.value();
+    if (distance_limit_option.isSet())
+      params.distance_limit = distance_limit.value();
+    if (height_min_option.isSet())
+      params.height_min = height_min.value();
+    if (min_diameter_option.isSet())
+      params.min_diameter = min_diameter.value();
+    if (length_to_radius_option.isSet())
+      params.length_to_radius = length_to_radius.value();
+    if (radius_exponent_option.isSet())
+      params.radius_exponent = radius_exponent.value();
+    if (cylinder_length_to_width_option.isSet())
+      params.cylinder_length_to_width = cylinder_length_to_width.value();
+    if (gap_ratio_option.isSet())
+      params.gap_ratio = gap_ratio.value();
+    if (span_ratio_option.isSet())
+      params.span_ratio = span_ratio.value();    
+    if (gravity_factor_option.isSet())
+      params.gravity_factor = gravity_factor.value();
+    if (grid_width_option.isSet())
+      params.grid_width = grid_width.value();
+    params.segment_branches = segment_branches.isSet();
+  
+    ray::Trees trees(cloud, mesh, params, verbose.isSet());
+
+    trees.save(cloud_file.nameStub() + "_trees.txt");
+    cloud.save(cloud_file.nameStub() + "_segmented.ply");
   }
   else if (extract_forest)
   {
     ray::Forest forest;
-    forest.tree_roundness = roundness_option.isSet() ? tree_roundness.value() : 0.5;
-    std::cout << "tree roundness: " << forest.tree_roundness << std::endl;
+    double cell_width = width_option.isSet() ? width.value() : 0.25;
     forest.verbose = verbose.isSet();
-
-//#define TEST
-#if defined TEST
-    const int res = 256;
-    const double max_tree_height = (double)res / 8.0;
-    
-    Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant(res, res, -1e10);
-    // now lets give it a base hilly floor
-    for (int i = 0; i<res; i++)
+    if (smooth_option.isSet())
     {
-      for (int j = 0; j<res; j++)
-      {
-        double h = std::sin(0.1 * ((double)i + 2.0*double(j)));
-        heightfield(i,j) = h + ray::random(-0.25, 0.25);
-      }
+      forest.smooth_iterations_ = smooth.value();
     }
-
-    int num = 250; // 500
-    const double radius_to_height = 0.3;//4; // actual radius to height is 2 * radius_to_height^2
-    std::vector<Eigen::Vector3d> ps(num);
-    for (int i = 0; i<num; i++)
+    if (drop_option.isSet())
     {
-      double height = max_tree_height * std::pow(2.0, ray::random(-2.0, 0.0)); // i.e. 0.25 to 1 of max_height
-      ps[i] = Eigen::Vector3d(ray::random(0.0, (double)res-1.0), ray::random(0.0, (double)res - 1.0), height);
-      ps[i][2] += 10.0;
+      forest.drop_ratio_ = drop.value();
     }
-    for (int it = 0; it < 10; it++)
-    {
-      for (auto &p: ps)
-      {
-        Eigen::Vector3d shift(0,0,0);
-        for (auto &other: ps)
-        {
-          double radius = radius_to_height * (p[2] + other[2]);
-          Eigen::Vector3d dif = p - other;
-          dif[2] = 0.0;
-          if (dif[0] > res/2.0)
-            dif[0] -= res;
-          if (dif[1] > res/2.0)
-            dif[1] -= res;
-          double len_sqr = dif.squaredNorm();
-          if (len_sqr > 0.0 && len_sqr < radius*radius)
-          {
-            double len = std::sqrt(len_sqr);
-            shift += (dif/len) * (radius-len);
-          }
-        }
-        p += 0.5*shift;
-        p[0] = fmod(p[0] + (double)res, (double)res);
-        p[1] = fmod(p[1] + (double)res, (double)res);
-      }
-    }
-    // now make height field
-    for (auto &p: ps)
-    {
-      double radius = radius_to_height * p[2];
-      for (int x = (int)(p[0] - radius); x<= (int)(p[0]+radius); x++)
-      {
-        for (int y = (int)(p[1] - radius); y<= (int)(p[1]+radius); y++)
-        {
-          double X = (double)x - p[0];
-          double Y = (double)y - p[1];
-          double mag2 = (double)(X*X + Y*Y);
-          if (mag2 <= radius*radius)
-          {
-            double height = p[2] - 1.0/(0.15*p[2]) * mag2; // (p[2]/2.0)*mag2/(radius*radius);
-            int xx = (x + res)%res;
-            int yy = (y + res)%res;
-            height += ray::random(-1.0, 1.0);
-            heightfield(xx, yy) = std::max(heightfield(xx, yy), height);
-          }
-        }
-      }
-    }
-    // add a noisy function:
-    if (1)
-    {
-      double noise = 5.0;
-      const int wid = 80;
-      double hs[wid][wid];
-      for (int i = 0; i<wid; i++)
-      {
-        for (int j = 0; j<wid; j++)
-          hs[i][j] = ray::random(-noise, noise);
-      }
-      for (int i = 0; i<res; i++)
-      {
-        double x = (double)wid * (double)i/(double)res;
-        int X = (int)x;
-        double blendX = x-(double)X;
-        for (int j = 0; j<res; j++)
-        {
-          double y = (double)wid * (double)j/(double)res;
-          int Y = (int)y;
-          double blendY = y-(double)Y;
-          heightfield(i, j) += hs[X][Y]*(1.0-blendX)*(1.0-blendY) + hs[X][(Y+1)%wid]*(1.0-blendX)*blendY + 
-                              hs[(X+1)%wid][Y]*blendX*(1.0-blendY) + hs[(X+1)%wid][(Y+1)%wid]*blendX*blendY; 
-          heightfield(i, j) = std::max(heightfield(i, j), -20.0);
-        }
-      }
-    }
-    // now render it 
-    forest.drawHeightField("highfield.png", heightfield);
-    forest.extract(heightfield, mesh, 1.0);
-#else
     ray::Mesh mesh;
-    ray::readPlyMesh(mesh_file.name(), mesh);
-    double voxel_width = 0.25; // 4.0 * cloud.estimatePointSpacing();
-    forest.extract(cloud, mesh, voxel_width);
-    forest.save(cloud_file.nameStub() + "_trunks.txt");
-#endif
+    if (groundmesh_option.isSet())
+    {
+      if (!ray::readPlyMesh(mesh_file.name(), mesh))
+        usage(true);
+    }
+    std::vector<std::pair<Eigen::Vector3d, double> > trunks;
+    if (trunks_option.isSet())
+    {
+      ray::ForestStructure forest;
+      if (!forest.load(trunks_file.name()))
+      {
+        usage(true);
+      }
+      for (auto &tree: forest.trees)
+      {
+        trunks.push_back(std::pair<Eigen::Vector3d, double>(tree.segments()[0].tip, tree.segments()[0].radius));
+      }
+    }
+    ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
+    results.save(cloud_file.nameStub() + "_forest.txt");
   }
   else if (extract_terrain)
   {
+    ray::Cloud cloud;
+    if (!cloud.load(cloud_file.name()))
+      usage(true);
+
     ray::Terrain terrain;
-    const double gradient = 1.0; // a half-way divide between ground and wall
-    terrain.extract(cloud, cloud_file.nameStub(), gradient, verbose.isSet());
+    const double grad = gradient_option.isSet() ? gradient.value() : 1.0; 
+    terrain.extract(cloud, cloud_file.nameStub(), grad, verbose.isSet());
   }
   else
     usage(true);

@@ -31,12 +31,15 @@ bool RAYLIB_EXPORT splitBox(const std::string &file_name, const std::string &in_
 /// Split a ray cloud into a grid of files, named with suffix _X_Y_Z.ply, for each grid coordinate X,Y,Z. 
 /// Aligned so that cell 0,0,0 is centred at 0,0,0, and has dimensions @c cell_width
 bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
-  const Eigen::Vector3d &cell_width);
+  const Eigen::Vector3d &cell_width, double overlap = 0.0);
 
 /// Split a ray cloud into a grid of files, named with suffix _X_Y_Z_T.ply, for each grid coordinate X,Y,Z,T. 
 /// Aligned so that cell 0,0,0,0 is centred at 0,0,0,0 and has dimensions @c cell_width
 bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
-  const Eigen::Vector4d &cell_width);
+  const Eigen::Vector4d &cell_width, double overlap = 0.0);
+
+/// Split a ray cloud into one cloud per colour, ignoring differences in alpha. For example, when identified objects in the cloud are given a unique colour
+bool RAYLIB_EXPORT splitColour(const std::string &file_name, const std::string &cloud_name_stub);
 
 }  // namespace ray
 

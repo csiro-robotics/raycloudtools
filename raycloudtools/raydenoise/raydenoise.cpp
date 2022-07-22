@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
     nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3); 
 
     // Run the search
-    const int search_size = 10;
+    const int search_size = std::min(10, (int)points.size()-1);
     indices.resize(search_size, points.size());
     dists2.resize(search_size, points.size());
     nns->knn(points_p, indices, dists2, search_size, ray::kNearestNeighbourEpsilon, 0);
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     std::vector<Eigen::Matrix3d> matrices;
     Eigen::MatrixXi indices;
 
-    const int search_size = 10;
+    const int search_size = std::min(10, (int)cloud.ends.size()-1);
     cloud.getSurfels(search_size, &centroids, NULL, &dimensions, &matrices, &indices);
 
     new_cloud.starts.reserve(cloud.starts.size());

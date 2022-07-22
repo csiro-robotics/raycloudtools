@@ -56,7 +56,7 @@ public:
 
   void save(const std::string &file_name) const;
   /// load a ray cloud file. @c check_extension checks the file extension before proceeding
-  bool load(const std::string &file_name, bool check_extension = true);
+  bool load(const std::string &file_name, bool check_extension = true, int min_num_rays = 4);
 
   /// minimum bounds of all bounded rays
   Eigen::Vector3d calcMinBound() const;
@@ -81,7 +81,7 @@ public:
   /// The last argument excludes back-facing rays from the surfel, this produces flatter surfels on thin double walls
   void getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                   std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats,
-                  Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays = true);
+                  Eigen::MatrixXi *neighbour_indices, double max_distance = 0.0, bool reject_back_facing_rays = true) const;
   /// Get first and second order moments of cloud. This can be used as a simple way to compare clouds
   /// numerically. Note that different stats guarantee different clouds, but same stats do not guarantee same clouds
   /// These stats are arranged as: start mean, start sigma, end mean, end sigma, colour mean, time mean, time sigma, 
@@ -113,7 +113,7 @@ public:
   /// Static functions. These operate on the cloud file, and so do not require the full file to fit in memory
 
   /// Version for estimating the spacing between points for raycloud files. 
-  static double estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points);
+  static double estimatePointSpacing(const std::string &file_name, const Cuboid &bounds, int num_points);
 
   /// Calculate the key information of a ray cloud, such as its bounds
   /// @c ends are only the bounded ones. @c starts are for all rays
@@ -140,10 +140,10 @@ public:
      std::vector<double> &times, std::vector<RGBA> &colours)> apply);
 
 private:
-  bool loadPLY(const std::string &file);
+  bool loadPLY(const std::string &file, int min_num_rays);
   // Convert the set of neighbouring indices into a eigen solution, which is an ellipsoid of best fit. 
   inline void eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, 
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid) const;
 };
 
 }  // namespace ray

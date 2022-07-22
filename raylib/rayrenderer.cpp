@@ -3,15 +3,209 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include "raylib/raylibconfig.h"
 #include "rayrenderer.h"
 #include "raycloud.h"
 #include "rayparse.h"
 #include "imagewrite.h"
+#if RAYLIB_WITH_TIFF
+#include "xtiffio.h"  /* for TIFF */
+#include "geotiffio.h" /* for GeoTIFF */
+#endif
+#include "rayunused.h"
+#include <fstream>
 
 #define DENSITY_MIN_RAYS 10 // larger is more accurate but more blurred. 0 for no adaptive blending
 
 namespace ray
 {
+#if RAYLIB_WITH_TIFF
+bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file, double origin_x, double origin_y)
+{ 
+  /* Open TIFF descriptor to write GeoTIFF tags */
+  TIFF *tif = XTIFFOpen(filename.c_str(), "w");  
+  if (!tif) 
+    return false;
+  
+  /* Open GTIF Key parser */
+  GTIF *gtif = GTIFNew(tif);
+  if (!gtif) 
+    return false;
+  
+  const uint32_t w = (uint32_t) x;
+  const uint32_t h = (uint32_t) y;
+  const int channels = scalar ? 2 : 4;
+
+  /* Set up standard TIFF file */
+  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
+  /* set other TIFF tags and write out image ... */
+  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+  TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
+  TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE); 
+  TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, scalar ? PHOTOMETRIC_MINISBLACK : PHOTOMETRIC_RGB);
+  TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+  TIFFSetField(tif, TIFFTAG_FILLORDER, FILLORDER_MSB2LSB);
+  TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, channels);
+  const uint16_t ex_samp[] = { EXTRASAMPLE_ASSOCALPHA };
+  TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, &ex_samp);
+  TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, 1);
+  TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+
+  // now go line by line to write out the image data
+  for (uint32_t row = 0; row < h; row++)
+  {
+    std::vector<float> pdst(channels*w);
+
+    // moving the data from the dib to a row structure that
+    // can be used by the tiff library
+    for (uint32_t col = 0; col < w; col++)
+    {
+      const uint32_t index = 3*((h - 1 - row)*w + col);
+      const float shade = (data[index + 0] + data[index + 1] + data[index + 2])/3.0f;
+      if (scalar)
+      {
+        pdst[2*col] = shade;
+        pdst[2*col + 1] = shade == 0.0 ? 0.0 : 255.0;
+      }
+      else
+      {
+        pdst[4*col + 0] = data[index + 0];
+        pdst[4*col + 1] = data[index + 1];
+        pdst[4*col + 2] = data[index + 2];
+        pdst[4*col + 3] = shade == 0.0 ? 0.0 : 255.0;
+      }
+    }
+
+    // now actually write the row data
+    TIFFWriteScanline(tif, &pdst[0], row, 0);
+  }
+
+  if (projection_file != "")
+  {
+    std::ifstream ifs(projection_file.c_str(), std::ios::in);
+    if (ifs.fail())
+    {
+      std::cerr << "cannot open file " << projection_file << std::endl;
+      return false;
+    }
+    std::string line;
+    getline(ifs, line);
+    const std::vector<std::string> keys = {"+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0"};
+    std::vector<std::string> values;
+    for (auto &key: keys)
+    {
+      std::string::size_type found = line.find(key);
+      if (found==std::string::npos)
+      {
+        if (key == "+ellps")
+        {
+          std::cout << "No ellps field found in proj file, setting it equal to the datum." << std::endl;
+          values.push_back("");
+          continue;
+        }
+        std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
+        return false;
+      }
+      found += key.length() + 1;
+      std::string::size_type space = line.find(" ", found);
+      if (space==std::string::npos)
+        space = line.length() - 1;
+      values.push_back(line.substr(found, space - found));
+    }
+    if (values[1] == "") // if ellipsoid type not specified, we take it to be the same as the datum
+    {
+      values[1] = values[2];
+    }
+    double coord_lat = 0.0;
+    if (values[4] != "")
+    {
+      coord_lat = std::stod(values[4]);
+    }
+    double coord_long = 0.0;
+    if (values[5] != "")
+    {
+      coord_long = std::stod(values[5]);
+    }
+    Eigen::Vector2d geo_offset(0,0);
+    if (values[6] != "")
+    {
+      geo_offset[0] = std::stod(values[6]);
+    }
+    if (values[7] != "")
+    {
+      geo_offset[1] = std::stod(values[7]);
+    }
+    std::cout << "geooffset: " << geo_offset << ", geokey: " << values[1] << ", datum: " << values[2] << ", coord_long: " << coord_long << std::endl;
+
+    const double scales[3] = {pixel_width, pixel_width, pixel_width};
+    TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  
+
+    // Set GeoTIFF information 
+    GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);   
+    GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
+
+    GTIFKeySet(gtif, ProjLinearUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
+    GTIFKeySet(gtif, VerticalUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
+
+    GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
+    GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
+
+    const double tiepoints[6]={0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0}; 
+    TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
+
+    if (values[1] == "WGS84")
+      GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, GCS_WGS_84);
+    else 
+    {
+      std::stringstream ss(values[1]);
+      int geokey = 0;
+      ss >> geokey;
+      if (!ss.fail()) // we are using a direct number here, so
+      {
+        GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geokey);
+      }
+      else
+      {
+        std::cout << "unknown geographic projection type: " << values[1] << std::endl;
+        return false;
+      } 
+    }
+    if (values[2] == "WGS84")
+      GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
+    else if (values[2] != "")
+    {
+      std::cout << "unknown geodetic datum: " << values[2] << std::endl;
+      return false;      
+    }
+
+    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, KvUserDefined);
+    GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
+    if (values[0] != "ortho")
+    {
+      std::cout << "unknown projection type: " << values[0] << std::endl;
+      return false;      
+    }
+    if (values[3] != "m")
+    {
+      std::cout << "unknown unit type: " << values[3] << std::endl;
+      return false;      
+    }
+    GTIFKeySet(gtif, ProjCenterLongGeoKey, TYPE_DOUBLE, 1, coord_long);
+    GTIFKeySet(gtif, ProjCenterLatGeoKey, TYPE_DOUBLE, 1, coord_lat);
+
+    // Store the keys into the TIFF Tags 
+    GTIFWriteKeys(gtif); 
+  }
+    
+  // get rid of the key parser 
+  GTIFFree(gtif);  
+  
+  // save and close the TIFF file descriptor 
+  XTIFFClose(tif);
+
+  return true;
+}
+#endif
 
 /// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
 /// of surface angles.
@@ -69,10 +263,17 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         depth += minL + eps;
         p = source + dir * (depth / length);
         int index = getIndex(inds);
-        if (colours[i].alpha > 0 && depth > maxDist)
+        if (depth > maxDist)
         {
           double length_in_voxel = minL + maxDist - depth;
-          voxels_[index].addHitRay(static_cast<float>(length_in_voxel*voxel_width_));
+          if (colours[i].alpha > 0)
+          {
+            voxels_[index].addHitRay(static_cast<float>(length_in_voxel*voxel_width_));
+          }
+          else
+          {
+            voxels_[index].addMissRay(static_cast<float>(length_in_voxel*voxel_width_));
+          }
         }
         else
         {
@@ -87,6 +288,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
 void DensityGrid::addNeighbourPriors()
 {
+#if DENSITY_MIN_RAYS > 0
   const int X = 1;
   const int Y = voxel_dims_[0];
   const int Z = voxel_dims_[0]*voxel_dims_[1];
@@ -179,10 +381,11 @@ void DensityGrid::addNeighbourPriors()
     std::cout << "This is low enough that you could get more fidelity from using a smaller pixel size" << std::endl;
     std::cout << "or more accuracy by increasing DENSITY_MIN_RAYS" << std::endl;
   }
+  #endif
 }
 
 bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction,
-                 RenderStyle style, double pix_width, const std::string &image_file, bool mark_origin,
+                 RenderStyle style, double pix_width, const std::string &image_file, const std::string &projection_file, bool mark_origin,
                  const std::string *const transform_file)
 {
   // convert the view direction into useable parameters
@@ -227,9 +430,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 
       grid.calculateDensities(cloud_file);
 
-      #if DENSITY_MIN_RAYS > 0
       grid.addNeighbourPriors();
-      #endif
 
       for (int x = 0; x < width; x++)
       {
@@ -267,8 +468,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           Eigen::Vector4d &pix = pixels[x + width*y];
           switch (style)
           {
-            case RenderStyle::Ends:
-            case RenderStyle::Starts:
+            case RenderStyle::Ends: 
+            case RenderStyle::Starts: 
+            case RenderStyle::Height: 
               // TODO: fix the == 0.0 part in future, it can cause incorrect occlusion on points with z=0 precisely
               if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0)
                 pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
@@ -321,8 +523,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     }
 
     double max_val = 1.0;
+    double min_val = 0.0;
     const std::string image_ext = getFileNameExtension(image_file);
-    const bool is_hdr = image_ext == "hdr";
+    const bool is_hdr = image_ext == "hdr" || image_ext == "tif";
     if (!is_hdr) // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
     {
       double sum = 0.0;
@@ -342,6 +545,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       }
       const double standard_deviation = std::sqrt(sum_sqr / num);
       max_val = mean + 2.0*standard_deviation;
+      min_val = mean - 2.0*standard_deviation;
     }
 
     // The final pixel buffer
@@ -366,8 +570,14 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           case RenderStyle::Rays:
             col3d /= colour[3]; // simple mean
             break;
-          case RenderStyle::Sum:
-          case RenderStyle::Density:
+          case RenderStyle::Height:
+          {
+            double shade = dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
+            col3d = Eigen::Vector3d(shade, shade, shade);
+            break;
+          }
+          case RenderStyle::Sum: 
+          case RenderStyle::Density: 
             col3d /= max_val; // rescale to within limited colour range
             break;
           case RenderStyle::Density_rgb:
@@ -396,9 +606,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         else
         {
           RGBA col;
-          col.red   = uint8_t(std::min(255.0*col3d[0], 255.0));
-          col.green = uint8_t(std::min(255.0*col3d[1], 255.0));
-          col.blue  = uint8_t(std::min(255.0*col3d[2], 255.0));
+          col.red   = uint8_t(std::max(0.0, std::min(255.0*col3d[0], 255.0)));
+          col.green = uint8_t(std::max(0.0, std::min(255.0*col3d[1], 255.0)));
+          col.blue  = uint8_t(std::max(0.0, std::min(255.0*col3d[2], 255.0)));
           col.alpha = alpha;
           pixel_colours[ind] = col;
         }
@@ -502,19 +712,29 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100); // 100 is maximal quality
     else if (image_ext == "hdr")
       stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
+  #if RAYLIB_WITH_TIFF
+    else if (image_ext == "tif")
+    {
+      const Eigen::Vector3d origin(0,0,0);
+      const Eigen::Vector3d pos = -(origin - bounds.min_bound_);// / pix_width; // TODO: do we divide by pixel width here?
+      const double x = pos[ax1], y = pos[ax2] + (double)height * pix_width;
+      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); // true does scalar / monochrome float
+    }
+  #endif
     else
     {
-      std::cerr << "Error: image format " << image_ext << " not known" << std::endl;
+      std::cerr << "Error: image format " << image_ext << " not supported" << std::endl;
       return false;
     }
-
   }
   catch (std::bad_alloc const&)
   {
     std::cout << "Not enough memory to process the " << width << "x" << height << " image." << std::endl;
     std::cout << "The --pixel_width option can be used to reduce the resolution." << std::endl;
   }
-
+#if !RAYLIB_WITH_TIFF
+  RAYLIB_UNUSED(projection_file);
+#endif
   return true;
 }
 

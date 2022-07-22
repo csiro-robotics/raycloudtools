@@ -125,7 +125,8 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
   updateTes(*imp_->server);
 }
 
-void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
+void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                 const std::vector<Eigen::Vector3d> &colours)
 {
   if (starts.empty())
   {
@@ -240,8 +241,4 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
   updateTes(*imp_->server);
 }
 
-void DebugDraw::drawTrunks(const std::vector<Trunk> &trunks)
-{
-  RAYLIB_UNUSED(trunks);
-}
 #endif  // RAYLIB_WITH_3ES

@@ -33,6 +33,7 @@ option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
 option(WITH_3ES "With 3rd Eye Scene support for debug visualisation? Disables WITH_ROS." OFF)
 option(WITH_LAS "With liblas for las file support?" OFF)
 option(WITH_QHULL "With libqhull support?" OFF)
+option(WITH_TIFF "With libgeotiff support?" OFF)
 if(UNIX)
   option(WITH_ROS "With ROS rviz support for debug visualisation?" OFF)
 endif(UNIX)
@@ -42,8 +43,13 @@ option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?"
 ras_bool_to_int(WITH_3ES)
 ras_bool_to_int(WITH_LAS)
 ras_bool_to_int(WITH_QHULL)
+ras_bool_to_int(WITH_TIFF)
 ras_bool_to_int(WITH_ROS)
 ras_bool_to_int(WITH_TBB)
+
+# other build-time options
+option(DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
+ras_bool_to_int(DOUBLE_RAYS)
 
 # Required packages.
 find_package(Eigen3 REQUIRED)
@@ -77,6 +83,17 @@ if(WITH_QHULL)
   list(APPEND RAYTOOLS_INCLUDE ${QHULL_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${QHULL_LIBRARIES})
 endif(WITH_QHULL)
+if(WITH_TIFF)
+  find_package(GeoTIFF REQUIRED)
+  list(APPEND RAYTOOLS_INCLUDE ${GEOTIFF_INCLUDE_DIR})
+  list(APPEND RAYTOOLS_LINK ${GEOTIFF_LIBRARIES})
+  find_package(TIFF REQUIRED)
+  list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
+  list(APPEND RAYTOOLS_INCLUDE /usr/local/include/proj)
+  list(APPEND RAYTOOLS_LINK /usr/local/lib/libproj.so)
+endif(WITH_TIFF)
+
 if(WITH_ROS)
   find_package(catkin REQUIRED COMPONENTS
     roscpp

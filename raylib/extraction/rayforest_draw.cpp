@@ -12,9 +12,12 @@
 
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "raylib/imagewrite.h"
+#include "raylib/raycloudwriter.h"
+#include "raytrees.h"
 
 namespace ray
 {
+// Colour structure
 struct Col
 {
   Col(){}
@@ -30,98 +33,24 @@ struct Col
   uint8_t r, g, b, a;
 };
 
-void Forest::drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees, std::vector<int> &indices)
+// A 2D array of colours
+struct ColourField
 {
-  if (!verbose)
-    return;
-  Field2D<Col> pixels((int)indexfield_.rows(), (int)indexfield_.cols());
-  for (int x = 0; x < pixels.dims[0]; x++)
+  ColourField() {}
+  ColourField(int x, int y){ init(Eigen::Vector2i(x, y)); }
+  ColourField(const Eigen::Vector2i &dimensions){ init(dimensions); }
+  inline void init(const Eigen::Vector2i &dimensions)
   {
-    for (int y = 0; y < pixels.dims[1]; y++)
-    {
-      int ind = indexfield_(x, y);
-      Col col;
-      if (ind == -1)
-        pixels(x, y) = Col(30);
-      else
-      {
-        while (trees[ind].attaches_to != -1)
-        {
-          if (std::find(indices.begin(), indices.end(), ind) != indices.end())
-            break;
-          ind = trees[ind].attaches_to;
-        }
-        if (std::find(indices.begin(), indices.end(), ind) == indices.end())
-        {
-          col.a = 255;
-          col.r = 255;
-          col.g = 0;
-          col.b = 255;
-          pixels(x, y) = col;
-          continue;
-        }
-        srand(1 + ind);
-        col.a = 255;
-        col.r = (uint8_t)(rand()%256);
-        col.g = (uint8_t)(rand()%256);
-        col.b = (uint8_t)(rand()%256);
-        pixels(x, y) = col;
-      }
-    }
+    dims = dimensions;
+    data.resize(dims[0] * dims[1]);
   }
-  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
-}
-
-
-void Forest::drawSegmentation(const std::string &filename, std::vector<TreeNode> &trees)
-{
-  if (!verbose)
-    return;
-  Field2D<Col> pixels((int)indexfield_.rows(), (int)indexfield_.cols());
-  for (int x = 0; x < pixels.dims[0]; x++)
-  {
-    for (int y = 0; y < pixels.dims[1]; y++)
-    {
-      Eigen::Vector3d diag(0.5,0.5,0.5);
-      diag.normalize();
-      Eigen::Vector3d cols(0.1,0.1,0.1);
-      int ind = indexfield_(x, y);
-      if (ind == -1)
-      {
-        pixels(x, y) = Col(0);
-        continue;
-      }
-      std::vector<int> inds;
-      while (ind != -1)
-      {
-        inds.push_back(ind);
-        ind = trees[ind].attaches_to;
-      }
-      double scale = 0.03;
-      for (int i = (int)inds.size()-1; i>=0; i--)
-      {
-        srand(1 + inds[i]);
-        Eigen::Vector3d hue(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, 1.0));
-        hue -= diag * hue.dot(diag);
-        hue.normalize();
-        cols += hue * scale;
-        cols += diag * 0.04;
-    //    scale /= 1.25;
-      }
-      cols[0] = std::max(0.0, std::min(cols[0], 1.0));
-      cols[1] = std::max(0.0, std::min(cols[1], 1.0));
-      cols[2] = std::max(0.0, std::min(cols[2], 1.0));
-      Col col;
-      col.a = 255;
-      col.r = (uint8_t)(cols[0]*255.0);
-      col.g = (uint8_t)(cols[1]*255.0);
-      col.b = (uint8_t)(cols[2]*255.0);
-      pixels(x, y) = col;
-    }
-  }
-
-  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
-}
+  inline Col &operator()(const Eigen::Vector2i &ind){ return data[ind[0] + dims[0]*ind[1]]; } 
+  inline const Col &operator()(const Eigen::Vector2i &ind) const { return data[ind[0] + dims[0]*ind[1]]; }
+  inline Col &operator()(int x, int y){ return data[x + dims[0]*y]; } 
+  inline const Col &operator()(int x, int y) const { return data[x + dims[0]*y]; }
+  std::vector<Col> data;
+  Eigen::Vector2i dims;
+};
 
 void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield)
 {
@@ -140,55 +69,100 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
     }
   }
 
-  Field2D<Col> pixels((int)heightfield.rows(), (int)heightfield.cols());
+  ColourField pixels((int)heightfield.rows(), (int)heightfield.cols());
   for (int x = 0; x < pixels.dims[0]; x++)
     for (int y = 0; y < pixels.dims[1]; y++)
       pixels(x, y) = Col((uint8_t)(255.0 * (heightfield(x, y) - min_height)/(max_height - min_height)));
+  stbi_flip_vertically_on_write(1);
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
-void Forest::drawTrees(const std::string &filename, const std::vector<Forest::Result> &results, int width, int height)
+void Occupancy2D::draw(const std::string &filename)
 {
-  double max_height = 0.0;
-  double min_height = 1e10;
-  for (auto &res: results)
-  {
-    max_height = std::max(max_height, res.tree_tip[2]);
-    min_height = std::min(min_height, res.ground_height);
-  }
-
-  // I should probably draw the result
-  if (!verbose)
-    return;
-  Field2D<Col> pixels(width, height);
-  for (auto &c: pixels.data)
-    c = Col(0); 
-  for (auto &result: results)
-  {
-    Eigen::Vector3d pos = result.tree_tip;
- //   double length = pos[2] - result.ground_height;
-    double curvature = result.curvature;
-    double radius_pixels = result.radius / voxel_width_;
-    for (int x = (int)(pos[0] - radius_pixels); x<= (int)(pos[0]+radius_pixels); x++)
+  ColourField pixels(dims_[0], dims_[1]);
+  for (int x = 0; x < pixels.dims[0]; x++)
+    for (int y = 0; y < pixels.dims[1]; y++)
     {
-      for (int y = (int)(pos[1] - radius_pixels); y<= (int)(pos[1]+radius_pixels); y++)
+      double shade = pixel(Eigen::Vector3i(x, y, 0)).density();
+      pixels(x, y) = Col((uint8_t)(255.0 * shade));
+    }
+  stbi_flip_vertically_on_write(1);
+  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
+}
+
+void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels, const Eigen::Vector3d &min_bounds, double voxel_width)
+{
+  std::string filename = cloud_name_stub + ".ply";
+  ray::CloudWriter writer;
+  if (!writer.begin(cloud_name_stub + "_segmented.ply"))
+    return;
+
+  ray::Cloud chunk;
+  auto segment = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
+  {
+    chunk.resize(ends.size());    
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      Eigen::Vector3d ind = (ends[i] - min_bounds)/voxel_width;
+      chunk.starts[i] = starts[i];
+      chunk.ends[i] = ends[i];
+      chunk.times[i] = times[i];
+      RGBA col;
+      col.alpha = colours[i].alpha;
+      Col pix = pixels((int)ind[0], (int)ind[1]);
+      col.red = pix.r;
+      col.green = pix.g;
+      col.blue = pix.b;
+      chunk.colours[i] = col;
+    }
+    writer.writeChunk(chunk);
+  };
+
+  if (!ray::Cloud::read(filename, segment))
+    return;  
+  writer.end();
+}
+
+
+void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vector<TreeNode> &trees)
+{
+  ColourField pixels((int)indexfield_.rows(), (int)indexfield_.cols());
+  for (int x = 0; x < pixels.dims[0]; x++)
+  {
+    for (int y = 0; y < pixels.dims[1]; y++)
+    {
+      int ind = indexfield_(x, y);
+      Col col;
+      if (ind == -1)
+        pixels(x, y) = Col(0);
+      else
       {
-        if (x < 0 || x >= width || y<0 || y>=height)
-          continue;
-        double X = ((double)x - pos[0]) * voxel_width_;
-        double Y = ((double)y - pos[1]) * voxel_width_;
-        double mag2 = (double)(X*X + Y*Y);
-        if (mag2 <= result.radius*result.radius)
+        while (trees[ind].attaches_to != -1)
+          ind = trees[ind].attaches_to;
+        if (trees[ind].area <= min_area_)
         {
-          double height = pos[2] + mag2 * curvature;
-          double shade = std::min((height - min_height)/(max_height - min_height), 1.0); // clamp because curvature can conceivably negative sometimes
-          Col col(uint8_t(255.0*shade));
-          if (pixels(x, y).r < col.r)
-            pixels(x, y) = col;
+          pixels(x, y) = Col(0);
+        }
+        else
+        {
+          RGBA colour;
+          col.a = 255;
+          convertIntToColour(ind, colour);
+          col.r = colour.red;
+          col.g = colour.green;
+          col.b = colour.blue;
+          pixels(x, y) = col;
         }
       }
     }
-  }    
-  stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
+  }
+  stbi_flip_vertically_on_write(1);
+
+  segmentCloud(cloud_name_stub, pixels, min_bounds_, voxel_width_);
+
+  std::string output_file = cloud_name_stub + "_segmented.png";
+  
+  stbi_write_png(output_file.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
+
 } // namespace ray

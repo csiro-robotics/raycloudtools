@@ -34,19 +34,21 @@ void Cloud::save(const std::string &file_name) const
   writePlyRayCloud(name, starts, ends, times, colours);
 }
 
-bool Cloud::load(const std::string &file_name, bool check_extension)
+bool Cloud::load(const std::string &file_name, bool check_extension, int min_num_rays)
 {
   // look first for the raycloud PLY
   if (file_name.substr(file_name.size() - 4) == ".ply" || !check_extension)
-    return loadPLY(file_name);
+    return loadPLY(file_name, min_num_rays);
     
   std::cerr << "Attempting to load ray cloud " << file_name << " which doesn't have expected file extension .ply" << std::endl;
   return false;
 }
 
-bool Cloud::loadPLY(const std::string &file)
+bool Cloud::loadPLY(const std::string &file, int min_num_rays)
 {
   bool res = readPly(file, starts, ends, times, colours, true);
+  if ((int)ends.size() < min_num_rays)
+    return false;
   #if defined OUTPUT_CLOUD_MOMENTS
   getMoments();
   #endif // defined OUTPUT_CLOUD_MOMENTS
@@ -165,7 +167,7 @@ void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess>
   times.resize(subsample.size());
 }
 
-void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid)
+void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid) const
 {
   int ray_id = ray_ids[index];
   centroid = ends[ray_id];
@@ -184,7 +186,7 @@ void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &i
 
 void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
                        std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats, 
-                       Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays)
+                       Eigen::MatrixXi *neighbour_indices, double max_distance, bool reject_back_facing_rays) const
 {
   // simplest scheme... find 3 nearest neighbours and do cross product
   if (centroids)
@@ -199,7 +201,7 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
   std::vector<int> ray_ids;
   ray_ids.reserve(ends.size());
   for (unsigned int i = 0; i < ends.size(); i++)
-    if (rayBounded(i))
+  //  if (rayBounded(i))
       ray_ids.push_back(i);
   Eigen::MatrixXd points_p(3, ray_ids.size());
   for (unsigned int i = 0; i < ray_ids.size(); i++) 
@@ -211,7 +213,10 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
   Eigen::MatrixXd dists2;
   indices.resize(search_size, ray_ids.size());
   dists2.resize(search_size, ray_ids.size());
-  nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
+  if (max_distance != 0.0)
+    nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0, max_distance);
+  else
+    nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
   delete nns;
 
   if (neighbour_indices)
@@ -252,8 +257,6 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
       int j;
       for (j = 0; j < num_neighbours; j++) 
         (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
-      if (j < search_size)
-        (*neighbour_indices)(j, ray_id) = -1;
     }
     if (centroids)
       (*centroids)[ray_id] = centroid;
@@ -322,7 +325,7 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Info &info)
 }
 
 
-double Cloud::estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points)
+double Cloud::estimatePointSpacing(const std::string &file_name, const Cuboid &bounds, int num_points)
 {
   // two-iteration estimation, modelling the point distribution by the below exponent.
   // larger exponents (towards 2.5) match thick forests, lower exponents (towards 2) match smooth terrain and surfaces

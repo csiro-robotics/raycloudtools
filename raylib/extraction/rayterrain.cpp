@@ -172,33 +172,9 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
   std::cout << "number of rays: " << points.size() << ", number of visits: " << num_visits << ", number of cone tests: " << num_cone_tests << std::endl;
 }
 
-void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
+void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
 {
 #if RAYLIB_WITH_QHULL  
-  #define PRE_PROCESS 
-  #if defined PRE_PROCESS
-  // preprocessing to make the cloud smaller.
-  Eigen::Vector3d min_bound, max_bound;
-  cloud.calcBounds(&min_bound, &max_bound);
-  double spacing = cloud.estimatePointSpacing();
-  double pixel_width = 2.0 * spacing;
-  Eigen::Vector3d extent = max_bound - min_bound;
-  Eigen::Vector2i dims((int)std::ceil(extent[0]/pixel_width), (int)std::ceil(extent[1]/pixel_width));
-  std::vector<Eigen::Vector3d> lowests(dims[0]*dims[1]);
-  for (int i = 0; i<dims[0]; i++)
-    for (int j = 0; j<dims[1]; j++)
-      lowests[i + dims[0]*j] = Eigen::Vector3d(0,0,1e10);
-  for (size_t i = 0; i<cloud.ends.size(); i++)
-  {
-    if (!cloud.rayBounded(i))
-      continue;
-    Eigen::Vector3d pos = (cloud.ends[i] - min_bound) / (double)pixel_width;
-    int index = (int)pos[0] + dims[0] * (int)pos[1];
-    if (cloud.ends[i][2] < lowests[index][2])
-      lowests[index] = cloud.ends[i];
-  }
-#endif
-
   // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
   // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
   const double root_half = sqrt(0.5);
@@ -208,17 +184,74 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   mat.row(0) = Eigen::Vector3d(root_2/root_3,0,1.0/root_3);
   mat.row(1) = Eigen::Vector3d(-root_half/root_3, -root_half, 1.0/root_3);
   mat.row(2) = Eigen::Vector3d(-root_half/root_3, root_half, 1.0/root_3);
-
   Eigen::Matrix3d imat = mat.inverse();
-  std::vector<Vector4d> points;
-  double count = 0.5;
   double grad_scale = gradient / std::sqrt(2.0);
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+
+  std::vector<Eigen::Vector4d> points(positions.size());
+  double count = 0.5;
+  for (size_t i = 0; i<positions.size(); i++)
   {
-    if (!cloud.rayBounded(i))
-      continue;
-    Eigen::Vector3d p = cloud.ends[i];
-    #if defined PRE_PROCESS
+    Eigen::Vector3d p = positions[i];
+    p[2] /= grad_scale;
+    Eigen::Vector3d pos = mat * p;
+    points[i] = Eigen::Vector4d(pos[0], pos[1], pos[2], count++);
+  }
+
+  std::vector<Vector4d> front;
+  // first find the lower bound
+  getParetoFront(points, front);
+  std::cout << "number of pareto front points: " << front.size() << std::endl;
+
+  // then convert it into a mesh
+  std::vector<Eigen::Vector3d> vecs(front.size());
+  std::vector<Eigen::Vector3d> vecs_flat(front.size());
+  for (size_t i = 0; i<front.size(); i++)
+  {
+    vecs[i] = imat * Eigen::Vector3d(front[i][0], front[i][1], front[i][2]);
+    vecs[i][2] *= grad_scale;
+    vecs_flat[i] = vecs[i];
+    vecs_flat[i][2] = 0.0;
+  }
+  ConvexHull hull(vecs_flat);
+  hull.growUpwards(0.01); // same as a Delauney triangulation
+
+  mesh_.indexList() = hull.mesh().indexList();
+  mesh_.vertices() = vecs;
+#endif
+}
+
+void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
+{
+  std::vector<Eigen::Vector3d> upsidedown_points = positions;
+  for (auto &point: upsidedown_points)
+    point[2] = -point[2];
+  growUpwards(upsidedown_points, gradient);
+  for (auto &point: mesh_.vertices())
+    point[2] = -point[2];
+}
+
+void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double pixel_width, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double gradient)
+{
+#if RAYLIB_WITH_QHULL  
+  Eigen::Vector3d extent = max_bound - min_bound;
+  Eigen::Vector2i dims((int)std::ceil(extent[0]/pixel_width), (int)std::ceil(extent[1]/pixel_width));
+  std::vector<Eigen::Vector3d> lowests(dims[0]*dims[1]);
+  for (int i = 0; i<dims[0]; i++)
+    for (int j = 0; j<dims[1]; j++)
+      lowests[i + dims[0]*j] = Eigen::Vector3d(0,0,1e10);
+  for (size_t i = 0; i<ends.size(); i++)
+  {
+    Eigen::Vector3d pos = (ends[i] - min_bound) / (double)pixel_width;
+    int index = (int)pos[0] + dims[0] * (int)pos[1];
+    if (ends[i][2] < lowests[index][2])
+      lowests[index] = ends[i];
+  }
+
+  std::vector<Eigen::Vector3d> points;
+  for (size_t i = 0; i<ends.size(); i++)
+  {
+    Eigen::Vector3d p = ends[i];
+
     Eigen::Vector3d point = (p - min_bound) / (double)pixel_width;
     int I = (int)point[0];
     int J = (int)point[1];
@@ -245,44 +278,40 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
     }
     if (remove)
       continue;
-    #endif
-    p[2] /= grad_scale;
-    Eigen::Vector3d pos = mat * p;
-    points.push_back(Vector4d(pos[0], pos[1], pos[2], count));
-    count++;
+
+    points.push_back(p);
   }
-#if defined PRE_PROCESS
-  std::cout << "size before: " << cloud.ends.size() << ", size after: " << points.size() << std::endl;
-#endif
-  std::vector<Eigen::Vector3d> median_surface;
-  std::vector<Vector4d> neg;
+  std::cout << "size before: " << ends.size() << ", size after: " << points.size() << std::endl;
 
-  // first find the lower bound
-  getParetoFront(points, neg);
-  std::cout << "number of wrap points: " << neg.size() << std::endl;
+  growUpwards(points, gradient);
+#endif  
+}
 
-  // if there is no width then we are already finished...
-  // then convert it into a mesh
-  std::vector<Eigen::Vector3d> vecs(neg.size());
-  std::vector<Eigen::Vector3d> vecs_flat(neg.size());
-  for (size_t i = 0; i<neg.size(); i++)
+void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
+{
+#if RAYLIB_WITH_QHULL  
+  // preprocessing to make the cloud smaller.
+  Eigen::Vector3d min_bound, max_bound;
+  cloud.calcBounds(&min_bound, &max_bound);
+  double spacing = cloud.estimatePointSpacing();
+  double pixel_width = 2.0 * spacing;
+  std::vector<Eigen::Vector3d> ends;
+  for (size_t i = 0; i<cloud.ends.size(); i++)
   {
-    vecs[i] = imat * Eigen::Vector3d(neg[i][0], neg[i][1], neg[i][2]);
-    vecs[i][2] *= grad_scale;
-    vecs_flat[i] = vecs[i];
-    vecs_flat[i][2] = 0.0;
+    if (cloud.rayBounded(i))
+      ends.push_back(cloud.ends[i]);
   }
-  ConvexHull hull(vecs_flat);
-  hull.growUpwards(0.01); // same as a Delauney triangulation
-  hull.mesh().vertices() = vecs;
-  writePlyMesh(file_prefix + "_mesh.ply", hull.mesh(), true);
+  growUpwardsFast(ends, pixel_width, min_bound, max_bound, gradient);
+  mesh_.reduce();
+
+  writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);
   if (verbose)
   {
     RGBA white;
     white.red = white.green = white.blue = white.alpha = 255;  
     Cloud local_cloud;
     double t = 0.0;
-    for (auto &p: vecs)
+    for (auto &p: mesh_.vertices())
       local_cloud.addRay(p, p, t++, white);
     local_cloud.save(file_prefix + "_terrain.ply");
   }

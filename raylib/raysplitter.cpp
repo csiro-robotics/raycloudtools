@@ -5,9 +5,11 @@
 // Author: Thomas Lowe
 #include <iostream>
 #include <limits>
+#include <map>
 #include "raysplitter.h"
 #include "raycloudwriter.h"
 #include "raycuboid.h"
+#include "extraction/rayforest.h"
 
 namespace ray
 {
@@ -162,14 +164,15 @@ bool splitBox(const std::string &file_name, const std::string &in_name, const st
 }
 
 /// Special case for splitting based on a grid. 
-bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector3d &cell_width)
+bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector3d &cell_width, double overlap)
 {
-  return splitGrid(file_name, cloud_name_stub, Eigen::Vector4d(cell_width[0], cell_width[1], cell_width[2], 0));
+  return splitGrid(file_name, cloud_name_stub, Eigen::Vector4d(cell_width[0], cell_width[1], cell_width[2], 0), overlap);
 }
 
 /// Special case for splitting based on a grid. 
-bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector4d &cell_width)
+bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector4d &cell_width, double overlap)
 {
+  overlap /= 2.0; // it now means overlap relative to grid edge
   Cloud::Info info;
   Cloud::getInfo(cloud_name_stub + ".ply", info);
   const Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
@@ -212,7 +215,7 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
   std::vector<Cloud> chunks(length);
 
   // splitting performed per chunk
-  auto per_chunk = [&min_index, &max_index, &width, min_time, &dimensions, &cells, &chunks, length, &cell_width, &cloud_name_stub]
+  auto per_chunk = [&min_index, &max_index, &width, min_time, &dimensions, &cells, &chunks, length, &cell_width, &cloud_name_stub, &overlap]
     (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
   {
     for (size_t i = 0; i < ends.size(); i++)
@@ -220,10 +223,15 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
       // get set of cells that the ray may intersect
       const Eigen::Vector3d from(0.5 + starts[i][0]/width[0], 0.5 + starts[i][1]/width[1], 0.5 + starts[i][2]/width[2]);
       const Eigen::Vector3d to(0.5 + ends[i][0]/width[0], 0.5 + ends[i][1]/width[1], 0.5 + ends[i][2]/width[2]);
-      const Eigen::Vector3d pos0 = minVector(from, to);
-      const Eigen::Vector3d pos1 = maxVector(from, to);
-      const Eigen::Vector3i minI = Eigen::Vector3d(std::floor(pos0[0]), std::floor(pos0[1]), std::floor(pos0[2])).cast<int>();
-      const Eigen::Vector3i maxI = Eigen::Vector3d(std::ceil(pos1[0]), std::ceil(pos1[1]), std::ceil(pos1[2])).cast<int>();
+      const Eigen::Vector3d pos0 = minVector(from, to) - Eigen::Vector3d(overlap, overlap, 0.0);
+      const Eigen::Vector3d pos1 = maxVector(from, to) + Eigen::Vector3d(overlap, overlap, 0.0);
+      Eigen::Vector3i minI = Eigen::Vector3d(std::floor(pos0[0]), std::floor(pos0[1]), std::floor(pos0[2])).cast<int>();
+      Eigen::Vector3i maxI = Eigen::Vector3d(std::ceil(pos1[0]), std::ceil(pos1[1]), std::ceil(pos1[2])).cast<int>();
+      if (overlap > 0.0)
+      {
+        minI = maxVector(minI, min_index);
+        maxI = minVector(maxI, max_index);
+      }
       const long int t = static_cast<long int>(std::floor(0.5 + times[i]/width[3]));
       for (int x = minI[0]; x<maxI[0]; x++)
       {
@@ -239,8 +247,8 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
               return;
             }
             // do actual clipping here.... 
-            const Eigen::Vector3d box_min(((double)x-0.5)*width[0], ((double)y-0.5)*width[1], ((double)z-0.5)*width[2]);
-            const Eigen::Vector3d box_max(((double)x+0.5)*width[0], ((double)y+0.5)*width[1], ((double)z+0.5)*width[2]);
+            const Eigen::Vector3d box_min(((double)x-0.5)*width[0] - overlap, ((double)y-0.5)*width[1] - overlap, ((double)z-0.5)*width[2]);
+            const Eigen::Vector3d box_max(((double)x+0.5)*width[0] + overlap, ((double)y+0.5)*width[1] + overlap, ((double)z+0.5)*width[2]);
             const Cuboid cuboid(box_min, box_max);
             Eigen::Vector3d start = starts[i];
             Eigen::Vector3d end = ends[i];
@@ -286,6 +294,94 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
     return false;
 
   for (int i = 0; i<length; i++)
+  {
+    cells[i].end(); // has no effect on writers where begin has not been called
+  }  
+  return true;
+}
+
+class RGBALess
+{
+public:
+  bool operator()(const RGBA &a, const RGBA &b) const
+  {
+    if (a.red != b.red)
+      return a.red < b.red;
+    if (a.green != b.green)
+      return a.green < b.green;
+    return a.blue < b.blue;
+  }
+};
+
+/// Special case for splitting based on a colour 
+bool splitColour(const std::string &file_name, const std::string &cloud_name_stub)
+{
+  std::map<RGBA, int, RGBALess> vox_map;
+  // firstly, find out how many different colours there are
+  int num_colours = 0;
+  auto count_colours = [&vox_map, &num_colours](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &, std::vector<double> &, std::vector<ray::RGBA> &colours)
+  {
+    for (auto &colour: colours)
+    {
+      if (vox_map.find(colour) == vox_map.end())
+      {
+        vox_map.insert(std::pair<RGBA,int>(colour, num_colours++));     
+      }
+    }
+  };
+  if (!ray::Cloud::read(file_name, count_colours))
+    return false;
+
+  const int max_allowable_cells = 1024; // operating systems will fail with too many open file pointers.
+  std::cout << "splitting into: " << num_colours << " files" << std::endl;
+  if (num_colours > max_allowable_cells)
+  {
+    std::cout << "Error: cloud has more unique colours than the maximum of " << max_allowable_cells << "." << std::endl;
+    return false;
+  }  
+  if (num_colours > 256)
+  {
+    std::cout << "Warning: nominally more than 256 file pointers will be open at once." << std::endl;
+    std::cout << "If simultaneous open files exceeds your operating system maximum, some output data may be lost." <<std::endl;
+  }
+
+  std::vector<CloudWriter> cells(num_colours);
+  std::vector<Cloud> chunks(num_colours);
+
+  // splitting performed per chunk
+  auto per_chunk = [&vox_map, &cells, &chunks, &cloud_name_stub, &num_colours]
+    (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<RGBA> &colours)
+  {
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      RGBA colour = colours[i];
+      const auto &vox = vox_map.find(colour);
+      if (vox != vox_map.end())
+      {
+        int index = vox->second;
+
+        if (cells[index].fileName() == "") // first time in this cell, so start writing to a new file
+        {
+          std::stringstream name;
+          name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue << ".ply";
+          cells[index].begin(name.str());
+        } 
+        chunks[index].addRay(starts[i], ends[i], times[i], colours[i]);
+      }
+    }
+    for (int i = 0; i<num_colours; i++)
+    {
+      if (chunks[i].ends.size() > 0)
+      {
+        cells[i].writeChunk(chunks[i]);
+        chunks[i].clear();
+      }
+    }       
+  };
+  if (!Cloud::read(file_name, per_chunk))
+    return false;
+
+  for (int i = 0; i<num_colours; i++)
   {
     cells[i].end(); // has no effect on writers where begin has not been called
   }  

@@ -25,19 +25,6 @@
 
 namespace ray
 {
-struct Trunk
-{
-  Eigen::Vector3d centre; // height is midway up trunk
-  double radius;
-  double score;
-  double combined_score;
-  double weight;
-  double thickness;
-  double length; 
-  struct Trunk *next_down;
-  Eigen::Vector2d lean;
-};
-
 const double kPi = M_PI;
 // while this is an absolute value, it has little effect on results unless point spacing is signficantly less
 // than this small value in metres. However, the computation time is better for having a value greater than 0..
@@ -141,7 +128,7 @@ inline T sqr(const T &val)
 }
 
 template <class T>
-T mean(const std::vector<T> &list)
+inline T mean(const std::vector<T> &list)
 {
   T result = list[0];
   for (unsigned int i = 1; i < list.size(); i++) result += list[i];
@@ -153,7 +140,7 @@ T mean(const std::vector<T> &list)
  * When there are an even number of elements it returns the mean of the two medians
  */
 template <class T>
-T median(std::vector<T> list)
+inline T median(std::vector<T> list)
 {
   typename std::vector<T>::iterator first = list.begin();
   typename std::vector<T>::iterator last = list.end();
@@ -165,7 +152,7 @@ T median(std::vector<T> list)
   {
     typename std::vector<T>::iterator middle2 = middle + 1;
     nth_element(first, middle2, last);
-    return (*middle + *middle2) / 2.0;
+    return (*middle + *middle2) / static_cast<T>(2);
   }
 }
 
@@ -198,6 +185,7 @@ inline std::vector<T> componentList(const std::vector<U> &list, const T &compone
 
 struct RGBA
 {
+//  RGBA(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha) : red(red), green(green), blue(blue), alpha(alpha) {}
   uint8_t red;
   uint8_t green;
   uint8_t blue;

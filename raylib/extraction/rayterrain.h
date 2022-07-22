@@ -10,6 +10,8 @@
 #include "../rayutils.h"
 #include "../raycloud.h"
 #include "../rayalignment.h"
+#include "../raymesh.h"
+
 typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 namespace ray
@@ -19,10 +21,22 @@ namespace ray
 class RAYLIB_EXPORT Terrain
 {
 public:
-  /// Extracts a robust smooth surface from the ray cloud, into the state
+  /// Extracts a robust smooth surface mesh from the ray cloud
   void extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose);
+
+  /// Direct extraction of the pareto front points
+  void growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
+  void growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
+
+  /// performs voxel-based culling prior to growing upwards
+  void growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double pixel_width, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double gradient);
+
+  /// access the generated mesh
+  Mesh &mesh(){ return mesh_; }
+  const Mesh &mesh() const { return mesh_; }  
 private:
-  void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front);
+  Mesh mesh_;
+  static void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front);
 };
 
 

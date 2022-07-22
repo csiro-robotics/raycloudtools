@@ -26,7 +26,7 @@ void usage(int exit_code = 1)
   std::cout << "          forest" << std::endl;
   std::cout << "          terrain" << std::endl;
   std::cout << std::endl;
-  std::cout << "          forest tree_bases.txt - generate from a comma-separated list of x,y,z,radius trunks" << std::endl;
+  std::cout << "          forest trees.txt - generate from a comma-separated list of x,y,z,radius trees" << std::endl;
   std::cout << "          terrain mesh.ply      - generate from a ground mesh" << std::endl;
   exit(exit_code);
 }
@@ -104,8 +104,13 @@ int main(int argc, char *argv[])
     double time = 0.0;
     if (type == "tree")
     {
-      ray::TreeGen tree_gen;
-      tree_gen.make(Eigen::Vector3d(0, 0, 0), 0.1, 0.25);
+      ray::TreeStructure tree_gen;
+      ray::TreeParams params;
+      params.random_factor = 0.25;
+      tree_gen.segments().resize(1);
+      tree_gen.segments()[0].tip = Eigen::Vector3d(0, 0, 0);
+      tree_gen.segments()[0].radius = 0.1;
+      tree_gen.make(params);
       tree_gen.generateRays(density);
       cloud.starts = tree_gen.rayStarts();
       cloud.ends = tree_gen.rayEnds();
@@ -134,7 +139,7 @@ int main(int argc, char *argv[])
         forest_gen.make(params);
       }
       forest_gen.generateRays(density);
-      for (auto &tree : forest_gen.trees())
+      for (auto &tree : forest_gen.trees)
       {  
         const std::vector<Eigen::Vector3d> &ray_starts = tree.rayStarts();
         const std::vector<Eigen::Vector3d> &ray_ends = tree.rayEnds();

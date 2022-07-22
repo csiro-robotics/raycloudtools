@@ -140,52 +140,57 @@ int main(int argc, char *argv[])
   // pick i and j indices from three points at different time points in the ray cloud
   // these represent the three corresponding pairs required to find the rigid transformation between
   // full_decimated cloud and decimated_cloud
-  const int is[3] = {pairs[0][0], pairs[pairs.size()/3][0], pairs[2*pairs.size()/3][0]};
-  const int js[3] = {pairs[0][1], pairs[pairs.size()/3][1], pairs[2*pairs.size()/3][1]};
-  Eigen::Vector3d full_ps[3]; // a triangle in the full_decimated cloud
-  Eigen::Vector3d dec_ps[3];  // a triangle in the decimated_cloud
-  Eigen::Vector3d mid_full(0,0,0), mid_dec(0,0,0);
-  for (int i = 0; i<3; i++)
+  ray::Pose transform;
+  transform.position.setZero();
+  transform.rotation = Eigen::Quaterniond::Identity();
+  if (pairs.size() >= 6)
   {
-    full_ps[i] = full_decimated.ends[is[i]];
-    dec_ps[i] = decimated_cloud.ends[js[i]];
-    mid_full += full_ps[i]/3.0;
-    mid_dec += dec_ps[i]/3.0;
-  }
-  for (int i = 1; i<3; i++)
-  {
-    const double non_rigid_threshold = 0.01;
-    full_ps[i] -= full_ps[0];
-    dec_ps[i] -= dec_ps[0];
-    if (abs(full_ps[i].norm() - dec_ps[i].norm()) > non_rigid_threshold)
-      std::cout << "warning, matched points aren't a similar distance apart: " << full_ps[i].norm() <<
-      ", " << dec_ps[i].norm() << " a non-rigid transform may have been applied. Results will be approximate." << std::endl;
-  }
+    const int is[3] = {pairs[0][0], pairs[pairs.size()/3][0], pairs[2*pairs.size()/3][0]};
+    const int js[3] = {pairs[0][1], pairs[pairs.size()/3][1], pairs[2*pairs.size()/3][1]};
+    Eigen::Vector3d full_ps[3]; // a triangle in the full_decimated cloud
+    Eigen::Vector3d dec_ps[3];  // a triangle in the decimated_cloud
+    Eigen::Vector3d mid_full(0,0,0), mid_dec(0,0,0);
+    for (int i = 0; i<3; i++)
+    {
+      full_ps[i] = full_decimated.ends[is[i]];
+      dec_ps[i] = decimated_cloud.ends[js[i]];
+      mid_full += full_ps[i]/3.0;
+      mid_dec += dec_ps[i]/3.0;
+    }
+    for (int i = 1; i<3; i++)
+    {
+      const double non_rigid_threshold = 0.01;
+      full_ps[i] -= full_ps[0];
+      dec_ps[i] -= dec_ps[0];
+      if (abs(full_ps[i].norm() - dec_ps[i].norm()) > non_rigid_threshold)
+        std::cout << "warning, matched points aren't a similar distance apart: " << full_ps[i].norm() <<
+        ", " << dec_ps[i].norm() << " a non-rigid transform may have been applied. Results will be approximate." << std::endl;
+    }
 
-  // how to get rotation from two triangles? do it in two stages:
-  const Eigen::Quaterniond quat = Eigen::Quaterniond::FromTwoVectors(full_ps[1], dec_ps[1]);
-  const Eigen::Vector3d normal1 = dec_ps[1].cross(dec_ps[2]);
-  const Eigen::Vector3d normal2 = full_ps[1].cross(full_ps[2]);
-  const Eigen::Quaterniond quat2 = Eigen::Quaterniond::FromTwoVectors(quat * normal2, normal1);
-  const Eigen::Quaterniond rotation = quat2 * quat;
-  const Eigen::Vector3d translation = mid_dec - rotation * mid_full;
-  ray::Pose transform(translation, rotation);
+    // how to get rotation from two triangles? do it in two stages:
+    const Eigen::Quaterniond quat = Eigen::Quaterniond::FromTwoVectors(full_ps[1], dec_ps[1]);
+    const Eigen::Vector3d normal1 = dec_ps[1].cross(dec_ps[2]);
+    const Eigen::Vector3d normal2 = full_ps[1].cross(full_ps[2]);
+    const Eigen::Quaterniond quat2 = Eigen::Quaterniond::FromTwoVectors(quat * normal2, normal1);
+    const Eigen::Quaterniond rotation = quat2 * quat;
+    const Eigen::Vector3d translation = mid_dec - rotation * mid_full;
+    transform.position = translation;
+    transform.rotation = rotation;
 
-  // set transformation to identity, if it is very close. This makes the typical case more accurate
-  const double rot_mag_sqr = ray::sqr(rotation.x()) + ray::sqr(rotation.y()) + ray::sqr(rotation.z());
-  const double rotation_changed_threshold = 1e-8;
-  const double translation_changed_threshold = 1e-8;
-  if (rot_mag_sqr > ray::sqr(rotation_changed_threshold) || translation.squaredNorm() > ray::sqr(translation_changed_threshold))
-  {
-    std::cout << "transformation detected" << std::endl;
-    std::cout << "translation: " << translation.transpose() << ", rotation quat: " << rotation.w() <<
-      ", " << rotation.x() << ", " << rotation.y() << ", " << rotation.z() << std::endl;
-  }
-  else
-  {
-    std::cout << "no detected transformation of cloud" << std::endl;
-    transform.position.setZero();
-    transform.rotation = Eigen::Quaterniond::Identity();
+    // set transformation to identity, if it is very close. This makes the typical case more accurate
+    const double rot_mag_sqr = ray::sqr(rotation.x()) + ray::sqr(rotation.y()) + ray::sqr(rotation.z());
+    const double rotation_changed_threshold = 1e-8;
+    const double translation_changed_threshold = 1e-8;
+    if (rot_mag_sqr > ray::sqr(rotation_changed_threshold) || translation.squaredNorm() > ray::sqr(translation_changed_threshold))
+    {
+      std::cout << "transformation detected" << std::endl;
+      std::cout << "translation: " << translation.transpose() << ", rotation quat: " << rotation.w() <<
+        ", " << rotation.x() << ", " << rotation.y() << ", " << rotation.z() << std::endl;
+    }
+    else
+    {
+      std::cout << "no detected transformation of cloud" << std::endl;
+    }
   }
 
   // now apply the estimated transformation. We need to chunk save the _restored file, using the

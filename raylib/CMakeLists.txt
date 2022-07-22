@@ -44,12 +44,19 @@ set(PUBLIC_HEADERS
   rayparse.h
   rayrandom.h
   rayrenderer.h
+  extraction/raytrunk.h
   extraction/raytrunks.h
+  extraction/rayclusters.h
   extraction/rayterrain.h 
+  extraction/raytrees.h
   extraction/rayforest.h
+  extraction/raysegment.h
+  extraction/raywatershed.h
+  extraction/rayoccupancy2d.h
 )
 
 set(PRIVATE_HEADERS
+  imageread.h
   imagewrite.h
 )
 
@@ -81,10 +88,15 @@ set(SOURCES
   rayparse.cpp
   rayrandom.cpp
   rayrenderer.cpp
+  extraction/raytrunk.cpp
   extraction/raytrunks.cpp
+  extraction/rayclusters.cpp
   extraction/rayterrain.cpp
+  extraction/raytrees.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp
+  extraction/raysegment.cpp
+  extraction/raywatershed.cpp
 )
 
 # Select the source file to use with raydebudraw.
@@ -100,6 +112,7 @@ else(WITH_3ES)
 endif(WITH_3ES)
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
+add_compile_options("-fPIC")
 
 if(WITH_QHULL)
 set(QHULL_LIBS
