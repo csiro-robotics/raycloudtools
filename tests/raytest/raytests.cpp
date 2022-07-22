@@ -200,7 +200,7 @@ namespace raytest
 
     ray::ForestStructure forest;
     EXPECT_TRUE(forest.load("forest_trees.txt"));
-    compareMoments(forest.getMoments(), {20, 22.2059, 1059.27, 1.06402, 0.0647786, 0.881711});
+    compareMoments(forest.getMoments(), {20, 22.2059, 1060.19, 1.06402, 0.0647786, 0.881711});
 
     EXPECT_EQ(command("rayextract forest forest.ply --ground forest_mesh.ply"), 0);
 
