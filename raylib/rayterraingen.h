@@ -12,7 +12,7 @@
 
 namespace ray
 {
-/// Terrain raycloud generation class. Generates the ray cloud attributes for a a random section of hilly terrain, 
+/// Terrain raycloud generation class. Generates the ray cloud attributes for a a random section of hilly terrain,
 /// as though scanned from a circular path over the terrain
 class RAYLIB_EXPORT TerrainGen
 {
@@ -22,6 +22,7 @@ public:
 
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
+
 private:
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
 };

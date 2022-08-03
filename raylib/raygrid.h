@@ -190,8 +190,8 @@ public:
     bucket.cells.emplace_back(Cell(index, value));
   }
 
-  /// debugging statistics on the grid structure. This can be used to assess how efficient this grid 
-  /// structure is for a given @c voxel_width. 
+  /// debugging statistics on the grid structure. This can be used to assess how efficient this grid
+  /// structure is for a given @c voxel_width.
   void report()
   {
     size_t count = 0;
@@ -243,8 +243,12 @@ protected:
 #endif  // RAYLIB_PARALLEL_GRID
 
     inline Bucket() = default;
-    inline Bucket(const Bucket &other) : cells(other.cells) {}
-    inline Bucket(Bucket &&other) : cells(std::move(other.cells)) {}
+    inline Bucket(const Bucket &other)
+      : cells(other.cells)
+    {}
+    inline Bucket(Bucket &&other)
+      : cells(std::move(other.cells))
+    {}
   };
 
   inline int hashFunc(int x, int y, int z) const { return int((x * 17 + y * 101 + z * 797) % buckets_.size()); }

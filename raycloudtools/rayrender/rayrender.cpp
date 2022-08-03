@@ -7,29 +7,29 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-#include "raylib/rayparse.h"
-#include "raylib/raycuboid.h"
 #include "raylib/raycloud.h"
+#include "raylib/raycuboid.h"
+#include "raylib/rayparse.h"
 #include "raylib/rayrenderer.h"
 
 void usage(int exit_code = 1)
 {
   std::cout << "Render a ray cloud as an image, from a specified viewpoint" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayrender raycloudfile.ply top ends        - render from the top (plan view) the end points" << std::endl;
+  std::cout << "rayrender raycloudfile.ply top ends        - render from the top (plan view) the end points"
+            << std::endl;
   std::cout << "                           left            - facing negative x axis" << std::endl;
   std::cout << "                           right           - facing positive x axis" << std::endl;
   std::cout << "                           front           - facing negative y axis" << std::endl;
   std::cout << "                           back            - facing positive y axis" << std::endl;
   std::cout << "                               mean        - mean colour on axis" << std::endl;
   std::cout << "                               sum         - sum colours (globally scaled to colour range)"
-    << std::endl;
+            << std::endl;
   std::cout << "                               starts      - render the ray start points" << std::endl;
   std::cout << "                               rays        - render the full set of rays" << std::endl;
   std::cout << "                               density     - shade according to estimated density within pixel"
-    << std::endl;
-  std::cout << "                               density_rgb - r->g->b colour by estimated density"
-    << std::endl;
+            << std::endl;
+  std::cout << "                               density_rgb - r->g->b colour by estimated density" << std::endl;
   std::cout << "                     --pixel_width 0.1     - optional pixel width in m" << std::endl;
   std::cout << "                     --output name.png     - optional output file name. " << std::endl;
   std::cout << "                                             Supports .png, .tga, .hdr, .jpg, .bmp" << std::endl;
@@ -39,13 +39,14 @@ void usage(int exit_code = 1)
 
 int main(int argc, char *argv[])
 {
-  ray::KeyChoice viewpoint({"top", "left", "right", "front", "back"});
-  ray::KeyChoice style({"ends", "mean", "sum", "starts", "rays", "density", "density_rgb"});
+  ray::KeyChoice viewpoint({ "top", "left", "right", "front", "back" });
+  ray::KeyChoice style({ "ends", "mean", "sum", "starts", "rays", "density", "density_rgb" });
   ray::DoubleArgument pixel_width(0.0001, 1000.0);
   ray::FileArgument cloud_file, image_file;
   ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
   ray::OptionalKeyValueArgument output_file_option("output", 'o', &image_file);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style}, {&pixel_width_option, &output_file_option}))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &viewpoint, &style },
+                             { &pixel_width_option, &output_file_option }))
   {
     usage();
   }
@@ -59,11 +60,11 @@ int main(int argc, char *argv[])
   {
     usage();
   }
-  const ray::Cuboid bounds = info.ends_bound; // exclude the unbounded ray lengths (e.g. up into the sky)
+  const ray::Cuboid bounds = info.ends_bound;  // exclude the unbounded ray lengths (e.g. up into the sky)
   double pix_width = pixel_width.value();
   if (!pixel_width_option.isSet())
   {
-    const double spacing_scale = 2.0; // a reasonable default multiplier on the spacing between points
+    const double spacing_scale = 2.0;  // a reasonable default multiplier on the spacing between points
     pix_width = spacing_scale * ray::Cloud::estimatePointSpacing(cloud_file.name(), bounds, info.num_bounded);
   }
   if (pix_width <= 0.0)

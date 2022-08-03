@@ -8,19 +8,18 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
 #include "raypose.h"
+#include "rayutils.h"
 
 namespace ray
 {
-
 /// Simple class to represent a moving point over time
 class RAYLIB_EXPORT Trajectory
 {
 public:
-  inline std::vector<Eigen::Vector3d> &points(){ return points_; }
+  inline std::vector<Eigen::Vector3d> &points() { return points_; }
   inline const std::vector<Eigen::Vector3d> &points() const { return points_; }
-  inline std::vector<double> &times(){ return times_; }
+  inline std::vector<double> &times() { return times_; }
   inline const std::vector<double> &times() const { return times_; }
 
   /// Save trajectory to a text file. One line per Node
@@ -34,7 +33,7 @@ public:
 
   /// Nearest position node on the trajectory to the given @c time
   Eigen::Vector3d nearest(double time) const;
-  
+
   /// Linear interpolation/extrapolation of nearest neighbours at given time.
   /// If 'extrapolate' is false, outlier times will clamp to the start or end value
   Eigen::Vector3d linear(double time, bool extrapolate = true) const;
@@ -63,6 +62,6 @@ struct RAYLIB_EXPORT TrajectoryNode
 };
 /// Save a trajectory, using the alternate, node representation
 bool RAYLIB_EXPORT saveTrajectory(const std::vector<TrajectoryNode> &nodes, const std::string &file_name);
-}
+}  // namespace ray
 
-#endif // RAYLIB_RAYTRAJECTORY_H
+#endif  // RAYLIB_RAYTRAJECTORY_H

@@ -24,7 +24,7 @@ void usage(int exit_code = 1)
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file}))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file }))
     usage();
 
   ray::Cloud cloud;
@@ -41,13 +41,13 @@ int main(int argc, char *argv[])
   cloud.getSurfels(num_neighbours, NULL, &normals, NULL, NULL, &neighbour_indices);
 
   std::vector<Eigen::Vector3d> centroids(cloud.ends.size());
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  for (size_t i = 0; i < cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
       continue;
-    double total_weight = 0.2; // more averaging if it uses less of the central position, but 0 risks a divide by 0
-    Eigen::Vector3d weighted_sum = cloud.ends[i]*total_weight;
-    for (int j = 0; j < num_neighbours && neighbour_indices(j, i) > -1; j++) 
+    double total_weight = 0.2;  // more averaging if it uses less of the central position, but 0 risks a divide by 0
+    Eigen::Vector3d weighted_sum = cloud.ends[i] * total_weight;
+    for (int j = 0; j < num_neighbours && neighbour_indices(j, i) > -1; j++)
     {
       int k = neighbour_indices(j, i);
       double weight = std::max(0.0, 1.0 - (normals[k] - normals[i]).squaredNorm());
@@ -56,11 +56,11 @@ int main(int argc, char *argv[])
     }
     centroids[i] = weighted_sum / total_weight;
   }
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  for (size_t i = 0; i < cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
       continue;
-    cloud.ends[i] += normals[i] * (centroids[i]-cloud.ends[i]).dot(normals[i]);
+    cloud.ends[i] += normals[i] * (centroids[i] - cloud.ends[i]).dot(normals[i]);
   }
 
   cloud.save(cloud_file.nameStub() + "_smooth.ply");

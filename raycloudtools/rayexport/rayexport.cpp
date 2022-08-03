@@ -9,8 +9,8 @@
 #include <iostream>
 #include <limits>
 #include "raylib/raycloud.h"
-#include "raylib/rayparse.h"
 #include "raylib/raylaz.h"
+#include "raylib/rayparse.h"
 #include "raylib/rayply.h"
 #include "raylib/raytrajectory.h"
 
@@ -19,9 +19,11 @@ void usage(int exit_code = 1)
   std::cout << "Export a ray cloud into a point cloud amd trajectory file" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayexport raycloudfile.ply pointcloud.ply trajectoryfile.ply - output in specified formats"
-       << std::endl;
+            << std::endl;
   std::cout << "                           pointcloud.laz trajectoryfile.txt" << std::endl;
-  std::cout << "                           --traj_delta 0.1 - trajectory temporal decimation period in s. Default is 0.1" << std::endl;
+  std::cout
+    << "                           --traj_delta 0.1 - trajectory temporal decimation period in s. Default is 0.1"
+    << std::endl;
   exit(exit_code);
 }
 
@@ -30,18 +32,17 @@ int main(int argc, char *argv[])
   ray::FileArgument raycloud_file, pointcloud_file, trajectory_file;
   ray::DoubleArgument traj_delta(0.0, 10000);
   ray::OptionalKeyValueArgument delta_option("traj_delta", 't', &traj_delta);
-  if (!ray::parseCommandLine(argc, argv, {&raycloud_file, &pointcloud_file, &trajectory_file}, {&delta_option}))
+  if (!ray::parseCommandLine(argc, argv, { &raycloud_file, &pointcloud_file, &trajectory_file }, { &delta_option }))
     usage();
 
   // Saving to a cloud file is fairly simple, we use chunk reading and writing:
   if (pointcloud_file.nameExt() == "laz")
   {
     ray::LasWriter las_writer(pointcloud_file.name());
-    auto add_chunk = [&las_writer](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-    {
-      las_writer.writeChunk(ends, times, colours);
-    };
-    if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0)) 
+    auto add_chunk = [&las_writer](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+                                   std::vector<double> &times,
+                                   std::vector<ray::RGBA> &colours) { las_writer.writeChunk(ends, times, colours); };
+    if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0))
       usage();
   }
   else if (pointcloud_file.nameExt() == "ply")
@@ -50,12 +51,12 @@ int main(int argc, char *argv[])
     std::ofstream ofs;
     if (!ray::writePointCloudChunkStart(pointcloud_file.name(), ofs))
       usage();
-    auto add_chunk = [&ofs, &buffer](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-    {
+    auto add_chunk = [&ofs, &buffer](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+                                     std::vector<double> &times, std::vector<ray::RGBA> &colours) {
       ray::writePointCloudChunk(ofs, buffer, ends, times, colours);
     };
-    if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0)) 
-      usage(); 
+    if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0))
+      usage();
     ray::writePointCloudChunkEnd(ofs);
   }
   else
@@ -66,7 +67,7 @@ int main(int argc, char *argv[])
   // saving the trajectory is more difficult. Firstly because we need to temporally decimate,
   // secondly because we need to sort the times, when saving to the txt file
   const double time_step = delta_option.isSet() ? traj_delta.value() : 0.1;
-  std::set<int64_t> time_slots; 
+  std::set<int64_t> time_slots;
   int64_t last_time_slot = std::numeric_limits<int64_t>::min();
 
   // if we are outputting to ply then we aren't sorting the times, just temporally decimating
@@ -79,15 +80,15 @@ int main(int argc, char *argv[])
       usage();
     ray::Cloud chunk;
 
-    auto decimate_time = [&time_slots, &ofs, &buffer, &chunk, &last_time_slot, time_step]
-      (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-    {
+    auto decimate_time = [&time_slots, &ofs, &buffer, &chunk, &last_time_slot, time_step](
+                           std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                           std::vector<double> &times, std::vector<ray::RGBA> &colours) {
       chunk.clear();
-      for (size_t i = 0; i<ends.size(); i++)
+      for (size_t i = 0; i < ends.size(); i++)
       {
         const int64_t time_slot = static_cast<int64_t>(std::floor(times[i] / time_step));
         if (time_slot == last_time_slot)
-          continue;   
+          continue;
         if (time_slots.find(time_slot) == time_slots.end())
         {
           time_slots.insert(time_slot);
@@ -99,26 +100,26 @@ int main(int argc, char *argv[])
       }
       ray::writePointCloudChunk(ofs, buffer, chunk.starts, chunk.times, chunk.colours);
     };
-    if (!ray::readPly(raycloud_file.name(), true, decimate_time, 0)) 
-      usage(); 
+    if (!ray::readPly(raycloud_file.name(), true, decimate_time, 0))
+      usage();
     ray::writePointCloudChunkEnd(ofs);
   }
-  else if (trajectory_file.nameExt() == "txt") // for text files we decimate and then sort
+  else if (trajectory_file.nameExt() == "txt")  // for text files we decimate and then sort
   {
     std::cout << "traj: " << trajectory_file.name() << std::endl;
     std::vector<ray::TrajectoryNode> traj_nodes;
     bool sorted = true;
 
-    auto decimate_time = [&time_slots, &traj_nodes, &sorted, &last_time_slot, time_step]
-      (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &)
-    {
-      for (size_t i = 0; i<ends.size(); i++)
+    auto decimate_time = [&time_slots, &traj_nodes, &sorted, &last_time_slot, time_step](
+                           std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                           std::vector<double> &times, std::vector<ray::RGBA> &) {
+      for (size_t i = 0; i < ends.size(); i++)
       {
         const int64_t time_slot = static_cast<int64_t>(std::floor(times[i] / time_step));
         if (time_slot == last_time_slot)
         {
           continue;
-        }        
+        }
         if (time_slots.find(time_slot) == time_slots.end())
         {
           time_slots.insert(time_slot);
@@ -134,18 +135,19 @@ int main(int argc, char *argv[])
         last_time_slot = time_slot;
       }
     };
-    if (!ray::readPly(raycloud_file.name(), true, decimate_time, 0)) 
+    if (!ray::readPly(raycloud_file.name(), true, decimate_time, 0))
     {
-      usage(); 
+      usage();
     }
 
     if (!sorted)
     {
-      std::sort(traj_nodes.begin(), traj_nodes.end(), [](const ray::TrajectoryNode &a, const ray::TrajectoryNode &b){ return a.time < b.time; });
+      std::sort(traj_nodes.begin(), traj_nodes.end(),
+                [](const ray::TrajectoryNode &a, const ray::TrajectoryNode &b) { return a.time < b.time; });
     }
 
     ray::saveTrajectory(traj_nodes, trajectory_file.name());
   }
   else
     usage();
-}      
+}

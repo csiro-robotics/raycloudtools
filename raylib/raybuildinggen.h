@@ -6,8 +6,8 @@
 #ifndef RAYLIB_RAYBUILDINGGEN_H
 #define RAYLIB_RAYBUILDINGGEN_H
 
-#include "raylib/raylibconfig.h"
 #include "raylib/raycuboid.h"
+#include "raylib/raylibconfig.h"
 #include "rayutils.h"
 
 namespace ray
@@ -36,28 +36,28 @@ public:
       distinct_floor_likelihood = 0.55;
       outer_wall_width = 0.3;
       window_width = 1.2;
-      window_height = 1.5;      
-      table_density = 0; // initialised later
-      cupboard_density = 0; // initialised later
+      window_height = 1.5;
+      table_density = 0;     // initialised later
+      cupboard_density = 0;  // initialised later
     }
     Eigen::Vector3d room_scales;
     double door_height;
     double door_width;
     double wall_width;
     double floor_width;
-    double distinct_floor_likelihood; // high has separated floors, low is a mixture of floor heights
+    double distinct_floor_likelihood;  // high has separated floors, low is a mixture of floor heights
     double outer_wall_width;
     double window_width;
     double window_height;
-    double table_density; // items per square metre
-    double cupboard_density; // items per metre along wall
+    double table_density;     // items per square metre
+    double cupboard_density;  // items per metre along wall
   };
 
-  inline BuildingParams &buildingParameters(){ return params_; }
+  inline BuildingParams &buildingParameters() { return params_; }
   inline const BuildingParams &buildingParameters() const { return params_; }
 
 private:
-  void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector< std::vector<Cuboid> > &furniture);
+  void splitRoom(const Cuboid &cuboid, std::vector<Cuboid> &cuboids, std::vector<std::vector<Cuboid>> &furniture);
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
   std::vector<bool> ray_bounded_;
   BuildingParams params_;

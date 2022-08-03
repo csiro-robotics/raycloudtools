@@ -20,12 +20,16 @@ void usage(int exit_code = 1)
   std::cout << "usage:" << std::endl;
   std::cout << "raycolour raycloud time          - colour by time (optional on all types)" << std::endl;
   std::cout << "                   height        - colour by height" << std::endl;
-  std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
+  std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)"
+            << std::endl;
   std::cout << "                   normal        - colour by normal" << std::endl;
-  std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
-  std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
+  std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)"
+            << std::endl;
+  std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)"
+            << std::endl;
   std::cout << "                   1,1,1         - set r,g,b" << std::endl;
-  std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds" << std::endl;
+  std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds"
+            << std::endl;
   std::cout << "                         --lit   - shaded (slow on large datasets)" << std::endl;
   exit(exit_code);
 }
@@ -36,7 +40,7 @@ void spectrumRGB(double value, ray::RGBA &colour)
   const Eigen::Vector3d col = ray::redGreenBlueSpectrum(value);
   colour.red = static_cast<uint8_t>(255.0 * col[0]);
   colour.green = static_cast<uint8_t>(255.0 * col[1]);
-  colour.blue = static_cast<uint8_t>(255.0 * col[2]);  
+  colour.blue = static_cast<uint8_t>(255.0 * col[2]);
 }
 
 /// Function to colour the cloud from a horizontal projection of a supplied image, stretching to match the cloud bounds.
@@ -51,26 +55,26 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
   stbi_set_flip_vertically_on_load(1);
   int width, height, num_channels;
   unsigned char *image_data = stbi_load(image_file.c_str(), &width, &height, &num_channels, 0);
-  const double width_x = (bounds.max_bound_[0] - bounds.min_bound_[0])/(double)width;
-  const double width_y = (bounds.max_bound_[1] - bounds.min_bound_[1])/(double)height;
+  const double width_x = (bounds.max_bound_[0] - bounds.min_bound_[0]) / (double)width;
+  const double width_y = (bounds.max_bound_[1] - bounds.min_bound_[1]) / (double)height;
   if (std::max(width_x, width_y) > 1.05 * std::min(width_x, width_y))
   {
-    std::cout << "Warning: image aspect ratio does not match aspect match of point cloud (" << 
-      bounds.max_bound_[0] - bounds.min_bound_[0] << " x " << bounds.max_bound_[1] - bounds.min_bound_[1] << ", stretching to fit) " << std::endl;
+    std::cout << "Warning: image aspect ratio does not match aspect match of point cloud ("
+              << bounds.max_bound_[0] - bounds.min_bound_[0] << " x " << bounds.max_bound_[1] - bounds.min_bound_[1]
+              << ", stretching to fit) " << std::endl;
   }
 
-  auto colour_from_image = [&bounds, &writer, &image_data, width_x, width_y, width, height, num_channels]
-    (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-    std::vector<double> &times, std::vector<ray::RGBA> &colours)
-  {
-    for (size_t i = 0; i<ends.size(); i++)
+  auto colour_from_image = [&bounds, &writer, &image_data, width_x, width_y, width, height, num_channels](
+                             std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                             std::vector<double> &times, std::vector<ray::RGBA> &colours) {
+    for (size_t i = 0; i < ends.size(); i++)
     {
       const int ind0 = static_cast<int>((ends[i][0] - bounds.min_bound_[0]) / width_x);
       const int ind1 = static_cast<int>((ends[i][1] - bounds.min_bound_[1]) / width_y);
-      const int index = num_channels*(ind0 + width*ind1);
+      const int index = num_channels * (ind0 + width * ind1);
       colours[i].red = image_data[index];
-      colours[i].green = image_data[index+1];
-      colours[i].blue = image_data[index+2];
+      colours[i].green = image_data[index + 1];
+      colours[i].blue = image_data[index + 2];
     }
     writer.writeChunk(starts, ends, times, colours);
   };
@@ -85,32 +89,31 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, image_file;
-  ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha"});
+  ray::KeyChoice colour_type({ "time", "height", "shape", "normal", "alpha" });
   ray::OptionalFlagArgument lit("lit", 'l');
   ray::Vector3dArgument col(0.0, 1.0);
   ray::DoubleArgument alpha(0.0, 1.0);
   ray::TextArgument alpha_text("alpha"), image_text("image");
-  const bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_type}, {&lit});
-  const bool flat_colour = ray::parseCommandLine(argc, argv, {&cloud_file, &col}, {&lit});
-  const bool flat_alpha = ray::parseCommandLine(argc, argv, {&cloud_file, &alpha_text, &alpha}, {&lit});
-  const bool image_format = ray::parseCommandLine(argc, argv, {&cloud_file, &image_text, &image_file}, {&lit});
+  const bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_type }, { &lit });
+  const bool flat_colour = ray::parseCommandLine(argc, argv, { &cloud_file, &col }, { &lit });
+  const bool flat_alpha = ray::parseCommandLine(argc, argv, { &cloud_file, &alpha_text, &alpha }, { &lit });
+  const bool image_format = ray::parseCommandLine(argc, argv, { &cloud_file, &image_text, &image_file }, { &lit });
   if (!standard_format && !flat_colour && !flat_alpha && !image_format)
     usage();
-  
+
   const std::string type = colour_type.selectedKey();
   std::string in_file = cloud_file.name();
   const std::string out_file = cloud_file.nameStub() + "_coloured.ply";
 
-  if (type != "shape" && type != "normal") // chunk loading possible for simple cases
+  if (type != "shape" && type != "normal")  // chunk loading possible for simple cases
   {
     ray::CloudWriter writer;
     if (!writer.begin(out_file))
       usage();
 
-    auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer]
-      (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-       std::vector<double> &times, std::vector<ray::RGBA> &colours)
-    {
+    auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer](
+                         std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                         std::vector<double> &times, std::vector<ray::RGBA> &colours) {
       if (flat_colour)
       {
         for (auto &colour : colours)
@@ -127,29 +130,29 @@ int main(int argc, char *argv[])
           colour.alpha = (uint8_t)(255.0 * alpha.value());
         }
       }
-      else // standard_format
+      else  // standard_format
       {
         if (type == "time")
         {
-          const double colour_repeat_period = 60.0; // repeating per minute gives a quick way to assess the scan length
-          for (size_t i = 0; i<ends.size(); i++)
+          const double colour_repeat_period = 60.0;  // repeating per minute gives a quick way to assess the scan length
+          for (size_t i = 0; i < ends.size(); i++)
           {
-            spectrumRGB(times[i]/colour_repeat_period, colours[i]);
+            spectrumRGB(times[i] / colour_repeat_period, colours[i]);
           }
         }
         else if (type == "height")
         {
           const double wavelength = 10.0;
-          for (size_t i = 0; i<ends.size(); i++)
+          for (size_t i = 0; i < ends.size(); i++)
           {
-            spectrumRGB(ends[i][2]/wavelength, colours[i]);
+            spectrumRGB(ends[i][2] / wavelength, colours[i]);
           }
         }
         else if (type == "alpha")
         {
-          for (auto &colour: colours)
+          for (auto &colour : colours)
           {
-            const Eigen::Vector3d col_vec = ray::redGreenBlueGradient(colour.alpha/255.0);
+            const Eigen::Vector3d col_vec = ray::redGreenBlueGradient(colour.alpha / 255.0);
             colour.red = uint8_t(255.0 * col_vec[0]);
             colour.green = uint8_t(255.0 * col_vec[1]);
             colour.blue = uint8_t(255.0 * col_vec[2]);
@@ -160,7 +163,7 @@ int main(int argc, char *argv[])
       }
       writer.writeChunk(starts, ends, times, colours);
     };
-    
+
     if (image_format)
     {
       colourFromImage(cloud_file.name(), image_file.name(), writer);
@@ -172,7 +175,7 @@ int main(int argc, char *argv[])
     writer.end();
     if (!lit.isSet())
       return 0;
-    in_file = out_file; // when lit we have to load again, from the saved output file
+    in_file = out_file;  // when lit we have to load again, from the saved output file
     std::cout << "reopening file for lighting..." << std::endl;
   }
 

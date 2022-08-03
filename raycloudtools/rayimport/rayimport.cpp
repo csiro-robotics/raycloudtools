@@ -9,21 +9,28 @@
 #include <iostream>
 
 #include "raylib/raycloud.h"
-#include "raylib/rayply.h"
 #include "raylib/raylaz.h"
 #include "raylib/rayparse.h"
+#include "raylib/rayply.h"
 #include "raylib/raytrajectory.h"
 
 void usage(int exit_code = 1)
 {
   std::cout << "Import a point cloud and trajectory file into a ray cloud" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las or .ply file" << std::endl;
-  std::cout << "                                           trajectoryfile is a text file using 'time x y z' format per line"
-       << std::endl;
-  std::cout << "                                        --max_intensity 100 - specify maximum intensity value (default 100)." << std::endl;
-  std::cout << "                                                              0 sets all to full intensity (bounded rays)." << std::endl;
-  std::cout << "The output is a .ply file of the same name (or with suffix _raycloud if the input was a .ply file)." << std::endl;
+  std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las or .ply file"
+            << std::endl;
+  std::cout
+    << "                                           trajectoryfile is a text file using 'time x y z' format per line"
+    << std::endl;
+  std::cout
+    << "                                        --max_intensity 100 - specify maximum intensity value (default 100)."
+    << std::endl;
+  std::cout
+    << "                                                              0 sets all to full intensity (bounded rays)."
+    << std::endl;
+  std::cout << "The output is a .ply file of the same name (or with suffix _raycloud if the input was a .ply file)."
+            << std::endl;
   exit(exit_code);
 }
 
@@ -32,7 +39,7 @@ int main(int argc, char *argv[])
   ray::DoubleArgument max_intensity(0.0, 10000);
   ray::OptionalKeyValueArgument max_intensity_option("max_intensity", 'm', &max_intensity);
   ray::FileArgument cloud_file, trajectory_file;
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &trajectory_file}, {&max_intensity_option}))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &trajectory_file }, { &max_intensity_option }))
     usage();
 
   ray::Cloud cloud;
@@ -68,19 +75,18 @@ int main(int argc, char *argv[])
   ray::RayPlyBuffer buffer;
   if (!ray::writeRayCloudChunkStart(save_file + ".ply", ofs))
     usage();
-  auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-  {
+  auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                       std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     trajectory.calculateStartPoints(times, starts);
     if (maximum_intensity == 0.0)
     {
-      for (auto &c: colours)
-        c.alpha = 255;
+      for (auto &c : colours) c.alpha = 255;
     }
     ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours);
   };
   if (name_end == ".ply")
   {
-    if (!ray::readPly(point_cloud, false, add_chunk, maximum_intensity)) // special case of reading a non-ray-cloud ply
+    if (!ray::readPly(point_cloud, false, add_chunk, maximum_intensity))  // special case of reading a non-ray-cloud ply
       usage();
   }
   else if (name_end == ".laz" || name_end == ".las")
@@ -98,7 +104,7 @@ int main(int argc, char *argv[])
     std::cout << "warning: all laz file intensities are 0." << std::endl;
     std::cout << "If your sensor lacks intensity information, set them to full using:" << std::endl;
     std::cout << "rayimport <point cloud> <trajectory file> --max_intensity 0" << std::endl;
-  }  
+  }
   ray::writeRayCloudChunkEnd(ofs);
   return 0;
 }

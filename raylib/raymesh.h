@@ -8,12 +8,12 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
 #include "raycloud.h"
+#include "rayutils.h"
 
 namespace ray
 {
-/// A triangular mesh data structure. For mesh based operations. 
+/// A triangular mesh data structure. For mesh based operations.
 class RAYLIB_EXPORT Mesh
 {
 public:
@@ -22,19 +22,21 @@ public:
   void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);
 
   /// access the mesh's vertices
-  inline std::vector<Eigen::Vector3d> &vertices(){ return vertices_; }
+  inline std::vector<Eigen::Vector3d> &vertices() { return vertices_; }
   inline const std::vector<Eigen::Vector3d> &vertices() const { return vertices_; }
   /// access the mesh's index list
-  inline std::vector<Eigen::Vector3i> &index_list(){ return index_list_; }
+  inline std::vector<Eigen::Vector3i> &index_list() { return index_list_; }
   inline const std::vector<Eigen::Vector3i> &index_list() const { return index_list_; }
 
   /// Get first and second order moments of mesh. This can be used as a simple way to compare meshes
   /// numerically. Note that different stats guarantee different meshes, but same stats do not guarantee same meshes
   /// These stats are arranged as the mean vertex location, then the standard deviation in each axis
   Eigen::Array<double, 6, 1> getMoments() const;
+
 private:
   std::vector<Eigen::Vector3d> vertices_;
-  std::vector<Eigen::Vector3i> index_list_; // one per triangle, gives the index into the vertices_ array for each corner
+  std::vector<Eigen::Vector3i>
+    index_list_;  // one per triangle, gives the index into the vertices_ array for each corner
 };
 
 

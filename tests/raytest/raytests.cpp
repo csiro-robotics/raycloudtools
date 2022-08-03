@@ -150,7 +150,7 @@ namespace raytest
   TEST(Basic, RaySplit)
   {
     EXPECT_EQ(command("raycreate room 1"), 0);
-    EXPECT_EQ(command("raysplit room.ply pos 0,0.1,1.5"), 0);
+    EXPECT_EQ(command("raysplit room.ply plane 0,0.1,1.5"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("room_outside.ply"));
     compareMoments(cloud.getMoments(), {-0.108066, -0.0410134, 0.052168, 1.14434e-07, 1.02466e-07, 3.37892e-08, -0.77974, 1.03139, 1.57353, 3.67521, 2.64766, 0.485084, 17.3995, 10.279, 0.311066, 0.759795, 0.425206, 0.951355, 0.321609, 0.226785, 0.39073, 0.215125});

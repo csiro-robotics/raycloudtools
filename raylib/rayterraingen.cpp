@@ -41,7 +41,7 @@ void TerrainGen::generate()
     double rad_scale = random(0.05, 0.3);
     double traj_radius2 = traj_radius * rad_scale;
     Eigen::Vector2d traj_pos = traj_centre + traj_radius * Eigen::Vector2d(sin(phase), cos(phase)) +
-                        traj_radius2 * Eigen::Vector2d(sin(phase / rad_scale), cos(phase / rad_scale));
+                               traj_radius2 * Eigen::Vector2d(sin(phase / rad_scale), cos(phase / rad_scale));
 
     double floor_y = 0.0;
     for (auto &wave : waves) floor_y += wave.amplitude * sin(traj_pos.dot(wave.dir));
@@ -72,4 +72,4 @@ void TerrainGen::generate()
     // it is a union)
   }
 }
-} // ray
+}  // namespace ray

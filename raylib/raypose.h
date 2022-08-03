@@ -8,14 +8,14 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
-#include <string>
 #include <Eigen/Geometry>
 #include <ostream>
+#include <string>
+#include "rayutils.h"
 
 namespace ray
 {
-/// A Euclidean transformation class (3d orientation and position). 
+/// A Euclidean transformation class (3d orientation and position).
 class RAYLIB_EXPORT Pose
 {
 public:

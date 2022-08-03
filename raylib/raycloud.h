@@ -6,13 +6,13 @@
 #ifndef RAYLIB_RAYCLOUD_H
 #define RAYLIB_RAYCLOUD_H
 
-#include "raylib/raylibconfig.h"
 #include "raylib/raycuboid.h"
+#include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
-#include "raypose.h"
-#include "raygrid.h"
 #include <set>
+#include "raygrid.h"
+#include "raypose.h"
+#include "rayutils.h"
 
 namespace ray
 {
@@ -27,7 +27,7 @@ enum BoundsFlag
   kBFStart = (1 << 1)
 };
 
-/// This is the principle structure for representing a ray cloud. 
+/// This is the principle structure for representing a ray cloud.
 /// Rays are stored as line segments ( @c starts[i] to @c ends[i] ) together with a @c time and @c colour
 /// The colour's alpha channel is used to store intensity, and so alpha=0 represents an unbounded ray
 /// The end point of unbounded rays are not considered as part of the observed geometry of the scene
@@ -45,7 +45,7 @@ public:
   /// resize the cloud's vectors
   void resize(size_t size);
 
-  /// is the ray at index @c i bounded. Unbounded rays are non-returns, typically due to exceeding lidar range. 
+  /// is the ray at index @c i bounded. Unbounded rays are non-returns, typically due to exceeding lidar range.
   inline bool rayBounded(size_t i) const { return colours[i].alpha > 0; }
   /// this reflects the intensity of return recorded by the lidar. It is optional and does not affect the raycloudtools
   /// functions. However, the intensity should always be zero on any unbounded rays, as this information is used.
@@ -75,7 +75,7 @@ public:
   void removeUnboundedRays();
 
   /// generates a covariance matrix of the nearest end points around each ray end in the cloud. The pointer arguments
-  /// are optional attributes of this covariance matrix, which can be returned. Each covariance matrix represents a 
+  /// are optional attributes of this covariance matrix, which can be returned. Each covariance matrix represents a
   /// SURFace ELement (surfel) with a centroid, normal, matrix and dimensions (of the ellipsoid that it represents)
   /// The list of neighbours can also be returned, to allow further analysis.
   /// The last argument excludes back-facing rays from the surfel, this produces flatter surfels on thin double walls
@@ -84,7 +84,7 @@ public:
                   Eigen::MatrixXi *neighbour_indices, bool reject_back_facing_rays = true);
   /// Get first and second order moments of cloud. This can be used as a simple way to compare clouds
   /// numerically. Note that different stats guarantee different clouds, but same stats do not guarantee same clouds
-  /// These stats are arranged as: start mean, start sigma, end mean, end sigma, colour mean, time mean, time sigma, 
+  /// These stats are arranged as: start mean, start sigma, end mean, end sigma, colour mean, time mean, time sigma,
   /// colour sigma. Times are doubles and colours vector4s, the others are vector3s, to give a total of 22 real values.
   Eigen::Array<double, 22, 1> getMoments() const;
 
@@ -112,7 +112,7 @@ public:
 
   /// Static functions. These operate on the cloud file, and so do not require the full file to fit in memory
 
-  /// Version for estimating the spacing between points for raycloud files. 
+  /// Version for estimating the spacing between points for raycloud files.
   static double estimatePointSpacing(std::string &file_name, const Cuboid &bounds, int num_points);
 
   /// Calculate the key information of a ray cloud, such as its bounds
@@ -121,9 +121,9 @@ public:
   struct Info
   {
     // Axis-aligned bounding boxes
-    Cuboid ends_bound;   // just the end points (not including for unbounded rays)
-    Cuboid starts_bound; // all start points
-    Cuboid rays_bound;   // all ray extents
+    Cuboid ends_bound;    // just the end points (not including for unbounded rays)
+    Cuboid starts_bound;  // all start points
+    Cuboid rays_bound;    // all ray extents
 
     int num_bounded;
     int num_unbounded;
@@ -135,15 +135,16 @@ public:
 
   /// Reads a ray cloud from file, and calls the function for each ray
   /// This forwards the call to a function appropriate to the ray cloud file format
-  static bool read(const std::string &file_name,  
-     std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-     std::vector<double> &times, std::vector<RGBA> &colours)> apply);
+  static bool read(const std::string &file_name,
+                   std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                                      std::vector<double> &times, std::vector<RGBA> &colours)>
+                     apply);
 
 private:
   bool loadPLY(const std::string &file);
-  // Convert the set of neighbouring indices into a eigen solution, which is an ellipsoid of best fit. 
-  inline void eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, 
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid);
+  // Convert the set of neighbouring indices into a eigen solution, which is an ellipsoid of best fit.
+  inline void eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours,
+                         Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid);
 };
 
 }  // namespace ray

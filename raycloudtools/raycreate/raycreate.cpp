@@ -3,13 +3,13 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raylib/raycloud.h"
-#include "raylib/raytreegen.h"
-#include "raylib/rayforestgen.h"
-#include "raylib/rayroomgen.h"
 #include "raylib/raybuildinggen.h"
-#include "raylib/rayterraingen.h"
+#include "raylib/raycloud.h"
+#include "raylib/rayforestgen.h"
 #include "raylib/rayparse.h"
+#include "raylib/rayroomgen.h"
+#include "raylib/rayterraingen.h"
+#include "raylib/raytreegen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,15 +30,15 @@ void usage(int exit_code = 1)
 
 int main(int argc, char *argv[])
 {
-  ray::KeyChoice cloud_type({"room", "building", "tree", "forest", "terrain"});
-  ray::IntArgument seed(1,1000000);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_type, &seed}))
+  ray::KeyChoice cloud_type({ "room", "building", "tree", "forest", "terrain" });
+  ray::IntArgument seed(1, 1000000);
+  if (!ray::parseCommandLine(argc, argv, { &cloud_type, &seed }))
     usage();
 
   ray::srand(seed.value());
 
   ray::Cloud cloud;
-  const double time_delta = 0.001; // between rays
+  const double time_delta = 0.001;  // between rays
   std::string type = cloud_type.selectedKey();
   if (type == "room")
   {
@@ -58,8 +58,7 @@ int main(int argc, char *argv[])
     }
     colourByTime(cloud.times, cloud.colours);
     const std::vector<bool> &bounded = room_gen.rayBounded();
-    for (int i = 0; i < (int)cloud.colours.size(); i++) 
-      cloud.colours[i].alpha = bounded[i] ? 255 : 0;
+    for (int i = 0; i < (int)cloud.colours.size(); i++) cloud.colours[i].alpha = bounded[i] ? 255 : 0;
   }
   else if (type == "building")
   {
@@ -77,21 +76,20 @@ int main(int argc, char *argv[])
     }
     colourByTime(cloud.times, cloud.colours);
     const std::vector<bool> &bounded = building_gen.rayBounded();
-    for (int i = 0; i < (int)cloud.colours.size(); i++) 
-      cloud.colours[i].alpha = bounded[i] ? 255 : 0;
+    for (int i = 0; i < (int)cloud.colours.size(); i++) cloud.colours[i].alpha = bounded[i] ? 255 : 0;
   }
   else if (type == "tree" || type == "forest")
   {
-    const double density = 500.0;  // density of points on the branches of the trees
-    const double tree_ground_extent = 2.0; // extent (from centre) is the half-width
-    const double ground_noise_extent = 0.025; // vertical noise in the ground
-    const double forest_ground_multiplier = 5.0; // how much larger the forest ground is
-    const double ground_ray_deviation = 0.1; // lateral deviation in start of ray, from end point
-    const double ground_ray_vertical_height = 1.5; // height above ground for ray start
+    const double density = 500.0;                   // density of points on the branches of the trees
+    const double tree_ground_extent = 2.0;          // extent (from centre) is the half-width
+    const double ground_noise_extent = 0.025;       // vertical noise in the ground
+    const double forest_ground_multiplier = 5.0;    // how much larger the forest ground is
+    const double ground_ray_deviation = 0.1;        // lateral deviation in start of ray, from end point
+    const double ground_ray_vertical_height = 1.5;  // height above ground for ray start
 
     ray::fillBranchAngleLookup();
 
-    Eigen::Vector3d box_min(-tree_ground_extent, -tree_ground_extent, -ground_noise_extent); 
+    Eigen::Vector3d box_min(-tree_ground_extent, -tree_ground_extent, -ground_noise_extent);
     Eigen::Vector3d box_max(tree_ground_extent, tree_ground_extent, ground_noise_extent);
     double time = 0.0;
     if (type == "tree")
@@ -117,7 +115,7 @@ int main(int argc, char *argv[])
       forest_gen.make(params);
       forest_gen.generateRays(density);
       for (auto &tree : forest_gen.trees())
-      {  
+      {
         const std::vector<Eigen::Vector3d> &ray_starts = tree.rayStarts();
         const std::vector<Eigen::Vector3d> &ray_ends = tree.rayEnds();
         cloud.starts.insert(cloud.starts.end(), ray_starts.begin(), ray_starts.end());
@@ -129,18 +127,17 @@ int main(int argc, char *argv[])
         cloud.times[i] = time;
         time += time_delta;
       }
-      box_min *= forest_ground_multiplier; // for a forest, we need a larger ground 
+      box_min *= forest_ground_multiplier;  // for a forest, we need a larger ground
       box_max *= forest_ground_multiplier;
     }
     int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
     for (int i = 0; i < num; i++)
     {
-      Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), 
-                          ray::random(box_min[1], box_max[1]), 
+      Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), ray::random(box_min[1], box_max[1]),
                           ray::random(box_min[2], box_max[2]));
       cloud.ends.push_back(pos);
-      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-ground_ray_deviation, ground_ray_deviation), 
-                                                   ray::random(-ground_ray_deviation, ground_ray_deviation), 
+      cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-ground_ray_deviation, ground_ray_deviation),
+                                                   ray::random(-ground_ray_deviation, ground_ray_deviation),
                                                    ground_ray_vertical_height));
       cloud.times.push_back(time);
       time += time_delta;

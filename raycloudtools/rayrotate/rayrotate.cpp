@@ -17,7 +17,8 @@ void usage(int exit_code = 1)
   std::cout << "Rotate a raycloud about the origin" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayrotate raycloud 30,0,0  - rotation (rx,ry,rz) is a rotation vector in degrees:" << std::endl;
-  std::cout << "                             so this example rotates the cloud by 30 degrees in the x axis." << std::endl;
+  std::cout << "                             so this example rotates the cloud by 30 degrees in the x axis."
+            << std::endl;
   exit(exit_code);
 }
 
@@ -25,18 +26,17 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::Vector3dArgument rotation_arg(-360, 360);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &rotation_arg}))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &rotation_arg }))
     usage();
-    
+
   Eigen::Vector3d rot = rotation_arg.value();
   const double angle = rot.norm();
   rot /= angle;
   Eigen::Quaterniond rotation(Eigen::AngleAxisd(angle * ray::kPi / 180.0, rot));
 
-  const std::string temp_name = cloud_file.name() + "~"; // tilde is a common suffix for temporary files
+  const std::string temp_name = cloud_file.name() + "~";  // tilde is a common suffix for temporary files
 
-  auto rotate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &, ray::RGBA &)
-  {
+  auto rotate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &, ray::RGBA &) {
     start = rotation * start;
     end = rotation * end;
   };

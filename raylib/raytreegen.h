@@ -8,8 +8,8 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
 #include "raypose.h"
+#include "rayutils.h"
 
 namespace ray
 {
@@ -34,7 +34,7 @@ public:
   /// the ray cloud attributes
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
-  
+
   struct Branch
   {
     Eigen::Vector3d tip;
@@ -47,7 +47,7 @@ public:
   const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }
   /// the position of the base of the tree trunk
   const Eigen::Vector3d &root() const { return root_; }
-  
+
 private:
   std::vector<Eigen::Vector3d> leaves_;
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;

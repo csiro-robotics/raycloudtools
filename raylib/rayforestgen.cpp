@@ -44,15 +44,13 @@ void ForestGen::make(const ForestParams &params)
 
 void ForestGen::generateRays(double ray_density)
 {
-  for (auto &tree : trees()) 
-    tree.generateRays(ray_density);
+  for (auto &tree : trees()) tree.generateRays(ray_density);
 }
 
 std::vector<Eigen::Vector3d> ForestGen::getCanopy()
 {
   std::vector<Eigen::Vector3d> canopy;
-  for (auto &tree : trees()) 
-    canopy.insert(canopy.end(), tree.leaves().begin(), tree.leaves().end());
+  for (auto &tree : trees()) canopy.insert(canopy.end(), tree.leaves().begin(), tree.leaves().end());
 
   return canopy;
 }
@@ -60,9 +58,8 @@ std::vector<Eigen::Vector3d> ForestGen::getCanopy()
 std::vector<Eigen::Vector3d> ForestGen::getPointCloud()
 {
   std::vector<Eigen::Vector3d> cloud;
-  for (auto &tree : trees()) 
-    cloud.insert(cloud.end(), tree.rayEnds().begin(), tree.rayEnds().end());
+  for (auto &tree : trees()) cloud.insert(cloud.end(), tree.rayEnds().begin(), tree.rayEnds().end());
 
   return cloud;
 }
-} // ray
+}  // namespace ray

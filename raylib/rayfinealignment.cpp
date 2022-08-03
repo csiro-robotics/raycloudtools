@@ -4,8 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "rayfinealignment.h"
-#include "raydebugdraw.h"
 #include <nabo/nabo.h>
+#include "raydebugdraw.h"
 
 namespace ray
 {
@@ -15,7 +15,7 @@ void FineAlignment::Surfel::draw(const std::vector<Surfel> &surfels, const Eigen
   std::vector<Eigen::Matrix3d> matrices(surfels.size());
   std::vector<Eigen::Vector3d> centroids(surfels.size());
   std::vector<Eigen::Vector3d> widths(surfels.size());
-  for (size_t i = 0; i<surfels.size(); i++)
+  for (size_t i = 0; i < surfels.size(); i++)
   {
     matrices[i] = surfels[i].matrix;
     centroids[i] = surfels[i].centroid;
@@ -24,9 +24,10 @@ void FineAlignment::Surfel::draw(const std::vector<Surfel> &surfels, const Eigen
   DebugDraw::instance()->drawEllipsoids(centroids, matrices, widths, colour, 1);
 }
 
-// Convert the set of points into a covariance matrix, and from that into surfel information, using an eigendecomposition
-void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int> &ids, Eigen::Vector3d &centroid, Eigen::Vector3d &width,
-               Eigen::Matrix3d &mat)
+// Convert the set of points into a covariance matrix, and from that into surfel information, using an
+// eigendecomposition
+void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int> &ids, Eigen::Vector3d &centroid,
+               Eigen::Vector3d &width, Eigen::Matrix3d &mat)
 {
   Eigen::Vector3d total(0, 0, 0);
   for (auto &id : ids) total += points[id];
@@ -49,26 +50,27 @@ void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int
   width = Eigen::Vector3d(sqrt(width[0]), sqrt(width[1]), sqrt(width[2]));
   mat = eigen_solver.eigenvectors();
   if (mat.determinant() < 0.0)
-    mat.col(0) = -mat.col(0); // make right-handed, so that we can convert to a quaternion for rendering
+    mat.col(0) = -mat.col(0);  // make right-handed, so that we can convert to a quaternion for rendering
 }
 
-// Convert clouds_[] into sets of surfels. 
+// Convert clouds_[] into sets of surfels.
 void FineAlignment::generateSurfels()
 {
   double point_spacings[2];
-  double avg_max_spacing = 0.0; 
+  double avg_max_spacing = 0.0;
   for (int c = 0; c < 2; c++)
   {
     point_spacings[c] = clouds_[c].estimatePointSpacing();
     ASSERT(point_spacings[c] >= 0.0);
     const double min_spacing_scale = 2.0;
     const double max_spacing_scale = 20.0;
-    double min_spacing = min_spacing_scale*point_spacings[c];
-    double max_spacing = max_spacing_scale*point_spacings[c];
-    avg_max_spacing += 0.5*max_spacing;
+    double min_spacing = min_spacing_scale * point_spacings[c];
+    double max_spacing = max_spacing_scale * point_spacings[c];
+    avg_max_spacing += 0.5 * max_spacing;
     if (verbose_)
-      std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing << "m" << std::endl;
-    
+      std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing
+                << "m" << std::endl;
+
     // 1. decimate quite fine
     std::vector<int64_t> decimated;
     ray::voxelSubsample(clouds_[c].ends, min_spacing, decimated);
@@ -86,7 +88,7 @@ void FineAlignment::generateSurfels()
         decimated_starts.push_back(clouds_[c].starts[decimated[i]]);
       }
     }
-    centres_[c] /= (double)decimated_points.size(); 
+    centres_[c] /= (double)decimated_points.size();
 
     // 2. find the coarser random candidate points. We just want a fairly even spread but not the voxel centres
     std::vector<int64_t> candidates;
@@ -115,7 +117,7 @@ void FineAlignment::generateSurfels()
     Eigen::MatrixXd dists2;
     indices.resize(search_size, q_size);
     dists2.resize(search_size, q_size);
-    nns->knn(points_q, indices, dists2, search_size, 0.01*max_spacing, 0, max_spacing);
+    nns->knn(points_q, indices, dists2, search_size, 0.01 * max_spacing, 0, max_spacing);
     delete nns;
 
     // Convert these set of nearest neighbours into surfels
@@ -126,8 +128,7 @@ void FineAlignment::generateSurfels()
     for (size_t i = 0; i < q_size; i++)
     {
       ids.clear();
-      for (int j = 0; j < search_size && indices(j, i) > -1; j++) 
-        ids.push_back(indices(j, i));
+      for (int j = 0; j < search_size && indices(j, i) > -1; j++) ids.push_back(indices(j, i));
       if (ids.size() < min_points_per_ellipsoid)  // not dense enough
         continue;
 
@@ -146,7 +147,7 @@ void FineAlignment::generateSurfels()
         if (c == 1)
           surfels_[c].push_back(Surfel(centroid, mat, width, -mat.col(2), false));
       }
-      else // planar
+      else  // planar
       {
         Eigen::Vector3d normal = mat.col(0);
         if ((centroid - candidate_starts[i]).dot(normal) > 0.0)
@@ -214,7 +215,8 @@ void FineAlignment::generateSurfelMatches(std::vector<Match> &matches)
   Eigen::MatrixXd dists2;
   indices.resize(search_size, q_size);
   dists2.resize(search_size, q_size);
-  nns->knn(points_q, indices, dists2, search_size, ray::kNearestNeighbourEpsilon*max_normal_difference_, 0, max_normal_difference_);
+  nns->knn(points_q, indices, dists2, search_size, ray::kNearestNeighbourEpsilon * max_normal_difference_, 0,
+           max_normal_difference_);
   delete nns;
 
   for (int i = 0; i < (int)q_size; i++)
@@ -225,7 +227,7 @@ void FineAlignment::generateSurfelMatches(std::vector<Match> &matches)
       match.ids[0] = i;
       match.ids[1] = indices(j, i);
       Surfel &s0 = surfels_[0][i];
-      Surfel &s1 = surfels_[1][indices(j,i)];
+      Surfel &s1 = surfels_[1][indices(j, i)];
       if (s0.is_plane != s1.is_plane)
         continue;
       Eigen::Vector3d mid_norm = (s0.normal + s1.normal).normalized();
@@ -249,7 +251,7 @@ void FineAlignment::generateSurfelMatches(std::vector<Match> &matches)
   if (verbose_)
   {
     DebugDraw::instance()->drawLines(line_starts, line_ends);
-    Surfel::draw(surfels_[0], Eigen::Vector3d(1,0,0));
+    Surfel::draw(surfels_[0], Eigen::Vector3d(1, 0, 0));
   }
 }
 
@@ -290,7 +292,7 @@ void FineAlignment::buildLinearSystem(const std::vector<Match> &matches, double 
       axis[i] = 1.0;
       a[3 + i] = -(positions[0].cross(axis)).dot(match.normal);
     }
-    if (non_rigid_) 
+    if (non_rigid_)
     {
       positions[0] -= centres_[0];
       positions[1] -= centres_[1];
@@ -309,11 +311,11 @@ void FineAlignment::buildLinearSystem(const std::vector<Match> &matches, double 
 }
 
 Eigen::Matrix<double, FineAlignment::LinearSystem::state_size, 1> FineAlignment::LinearSystem::solve(bool verbose)
-{ 
-  Eigen::Matrix<double, FineAlignment::LinearSystem::state_size, 1> x = At_A.ldlt().solve(At_b); 
+{
+  Eigen::Matrix<double, FineAlignment::LinearSystem::state_size, 1> x = At_A.ldlt().solve(At_b);
   if (verbose)
-    std::cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", " << x[4]
-              << ", " << x[5] << std::endl;
+    std::cout << "least squares shift: " << x[0] << ", " << x[1] << ", " << x[2] << ", rotation: " << x[3] << ", "
+              << x[4] << ", " << x[5] << std::endl;
   return x;
 }
 
@@ -351,15 +353,15 @@ void FineAlignment::align()
   // Decimate again to pick one point per cubic 1m (for instance)
   // Now match the closest X points in 1 to those in 2, and generate surfel per point in 2.
   generateSurfels();
- 
+
   // Iteratively reweighted least squares. Iteration loop:
   int max_iterations = 8;
-  for (int it = 0; it < max_iterations; it++) 
+  for (int it = 0; it < max_iterations; it++)
   {
     // Match surfels in cloud0 to those in cloud1
     std::vector<Match> matches;
     generateSurfelMatches(matches);
-    
+
     // Convert the match constraints into a linear system
     LinearSystem system;
     double d = 20.0 * (double)it / (double)max_iterations;
@@ -373,4 +375,4 @@ void FineAlignment::align()
   }
 }
 
-} // namespace ray
+}  // namespace ray
