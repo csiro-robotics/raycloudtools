@@ -22,6 +22,6 @@ unsigned rand()
 void srand(unsigned int seed)
 {
   // converting a single seed into 4 randomish seeds is an imprecise science...
-  PCGRandomGenerator::instance().seed(seed, (seed*97)%14746, (13 + seed*174)%63721, (seed * 3791 - 27)%13963);
+  PCGRandomGenerator::instance().seed(seed, (seed * 97) % 14746, (13 + seed * 174) % 63721, (seed * 3791 - 27) % 13963);
 }
 }  // namespace ray

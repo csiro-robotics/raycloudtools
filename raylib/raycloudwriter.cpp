@@ -8,7 +8,6 @@
 
 namespace ray
 {
-
 bool CloudWriter::begin(const std::string &file_name)
 {
   if (file_name.empty())
@@ -26,7 +25,7 @@ bool CloudWriter::begin(const std::string &file_name)
 
 void CloudWriter::end()
 {
-  if (file_name_.empty()) // no effect if begin has not been called
+  if (file_name_.empty())  // no effect if begin has not been called
     return;
   const unsigned long num_rays = ray::writeRayCloudChunkEnd(ofs_);
   std::cout << num_rays << " rays saved to " << file_name_ << std::endl;
@@ -39,4 +38,4 @@ bool CloudWriter::writeChunk(const Cloud &chunk)
 }
 
 
-} // namespace ray
+}  // namespace ray

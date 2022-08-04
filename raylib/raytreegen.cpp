@@ -5,8 +5,8 @@
 // Author: Thomas Lowe
 #include "raytreegen.h"
 #include <stdio.h>
-#include <fstream>
 #include <stdlib.h>
+#include <fstream>
 
 namespace ray
 {
@@ -199,27 +199,27 @@ void TreeStructure::generateRays(double ray_density)
     Eigen::Vector3d from = Eigen::Vector3d(random(-1, 1), random(-1, 1), random(-1, 1));
     if (from.dot(offset) < 0.0)
       from = -from;
-    
-    // closest point to branch position on circle, that is not passing through that branch. 
+
+    // closest point to branch position on circle, that is not passing through that branch.
     // This circles are similar to if the tree was scanned by a scanner moving on two circular paths
     // Note that an ideal ray start would never pass through any other branch, but this is too expensive for a simple
-    // example tree. 
-    Eigen::Vector3d best_start(0,0,0);
+    // example tree.
+    Eigen::Vector3d best_start(0, 0, 0);
     double min_dist2 = 0;
-    for (int k = 0; k<2; k++)
+    for (int k = 0; k < 2; k++)
     {
-      Eigen::Vector3d root2 = root + Eigen::Vector3d(0,0,ring_heights[k]);
+      Eigen::Vector3d root2 = root + Eigen::Vector3d(0, 0, ring_heights[k]);
       Eigen::Vector3d to_path = pos - root;
       to_path[2] = 0.0;
       to_path.normalize();
-      double radius = path_radius * (k==0 ? 0.4 : 1.0);
+      double radius = path_radius * (k == 0 ? 0.4 : 1.0);
       Eigen::Vector3d start = root2 + to_path * radius;
       if ((start - pos).dot(offset) < 0.0)
       {
         Eigen::Vector3d side(to_path[1], -to_path[2], 0.0);
         if ((pos - root2).dot(side) > 0.0)
           start = root2 + side * radius;
-        else 
+        else
           start = root2 - side * radius;
       }
       double dist2 = (start - pos).squaredNorm();
@@ -232,4 +232,4 @@ void TreeStructure::generateRays(double ray_density)
     ray_starts_.push_back(best_start);
   }
 }
-} // ray
+}  // namespace ray

@@ -2,10 +2,10 @@
 
 #if RAYLIB_WITH_ROS
 
-#include <eigen3/Eigen/Geometry>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <eigen3/Eigen/Geometry>
 
 using namespace ray;
 
@@ -254,9 +254,9 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
     marker.type = marker.SPHERE;
     marker.action = marker.ADD;
 
-    marker.scale.x = 2*radii[i][0];
-    marker.scale.y = 2*radii[i][1];
-    marker.scale.z = 2*radii[i][2];
+    marker.scale.x = 2 * radii[i][0];
+    marker.scale.y = 2 * radii[i][1];
+    marker.scale.z = 2 * radii[i][2];
 
     marker.color.a = 1.0;
     marker.color.r = float(colour[0]);

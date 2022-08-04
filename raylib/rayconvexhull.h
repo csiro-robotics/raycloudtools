@@ -8,18 +8,18 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
-#include "raymesh.h"
 #include <set>
+#include "raymesh.h"
+#include "rayutils.h"
 #if RAYLIB_WITH_QHULL
 
 namespace ray
 {
-/// This class is poorly named (I must rename it!) 
-/// It wraps a non-convex mesh onto a specified ray cloud by using a convec hull algorithm on a non-linear transformation
-/// of the cloud. The result is a non-convex 'vacuum wrapping' of the ray cloud that is computationally much faster than
-/// convex hull, but which does not support overhangs. 
-/// Multiple wrap directions allow it to be used in a variety of situations.
+/// This class is poorly named (I must rename it!)
+/// It wraps a non-convex mesh onto a specified ray cloud by using a convec hull algorithm on a non-linear
+/// transformation of the cloud. The result is a non-convex 'vacuum wrapping' of the ray cloud that is computationally
+/// much faster than convex hull, but which does not support overhangs. Multiple wrap directions allow it to be used in
+/// a variety of situations.
 class RAYLIB_EXPORT ConvexHull
 {
 public:
@@ -38,7 +38,7 @@ public:
   void growDownwards(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, -1)); }
  
   /// access the generated mesh
-  Mesh &mesh(){ return mesh_; }
+  Mesh &mesh() { return mesh_; }
   const Mesh &mesh() const { return mesh_; }
 
 private:

@@ -6,8 +6,8 @@
 #ifndef RAYLIB_RAYROOMGEN_H
 #define RAYLIB_RAYROOMGEN_H
 
-#include "raylib/raylibconfig.h"
 #include "raylib/raycuboid.h"
+#include "raylib/raylibconfig.h"
 #include "rayutils.h"
 
 namespace ray
@@ -23,6 +23,7 @@ public:
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
   inline const std::vector<bool> rayBounded() const { return ray_bounded_; }
+
 private:
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
   std::vector<bool> ray_bounded_;

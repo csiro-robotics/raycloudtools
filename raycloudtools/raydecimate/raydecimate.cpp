@@ -26,10 +26,10 @@ void usage(int exit_code = 1)
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  ray::IntArgument num_rays(1,100);
+  ray::IntArgument num_rays(1, 100);
   ray::DoubleArgument vox_width(0.01, 100.0);
-  ray::ValueKeyChoice quantity({&vox_width, &num_rays}, {"cm", "rays"});
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &quantity}))
+  ray::ValueKeyChoice quantity({ &vox_width, &num_rays }, { "cm", "rays" });
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &quantity }))
     usage();
   const bool spatial_decimation = quantity.selectedKey() == "cm";
 
@@ -37,15 +37,15 @@ int main(int argc, char *argv[])
   if (!writer.begin(cloud_file.nameStub() + "_decimated.ply"))
     usage();
 
-  // By maintaining these buffers below, we avoid almost all memory fragmentation  
+  // By maintaining these buffers below, we avoid almost all memory fragmentation
   ray::Cloud chunk;
   std::vector<int64_t> subsample;
   // voxel set is global, however its size is proportional to the decimated cloud size,
   // so we expect it to fit within RAM limits
-  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;  
+  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
 
-  auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-  {
+  auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     if (spatial_decimation)
     {
       double width = 0.01 * vox_width.value();

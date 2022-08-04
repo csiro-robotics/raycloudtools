@@ -6,9 +6,9 @@
 #ifndef RAYLIB_RAYPARSE_H
 #define RAYLIB_RAYPARSE_H
 
-#include "rayutils.h"
 #include <iostream>
 #include <limits>
+#include "rayutils.h"
 
 namespace ray
 {
@@ -18,9 +18,10 @@ std::string RAYLIB_EXPORT getFileNameStub(const std::string &name);
 /// Helper function: get the part of the filename after the .
 std::string RAYLIB_EXPORT getFileNameExtension(const std::string &name);
 
-/// Parses a command line according to a given format which can include fixed arguments and then a set of optional arguments
-/// Values in the passed-in lists are only set when it returns true. This allows the function to be called multiple times for different formats
-/// Only make @param set_values false if you only need to know if the format matches the arguments @param argv.
+/// Parses a command line according to a given format which can include fixed arguments and then a set of optional
+/// arguments Values in the passed-in lists are only set when it returns true. This allows the function to be called
+/// multiple times for different formats Only make @param set_values false if you only need to know if the format
+/// matches the arguments @param argv.
 ///
 /// Example for command line: rayxxx raycloud.ply 0,0,30 --debug  <-- or -d, or no argument here
 /// FileArgument file;
@@ -63,9 +64,12 @@ class RAYLIB_EXPORT FixedArgument : public Argument
 class RAYLIB_EXPORT TextArgument : public FixedArgument
 {
 public:
-  TextArgument(const std::string &name): name_(name) {}
+  TextArgument(const std::string &name)
+    : name_(name)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool);
   inline const std::string &name() const { return name_; }
+
 private:
   std::string name_;
 };
@@ -77,7 +81,9 @@ class RAYLIB_EXPORT FileArgument : public FixedArgument
 public:
   /// @c check_extension determines whether a file's extension is checked (3 letters and alphanumeric)
   /// False is used for example for auto-merging of temporary files, which don't have standard extensions.
-  FileArgument(bool check_extension = true) : check_extension_(check_extension) {}
+  FileArgument(bool check_extension = true)
+    : check_extension_(check_extension)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   /// Stub is the part of the file before the '.'
   std::string nameStub() const { return getFileNameStub(name_); }
@@ -86,6 +92,7 @@ public:
 
   inline const std::string &name() const { return name_; }
   inline std::string &name() { return name_; }
+
 private:
   std::string name_;
   bool check_extension_;
@@ -101,9 +108,13 @@ class RAYLIB_EXPORT DoubleArgument : public ValueArgument
 {
 public:
   DoubleArgument();
-  DoubleArgument(double min_value, double max_value) : min_value_(min_value), max_value_(max_value) {}
+  DoubleArgument(double min_value, double max_value)
+    : min_value_(min_value)
+    , max_value_(max_value)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline double value() const { return value_; }
+
 private:
   double value_;
   double min_value_, max_value_;
@@ -114,9 +125,13 @@ class RAYLIB_EXPORT IntArgument : public ValueArgument
 {
 public:
   IntArgument();
-  IntArgument(int min_value, int max_value) : min_value_(min_value), max_value_(max_value) {}
+  IntArgument(int min_value, int max_value)
+    : min_value_(min_value)
+    , max_value_(max_value)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline int value() const { return value_; }
+
 private:
   int value_;
   int min_value_, max_value_;
@@ -127,9 +142,13 @@ class RAYLIB_EXPORT Vector3dArgument : public ValueArgument
 {
 public:
   Vector3dArgument();
-  Vector3dArgument(double min_element_value, double max_element_value) : min_value_(min_element_value), max_value_(max_element_value) {}
+  Vector3dArgument(double min_element_value, double max_element_value)
+    : min_value_(min_element_value)
+    , max_value_(max_element_value)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const Eigen::Vector3d &value() const { return value_; }
+
 private:
   Eigen::Vector3d value_;
   double min_value_, max_value_;
@@ -140,9 +159,13 @@ class RAYLIB_EXPORT Vector4dArgument : public ValueArgument
 {
 public:
   Vector4dArgument();
-  Vector4dArgument(double min_element_value, double max_element_value) : min_value_(min_element_value), max_value_(max_element_value) {}
+  Vector4dArgument(double min_element_value, double max_element_value)
+    : min_value_(min_element_value)
+    , max_value_(max_element_value)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const Eigen::Vector4d &value() const { return value_; }
+
 private:
   Eigen::Vector4d value_;
   double min_value_, max_value_;
@@ -152,9 +175,12 @@ private:
 class RAYLIB_EXPORT FileArgumentList : public FixedArgument
 {
 public:
-  FileArgumentList(int min_number) : min_number_(min_number) {}
+  FileArgumentList(int min_number)
+    : min_number_(min_number)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<FileArgument> &files() const { return files_; }
+
 private:
   std::vector<FileArgument> files_;
   int min_number_;
@@ -164,11 +190,15 @@ private:
 class RAYLIB_EXPORT KeyChoice : public FixedArgument
 {
 public:
-  KeyChoice(const std::initializer_list<std::string> &keys) : keys_(keys), selected_id_(-1) {}
+  KeyChoice(const std::initializer_list<std::string> &keys)
+    : keys_(keys)
+    , selected_id_(-1)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
   inline int selectedID() const { return selected_id_; }
   inline const std::string &selectedKey() const { return selected_key_; }
+
 private:
   std::vector<std::string> keys_;
   int selected_id_;
@@ -186,6 +216,7 @@ public:
   inline const std::vector<FixedArgument *> &values() const { return values_; }
   inline int selectedID() const { return selected_id_; }
   inline const std::string &selectedKey() const { return selected_key_; }
+
 private:
   std::vector<std::string> keys_;
   std::vector<FixedArgument *> values_;
@@ -205,6 +236,7 @@ public:
   inline const std::vector<ValueArgument *> &values() const { return values_; }
   inline int selectedID() const { return selected_id_; }
   inline const std::string &selectedKey() const { return selected_key_; }
+
 private:
   std::vector<ValueArgument *> values_;
   std::vector<std::string> keys_;
@@ -226,6 +258,7 @@ public:
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
   inline bool isSet() const { return is_set_; }
+
 private:
   std::string name_;
   char character_;
@@ -241,6 +274,7 @@ public:
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
   inline bool isSet() const { return is_set_; }
+
 private:
   std::string name_;
   char character_;

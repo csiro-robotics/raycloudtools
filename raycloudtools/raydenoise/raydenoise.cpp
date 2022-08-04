@@ -6,11 +6,11 @@
 #include "raylib/raycloud.h"
 #include "raylib/rayparse.h"
 
+#include <nabo/nabo.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-#include <nabo/nabo.h>
 
 void usage(int exit_code = 1)
 {
@@ -30,10 +30,10 @@ int main(int argc, char *argv[])
   ray::TextArgument range_text("range");
   ray::DoubleArgument range(1.0, 1000.0);
   ray::TextArgument cm_text("cm");
-  ray::ValueKeyChoice quantity({&vox_width, &sigmas, &range}, {"cm", "sigmas"});
-  
-  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &quantity});
-  bool range_noise = ray::parseCommandLine(argc, argv, {&cloud_file, &range_text, &range, &cm_text});
+  ray::ValueKeyChoice quantity({ &vox_width, &sigmas, &range }, { "cm", "sigmas" });
+
+  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &quantity });
+  bool range_noise = ray::parseCommandLine(argc, argv, { &cloud_file, &range_text, &range, &cm_text });
   if (!standard_format && !range_noise)
     usage();
 
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     usage();
 
   ray::Cloud new_cloud;
-  if (range_noise) // range-based distance measure. For mixed-points where lidar has contacted two surfaces.
+  if (range_noise)  // range-based distance measure. For mixed-points where lidar has contacted two surfaces.
   {
     double range_distance = 0.01 * range.value();
     new_cloud.starts.reserve(cloud.starts.size());
@@ -56,14 +56,15 @@ int main(int argc, char *argv[])
       double range0 = (cloud.ends[i - 1] - cloud.starts[i - 1]).norm();
       double range1 = (cloud.ends[i] - cloud.starts[i]).norm();
       double range2 = (cloud.ends[i + 1] - cloud.starts[i + 1]).norm();
-      double min_dist = std::min(std::abs(range0 - range2), std::min(std::abs(range1 - range0), std::abs(range2 - range1)));
+      double min_dist =
+        std::min(std::abs(range0 - range2), std::min(std::abs(range1 - range0), std::abs(range2 - range1)));
       if (!cloud.rayBounded(i) || min_dist < range_distance)
         new_cloud.addRay(cloud, i);
     }
     std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with range gaps > "
-         << range_distance * 100.0 << " cm." << std::endl;
+              << range_distance * 100.0 << " cm." << std::endl;
   }
-  else if (quantity.selectedKey() == "cm") // absolute distance measure
+  else if (quantity.selectedKey() == "cm")  // absolute distance measure
   {
     double distance = 0.01 * vox_width.value();
     Eigen::MatrixXi indices;
@@ -74,7 +75,7 @@ int main(int argc, char *argv[])
     std::vector<Eigen::Vector3d> &points = cloud.ends;
     Eigen::MatrixXd points_p(3, points.size());
     for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i];
-    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3); 
+    nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
     // Run the search
     const int search_size = std::min(10, (int)points.size()-1);
@@ -92,10 +93,10 @@ int main(int argc, char *argv[])
       if (!cloud.rayBounded(i) || (dists2(0, i) < 1e10 && dists2(0, i) < ray::sqr(distance)))
         new_cloud.addRay(cloud, i);
     }
-    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than " << distance * 100.0
-         << " cm from any other." << std::endl;
+    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with ends further than "
+              << distance * 100.0 << " cm from any other." << std::endl;
   }
-  else if (quantity.selectedKey() == "sigmas") // scale-invariant distance measure. Same as Mahalanobis distance
+  else if (quantity.selectedKey() == "sigmas")  // scale-invariant distance measure. Same as Mahalanobis distance
   {
     std::vector<Eigen::Vector3d> centroids;
     std::vector<Eigen::Vector3d> dimensions;
@@ -109,7 +110,7 @@ int main(int argc, char *argv[])
     new_cloud.ends.reserve(cloud.ends.size());
     new_cloud.times.reserve(cloud.times.size());
     new_cloud.colours.reserve(cloud.colours.size());
-    Eigen::Vector3d dims(0,0,0);
+    Eigen::Vector3d dims(0, 0, 0);
     double cnt = 0.0;
     double nums = 0;
     for (size_t i = 0; i < matrices.size(); i++)
@@ -117,30 +118,29 @@ int main(int argc, char *argv[])
       bool is_noise = false;
       if (cloud.rayBounded(i))
       {
-        if (indices(0,i) == -1) // no neighbours in range, we consider this as noise
+        if (indices(0, i) == -1)  // no neighbours in range, we consider this as noise
           continue;
-        int other_i = indices(0,i);
+        int other_i = indices(0, i);
         Eigen::Vector3d vec = cloud.ends[i] - centroids[other_i];
         Eigen::Vector3d newVec = matrices[other_i].transpose() * vec;
         newVec[0] /= dimensions[other_i][0];
         newVec[1] /= dimensions[other_i][1];
         newVec[2] /= dimensions[other_i][2];
         int num = 0;
-        for (int j = 0; j<search_size && indices(j,i)!= -1; j++)
-          num = j+1;
+        for (int j = 0; j < search_size && indices(j, i) != -1; j++) num = j + 1;
         nums += (double)num;
         dims += dimensions[other_i];
         cnt++;
         double scale2 = newVec.squaredNorm();
-        is_noise = scale2 > sigmas.value()*sigmas.value();
+        is_noise = scale2 > sigmas.value() * sigmas.value();
       }
       if (!is_noise)
         new_cloud.addRay(cloud, i);
     }
     dims /= cnt;
-    std::cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums/cnt << std::endl;
-    std::cout << cloud.starts.size() - new_cloud.starts.size() << " rays removed with nearest neighbour sigma more than " << sigmas.value()
-          << std::endl;
+    std::cout << "average dimensions: " << dims.transpose() << ", average num neighbours: " << nums / cnt << std::endl;
+    std::cout << cloud.starts.size() - new_cloud.starts.size()
+              << " rays removed with nearest neighbour sigma more than " << sigmas.value() << std::endl;
   }
 
   new_cloud.save(cloud_file.nameStub() + "_denoised.ply");

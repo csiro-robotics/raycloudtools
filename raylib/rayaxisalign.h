@@ -6,15 +6,15 @@
 #ifndef RAYLIB_RAYAXISALIGN_H
 #define RAYLIB_RAYAXISALIGN_H
 
-#include "raylib/raylibconfig.h"
 #include <string>
+#include "raylib/raylibconfig.h"
 
 namespace ray
 {
-/// Align cloud to its principle axes using 3D translation and 2D rotation (yaw about Z). 
+/// Align cloud to its principle axes using 3D translation and 2D rotation (yaw about Z).
 /// The highest density orthogonal planes define the new coordinate frame.
-/// The cloud is therefore translated to the intersection of these planes and 'yawed' such that the strongest 
-/// vertical plane represents the y axis. 
+/// The cloud is therefore translated to the intersection of these planes and 'yawed' such that the strongest
+/// vertical plane represents the y axis.
 /// Ambiguity with respect to 180 degrees is resolved as follows:
 /// if the centroid y component is farther from the origin than its x component, then make centroid y positive
 /// otherwise make centroid x positive.

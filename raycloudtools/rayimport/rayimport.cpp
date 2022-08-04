@@ -9,9 +9,9 @@
 #include <iostream>
 
 #include "raylib/raycloud.h"
-#include "raylib/rayply.h"
 #include "raylib/raylaz.h"
 #include "raylib/rayparse.h"
+#include "raylib/rayply.h"
 #include "raylib/raytrajectory.h"
 
 void usage(int exit_code = 1)
@@ -127,8 +127,7 @@ int main(int argc, char *argv[])
     }
     if (maximum_intensity == 0.0)
     {
-      for (auto &c: colours)
-        c.alpha = 255;
+      for (auto &c : colours) c.alpha = 255;
     }
     if (!ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours))
     {
@@ -156,7 +155,7 @@ int main(int argc, char *argv[])
     std::cout << "warning: all laz file intensities are 0." << std::endl;
     std::cout << "If your sensor lacks intensity information, set them to full using:" << std::endl;
     std::cout << "rayimport <point cloud> <trajectory file> --max_intensity 0" << std::endl;
-  }  
+  }
   ray::writeRayCloudChunkEnd(ofs);
   if (remove.isSet())
   {

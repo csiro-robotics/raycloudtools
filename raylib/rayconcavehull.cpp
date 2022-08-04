@@ -9,22 +9,22 @@
 
 #if RAYLIB_WITH_QHULL
 #include <libqhullcpp/Qhull.h>
-#include <libqhullcpp/QhullPoints.h>
 #include <libqhullcpp/QhullFacet.h>
-#include <libqhullcpp/QhullFacetSet.h>
 #include <libqhullcpp/QhullFacetList.h>
-#include <libqhullcpp/QhullRidge.h>
+#include <libqhullcpp/QhullFacetSet.h>
 #include <libqhullcpp/QhullPointSet.h>
+#include <libqhullcpp/QhullPoints.h>
+#include <libqhullcpp/QhullRidge.h>
 #include <libqhullcpp/QhullVertexSet.h>
 #include <map>
 #include <unordered_map>
 
 #ifdef __unix__
 #include <stdio.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/time.h>
 #else  // windows?
 #include <conio.h>
 #endif
@@ -63,8 +63,7 @@ ConcaveHull::ConcaveHull(const std::vector<Eigen::Vector3d> &points)
 
   orgQhull::QhullFacetList facets = hull.facetList();
   int maxFacets = 0;
-  for (const orgQhull::QhullFacet &f : facets) 
-    maxFacets = std::max(maxFacets, f.id() + 1);
+  for (const orgQhull::QhullFacet &f : facets) maxFacets = std::max(maxFacets, f.id() + 1);
   std::cout << "number of total facets: " << facets.size() << std::endl;
   tetrahedra_.resize(maxFacets);
 
@@ -308,8 +307,7 @@ bool ConcaveHull::growFront(double maxCurvature)
 
     newFace.tetrahedron = tetra.neighbours[i];
     newFace.triangle = tetra.triangles[i];
-    for (int j = 0; j < 3; j++) 
-      vertex_on_surface_[triangles_[newFace.triangle].vertices[j]] = true;
+    for (int j = 0; j < 3; j++) vertex_on_surface_[triangles_[newFace.triangle].vertices[j]] = true;
     double grad;
     if (triangles_[newFace.triangle].is_surface)
       newFace.curvature = grad = deadFace;
@@ -333,8 +331,7 @@ void ConcaveHull::growSurface(double maxCurvature)
       for (auto &tri : surface_)
       {
         std::vector<Eigen::Vector3d> corners(3);
-        for (int i = 0; i < 3; i++) 
-          corners[i] = vertices_[triangles_[tri.triangle].vertices[i]];
+        for (int i = 0; i < 3; i++) corners[i] = vertices_[triangles_[tri.triangle].vertices[i]];
         tris.push_back(corners);
       }
       // if (DebugDraw *debug = DebugDraw::instance())
@@ -418,7 +415,7 @@ void ConcaveHull::growInDirection(double maxCurvature, const Eigen::Vector3d &di
       Eigen::Vector3d mid(0, 0, 0);
       for (int j = 0; j < 4; j++) mid += vertices_[tetrahedra_[face.tetrahedron].vertices[j]] / 4.0;
       Eigen::Vector3d normal = (vertices_[tri.vertices[2]] - vertices_[tri.vertices[0]])
-                          .cross(vertices_[tri.vertices[1]] - vertices_[tri.vertices[0]]);
+                                 .cross(vertices_[tri.vertices[1]] - vertices_[tri.vertices[0]]);
       if ((mid - vertices_[tri.vertices[0]]).dot(normal) < 0.0)
         normal = -normal;
       if (normal.dot(dir) < 0.0)  // downwards facing
@@ -465,5 +462,5 @@ void ConcaveHull::convertToMesh()
   if (num_bads > 0)
     std::cout << "number of surfaces that didn't have enough information to orient: " << num_bads << std::endl;
 }
-}
+}  // namespace ray
 #endif

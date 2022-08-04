@@ -5,13 +5,13 @@
 // Author: Thomas Lowe
 #include "raylib/raycloud.h"
 #include "raylib/raydebugdraw.h"
-#include "raylib/raymesh.h"
 #include "raylib/raymerger.h"
+#include "raylib/raymesh.h"
+#include "raylib/rayparse.h"
 #include "raylib/rayply.h"
 #include "raylib/rayprogress.h"
 #include "raylib/rayprogressthread.h"
 #include "raylib/raythreads.h"
-#include "raylib/rayparse.h"
 
 #include <chrono>
 #include <cstdio>
@@ -41,12 +41,12 @@ void usage(int exit_code = 1)
 
 int main(int argc, char *argv[])
 {
-  ray::KeyChoice merge_type({"min", "max", "oldest", "newest"});
+  ray::KeyChoice merge_type({ "min", "max", "oldest", "newest" });
   ray::FileArgument cloud_file;
   ray::DoubleArgument num_rays(0.1, 100.0);
   ray::TextArgument text("rays");
   ray::OptionalFlagArgument colour("colour", 'c');
-  if (!ray::parseCommandLine(argc, argv, {&merge_type, &cloud_file, &num_rays, &text}, {&colour}))
+  if (!ray::parseCommandLine(argc, argv, { &merge_type, &cloud_file, &num_rays, &text }, { &colour }))
     usage();
 
   ray::Cloud cloud;

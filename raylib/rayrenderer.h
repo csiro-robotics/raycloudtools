@@ -6,7 +6,6 @@
 #ifndef RAYLIB_RAYRENDERER_H
 #define RAYLIB_RAYRENDERER_H
 
-#include "raylib/raylibconfig.h"
 #include "raycuboid.h"
 #include "raypose.h"
 #include "rayutils.h"
@@ -54,22 +53,22 @@ struct RAYLIB_EXPORT DensityGrid
   DensityGrid(const Cuboid &grid_bounds, double vox_width, const Eigen::Vector3i &dims) :
     bounds_(grid_bounds), voxel_width_(vox_width), voxel_dims_(dims)
   {
-    voxels_.resize(dims[0]*dims[1]*dims[2]);
+    voxels_.resize(dims[0] * dims[1] * dims[2]);
   }
 
   /// This specific voxel class represents a density
   class Voxel
   {
   public:
-    Voxel(){ num_hits_ = num_rays_ = path_length_ = 0.0; }
+    Voxel() { num_hits_ = num_rays_ = path_length_ = 0.0; }
     /// return the density that the voxel represents
     inline double density() const;
     inline double numerator() const;
     inline double denominator() const;
     /// the densities can be summed element-wise
-    inline void operator +=(const Voxel &other);
+    inline void operator+=(const Voxel &other);
     /// the densities can be multiplied by a scalar, element-wise
-    inline Voxel operator *(float scale) const;
+    inline Voxel operator*(float scale) const;
     /// Add a ray which enters the voxel and hits within it. @c length is the ray length within the voxel
     inline void addHitRay(float length);
     /// Add a ray which enters and exits the voxel. @c length is the ray path length within the voxel
@@ -124,7 +123,7 @@ void DensityGrid::Voxel::operator +=(const DensityGrid::Voxel &other)
   num_rays_ += other.num_rays_;
   path_length_ += other.path_length_;
 }
-DensityGrid::Voxel DensityGrid::Voxel::operator *(float scale) const
+DensityGrid::Voxel DensityGrid::Voxel::operator*(float scale) const
 {
   DensityGrid::Voxel voxel;
   voxel.num_hits_ = num_hits_ * scale;
@@ -154,4 +153,5 @@ int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
 }
 
 }
-#endif // RAYLIB_RAYRENDERER_H
+}  // namespace ray
+#endif  // RAYLIB_RAYRENDERER_H

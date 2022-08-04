@@ -3,10 +3,10 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include "rayparse.h"
 #include <iostream>
 #include <limits>
 #include "rayutils.h"
-#include "rayparse.h"
 
 namespace ray
 {
@@ -27,33 +27,36 @@ std::string getFileNameExtension(const std::string &name)
 }
 
 // Process the command line according to the specified format.
-// fixed_arguments are always in order and don't have a "-" prefix. optional_arguments appear in any order after the fixed arguments, and have a "-" or "--" prefix.
-bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments, std::vector<OptionalArgument *> optional_arguments, bool set_values_)
+// fixed_arguments are always in order and don't have a "-" prefix. optional_arguments appear in any order after the
+// fixed arguments, and have a "-" or "--" prefix.
+bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments,
+                      std::vector<OptionalArgument *> optional_arguments, bool set_values_)
 {
   // if we are setting the argument values_ then first run the parsing without setting them, and then only continue (to set them) if the format matches.
   if (set_values_ && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false))
     return false;
   int c = 1;
-  for (auto &l: fixed_arguments)
+  for (auto &l : fixed_arguments)
   {
     if (!l->parse(argc, argv, c, set_values_))
       return false;
   }
-  while (c < argc) // now process the optional_arguments. For each command line index we need to loop through all remaining optional arguments
+  while (c < argc)  // now process the optional_arguments. For each command line index we need to loop through all
+                    // remaining optional arguments
   {
     bool found = false;
-    for (size_t i = 0; i<optional_arguments.size(); i++)
+    for (size_t i = 0; i < optional_arguments.size(); i++)
     {
       if (optional_arguments[i]->parse(argc, argv, c, set_values_))
       {
         found = true;
         optional_arguments[i] = optional_arguments.back();
-        optional_arguments.pop_back(); // remove this argument, so we don't look for it twice
-        break; // an argument should only match one Argument type
+        optional_arguments.pop_back();  // remove this argument, so we don't look for it twice
+        break;                          // an argument should only match one Argument type
       }
     }
     if (!found)
-      return false; // no optional argument matches argument c
+      return false;  // no optional argument matches argument c
   }
   return true;
 }
@@ -113,7 +116,7 @@ bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   char *endptr;
   double val = std::strtod(argv[index], &endptr);
-  if (endptr != argv[index]+std::strlen(argv[index])) // if the double is badly formed
+  if (endptr != argv[index] + std::strlen(argv[index]))  // if the double is badly formed
     return false;
   index++;
   if (!set_value)
@@ -140,7 +143,7 @@ bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   char *endptr;
   long int val = std::strtol(argv[index], &endptr, 10);
-  if (endptr != argv[index]+std::strlen(argv[index])) // if the int is badly formed
+  if (endptr != argv[index] + std::strlen(argv[index]))  // if the int is badly formed
     return false;
   index++;
   if (!set_value)
@@ -170,18 +173,19 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
   int i = 0;
   while (std::getline(ss, field, ','))
   {
-    if (i==3)
+    if (i == 3)
       return false;
     char *endptr;
     const char *str = field.c_str();
     double val = std::strtod(str, &endptr);
-    if (endptr != str+std::strlen(str)) // if the double is badly formed
+    if (endptr != str + std::strlen(str))  // if the double is badly formed
       return false;
     if (set_value)
     {
       if (val < min_value_ || val > max_value_)
       {
-        std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
+        std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
+                  << std::endl;
         return false;
       }
       value_[i] = val;
@@ -209,18 +213,19 @@ bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
   int i = 0;
   while (std::getline(ss, field, ','))
   {
-    if (i==4)
+    if (i == 4)
       return false;
     char *endptr;
     const char *str = field.c_str();
     double val = std::strtod(str, &endptr);
-    if (endptr != str+std::strlen(str)) // if the double is badly formed
+    if (endptr != str + std::strlen(str))  // if the double is badly formed
       return false;
     if (set_value)
     {
       if (val < min_value_ || val > max_value_)
       {
-        std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
+        std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
+                  << std::endl;
         return false;
       }
       value_[i] = val;
@@ -252,7 +257,7 @@ bool KeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
     return false;
   std::string str(argv[index]);
   index++;
-  for (size_t i = 0; i<keys_.size(); i++)
+  for (size_t i = 0; i < keys_.size(); i++)
   {
     if (keys_[i] == str)
     {
@@ -295,10 +300,10 @@ bool KeyValueChoice::parse(int argc, char *argv[], int &index, bool set_value)
 
 bool ValueKeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
 {
-  if (index+1 >= argc)
+  if (index + 1 >= argc)
     return false;
-  std::string str(argv[index+1]);
-  for (size_t i = 0; i<keys_.size(); i++)
+  std::string str(argv[index + 1]);
+  for (size_t i = 0; i < keys_.size(); i++)
   {
     if (keys_[i] == str)
     {
@@ -325,7 +330,7 @@ bool OptionalFlagArgument::parse(int argc, char *argv[], int &index, bool set_va
   {
     if (set_value)
       is_set_ = true;
-    index++; // for optional parameters, we only increment the argument index when it has been found
+    index++;  // for optional parameters, we only increment the argument index when it has been found
     return true;
   }
   return false;

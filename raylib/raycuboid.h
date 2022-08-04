@@ -16,15 +16,15 @@ namespace ray
 class RAYLIB_EXPORT Cuboid
 {
 public:
-  Cuboid(){}
+  Cuboid() {}
   Cuboid(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound);
 
-  /// if the ray defined by @c start, @c dir and @c depth intersects the cuboid, then 
+  /// if the ray defined by @c start, @c dir and @c depth intersects the cuboid, then
   /// @c depth is updated with the intersection depth, and the function returns true
   /// @c positive_box true has outward normals and intersects with the near box faces
   /// @c positive_box false has inward normals and intersects with the far box faces
   bool intersectsRay(const Eigen::Vector3d &start, const Eigen::Vector3d &dir, double &depth, bool positive_box) const;
-  
+
   /// a negative box has inwards normals, so the ray intersects the back wall, filling in the @c depth argument
   bool intersects(const Eigen::Vector3d &pos) const;
   /// overlap of this cuboid with another, 'kissing' cuboids count as intersection. 
@@ -35,7 +35,7 @@ public:
     return !outside;
   }
 
-  /// clip ray to cuboid. Return false if no ray left. 
+  /// clip ray to cuboid. Return false if no ray left.
   bool clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const;
 
   Eigen::Vector3d min_bound_, max_bound_;

@@ -14,7 +14,7 @@
 
 #if RAYLIB_WITH_TBB
 #include <tbb/parallel_for.h>
-#endif // RAYLIB_WITH_TBB
+#endif  // RAYLIB_WITH_TBB
 
 namespace ray
 {
@@ -60,7 +60,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     progress->end();
     progress->begin("generateEllipsoids", cloud.ends.size());
   }
-  const auto generate_ellipsoid = [&](size_t i)  // 
+  const auto generate_ellipsoid = [&](size_t i)  //
   {
     Ellipsoid &ellipsoid = (*ellipsoids)[i];
     ellipsoid.clear();
@@ -142,7 +142,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     ellipsoids_max.y() = std::max(ellipsoids_max.y(), ellipsoid_max.y());
     ellipsoids_max.z() = std::max(ellipsoids_max.z(), ellipsoid_max.z());
   }
-#else  // RAYLIB_WITH_TBB
+#else   // RAYLIB_WITH_TBB
   for (size_t i = 0; i < cloud.rayCount(); ++i)
   {
     generate_ellipsoid(i);
@@ -158,7 +158,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     ellipsoids_max.y() = std::max(ellipsoids_max.y(), ellipsoid_max.y());
     ellipsoids_max.z() = std::max(ellipsoids_max.z(), ellipsoid_max.z());
   }
-#endif // RAYLIB_WITH_TBB
+#endif  // RAYLIB_WITH_TBB
 
   if (bounds_min)
   {

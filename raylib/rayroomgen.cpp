@@ -14,7 +14,8 @@ void RoomGen::generate()
   double room_length = random(3.0, 6.0);
   double room_height = random(2.75, 3.0);
 
-  Eigen::Vector3d floor_centre(0, 0, -room_height * 0.5);  // random(-10.0, 10.0), random(-10.0, 10.0), random(-10.0, 10.0));
+  Eigen::Vector3d floor_centre(0, 0,
+                               -room_height * 0.5);  // random(-10.0, 10.0), random(-10.0, 10.0), random(-10.0, 10.0));
   double room_yaw = random(0.0, 2.0 * kPi);
 
   std::vector<Cuboid> negatives;
@@ -46,7 +47,7 @@ void RoomGen::generate()
   double table_length = random(0.5, 1.5);
   double table_height = random(0.5, 1.2);
   Eigen::Vector3d table_pos(random(0.0, room_width - table_width - 1.0), random(0.0, room_length - table_length - 1.0),
-                     table_height);
+                            table_height);
   Cuboid table_top(table_pos, table_pos + Eigen::Vector3d(table_width, table_length, 0.05));
   positives.push_back(table_top);
   for (int x = 0; x < 2; x++)
@@ -54,7 +55,7 @@ void RoomGen::generate()
     for (int y = 0; y < 2; y++)
     {
       Eigen::Vector3d pos(table_pos[0] + 0.05 + (table_width - 0.15) * (double)x,
-                   table_pos[1] + 0.05 + (table_length - 0.15) * (double)y, 0.0);
+                          table_pos[1] + 0.05 + (table_length - 0.15) * (double)y, 0.0);
       Cuboid leg(pos, pos + Eigen::Vector3d(0.05, 0.05, table_height));
       positives.push_back(leg);
     }
@@ -120,4 +121,4 @@ void RoomGen::generate()
     ray_bounded_.push_back(range != max_range);
   }
 }
-} // ray
+}  // namespace ray

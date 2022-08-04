@@ -32,6 +32,7 @@ public:
 
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
+
 private:
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
 };

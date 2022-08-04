@@ -8,8 +8,8 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
 #include "raypose.h"
+#include "rayutils.h"
 
 namespace ray
 {

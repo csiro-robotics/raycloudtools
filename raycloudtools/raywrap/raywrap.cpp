@@ -7,9 +7,9 @@
 #include "raylib/rayconcavehull.h"
 #include "raylib/rayconvexhull.h"
 #include "raylib/raydebugdraw.h"
+#include "raylib/rayparse.h"
 #include "raylib/rayply.h"
 #include "raylib/rayutils.h"
-#include "raylib/rayparse.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -23,7 +23,7 @@ void usage(int exit_code = 1)
   std::cout << "Extracts the ground surface as a mesh." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raywrap raycloud upwards 1.0 - wraps raycloud from the bottom upwards, or: downwards, inwards, outwards"
-       << std::endl;
+            << std::endl;
   std::cout << "                               the 1.0 is the maximum curvature to bend to" << std::endl;
   std::cout << "--full                       - the full (slower) method accounts for overhangs." << std::endl;
   exit(exit_code);
@@ -32,10 +32,10 @@ void usage(int exit_code = 1)
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  ray::KeyChoice direction({"upwards", "downwards", "inwards", "outwards"});
+  ray::KeyChoice direction({ "upwards", "downwards", "inwards", "outwards" });
   ray::DoubleArgument curvature;
   ray::OptionalFlagArgument full("full", 'f');
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &direction, &curvature}, {&full}))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &direction, &curvature }, { &full }))
     usage();
 
   ray::Cloud cloud;

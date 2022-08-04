@@ -8,19 +8,18 @@
 #if RAYLIB_WITH_QHULL
 
 #include <libqhullcpp/Qhull.h>
-#include <libqhullcpp/QhullPoints.h>
 #include <libqhullcpp/QhullFacet.h>
-#include <libqhullcpp/QhullFacetSet.h>
 #include <libqhullcpp/QhullFacetList.h>
-#include <libqhullcpp/QhullRidge.h>
+#include <libqhullcpp/QhullFacetSet.h>
 #include <libqhullcpp/QhullPointSet.h>
+#include <libqhullcpp/QhullPoints.h>
+#include <libqhullcpp/QhullRidge.h>
 #include <libqhullcpp/QhullVertexSet.h>
 
 #include <map>
 
 namespace ray
 {
-
 class lessThan
 {
 public:
@@ -118,5 +117,5 @@ void ConvexHull::growInDirection(double maxCurvature, const Eigen::Vector3d &dir
 
   construct(points, dir);
 }
-}
+}  // namespace ray
 #endif

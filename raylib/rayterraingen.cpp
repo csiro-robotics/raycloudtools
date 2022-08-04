@@ -47,7 +47,7 @@ void TerrainGen::generate(const TerrainParams &params)
   {
     // Now generate a trajectory around the landscape. This is a lissajous-type curve
     Eigen::Vector2d traj_pos = traj_centre + traj_radius * Eigen::Vector2d(sin(phase), cos(phase)) +
-                        traj_radius2 * Eigen::Vector2d(sin(phase / rad_scale), cos(phase / rad_scale));
+                               traj_radius2 * Eigen::Vector2d(sin(phase / rad_scale), cos(phase / rad_scale));
 
     double floor_y = 0.0;
     for (auto &wave : waves) floor_y += wave.amplitude * sin(traj_pos.dot(wave.dir));

@@ -13,8 +13,7 @@ void Trajectory::calculateStartPoints(const std::vector<double> &times, std::vec
     std::cout << "Warning: can only calculate start points when a trajectory is available" << std::endl;
 
   starts.resize(times.size());
-  for (size_t i = 0; i < times.size(); i++)
-    starts[i] = linear(times[i]);
+  for (size_t i = 0; i < times.size(); i++) starts[i] = linear(times[i]);
 }
 
 bool Trajectory::save(const std::string &file_name)
@@ -25,7 +24,7 @@ bool Trajectory::save(const std::string &file_name)
   {
     std::cerr << "error: cannot open file " << file_name << " for writing" << std::endl;
     return false;
-  }  
+  }
   ofs.unsetf(std::ios::floatfield);
   ofs.precision(15);
   ofs << "%time x y z userfields" << std::endl;
@@ -49,10 +48,10 @@ bool saveTrajectory(const std::vector<TrajectoryNode> &nodes, const std::string 
   ofs.unsetf(std::ios::floatfield);
   ofs.precision(15);
   ofs << "%time x y z userfields" << std::endl;
-  for (auto &node: nodes)
+  for (auto &node : nodes)
   {
     ofs << node.time << " " << node.point[0] << " " << node.point[1] << " " << node.point[2] << " " << std::endl;
-  }  
+  }
   return true;
 }
 
@@ -71,7 +70,7 @@ bool Trajectory::load(const std::string &file_name)
       return false;
     }
     ASSERT(!ifs.fail());
-    
+
     while (!ifs.eof())
     {
       getline(ifs, line);
@@ -107,7 +106,7 @@ bool Trajectory::load(const std::string &file_name)
       std::cerr << "Invalid fields at line " << i << " of " << file_name << std::endl;
       return false;
     }
-    if (i > 0 && times_[i] < times_[i-1])
+    if (i > 0 && times_[i] < times_[i - 1])
       ordered = false;
   }
   if (ifs.fail())
@@ -118,7 +117,7 @@ bool Trajectory::load(const std::string &file_name)
   if (!ordered)
   {
     std::cout << "Warning: trajectory times not ordered. Ordering them now." << std::endl;
-    
+
     struct Temp
     {
       double time;
@@ -131,17 +130,17 @@ bool Trajectory::load(const std::string &file_name)
       time_list[i].index = i;
     }
     sort(time_list.begin(), time_list.end(), [](const Temp &a, const Temp &b) { return a.time < b.time; });
-    
+
     std::vector<Eigen::Vector3d> new_points(points_.size());
     std::vector<double> new_times(times_.size());
     for (size_t i = 0; i < points_.size(); i++)
     {
       new_points[i] = points_[time_list[i].index];
       new_times[i] = times_[time_list[i].index];
-      if (!(i%100))
+      if (!(i % 100))
         std::cout << "time: " << new_times[i] - new_times[0] << std::endl;
     }
-    points_ = std::move(new_points);  
+    points_ = std::move(new_points);
     times_ = std::move(new_times);
     std::cout << "finished sorting" << std::endl;
   }
@@ -173,6 +172,6 @@ Eigen::Vector3d Trajectory::linear(double time, bool extrapolate) const
     else if (time > 1.0)
       return points_.back();
   }
-  return points_[index] * (1-time) + points_[index+1] * time;
+  return points_[index] * (1 - time) + points_[index + 1] * time;
 }
-} // ray
+}  // namespace ray

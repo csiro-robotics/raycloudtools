@@ -28,12 +28,12 @@ int main(int argc, char *argv[])
   ray::Vector3dArgument translation3;
   ray::Vector4dArgument translation4;
 
-  bool vec3 = ray::parseCommandLine(argc, argv, {&cloud_file, &translation3});
-  bool vec4 = ray::parseCommandLine(argc, argv, {&cloud_file, &translation4});
+  bool vec3 = ray::parseCommandLine(argc, argv, { &cloud_file, &translation3 });
+  bool vec4 = ray::parseCommandLine(argc, argv, { &cloud_file, &translation4 });
   if (!vec3 && !vec4)
     usage();
 
-  Eigen::Vector3d translation(0,0,0);
+  Eigen::Vector3d translation(0, 0, 0);
   double time_delta = 0.0;
   if (vec3)
     translation = translation3.value();
@@ -43,10 +43,9 @@ int main(int argc, char *argv[])
     time_delta = translation4.value()[3];
   }
 
-  const std::string temp_name = cloud_file.nameStub() + "~.ply"; // tilde is a common suffix for temporary files
+  const std::string temp_name = cloud_file.nameStub() + "~.ply";  // tilde is a common suffix for temporary files
 
-  auto translate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &)
-  {
+  auto translate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &) {
     start += translation;
     end += translation;
     time += time_delta;

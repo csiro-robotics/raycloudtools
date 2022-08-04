@@ -19,7 +19,10 @@ namespace ray
 class RAYLIB_EXPORT PCGRandomGenerator
 {
 public:
-  PCGRandomGenerator() { seed(12748, 3147, 792751, 14992); } // we can't initialise using std::rand, as it isn't platform independent
+  PCGRandomGenerator()
+  {
+    seed(12748, 3147, 792751, 14992);
+  }  // we can't initialise using std::rand, as it isn't platform independent
 
   /// The minimum possible result value (inclusive). For compatibility with @c std::shuffle()
   static constexpr unsigned min() { return std::numeric_limits<unsigned int>::min(); }
@@ -71,4 +74,4 @@ inline double randUniformDouble()
 }
 }  // namespace ray
 
-#endif // RAY_RANDOM_H
+#endif  // RAY_RANDOM_H

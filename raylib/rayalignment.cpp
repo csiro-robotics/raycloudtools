@@ -4,16 +4,16 @@
 //
 // Author: Thomas Lowe
 #include "rayalignment.h"
-#include "rayunused.h"
 #include "rayply.h"
+#include "rayunused.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "imagewrite.h"
 
 #include "simple_fft/fft.h"
 
 #include <cinttypes>
-#include <iostream>
 #include <complex>
+#include <iostream>
 
 using Complex = std::complex<double>;
 static const double kHighPassPower = 0.25;  // This fixes inout->inout11, inoutD->inoutB2 and house_inside->house3.
@@ -38,9 +38,10 @@ struct Array1D
 
   int maxRealIndex() const;
   void conjugate();
-  int numCells(){ return (int)cells_.size(); }
-  Complex &cell(int i){ return cells_[i]; }
+  int numCells() { return (int)cells_.size(); }
+  Complex &cell(int i) { return cells_[i]; }
   const Complex &cell(int i) const { return cells_[i]; }
+
 private:
   std::vector<Complex> cells_;
 };
@@ -72,14 +73,12 @@ void Array3D::init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_ma
 
 void Array3D::operator*=(const Array3D &other)
 {
-  for (int i = 0; i < (int)cells_.size(); i++) 
-    cells_[i] *= other.cells_[i];
+  for (int i = 0; i < (int)cells_.size(); i++) cells_[i] *= other.cells_[i];
 }
 
 void Array3D::conjugate()
 {
-  for (int i = 0; i < (int)cells_.size(); i++) 
-    cells_[i] = conj(cells_[i]);
+  for (int i = 0; i < (int)cells_.size(); i++) cells_[i] = conj(cells_[i]);
 }
 
 void Array3D::fft()
@@ -158,14 +157,12 @@ void Array1D::init(int length)
 
 void Array1D::operator*=(const Array1D &other)
 {
-  for (int i = 0; i < (int)cells_.size(); i++) 
-    cells_[i] *= other.cells_[i];
+  for (int i = 0; i < (int)cells_.size(); i++) cells_[i] *= other.cells_[i];
 }
 
 void Array1D::conjugate()
 {
-  for (int i = 0; i < (int)cells_.size(); i++) 
-    cells_[i] = conj(cells_[i]);
+  for (int i = 0; i < (int)cells_.size(); i++) cells_[i] = conj(cells_[i]);
 }
 
 void Array1D::fft()
@@ -308,7 +305,9 @@ void Array1D::polarCrossCorrelation(const Array3D *arrays, bool verbose)
       for (int j = 0; j < polar_dims[1]; j++)
       {
         double radius = (0.5 + (double)j) / (double)polar_dims[1];
-        Eigen::Vector2d pos = radius * 0.5 * Eigen::Vector2d((double)a.dimensions()[0] * sin(angle), (double)a.dimensions()[1] * cos(angle));
+        Eigen::Vector2d pos =
+          radius * 0.5 *
+          Eigen::Vector2d((double)a.dimensions()[0] * sin(angle), (double)a.dimensions()[1] * cos(angle));
         if (pos[0] < 0.0)
           pos[0] += a.dimensions()[0];
         if (pos[1] < 0.0)
@@ -369,7 +368,7 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   {
     const double mx = std::numeric_limits<double>::max();
     const double mn = std::numeric_limits<double>::lowest();
-    Eigen::Vector3d box_min(mx,mx,mx), box_max(mn,mn,mn);
+    Eigen::Vector3d box_min(mx, mx, mx), box_max(mn, mn, mn);
     for (int i = 0; i < (int)clouds[c].ends.size(); i++)
     {
       if (clouds[c].rayBounded(i))
@@ -426,7 +425,7 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
     clouds[0].transform(pose, 0.0);
 
     const double mx = std::numeric_limits<double>::max();
-    box_mins[0] = Eigen::Vector3d(mx,mx,mx);
+    box_mins[0] = Eigen::Vector3d(mx, mx, mx);
     for (int i = 0; i < (int)clouds[0].ends.size(); i++)
       if (clouds[0].rayBounded(i))
         box_mins[0] = minVector(box_mins[0], clouds[0].ends[i]);
@@ -497,4 +496,4 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
   Pose transform(pos, Eigen::Quaterniond::Identity());
   clouds[0].transform(transform, 0.0);
 }
-} // namespace ray
+}  // namespace ray

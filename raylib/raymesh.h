@@ -8,12 +8,12 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "rayutils.h"
 #include "raycloud.h"
+#include "rayutils.h"
 
 namespace ray
 {
-/// A triangular mesh data structure. For mesh based operations. 
+/// A triangular mesh data structure. For mesh based operations.
 class RAYLIB_EXPORT Mesh
 {
 public:
@@ -25,7 +25,7 @@ public:
   void toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max, double width) const;
 
   /// access the mesh's vertices
-  inline std::vector<Eigen::Vector3d> &vertices(){ return vertices_; }
+  inline std::vector<Eigen::Vector3d> &vertices() { return vertices_; }
   inline const std::vector<Eigen::Vector3d> &vertices() const { return vertices_; }
   /// access the mesh's index list
   inline std::vector<Eigen::Vector3i> &indexList(){ return index_list_; }

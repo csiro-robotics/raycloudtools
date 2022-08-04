@@ -54,10 +54,10 @@ bool readLas(const std::string &file_name,
     std::cerr << "No timetamps found on laz file, these are required" << std::endl;
     return false;
   }
-  
+
   ray::Progress progress;
   ray::ProgressThread progress_thread(progress);
-  const size_t num_chunks = (number_of_points + (chunk_size - 1))/chunk_size;
+  const size_t num_chunks = (number_of_points + (chunk_size - 1)) / chunk_size;
   chunk_size = std::min(number_of_points, chunk_size);
   progress.begin("read and process", num_chunks);
 
@@ -84,7 +84,7 @@ bool readLas(const std::string &file_name,
     position[2] = point.GetZ();
  
     ends.push_back(position);
-    starts.push_back(position); // equal to position for laz files, as we do not store the start points
+    starts.push_back(position);  // equal to position for laz files, as we do not store the start points
 
     if (using_colour)
     {
@@ -104,7 +104,7 @@ bool readLas(const std::string &file_name,
       num_bounded++;
     intensities.push_back(intensity);
 
-    if (ends.size() == chunk_size || i==number_of_points-1)
+    if (ends.size() == chunk_size || i == number_of_points - 1)
     {
       if (colours.size() == 0)
       {
@@ -138,15 +138,14 @@ bool readLas(const std::string &file_name,
   std::cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
-}  
+}
 
 bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times, 
              std::vector<RGBA> &colours, double max_intensity, Eigen::Vector3d *offset_to_remove)
 {
-  std::vector<Eigen::Vector3d> starts; // dummy as lax just reads in point clouds, not ray clouds
-  auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points, 
-     std::vector<double> &time_points, std::vector<RGBA> &colour_values)
-  {
+  std::vector<Eigen::Vector3d> starts;  // dummy as lax just reads in point clouds, not ray clouds
+  auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points,
+                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) {
     // Uses move syntax, so that the return references (starts, ends etc) just point to the allocated vector memory
     // instead of allocating and copying what can be a large amount of data
     starts = std::move(start_points);
@@ -158,25 +157,25 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
   bool success = readLas(file_name, apply, num_bounded, max_intensity, offset_to_remove, std::numeric_limits<size_t>::max());
   if (num_bounded == 0)
   {
-    std::cout << "warning: all laz file intensities are 0, which would make all rays unbounded. Setting them to 1." << std::endl;
-    for (auto &c: colours)
-      c.alpha = 255;
+    std::cout << "warning: all laz file intensities are 0, which would make all rays unbounded. Setting them to 1."
+              << std::endl;
+    for (auto &c : colours) c.alpha = 255;
   }
   return success;
 }
 
-bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
-                            const std::vector<RGBA> &colours)
+bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points,
+                            const std::vector<double> &times, const std::vector<RGBA> &colours)
 {
 #if RAYLIB_WITH_LAS
   std::cout << "saving LAZ file" << std::endl;
- 
+
   liblas::Header header;
-  header.SetDataFormatId(liblas::ePointFormat1); // Time only
+  header.SetDataFormatId(liblas::ePointFormat1);  // Time only
 
   if (file_name.find(".laz") != std::string::npos)
     header.SetCompressed(true);
- 
+
   std::cout << "Saving points to " << file_name << std::endl;
 
   std::ofstream ofs;
@@ -192,7 +191,8 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
 
   liblas::Writer writer(ofs, header);
   liblas::Point point(&header);
-  point.SetHeader(&header);//TODO HACK Version 1.7.0 does not correctly resize the data. Commit 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
+  point.SetHeader(&header);  // TODO HACK Version 1.7.0 does not correctly resize the data. Commit
+                             // 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
   for (unsigned int i = 0; i < points.size(); i++)
   {
     point.SetCoordinates(points[i][0], points[i][1], points[i][2]);
@@ -202,23 +202,25 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
     writer.WritePoint(point);
   }
   return true;
-#else // RAYLIB_WITH_LAS
+#else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
   RAYLIB_UNUSED(points);
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
+            << std::endl;
   return false;
-#endif // RAYLIB_WITH_LAS
+#endif  // RAYLIB_WITH_LAS
 }
 
 #if RAYLIB_WITH_LAS
-LasWriter::LasWriter(const std::string &file_name) : file_name_(file_name)
+LasWriter::LasWriter(const std::string &file_name)
+  : file_name_(file_name)
 {
-  header_.SetDataFormatId(liblas::ePointFormat1); // Time only
+  header_.SetDataFormatId(liblas::ePointFormat1);  // Time only
   if (file_name_.find(".laz") != std::string::npos)
     header_.SetCompressed(true);
- 
+
   std::cout << "Saving points to " << file_name_ << std::endl;
   out_.open(file_name_.c_str(), std::ios::out | std::ios::binary);
   if (out_.fail())
@@ -230,38 +232,42 @@ LasWriter::LasWriter(const std::string &file_name) : file_name_(file_name)
   header_.SetScale(scale, scale, scale);
   writer_ = new liblas::Writer(out_, header_);
 }
-#else // RAYLIB_WITH_LAS
-LasWriter::LasWriter(const std::string &file_name) : file_name_(file_name)
+#else   // RAYLIB_WITH_LAS
+LasWriter::LasWriter(const std::string &file_name)
+  : file_name_(file_name)
 {
   RAYLIB_UNUSED(file_name);
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
+            << std::endl;
 }
-#endif // RAYLIB_WITH_LAS
+#endif  // RAYLIB_WITH_LAS
 
 LasWriter::~LasWriter()
 {
 #if RAYLIB_WITH_LAS
   delete writer_;
 #else
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
+            << std::endl;
 #endif
 }
 
-bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, 
-                          const std::vector<double> &times, const std::vector<RGBA> &colours)
+bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
+                           const std::vector<RGBA> &colours)
 {
 #if RAYLIB_WITH_LAS
   if (points.size() == 0)
   {
-    return true; // this is acceptable behaviour. It avoids calling function checking for emptiness each time
+    return true;  // this is acceptable behaviour. It avoids calling function checking for emptiness each time
   }
   if (out_.fail())
   {
     std::cerr << "Error: cannot open " << file_name_ << " for writing." << std::endl;
     return false;
-  }  
+  }
   liblas::Point point(&header_);
-  point.SetHeader(&header_);//TODO HACK Version 1.7.0 does not correctly resize the data. Commit 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
+  point.SetHeader(&header_);  // TODO HACK Version 1.7.0 does not correctly resize the data. Commit
+                              // 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
   for (unsigned int i = 0; i < points.size(); i++)
   {
     point.SetCoordinates(points[i][0], points[i][1], points[i][2]);
@@ -271,13 +277,14 @@ bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points,
     writer_->WritePoint(point);
   }
   return true;
-#else // RAYLIB_WITH_LAS
+#else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(points);
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
+            << std::endl;
   return false;
-#endif // RAYLIB_WITH_LAS
+#endif  // RAYLIB_WITH_LAS
 }
 
 } // ray

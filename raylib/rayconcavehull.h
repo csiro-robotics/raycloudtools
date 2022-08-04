@@ -6,16 +6,16 @@
 #ifndef RAYLIB_RAYCONCAVEHULL_H
 #define RAYLIB_RAYCONCAVEHULL_H
 
+#include <set>
 #include "raylib/raylibconfig.h"
 #include "raylib/raymesh.h"
 #include "rayutils.h"
-#include <set>
 
 #if RAYLIB_WITH_QHULL
 namespace ray
 {
 /// Class for calculating concave hulls. This is a single, simply connected polyhedron with a maximum allowed
-/// concave curvature @c maxCurvature. It is a generalisation of a convex hull (@c maxCurvature=0) to any 
+/// concave curvature @c maxCurvature. It is a generalisation of a convex hull (@c maxCurvature=0) to any
 /// concave curvature. It is used like a vacuum wrapping of a ray cloud, particularly to extract ground terrain.
 /// It contains multiple methods for generating the hull, depending on which direction it should grow
 class RAYLIB_EXPORT ConcaveHull
@@ -36,7 +36,7 @@ public:
   void growDownwards(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, -1)); }
 
   /// access the generated mesh
-  Mesh &mesh(){ return mesh_; }
+  Mesh &mesh() { return mesh_; }
   const Mesh &mesh() const { return mesh_; }
 
 private:

@@ -16,7 +16,7 @@
 
 namespace ray
 {
-/// Read a laz or las file, into the fields passed by reference. 
+/// Read a laz or las file, into the fields passed by reference.
 bool RAYLIB_EXPORT readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times,
                            std::vector<RGBA> &colours, double max_intensity, Eigen::Vector3d *offset_to_remove = nullptr);
 
@@ -28,21 +28,21 @@ bool RAYLIB_EXPORT readLas(const std::string &file_name,
 
 
 /// Write to a laz or las file. The intensity is the only part that is extracted from the @c colours argument.
-bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
-                            const std::vector<RGBA> &colours);
+bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vector3d> &points,
+                            const std::vector<double> &times, const std::vector<RGBA> &colours);
 
 /// Class for chunked writing of las/laz files.
-class RAYLIB_EXPORT LasWriter 
+class RAYLIB_EXPORT LasWriter
 {
 public:
   /// construct the class with a file name, which is stored
   LasWriter(const std::string &file_name);
-  /// the destructor 
+  /// the destructor
   ~LasWriter();
   /// write a chunk of points to the file, described by the vector arguments
   bool writeChunk(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
                   const std::vector<RGBA> &colours);
-                  
+
 private:
   const std::string &file_name_;
   std::ofstream out_;
@@ -50,7 +50,7 @@ private:
   liblas::Header header_;
   liblas::Writer *writer_;
 #endif  // RAYLIB_WITH_LAS
-};                          
-}
+};
+}  // namespace ray
 
 #endif  // RAYLIB_RAYLAZ_H

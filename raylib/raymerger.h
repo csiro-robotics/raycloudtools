@@ -7,9 +7,9 @@
 
 #include "raylib/raylibconfig.h"
 
-#include "raygrid.h"
 #include "raycloud.h"
 #include "rayellipsoid.h"
+#include "raygrid.h"
 
 #include <atomic>
 #include <limits>
@@ -29,7 +29,7 @@ enum class RAYLIB_EXPORT MergeType : int
   Newest,
   Mininum,
   Maximum,
-  Order, // in file priority order, first to last
+  Order,  // in file priority order, first to last
   All
 };
 
@@ -95,8 +95,8 @@ private:
   /// mark the ray (through @c transient_ray_marks) as removed.
   /// @c ellipsoid_cloud_first is used only for the 'order' merge type, to choose which to mark
   void markIntersectedEllipsoids(const Cloud &cloud, const Grid<unsigned> &ray_grid,
-                                 std::vector<Bool> *transient_ray_marks, double num_rays, 
-                                 bool self_transient, Progress *progress, bool ellipsoid_cloud_first = false);
+                                 std::vector<Bool> *transient_ray_marks, double num_rays, bool self_transient,
+                                 Progress *progress, bool ellipsoid_cloud_first = false);
 
   /// Finalise the cloud filter and populate @c transientResults() and @c fixedResults() .
   void finaliseFilter(const Cloud &cloud, const std::vector<Bool> &transient_ray_marks);
