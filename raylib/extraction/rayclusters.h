@@ -6,11 +6,12 @@
 #ifndef RAYLIB_CLUSTERS_H
 #define RAYLIB_CLUSTERS_H
 
-#include "raylib/raylibconfig.h"
 #include "../rayutils.h"
+#include "raylib/raylibconfig.h"
 
 namespace ray
 {
-std::vector< std::vector<int> > generateClusters(const std::vector<Eigen::Vector3d> &points, double min_diameter, double max_diameter, bool agglomerate, bool verbose = false);
-} // namespace ray
-#endif // RAYLIB_RAYEXTRACT_WOODS_H
+std::vector<std::vector<int>> generateClusters(const std::vector<Eigen::Vector3d> &points, double min_diameter,
+                                               double max_diameter, bool agglomerate, bool verbose = false);
+}  // namespace ray
+#endif  // RAYLIB_RAYEXTRACT_WOODS_H

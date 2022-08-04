@@ -6,17 +6,16 @@
 #ifndef RAYLIB_RAYTERRAIN_H
 #define RAYLIB_RAYTERRAIN_H
 
-#include "raylib/raylibconfig.h"
-#include "../rayutils.h"
-#include "../raycloud.h"
 #include "../rayalignment.h"
+#include "../raycloud.h"
 #include "../raymesh.h"
+#include "../rayutils.h"
+#include "raylib/raylibconfig.h"
 
 typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 namespace ray
 {
-  
 /// A class for storage and extraction of a smooth ground height function
 class RAYLIB_EXPORT Terrain
 {
@@ -29,11 +28,13 @@ public:
   void growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient);
 
   /// performs voxel-based culling prior to growing upwards
-  void growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double pixel_width, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double gradient);
+  void growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double pixel_width, const Eigen::Vector3d &min_bound,
+                       const Eigen::Vector3d &max_bound, double gradient);
 
   /// access the generated mesh
-  Mesh &mesh(){ return mesh_; }
-  const Mesh &mesh() const { return mesh_; }  
+  Mesh &mesh() { return mesh_; }
+  const Mesh &mesh() const { return mesh_; }
+
 private:
   Mesh mesh_;
   static void getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front);

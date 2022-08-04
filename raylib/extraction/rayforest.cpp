@@ -4,12 +4,12 @@
 //
 // Author: Thomas Lowe
 #include "rayforest.h"
-#include "rayterrain.h"
 #include "../rayconvexhull.h"
-#include "../raymesh.h"
 #include "../raycuboid.h"
-#include "../rayply.h"
 #include "../rayforestgen.h"
+#include "../raymesh.h"
+#include "../rayply.h"
+#include "rayterrain.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,40 +26,41 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
   {
     tip = (cluster.min_bound + cluster.max_bound) / 2.0;
     tip[2] = cluster.max_bound[2];
-    return true; // TODO: do we believe trunks absolutely? or should we double check against the free space?
+    return true;  // TODO: do we believe trunks absolutely? or should we double check against the free space?
   }
-  if (cluster.trunk_id >= 0) // if this cluster is associated with a trunk, then use the trunk location, not the centroid
+  if (cluster.trunk_id >=
+      0)  // if this cluster is associated with a trunk, then use the trunk location, not the centroid
   {
     tip = trunks_[cluster.trunk_id].first - min_bounds_;
-    tip[2] = cluster.max_bound[2];    
+    tip[2] = cluster.max_bound[2];
     return true;
   }
-  Eigen::Vector3d weighted_sum(0,0,0);
+  Eigen::Vector3d weighted_sum(0, 0, 0);
   double weight = 0.0;
-  for (auto &i: cluster.ids)
+  for (auto &i : cluster.ids)
   {
     weighted_sum += points[i][2] * points[i];
     weight += points[i][2];
   }
-  tip = weighted_sum/weight;
-  Eigen::Vector3d tip_local = tip/voxel_width_;
+  tip = weighted_sum / weight;
+  Eigen::Vector3d tip_local = tip / voxel_width_;
   const double search_down_gradient = 0.2;
-  double radius = tip_local[2]*search_down_gradient;
+  double radius = tip_local[2] * search_down_gradient;
 
   // now find the closest bit of space to put the tree in:
   int min_x = std::max(0, (int)(tip_local[0] - radius));
-  int max_x = std::min((int)spacefield_.rows()-1, (int)(tip_local[0] + radius));
+  int max_x = std::min((int)spacefield_.rows() - 1, (int)(tip_local[0] + radius));
   int min_y = std::max(0, (int)(tip_local[1] - radius));
-  int max_y = std::min((int)spacefield_.cols()-1, (int)(tip_local[1] + radius));
+  int max_y = std::min((int)spacefield_.cols() - 1, (int)(tip_local[1] + radius));
   double best_score = -1e10;
   int best_x = -1;
   int best_y = -1;
-  for (int x = min_x; x<=max_x; x++)
+  for (int x = min_x; x <= max_x; x++)
   {
-    for (int y = min_y; y<=max_y; y++)
+    for (int y = min_y; y <= max_y; y++)
     {
-      double dist2 = sqr(((double)x-tip_local[0])/radius) + sqr(((double)y-tip_local[1])/radius);
-      double score = spacefield_(x, y) - 0.25*dist2; // slight preference for result near the centroid
+      double dist2 = sqr(((double)x - tip_local[0]) / radius) + sqr(((double)y - tip_local[1]) / radius);
+      double score = spacefield_(x, y) - 0.25 * dist2;  // slight preference for result near the centroid
       if (score > best_score)
       {
         best_score = score;
@@ -68,10 +69,10 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
       }
     }
   }
-  if (best_score > 0.0) 
+  if (best_score > 0.0)
   {
-    tip[0] = ((double)best_x+0.5)*voxel_width_;
-    tip[1] = ((double)best_y+0.5)*voxel_width_;
+    tip[0] = ((double)best_x + 0.5) * voxel_width_;
+    tip[1] = ((double)best_y + 0.5) * voxel_width_;
     return true;
   }
   return false;
@@ -80,39 +81,39 @@ bool Forest::findSpace(const Cluster &cluster, const std::vector<Eigen::Vector3d
 bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
 {
   bool calculate = true;
-  Eigen::Vector2d mid = voxel_width_ * (node.min_bound + node.max_bound).cast<double>()/2.0;
+  Eigen::Vector2d mid = voxel_width_ * (node.min_bound + node.max_bound).cast<double>() / 2.0;
   tip[0] = mid[0];
   tip[1] = mid[1];
 
-  if (node.trunk_id >= 0) // if this node is associated with a trunk, then use the trunk location, not the centroid
+  if (node.trunk_id >= 0)  // if this node is associated with a trunk, then use the trunk location, not the centroid
   {
     tip = trunks_[node.trunk_id].first - min_bounds_;
     calculate = false;
   }
 
-  Eigen::Vector3d tip_local = tip/voxel_width_;
+  Eigen::Vector3d tip_local = tip / voxel_width_;
   tip[2] = node.peak[2] - lowfield_((int)tip_local[0], (int)tip_local[1]);
   if (!calculate)
   {
     return true;
   }
   const double search_down_gradient = 0.2;
-  double radius = tip_local[2]*search_down_gradient;
+  double radius = tip_local[2] * search_down_gradient;
 
   // now find the closest bit of space to put the tree in:
   int min_x = std::max(0, (int)(tip_local[0] - radius));
-  int max_x = std::min((int)spacefield_.rows()-1, (int)(tip_local[0] + radius));
+  int max_x = std::min((int)spacefield_.rows() - 1, (int)(tip_local[0] + radius));
   int min_y = std::max(0, (int)(tip_local[1] - radius));
-  int max_y = std::min((int)spacefield_.cols()-1, (int)(tip_local[1] + radius));
+  int max_y = std::min((int)spacefield_.cols() - 1, (int)(tip_local[1] + radius));
   double best_score = -1e10;
   int best_x = -1;
   int best_y = -1;
-  for (int x = min_x; x<=max_x; x++)
+  for (int x = min_x; x <= max_x; x++)
   {
-    for (int y = min_y; y<=max_y; y++)
+    for (int y = min_y; y <= max_y; y++)
     {
-      double dist2 = sqr(((double)x-tip_local[0])/radius) + sqr(((double)y-tip_local[1])/radius);
-      double score = spacefield_(x, y) - 0.25*dist2; // slight preference for result near the centroid
+      double dist2 = sqr(((double)x - tip_local[0]) / radius) + sqr(((double)y - tip_local[1]) / radius);
+      double score = spacefield_(x, y) - 0.25 * dist2;  // slight preference for result near the centroid
       if (score > best_score)
       {
         best_score = score;
@@ -121,17 +122,18 @@ bool Forest::findSpace2(const TreeNode &node, Eigen::Vector3d &tip)
       }
     }
   }
-  if (best_score > 0.0) 
+  if (best_score > 0.0)
   {
-    tip[0] = ((double)best_x+0.5)*voxel_width_;
-    tip[1] = ((double)best_y+0.5)*voxel_width_;
+    tip[0] = ((double)best_x + 0.5) * voxel_width_;
+    tip[1] = ((double)best_y + 0.5) * voxel_width_;
     return true;
   }
   return false;
 }
 
 // extract the ray cloud canopy to a height field, then call the heightfield based forest extraction
-ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &mesh, const std::vector<std::pair<Eigen::Vector3d, double> > &trunks, double voxel_width) 
+ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &mesh,
+                                     const std::vector<std::pair<Eigen::Vector3d, double>> &trunks, double voxel_width)
 {
   trunks_ = trunks;
   Cloud::Info info;
@@ -142,19 +144,19 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
 
   std::cout << "voxel width: " << voxel_width << " m" << std::endl;
 
-  double width = (max_bounds_[0] - min_bounds_[0])/voxel_width;
-  double length = (max_bounds_[1] - min_bounds_[1])/voxel_width;
+  double width = (max_bounds_[0] - min_bounds_[0]) / voxel_width;
+  double length = (max_bounds_[1] - min_bounds_[1]) / voxel_width;
   Eigen::Vector2i grid_dims(ceil(width), ceil(length));
   std::cout << "dims for heightfield: " << grid_dims.transpose() << std::endl;
   Eigen::ArrayXXd highs = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], -1e10);
 
-  auto fillHeightField = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &, std::vector<ray::RGBA> &colours)
-  {
+  auto fillHeightField = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &,
+                             std::vector<ray::RGBA> &colours) {
     for (size_t i = 0; i < ends.size(); i++)
     {
       if (colours[i].alpha == 0)
         continue;
-      Eigen::Vector3d pos = (ends[i] - min_bounds_)/voxel_width;
+      Eigen::Vector3d pos = (ends[i] - min_bounds_) / voxel_width;
       double &h = highs((int)pos[0], (int)pos[1]);
       h = std::max(h, ends[i][2]);
     }
@@ -165,10 +167,11 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
   Eigen::ArrayXXd lows;
   if (mesh.vertices().empty())
     lows = Eigen::ArrayXXd::Constant(highs.rows(), highs.cols(), min_bounds_[2]);
-  else 
+  else
     mesh.toHeightField(lows, min_bounds_, max_bounds_, voxel_width);
   if (lows.rows() != highs.rows() || lows.cols() != highs.cols())
-    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << highs.rows() << " or " << lows.cols() << "!=" << highs.cols() << std::endl;
+    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << highs.rows() << " or " << lows.cols()
+              << "!=" << highs.cols() << std::endl;
 
   // generate grid
   Occupancy2D grid2D;
@@ -180,12 +183,12 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
     grid2D.save(cloud_name_stub + "_occupied.dat");
   }
   if (grid2D.dims_[0] != lows.rows() || grid2D.dims_[1] != lows.cols())
-    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << grid2D.dims_[0] << " or " << lows.cols() << "!=" << grid2D.dims_[1] << std::endl;
+    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << grid2D.dims_[0] << " or "
+              << lows.cols() << "!=" << grid2D.dims_[1] << std::endl;
   Eigen::ArrayXXd space(grid2D.dims_[0], grid2D.dims_[1]);
-  for (int i = 0; i<space.rows(); i++)
+  for (int i = 0; i < space.rows(); i++)
   {
-    for (int j = 0; j<space.cols(); j++)
-      space(i,j) = grid2D.pixel(Eigen::Vector3i(i, j, 0)).density();
+    for (int j = 0; j < space.cols(); j++) space(i, j) = grid2D.pixel(Eigen::Vector3i(i, j, 0)).density();
   }
 
   return extract(highs, lows, space, voxel_width, cloud_name_stub);
@@ -193,10 +196,10 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
 
 void Forest::addTrunkHeights()
 {
-  for (int c = 0; c<(int)trunks_.size(); c++) // if there are known trunks, then include them...
+  for (int c = 0; c < (int)trunks_.size(); c++)  // if there are known trunks, then include them...
   {
     auto &trunk = trunks_[c];
-    Eigen::Vector3d posr = (trunk.first - min_bounds_)/voxel_width_;
+    Eigen::Vector3d posr = (trunk.first - min_bounds_) / voxel_width_;
     Eigen::Vector3i pos = posr.cast<int>();
     if (pos[0] < 0 || pos[0] >= heightfield_.rows() || pos[1] < 0 || pos[1] >= heightfield_.cols())
     {
@@ -205,9 +208,9 @@ void Forest::addTrunkHeights()
     double radius = 10.0 * trunk.second / voxel_width_;
     double height = 80.0 * trunk.second;
     int rad = (int)std::ceil(radius);
-    for (int x = std::max(0, pos[0]-rad); x <= std::min(pos[0] + rad, (int)heightfield_.rows()-1); x++)
+    for (int x = std::max(0, pos[0] - rad); x <= std::min(pos[0] + rad, (int)heightfield_.rows() - 1); x++)
     {
-      for (int y = std::max(0, pos[1]-rad); y <= std::min(pos[1] + rad, (int)heightfield_.cols()-1); y++)
+      for (int y = std::max(0, pos[1] - rad); y <= std::min(pos[1] + rad, (int)heightfield_.cols() - 1); y++)
       {
         Eigen::Vector2d dif((double)x + 0.5 - posr[0], (double)y + 0.5 - posr[1]);
         dif /= radius;
@@ -218,7 +221,7 @@ void Forest::addTrunkHeights()
           if (heightfield_(x, y) != -1e10)
             heightfield_(x, y) += h;
         }
-      }    
+      }
     }
   }
 }
@@ -235,9 +238,9 @@ void Forest::smoothHeightfield()
         continue;
       double mean = h;
       double count = 1;
-      for (int xx = std::max(0, x-1); xx <= std::min(x+1, (int)heightfield_.rows()-1); xx++)
+      for (int xx = std::max(0, x - 1); xx <= std::min(x + 1, (int)heightfield_.rows() - 1); xx++)
       {
-        for (int yy = std::max(0, y-1); yy <= std::min(y+1, (int)heightfield_.cols()-1); yy++)
+        for (int yy = std::max(0, y - 1); yy <= std::min(y + 1, (int)heightfield_.cols() - 1); yy++)
         {
           double &h2 = heightfield_(xx, yy);
           if (h2 != -1e10)
@@ -245,15 +248,17 @@ void Forest::smoothHeightfield()
             mean += h2;
             count++;
           }
-        }        
+        }
       }
-      smooth_heights(x,y) = mean / count;
+      smooth_heights(x, y) = mean / count;
     }
   }
   heightfield_ = smooth_heights;
 }
 
-ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space, double voxel_width, const std::string &cloud_name_stub)
+ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows,
+                                     const Eigen::ArrayXXd &space, double voxel_width,
+                                     const std::string &cloud_name_stub)
 {
   voxel_width_ = voxel_width;
   heightfield_ = highs;
@@ -261,11 +266,11 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   spacefield_ = space;
   drawHeightField(cloud_name_stub + "_highfield.png", heightfield_);
   drawHeightField(cloud_name_stub + "_lowfield.png", lowfield_);
-   
-  
+
+
   ray::ForestStructure forest;
   int num_spaces = 0;
-  const std::vector<std::string> attributes = {"subtree_radius", "height", "trunk_identified", "section_id"};
+  const std::vector<std::string> attributes = { "subtree_radius", "height", "trunk_identified", "section_id" };
   int tree_radius_id = 0;
   int height_id = 1;
   int trunk_identified_id = 2;
@@ -278,7 +283,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   {
     for (int y = 0; y < heightfield_.cols(); y++)
     {
-      if (heightfield_(x, y) < lowfield_(x, y)+undercroft_height)
+      if (heightfield_(x, y) < lowfield_(x, y) + undercroft_height)
       {
         heightfield_(x, y) = -1e10;
         count++;
@@ -288,11 +293,10 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   original_heightfield_ = heightfield_;
   addTrunkHeights();
   drawHeightField(cloud_name_stub + "_trunkhighfield.png", heightfield_);
-  for (int i = 0; i<smooth_iterations_; i++)
-    smoothHeightfield();
+  for (int i = 0; i < smooth_iterations_; i++) smoothHeightfield();
   drawHeightField(cloud_name_stub + "_smoothhighfield.png", heightfield_);
 
-  std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows()*heightfield_.cols() << std::endl;
+  std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows() * heightfield_.cols() << std::endl;
   std::vector<TreeNode> trees;
   std::set<int> heads;
   hierarchicalWatershed(trees, heads);
@@ -307,8 +311,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       int ind = indexfield_(x, y);
       if (ind == -1)
         continue;
-      while (trees[ind].attaches_to != -1)
-        ind = trees[ind].attaches_to;
+      while (trees[ind].attaches_to != -1) ind = trees[ind].attaches_to;
       trees[ind].area++;
     }
   }
@@ -316,7 +319,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   drawFinalSegmentation(cloud_name_stub, trees);
   renderWatershed(cloud_name_stub, trees, heads);
 
-  for (auto &ind: heads)
+  for (auto &ind : heads)
   {
     if (trees[ind].area < min_area_)
       continue;
@@ -330,17 +333,18 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       result.attributes.resize(attributes.size());
       result.tip = min_bounds_ + tip;
       result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-      result.attributes[height_id] = tip[2]; 
+      result.attributes[height_id] = tip[2];
       int num_pixels = trees[ind].area;
-      result.attributes[tree_radius_id] = std::sqrt(((double)num_pixels * voxel_width_*voxel_width_)/kPi); // get from num pixels
-      result.attributes[trunk_identified_id] = 1; 
+      result.attributes[tree_radius_id] =
+        std::sqrt(((double)num_pixels * voxel_width_ * voxel_width_) / kPi);  // get from num pixels
+      result.attributes[trunk_identified_id] = 1;
       result.attributes[section_id] = ind;
       if (trunk_id >= 0)
         result.radius = trunks_[trunk_id].second;
-      else 
+      else
       {
         result.radius = result.attributes[height_id] / approx_height_per_radius_;
-        result.attributes[trunk_identified_id] = 0; 
+        result.attributes[trunk_identified_id] = 0;
       }
       tree.segments().push_back(result);
       forest.trees.push_back(tree);
@@ -349,13 +353,15 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
     {
       num_spaces++;
     }
-  }    
+  }
   std::cout << "number of disallowed trees: " << num_spaces << " / " << forest.trees.size() << std::endl;
 
-  std::sort(forest.trees.begin(), forest.trees.end(), [](const ray::TreeStructure &a, const ray::TreeStructure &b){ return a.segments()[0].attributes[0] > b.segments()[0].attributes[0]; });
+  std::sort(forest.trees.begin(), forest.trees.end(), [](const ray::TreeStructure &a, const ray::TreeStructure &b) {
+    return a.segments()[0].attributes[0] > b.segments()[0].attributes[0];
+  });
 
   return forest;
 }
 
 
-}
+}  // namespace ray
