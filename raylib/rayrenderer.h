@@ -152,6 +152,5 @@ int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
   return getIndex(gridspace.cast<int>());
 }
 
-}
 }  // namespace ray
 #endif  // RAYLIB_RAYRENDERER_H

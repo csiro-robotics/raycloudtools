@@ -514,10 +514,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
               }
               break;
             }
-            break;
-          }
-          default:
-            break;
+            default:
+              break;
           }
         }
       };
@@ -596,10 +594,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             }
             break;
           }
-          break;
-        }
-        default:
-          break;
+          default:
+            break;
         }
         const int ind = indx + width * y;
         if (is_hdr)
