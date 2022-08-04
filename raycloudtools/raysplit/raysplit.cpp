@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
   const std::string rc_name = cloud_file.name();  // ray cloud name
   bool res = true;
 
+  // split the cloud around a tube (capsule) shape
   if (tube_split)
   {
     Eigen::Vector3d start = tube_start.value();
@@ -139,15 +140,15 @@ int main(int argc, char *argv[])
     // so that they are treated as unbounded.
     res = ray::splitBox(rc_name, in_name, out_name, Eigen::Vector3d(0, 0, 0), box_radius.value());
   }
-  else if (grid_format)
+  else if (grid_format) // standard 3D grid of cuboids
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value());
   }
-  else if (grid_format2)
+  else if (grid_format2) // this is a 3+1D grid (space and time)
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width2.value());
   }  
-  else if (grid_format3)
+  else if (grid_format3) // this is a 3D grid with a specified overlap
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value(), overlap.value());
   }      
@@ -186,7 +187,7 @@ int main(int argc, char *argv[])
         return col.dot(vec) > 1.0;
       });
     }    
-    else if (parameter == "single_colour")
+    else if (parameter == "single_colour") // split out a single colour
     {
       ray::RGBA col;
       col.red = (uint8_t)single_colour.value()[0];

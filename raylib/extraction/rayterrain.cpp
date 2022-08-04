@@ -20,6 +20,7 @@ static int num_cone_tests = 0;
 
 namespace ray
 {
+/// The node structure used in calculating the pareto front
 struct Node
 {
   Node()
@@ -28,18 +29,26 @@ struct Node
     found = 0;
     is_set = 0;
     for (int i = 0; i < 2; i++)
+    {
       for (int j = 0; j < 2; j++)
-        for (int k = 0; k < 2; k++) dir_ids[i][j][k] = -1;
+      {
+        for (int k = 0; k < 2; k++) 
+        {
+          dir_ids[i][j][k] = -1;
+        }
+      }
+    }
   }
   Vector4d pos;
   int found;
   int is_set;
   int dir_ids[2][2][2];
 
+  // returns whether there is a smaller node than the supplied @c corner point
   bool somethingSmaller(std::vector<Node> &nodes, const Vector4d &corner)
   {
     num_visits++;
-#define CONE_CHECK
+#define CONE_CHECK // This checks in a cone rather than just the corner of a cube shape
     Vector4d dif = corner - pos;
     if (dif == Vector4d(0, 0, 0, 0))
     {
@@ -95,6 +104,7 @@ struct Node
   }
 };
 
+/// construct an octal space partition tree
 void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d> points)
 {
   nodes.resize(points.size());
@@ -128,8 +138,10 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
   }
 }
 
+// get 3D pareto front, the 4D vectors' last element is its index, to aid with book keeping
 void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Vector4d> &front)
 {
+  // this is an acceleration structure for faster lookup
   std::vector<Node> nodes;
   constructOctalSpacePartition(nodes, points);
   Node &root = nodes[0];
@@ -138,7 +150,8 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
   ProgressThread progress_thread(progress);
   progress.begin("rays processed:", nodes.size());
 
-  const auto process_rays = [&nodes, &root, &front, &progress](size_t n) {
+  const auto process_rays = [&nodes, &root, &front, &progress](size_t n) 
+  {
     progress.increment();
     if (nodes[n].found == 1)
     {
@@ -180,6 +193,10 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
   const double root_half = sqrt(0.5);
   const double root_3 = sqrt(3.0);
   const double root_2 = sqrt(2.0);
+
+  // the following matrix is because we are rotating a vertical direction into the long-diagonal (1,1,1) 
+  // direction, because we are primarily treating the extraction problem as one of finding a 
+  // pareto front in 3D.
   Eigen::Matrix3d mat;
   mat.row(0) = Eigen::Vector3d(root_2 / root_3, 0, 1.0 / root_3);
   mat.row(1) = Eigen::Vector3d(-root_half / root_3, -root_half, 1.0 / root_3);
@@ -187,6 +204,7 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
   Eigen::Matrix3d imat = mat.inverse();
   double grad_scale = gradient / std::sqrt(2.0);
 
+  // generate these transformed points as input
   std::vector<Eigen::Vector4d> points(positions.size());
   double count = 0.5;
   for (size_t i = 0; i < positions.size(); i++)
@@ -198,7 +216,7 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
   }
 
   std::vector<Vector4d> front;
-  // first find the lower bound
+  // then find pareto the lower bound of the points
   getParetoFront(points, front);
   std::cout << "number of pareto front points: " << front.size() << std::endl;
 
@@ -207,8 +225,10 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
   std::vector<Eigen::Vector3d> vecs_flat(front.size());
   for (size_t i = 0; i < front.size(); i++)
   {
+    // we convert the points back to world space
     vecs[i] = imat * Eigen::Vector3d(front[i][0], front[i][1], front[i][2]);
     vecs[i][2] *= grad_scale;
+    // flattened points are used to get the Delauney triangulation below
     vecs_flat[i] = vecs[i];
     vecs_flat[i][2] = 0.0;
   }
@@ -222,16 +242,24 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
 
 void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
 {
+  // as you might imagine, this is just the reverse of growupwards
   std::vector<Eigen::Vector3d> upsidedown_points = positions;
   for (auto &point : upsidedown_points) point[2] = -point[2];
   growUpwards(upsidedown_points, gradient);
   for (auto &point : mesh_.vertices()) point[2] = -point[2];
 }
 
+// a faster version of the growupwards algorithm
 void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double pixel_width,
                               const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double gradient)
 {
 #if RAYLIB_WITH_QHULL
+  // the speed up is one of removing lots of 'above ground' points before running the growUpwards function
+  // thereby making the problem size smaller.
+
+  // the way we do this is to put the points into a 2D height grid, and do a course removal based on height
+
+  // here we generate the grid and find the lowest points per cell
   Eigen::Vector3d extent = max_bound - min_bound;
   Eigen::Vector2i dims((int)std::ceil(extent[0] / pixel_width), (int)std::ceil(extent[1] / pixel_width));
   std::vector<Eigen::Vector3d> lowests(dims[0] * dims[1]);
@@ -246,10 +274,11 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
   }
 
   std::vector<Eigen::Vector3d> points;
+  // then for each point
   for (size_t i = 0; i < ends.size(); i++)
   {
     Eigen::Vector3d p = ends[i];
-
+    // we get its cell index
     Eigen::Vector3d point = (p - min_bound) / (double)pixel_width;
     int I = (int)point[0];
     int J = (int)point[1];
@@ -258,6 +287,7 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
     int Imax = std::min(I + 1, dims[0] - 1);
     int Jmax = std::min(J + 1, dims[1] - 1);
     bool remove = false;
+    // then within the Moore neighbourhood
     for (int x = Imin; x <= Imax; x++)
     {
       for (int y = Jmin; y <= Jmax; y++)
@@ -265,6 +295,7 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
         int index = x + dims[0] * y;
         Eigen::Vector3d d = p - lowests[index];
         double dist2 = (d[0] * d[0] + d[1] * d[1]);
+        // remove if neighbour points are lower
         if (d[2] > 0.0 && d[2] * d[2] > dist2)
         {
           remove = true;
@@ -291,7 +322,7 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   // preprocessing to make the cloud smaller.
   Eigen::Vector3d min_bound, max_bound;
   cloud.calcBounds(&min_bound, &max_bound);
-  double spacing = cloud.estimatePointSpacing();
+  double spacing = cloud.estimatePointSpacing(); 
   double pixel_width = 2.0 * spacing;
   std::vector<Eigen::Vector3d> ends;
   for (size_t i = 0; i < cloud.ends.size(); i++)
@@ -300,16 +331,19 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
       ends.push_back(cloud.ends[i]);
   }
   growUpwardsFast(ends, pixel_width, min_bound, max_bound, gradient);
-  mesh_.reduce();
+  mesh_.reduce(); // remove disconnected vertices in the mesh 
 
   writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);
-  if (verbose)
+  if (verbose) // debugging output
   {
     RGBA white;
     white.red = white.green = white.blue = white.alpha = 255;
     Cloud local_cloud;
     double t = 0.0;
-    for (auto &p : mesh_.vertices()) local_cloud.addRay(p, p, t++, white);
+    for (auto &p : mesh_.vertices())
+    {
+      local_cloud.addRay(p, p, t++, white);
+    }
     local_cloud.save(file_prefix + "_terrain.ply");
   }
 #endif

@@ -37,6 +37,8 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
+/// This is a 2D area measurement on a 3x3 matrix, it is the measure halfway between the trace (1D) and the determinant (3D) 
+/// of the matrix.
 double areaMeasure(const Eigen::Matrix3d &mat)
 {
   return mat(0,0)*mat(1,1) - mat(0,1)*mat(1,0) + mat(0,0)*mat(2,2) - mat(0,2)*mat(2,0) + mat(1,1)*mat(2,2) - mat(1,2)*mat(2,1);
@@ -202,7 +204,7 @@ int main(int argc, char *argv[])
     double curvature;
   };
   std::vector<Data> data(cloud.ends.size());
-  int search_size = std::min(20, (int)cloud.ends.size() - 1);
+  const int search_size = std::min(20, (int)cloud.ends.size() - 1);
   std::vector<Eigen::Vector3d> centroids;
   std::vector<Eigen::Vector3d> dimensions;
   std::vector<Eigen::Vector3d> normals;
@@ -243,9 +245,9 @@ int main(int argc, char *argv[])
       const double sphericity = dimensions[i][0] / dimensions[i][2];
       const double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
       const double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
-      cloud.colours[i].red = (uint8_t)(255.0 * sphericity);//(0.3 + 0.7 * sphericity));
-      cloud.colours[i].green = (uint8_t)(255.0 * cylindricality);//(0.3 + 0.7 * cylindricality));
-      cloud.colours[i].blue = (uint8_t)(255.0 * planarity);//(0.3 + 0.7 * planarity));
+      cloud.colours[i].red = (uint8_t)(255.0 * sphericity);
+      cloud.colours[i].green = (uint8_t)(255.0 * cylindricality);
+      cloud.colours[i].blue = (uint8_t)(255.0 * planarity);
     }
   }
   else if (type == "normal")
@@ -259,12 +261,19 @@ int main(int argc, char *argv[])
       cloud.colours[i].blue = (uint8_t)(255.0 * (0.5 + 0.5 * normals[i][2]));
     }
   }
+  // colour in order to distinguish branches. 
+  // The red channel is a function of the lidar return intensiity, which is typically higher on 
+  // branches than on leaves.
+  // The green channel is a measure of the cylindricality of the neighbourhood of points
+  // The resulting colour can be used to segment out branches by thresholding using
+  //  raysplit cloud.ply colour x,y,0 for a choice of x, y
   else if (type == "branches")
   {
     std::vector<uint8_t> cols;
     for (int i = 0; i < (int)cloud.ends.size(); i++)
     {
       // 1. red is median alpha value, rescaled
+      // we use the median of the neighbour points to be robust to noise
       cols.clear();
       cols.push_back(cloud.colours[i].alpha);
       for (int j = 0; j<4 && indices(j, i) > -1; j++)
@@ -276,14 +285,15 @@ int main(int argc, char *argv[])
       else 
         cloud.colours[i].red = (uint8_t)ray::median(cols);
 
+      // we also compensate for a change in intensity with scale
       double range = (cloud.ends[i] - cloud.starts[i]).norm();
       double half_range = 100.0;
       double red = (double) cloud.colours[i].red / (1.0 + range / half_range);
       double scale = 2.0;
       cloud.colours[i].red = (uint8_t)std::max(0, std::min(127 + ((int)(0.5 + red*scale) - (int)(split_alpha*scale)), 255));
 
-      // 2. green is cyliinidricality
-      Eigen::Vector3d mean = cloud.ends[i];
+      // 2. green is cylindricality
+      Eigen::Vector3d mean = cloud.ends[i]; // centroid
       int num = 1;
       for (int j = 0; j<search_size && indices(j, i) > -1; j++)
       {
@@ -291,6 +301,7 @@ int main(int argc, char *argv[])
         num++;
       }
       mean /= (double)num;
+      // get teh scatter matrix of the neighbourhood of points
       Eigen::Matrix3d scatter = (cloud.ends[i]-mean)*(cloud.ends[i]-mean).transpose();
       for (int j = 0; j<search_size && indices(j, i) > -1; j++)
       {
@@ -298,8 +309,12 @@ int main(int argc, char *argv[])
         scatter += v*v.transpose();
       }
       scatter /= (double)num;
-
+      // if you divide sqrt(area) by the trace, you get a dimensionless value that
+      // is large for disks and spheres, but small for lines/cylinders. So 1 minus this
+      // value gives a measure of cylindricality
       double cylind  = 1.0 - 3.0 * std::sqrt(areaMeasure(scatter) / 3.0) / scatter.trace();
+      // the above measure is smoother in parameter space than previous methods, 
+      // and avoids the need to do an Eigendecomposition.
       cloud.colours[i].green = (uint8_t)std::max(0.0, 255.0 * std::min(cylind, 1.0));
 
       // 3. blue is nothing

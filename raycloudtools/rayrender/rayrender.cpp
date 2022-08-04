@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
   {
     image_file.name() = cloud_file.nameStub() + (projection_file_option.isSet() ? ".tif" : ".png");
   }
+  // a projection file describes where the ray cloud is in the world, which allows
+  // images to be output in geotiff (geolocalised tiff) format.
   if (projection_file_option.isSet())
   {
     #if !RAYLIB_WITH_TIFF
@@ -103,6 +105,7 @@ int main(int argc, char *argv[])
   const ray::ViewDirection view_dir = static_cast<ray::ViewDirection>(viewpoint.selectedID());
   const ray::RenderStyle render_style = static_cast<ray::RenderStyle>(style.selectedID());
 
+  // an option to output the transformation from image to world frame
   if (transform_file_option.isSet() && (view_dir != ray::ViewDirection::Top))
   {
     std::cout << "--output_transform can only be used when view is top." << std::endl;

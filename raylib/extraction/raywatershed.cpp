@@ -58,7 +58,7 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
     double z_max = 2.0;
     if (trees[ind].trunk_id >= 0)
       z_max = 4.0;
-    if (findSpace2(trees[ind], tip))
+    if (findSpace(trees[ind], tip))
     {
       Eigen::Vector3d base = min_bounds_ + tip;
       base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
@@ -206,7 +206,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 
           // if there is no space under one of the two areas, then do the merge
           Eigen::Vector3d tip;
-          bool space_each = findSpace2(p_tree, tip) && findSpace2(q_tree, tip);
+          bool space_each = findSpace(p_tree, tip) && findSpace(q_tree, tip);
 
           bool too_small = std::max(mx[0], mx[1]) <= 10;
           if (drop < tree_height * drop_ratio_ || too_small || !space_each)  // good to merge

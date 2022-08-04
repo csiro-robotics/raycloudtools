@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
     Eigen::Vector3d box_min(-tree_ground_extent, -tree_ground_extent, -ground_noise_extent); 
     Eigen::Vector3d box_max(tree_ground_extent, tree_ground_extent, ground_noise_extent);
     double time = 0.0;
-    if (type == "tree")
+    if (type == "tree") // create a single tree
     {
       ray::TreeStructure tree_gen;
       ray::TreeParams params;
@@ -120,12 +120,12 @@ int main(int argc, char *argv[])
       }
       colourByTime(cloud.times, cloud.colours);
     }
-    else if (type == "forest")
+    else if (type == "forest") // create multiple trees on a plane
     {
       ray::ForestParams params;
       params.random_factor = 0.25;
       ray::ForestGen forest_gen;
-      if (from_file)
+      if (from_file) // load a forest from an _trees.txt file
       {
         if (!forest_gen.makeFromFile(input_file.name(), params))
         {
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
   else if (type == "terrain")
   {
     ray::TerrainGen terrain;
-    if (from_file)
+    if (from_file) // generate ray cloud terrain from a .ply mesh file
     {    
       terrain.generateFromFile(input_file.name());
     }

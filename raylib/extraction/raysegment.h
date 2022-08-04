@@ -15,6 +15,7 @@
 
 namespace ray
 {
+/// nodes of priority queue used in shortest path algorithm 
 struct QueueNode
 {
   QueueNode() {}
@@ -41,6 +42,7 @@ public:
 
 static constexpr double inf = 1e10;
 
+/// Vertex structure used in shortest path algorithm
 struct Vertex
 {
   Vertex() {}
@@ -63,10 +65,13 @@ struct Vertex
   bool visited;
 };
 
-void connectPointsShortestPath(
-  std::vector<Vertex> &points,
-  std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit,
-  double gravity_factor);
+
+/// Converts a ray cloud to a set of points @c points connected by the shortest path to the ground @c mesh
+/// the returned vector of index sets provides the root points for each separated tree
+/// @c height_min minimum height that counts as a tree
+/// @c max_diameter maximum diameter of a tree trunk
+/// @c distance_limit maximum distance between points that can be connected
+/// @c gravity_factor controls how far laterally the shortest paths can travel
 std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh,
                                                  double max_diameter, double distance_limit, double height_min,
                                                  double gravity_factor);

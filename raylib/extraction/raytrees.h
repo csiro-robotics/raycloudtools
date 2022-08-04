@@ -14,7 +14,8 @@
 
 namespace ray
 {
-// only ints up to 255*255*255-1   (as it leaves black as a special colour)
+/// Converts an index in to a unique colour
+/// only for ints up to 255*255*255-1   (as it leaves black as a special colour)
 inline void convertIntToColour(int x, RGBA &colour)
 {
   colour.red = colour.green = colour.blue = 0;
@@ -31,7 +32,8 @@ inline void convertIntToColour(int x, RGBA &colour)
   }
 }
 
-// returns -1 for the special case of the colour black, otherwise the integer index that the colour represents
+/// Converts a colour to a unique integer (index) value
+/// returns -1 for the special case of the colour black, otherwise the integer index that the colour represents
 inline int convertColourToInt(const RGBA &colour)
 {
   int result = 0;
@@ -46,7 +48,7 @@ inline int convertColourToInt(const RGBA &colour)
   return result - 1;
 }
 
-
+/// structure containing the parameters used in tree reconstruction
 struct TreesParams
 {
   TreesParams()
@@ -64,23 +66,24 @@ struct TreesParams
     , grid_width(0.0)
     , segment_branches(false)
   {}
-  double max_diameter;
-  double min_diameter;
-  double distance_limit;
-  double height_min;
-  double length_to_radius;
-  double cylinder_length_to_width;
-  double gap_ratio;
-  double span_ratio;
-  double gravity_factor;
+  double max_diameter;     // maximum tree diameter. Trees wider than this may be segmented into multiple trees
+  double min_diameter;     // minimum branch diameter. Branches thinner than this are not reconstructed 
+  double distance_limit;   // maximum distance between points that can count as connected
+  double height_min;       // minimum height for a tree. Lower values are considered undergrowth and excluded
+  double length_to_radius; // the taper gradient of branches
+  double cylinder_length_to_width; // the slenderness of the branch segment cylinders
+  double gap_ratio;        // points with a wider gap determine that a branch has become two
+  double span_ratio;       // points that span a larger width determine that a branch has become two
+  double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
   double radius_exponent;  // default 0.67 see "Allometric patterns in Acer platanoides (Aceraceae) branches"
                            // in "Wind loads and competition for light sculpt trees into self-similar structures" they
                            // suggest a range from 0.54 up to 0.89
   double linear_range;     // number of metres that branch radius is linear
-  double grid_width;
-  bool segment_branches;
+  double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
+  bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
 };
 
+/// The structure for a single (cylindrical) branch section
 struct BranchSection
 {
   BranchSection()
@@ -100,10 +103,18 @@ struct BranchSection
   std::vector<int> children;
 };
 
+/// The structure for a set of trees, stored as a list of (connected) branch sections
+/// together with the function for their extrsction from a ray cloud
 struct Trees
 {
+  /// Constructs the piecewise cylindrical tree structures from the input ray cloud @c cloud
+  /// The ground @c mesh defines the ground and @params are used to control the reconstruction 
   Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
+
+  /// save the trees representation to a text file
   bool save(const std::string &filename);
+
+  /// The piecewise cylindrical represenation of all of the trees
   std::vector<BranchSection> sections;
 };
 

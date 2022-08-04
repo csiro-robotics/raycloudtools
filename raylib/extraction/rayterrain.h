@@ -20,7 +20,9 @@ namespace ray
 class RAYLIB_EXPORT Terrain
 {
 public:
-  /// Extracts a robust smooth surface mesh from the ray cloud
+  /// Extracts a robust smooth surface mesh from the ray cloud. This is a highest lower bound
+  /// conditioned on a maximum ground gradient @c gradient. As such it is a sand model of ground extraction,
+  /// it treats ground like sand, being incapable of having a gradient beyond the specified value
   void extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose);
 
   /// Direct extraction of the pareto front points

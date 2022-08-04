@@ -149,7 +149,8 @@ int main(int argc, char *argv[])
   ray::Pose transform;
   transform.position.setZero();
   transform.rotation = Eigen::Quaterniond::Identity();
-  if (pairs.size() >= 6)
+  // only estimate a transform if there are a sufficient number of pairs
+  if (pairs.size() >= 6) 
   {
     const int is[3] = {pairs[0][0], pairs[pairs.size()/3][0], pairs[2*pairs.size()/3][0]};
     const int js[3] = {pairs[0][1], pairs[pairs.size()/3][1], pairs[2*pairs.size()/3][1]};

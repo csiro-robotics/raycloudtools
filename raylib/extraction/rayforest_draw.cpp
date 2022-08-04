@@ -62,6 +62,7 @@ struct ColourField
   Eigen::Vector2i dims;
 };
 
+/// render the calculated height field as a top-down image
 void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield)
 {
   if (!verbose)
@@ -87,19 +88,23 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
+/// render the occupancy density value as a shaded plan-view image
 void Occupancy2D::draw(const std::string &filename)
 {
   ColourField pixels(dims_[0], dims_[1]);
   for (int x = 0; x < pixels.dims[0]; x++)
+  {
     for (int y = 0; y < pixels.dims[1]; y++)
     {
       double shade = pixel(Eigen::Vector3i(x, y, 0)).density();
       pixels(x, y) = Col((uint8_t)(255.0 * shade));
     }
+  }
   stbi_flip_vertically_on_write(1);
   stbi_write_png(filename.c_str(), pixels.dims[0], pixels.dims[1], 4, (void *)&pixels.data[0], 4 * pixels.dims[0]);
 }
 
+/// colour the ray cloud according to the plan-view image stored in pixels
 void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels, const Eigen::Vector3d &min_bounds,
                   double voxel_width)
 {
@@ -110,7 +115,8 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
 
   ray::Cloud chunk;
   auto segment = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                     std::vector<double> &times, std::vector<ray::RGBA> &colours) {
+                     std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+  {
     chunk.resize(ends.size());
     for (size_t i = 0; i < ends.size(); i++)
     {
@@ -134,7 +140,7 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
   writer.end();
 }
 
-
+/// draw the plan-view segmentation (one colour per tree) as an image
 void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vector<TreeNode> &trees)
 {
   ColourField pixels((int)indexfield_.rows(), (int)indexfield_.cols());

@@ -40,6 +40,7 @@ void usage(bool error=false)
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
   std::cout << "                            --min_length_per_radius 140- (-l) the tapering rate of branches" << std::endl;
+// These are available parameters that I don't expose as they are 'advanced' only, you would rarely adjust them
 //  std::cout << "                            --radius_exponent 0.67 - (-e) exponent of radius in estimating length" << std::endl;
 //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
 //  std::cout << "                            --gap_ratio 2.5      - (-g) will split for lateral gaps at this multiple of radius" << std::endl;
@@ -53,7 +54,7 @@ void usage(bool error=false)
 }
 
 
-// extracts natural features from scene
+/// extracts natural features from a scene
 int main(int argc, char *argv[])
 { 
   ray::FileArgument cloud_file, mesh_file, trunks_file;
@@ -96,6 +97,7 @@ int main(int argc, char *argv[])
     ray::DebugDraw::init(argc, argv, "rayextract");
   }
 
+  // finds cylindrical trunks in the data and saves them to an _trunks.txt file
   if (extract_trunks)
   {
     ray::Cloud cloud;
@@ -106,6 +108,7 @@ int main(int argc, char *argv[])
     ray::Trunks trunks(cloud, radius, verbose.isSet(), exclude_rays.isSet());
     trunks.save(cloud_file.nameStub() + "_trunks.txt");
   }
+  // finds full tree structures (piecewise cylindrical representation) and saves to file
   else if (extract_trees)
   {
     ray::Cloud cloud;
@@ -143,9 +146,12 @@ int main(int argc, char *argv[])
   
     ray::Trees trees(cloud, mesh, params, verbose.isSet());
 
+    // output the picewise cylindrical description of the trees
     trees.save(cloud_file.nameStub() + "_trees.txt");
+    // we also save a segmented (one colour per tree) file, as this is a useful output
     cloud.save(cloud_file.nameStub() + "_segmented.ply");
   }
+  // extract the tree locations from a larger, aerial view of a forest
   else if (extract_forest)
   {
     ray::Forest forest;
@@ -166,6 +172,7 @@ int main(int argc, char *argv[])
         usage(true);
     }
     std::vector<std::pair<Eigen::Vector3d, double> > trunks;
+    // the results from extracting trunks can optionally be passed in, as a guide
     if (trunks_option.isSet())
     {
       ray::ForestStructure forest;
@@ -179,8 +186,12 @@ int main(int argc, char *argv[])
       }
     }
     ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
+    // save the results, which is a location, radius and height per tree
     results.save(cloud_file.nameStub() + "_forest.txt");
   }
+  // extract the terrain to a .ply mesh file
+  // this uses a sand model (no terrain is sloped more than 'gradient') which is a
+  // highest lower bound
   else if (extract_terrain)
   {
     ray::Cloud cloud;

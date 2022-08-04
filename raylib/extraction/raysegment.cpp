@@ -8,7 +8,12 @@
 #include "rayterrain.h"
 
 namespace ray
-{
+{  
+/// Connect the supplied set of points @c points according to the shortest path to the ground, by filling in their 
+/// parent indices
+/// @c distance_limit maximum distance between points that can be connected
+/// @c gravity_factor controls how far laterally the shortest paths can travel
+/// @c closest_node a priority queue 
 void connectPointsShortestPath(
   std::vector<Vertex> &points,
   std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit,
@@ -26,34 +31,41 @@ void connectPointsShortestPath(
   dists2.resize(search_size, points.size());
   nns->knn(points_p, indices, dists2, search_size, kNearestNeighbourEpsilon, 0, distance_limit);
 
-  // 2b. climb up from lowest points...
+  // 2. climb up from lowest points, this part is based on Djikstra's algorithm
   while (!closest_node.empty())
   {
     QueueNode node = closest_node.top();
     closest_node.pop();
     if (!points[node.id].visited)
     {
+      // for each unvisited point, look at its nearest neighbours
       for (int i = 0; i < search_size && indices(i, node.id) > -1; i++)
       {
         int child = indices(i, node.id);
-        double dist2 = dists2(i, node.id);
+        double dist2 = dists2(i, node.id); // square distance to neighbour
         double dist = std::sqrt(dist2);
         double new_score = 0;
         Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
         Eigen::Vector3d dir(0, 0, 1);
+        // estimate direction of path from parent of parent if possible
         int ppar = points[node.id].parent;
         if (ppar != -1)
         {
-          if (points[ppar].parent != -1)
-            dir =
-              (points[node.id].pos - points[points[ppar].parent].pos).normalized();  // this is a bit smoother than...
-          else
-            dir = (points[node.id].pos - points[ppar].pos).normalized();  // ..just this
+          if (points[ppar].parent != -1) // this is a bit smoother than...
+          {
+            dir = (points[node.id].pos - points[points[ppar].parent].pos).normalized();  
+          }
+          else // ..just this
+          {
+            dir = (points[node.id].pos - points[ppar].pos).normalized();  
+          }
         }
-        const double power = 2.0;
-        dist2 /= std::pow(std::max(0.001, dif.dot(dir)), power);
+        double d = std::max(0.001, dif.dot(dir));
+        // we are looking for a minimum score, so large distances are bad, but new points in line with the 
+        // path direction are good
+        double score = dist2 / (d*d);
 
-        if (gravity_factor > 0.0)
+        if (gravity_factor > 0.0) // penalise paths that are hard to hold up against gravity (lateral direction)
         {
           Eigen::Vector3d to_node = points[node.id].pos - points[node.root].pos;
           to_node[2] = 0.0;
@@ -61,14 +73,18 @@ void connectPointsShortestPath(
           double gravity_scale =
             1.0 + gravity_factor * lateral_sqr;  // the squaring means gravity plays little role for normal trees,
                                                  // kicking in stronger on outlier lateral ones
-          dist2 *= gravity_scale;
+          score *= gravity_scale;
         }
 
-        dist2 /= node.radius;
-        new_score = node.score + dist2;
+        // scale score according to size of each tree, this prevents small trees from 
+        // capturing the branches of larger trees
+        score /= node.radius;  
+
+        new_score = node.score + score;
         if (new_score < points[child].score)
         {
           points[child].score = new_score;
+          // we also maintain the distance to ground value
           points[child].distance_to_ground = node.distance_to_ground + dist;
           points[child].parent = node.id;
           points[child].root = node.root;
@@ -81,10 +97,13 @@ void connectPointsShortestPath(
   }
 }
 
+/// Converts a ray cloud to a set of points @c points connected by the shortest path to the ground @c mesh
+/// the returned vector of index sets provides the root points for each separated tree
 std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh,
                                                  double max_diameter, double distance_limit, double height_min,
                                                  double gravity_factor)
 {
+  // first fill in the basic attributes of the points structure
   points.reserve(cloud.ends.size());
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
   {
@@ -99,21 +118,24 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   cloud.calcBounds(&box_min, &box_max);
   std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
+  // also add points for every vertex on the ground mesh.  
   int roots_start = (int)points.size();
   for (auto &vert : mesh.vertices())
   {
     points.push_back(Vertex(vert));
   }
+  // convert the ground mesh to an easy look-up height field
   Eigen::ArrayXXd lowfield;
   mesh.toHeightField(lowfield, box_min, box_max, pixel_width);
 
-  // set the height field to the height of the canopy above the ground
+  // set heightfield as the height of the canopy above the ground
   Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant((int)lowfield.rows(), (int)lowfield.cols(), -1e10);
   for (auto &point : points)
   {
     Eigen::Vector3i index = ((point.pos - box_min) / pixel_width).cast<int>();
     heightfield(index[0], index[1]) = std::max(heightfield(index[0], index[1]), point.pos[2]);
   }
+  // make heightfield relative to the ground
   for (int i = 0; i < heightfield.rows(); i++)
   {
     for (int j = 0; j < heightfield.cols(); j++)
@@ -122,6 +144,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     }
   }
 
+  // create an initial priority queue node for each root point (mesh vertex) using the 
+  // observed height as a scaling parameter
   for (int ind = roots_start; ind < (int)points.size(); ind++)
   {
     points[ind].distance_to_ground = 0.0;
@@ -131,9 +155,11 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     closest_node.push(QueueNode(0, 0, heightfield(index[0], index[1]), ind, ind));
   }
 
+  // perform Djikstra's shortest path to ground algorithm to fill in the parent indices in 'points'
   connectPointsShortestPath(points, closest_node, distance_limit, gravity_factor);
 
-  // now create a count array
+  // next we want to segment the paths into separate trees. To do this we find the number of points and 
+  // the maximum height of points that come from each cell index
   Eigen::ArrayXXi counts = Eigen::ArrayXXi::Constant((int)heightfield.rows(), (int)heightfield.cols(), 0);
   Eigen::ArrayXXd heights = Eigen::ArrayXXd::Constant((int)heightfield.rows(), (int)heightfield.cols(), 0);
   for (auto &point : points)
@@ -144,7 +170,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     counts(index[0], index[1])++;
     heights(index[0], index[1]) = std::max(heights(index[0], index[1]), point.pos[2] - lowfield(index[0], index[1]));
   }
-  // now create a 2x2 summed array:
+
+  // in order to avoid boundary artefacts, we create a 2x2 summed array:
   Eigen::ArrayXXi sums = Eigen::ArrayXXi::Constant((int)counts.rows(), (int)counts.cols(), 0);
   for (int i = 0; i < (int)sums.rows(); i++)
   {
@@ -199,6 +226,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     }
   }
 
+  // now that we have a max height for each cell, we can fill in a list of the root
+  // points for each cell
   std::vector<std::vector<int>> roots_lists(sums.rows() * sums.cols());
   for (int i = roots_start; i < (int)points.size(); i++)
   {
@@ -211,7 +240,10 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
       roots_lists[id].push_back(i);
     }
   }
-  std::vector<std::vector<int>> roots_set;  // contiguous form of root_lists
+
+  // convert this into a contiguous form, which represents the set of 
+  // root points for each tree
+  std::vector<std::vector<int>> roots_set;  
   for (int i = 0; i < (int)sums.rows(); i++)
   {
     for (int j = 0; j < (int)sums.cols(); j++)

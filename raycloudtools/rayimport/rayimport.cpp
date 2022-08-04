@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
   if (standard_format)
   {
     const std::string traj_end = traj_file.substr(traj_file.size() - 4);
+    // allow the trajectory file to be in multiple different formats
     if (traj_end == ".ply" || traj_end == ".las" || traj_end == ".laz")
     {
       std::vector<Eigen::Vector3d> starts;
@@ -91,6 +92,7 @@ int main(int argc, char *argv[])
     {
       start_pos = ends[0];
     }
+    // user provides a single sensor location (e.g. for static scanners)
     if (position_format)
     {
       starts = ends;
@@ -98,6 +100,8 @@ int main(int argc, char *argv[])
       for (auto &start: starts)
         start = pos;      
     }
+    // user provides a constant ray vector 
+    // e.g. for an overhead aerial scan, if no trajectory is available
     else if (ray_format)
     {
       starts = ends;
@@ -105,8 +109,10 @@ int main(int argc, char *argv[])
       for (auto &start: starts)
         start += offset;         
     }
+    // otherwise, a trajectory has been passed in
     else
     {
+      // find the corresponding sensor locations for each point in the cloud
       trajectory.calculateStartPoints(times, starts);
       for (size_t i = 0; i<colours.size(); i++)
       {
@@ -118,6 +124,8 @@ int main(int argc, char *argv[])
         }
       }
     }
+    // option to remove the start position, for data that is in a global frame
+    // this is particularly useful if we are storing the ray cloud positions using floats
     if (remove.isSet())
     {
       for (auto &end: ends)
@@ -157,6 +165,8 @@ int main(int argc, char *argv[])
     std::cout << "rayimport <point cloud> <trajectory file> --max_intensity 0" << std::endl;
   }
   ray::writeRayCloudChunkEnd(ofs);
+  // if we remove the start position, then it is useful to print this value that is removed
+  // so that the user hasn't lost information
   if (remove.isSet())
   {
     std::cout << "start position: " << start_pos.transpose() << " removed from all points" << std::endl;

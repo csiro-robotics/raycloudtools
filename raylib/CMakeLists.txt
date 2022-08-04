@@ -88,6 +88,7 @@ set(SOURCES
   rayparse.cpp
   rayrandom.cpp
   rayrenderer.cpp
+  extraction/rayoccupancy2d.cpp
   extraction/raytrunk.cpp
   extraction/raytrunks.cpp
   extraction/rayclusters.cpp
