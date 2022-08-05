@@ -54,7 +54,7 @@ void Occupancy2D::fillDensities(const std::string &cloudname, const Eigen::Array
   const double eps = 1e-9;
   bounds_.min_bound_ = min_bound_ + Eigen::Vector3d(eps, eps, eps);
   bounds_.max_bound_ = min_bound_ + dims_.cast<double>() * pixel_width_ - Eigen::Vector3d(eps, eps, eps);
-  const double scale = (double)subpixels;
+  const double scale = static_cast<double>(subpixels);
 
   // filling in the free space per chunk of ray cloud
   auto addFreeSpace = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
@@ -175,7 +175,7 @@ void Occupancy2D::fillDensities(const std::string &cloudname, const Eigen::Array
     bitcount += vox.bits;
   }
 
-  std::cout << "average bit count: " << (double)bitcount / (double)pixels_.size() << std::endl;
+  std::cout << "average bit count: " << static_cast<double>(bitcount) / static_cast<double>(pixels_.size()) << std::endl;
 }
 
 }  // namespace ray

@@ -244,7 +244,7 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks)
         }
       }
 
-      double inside_ratio = (double)num_inside / (double)(num * num);
+      double inside_ratio = static_cast<double>(num_inside) / static_cast<double>(num * num);
       if (inside_ratio > 0.4)
       {
         double vol_trunk = sqr(trunk.radius) * trunk.length;
@@ -304,7 +304,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   {
     double above_count = 0;
     double active_count = 0;
-    for (int trunk_id = 0; trunk_id < (int)trunks.size(); trunk_id++)
+    for (int trunk_id = 0; trunk_id < static_cast<int>(trunks.size()); trunk_id++)
     {
       auto &trunk = trunks[trunk_id];
       if (!trunk.active)
@@ -470,8 +470,8 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   // get lowest trunks:
   // now get ground height for each trunk:
   double pixel_width = 2.0;
-  int dimx = (int)std::ceil((max_bound[0] - min_bound[0]) / pixel_width);
-  int dimy = (int)std::ceil((max_bound[1] - min_bound[1]) / pixel_width);
+  int dimx = static_cast<int>(std::ceil((max_bound[0] - min_bound[0]) / pixel_width));
+  int dimy = static_cast<int>(std::ceil((max_bound[1] - min_bound[1]) / pixel_width));
   Eigen::ArrayXXd ground_heights(dimx, dimy);
   ground_heights.setZero();
   for (size_t i = 0; i < cloud.ends.size(); i++)
@@ -519,8 +519,8 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       {
         trunks[i].dir *= -1;
       }
-      closest_node.push(QueueNode(sqr(trunks[i].centre[2]), (int)i));
-      lowest_trunk_ids.push_back((int)i);
+      closest_node.push(QueueNode(sqr(trunks[i].centre[2]), static_cast<int>(i)));
+      lowest_trunk_ids.push_back(static_cast<int>(i));
     }
   }
   std::cout << "number of ground trunks: " << closest_node.size() << " so " << trunks.size() - closest_node.size()
@@ -603,7 +603,7 @@ std::vector<std::pair<Eigen::Vector3d, double>> Trunks::load(const std::string &
     std::getline(ifs, line);
     if (line.length() == 0 || line[0] == '#')
       continue;
-    int num_commas = (int)std::count(line.begin(), line.end(), ',');
+    int num_commas = static_cast<int>(std::count(line.begin(), line.end(), ','));
     if (num_commas == 3)  // just the base
     {
       std::istringstream ss(line);

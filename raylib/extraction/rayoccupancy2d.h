@@ -29,7 +29,7 @@ struct Occupancy2D
   struct Pixel
   {
     uint16_t bits;
-    inline double density() const { return 1.0 - ((double)bits / (double)(subpixels * subpixels)); }
+    inline double density() const { return 1.0 - (static_cast<double>(bits) / static_cast<double>(subpixels * subpixels)); }
   };
 
   Eigen::Vector3i dims_;

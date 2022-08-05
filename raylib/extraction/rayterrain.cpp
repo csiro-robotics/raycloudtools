@@ -62,9 +62,9 @@ struct Node
       return dir_ids[0][0][0] != -1;
 #endif
     }
-    int i = (int)(dif[0] > 0.0);
-    int j = (int)(dif[1] > 0.0);
-    int k = (int)(dif[2] > 0.0);
+    int i = static_cast<int>(dif[0] > 0.0);
+    int j = static_cast<int>(dif[1] > 0.0);
+    int k = static_cast<int>(dif[2] > 0.0);
 #if defined CONE_CHECK
     static const double root_third = std::sqrt(1.0 / 3.0);
     static const double cos_ang = std::sqrt(2.0 / 3.0);
@@ -111,7 +111,7 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
   int i = 0;
   while (points.size() > 0)
   {
-    int ind = rand() % (int)points.size();
+    int ind = rand() % static_cast<int>(points.size());
     nodes[i++].pos = points[ind];
     points[ind] = points.back();
     points.pop_back();
@@ -124,13 +124,13 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
     for (;;)
     {
       Vector4d dif = pos - nodes[head].pos;
-      int i = (int)(dif[0] > 0.0);
-      int j = (int)(dif[1] > 0.0);
-      int k = (int)(dif[2] > 0.0);
+      int i = static_cast<int>(dif[0] > 0.0);
+      int j = static_cast<int>(dif[1] > 0.0);
+      int k = static_cast<int>(dif[2] > 0.0);
       int new_head = nodes[head].dir_ids[i][j][k];
       if (new_head == -1)
       {
-        nodes[head].dir_ids[i][j][k] = (int)n;
+        nodes[head].dir_ids[i][j][k] = static_cast<int>(n);
         break;
       }
       head = new_head;
@@ -261,14 +261,14 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
 
   // here we generate the grid and find the lowest points per cell
   Eigen::Vector3d extent = max_bound - min_bound;
-  Eigen::Vector2i dims((int)std::ceil(extent[0] / pixel_width), (int)std::ceil(extent[1] / pixel_width));
+  Eigen::Vector2i dims(static_cast<int>(std::ceil(extent[0] / pixel_width)), static_cast<int>(std::ceil(extent[1] / pixel_width)));
   std::vector<Eigen::Vector3d> lowests(dims[0] * dims[1]);
   for (int i = 0; i < dims[0]; i++)
     for (int j = 0; j < dims[1]; j++) lowests[i + dims[0] * j] = Eigen::Vector3d(0, 0, 1e10);
   for (size_t i = 0; i < ends.size(); i++)
   {
-    Eigen::Vector3d pos = (ends[i] - min_bound) / (double)pixel_width;
-    int index = (int)pos[0] + dims[0] * (int)pos[1];
+    Eigen::Vector3d pos = (ends[i] - min_bound) / static_cast<double>(pixel_width);
+    int index = static_cast<int>(pos[0]) + dims[0] * static_cast<int>(pos[1]);
     if (ends[i][2] < lowests[index][2])
       lowests[index] = ends[i];
   }
@@ -279,9 +279,9 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
   {
     Eigen::Vector3d p = ends[i];
     // we get its cell index
-    Eigen::Vector3d point = (p - min_bound) / (double)pixel_width;
-    int I = (int)point[0];
-    int J = (int)point[1];
+    Eigen::Vector3d point = (p - min_bound) / static_cast<double>(pixel_width);
+    int I = static_cast<int>(point[0]);
+    int J = static_cast<int>(point[1]);
     int Imin = std::max(0, I - 1);
     int Jmin = std::max(0, J - 1);
     int Imax = std::min(I + 1, dims[0] - 1);

@@ -733,7 +733,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       // obtain the origin offsets
       const Eigen::Vector3d origin(0,0,0);
       const Eigen::Vector3d pos = -(origin - bounds.min_bound_);
-      const double x = pos[ax1], y = pos[ax2] + (double)height * pix_width;
+      const double x = pos[ax1], y = pos[ax2] + static_cast<double>(height) * pix_width;
       // generate the geotiff file
       writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); 
     }

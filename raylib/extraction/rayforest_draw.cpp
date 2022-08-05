@@ -35,10 +35,10 @@ struct Col
   {}
   void operator+=(const Col &col)
   {
-    r = (uint8_t)std::min((int)r + (int)col.r, 255);
-    g = (uint8_t)std::min((int)g + (int)col.g, 255);
-    b = (uint8_t)std::min((int)b + (int)col.b, 255);
-    a = (uint8_t)std::min((int)a + (int)col.a, 255);
+    r = (uint8_t)std::min(static_cast<int>(r) + static_cast<int>(col.r), 255);
+    g = (uint8_t)std::min(static_cast<int>(g) + static_cast<int>(col.g), 255);
+    b = (uint8_t)std::min(static_cast<int>(b) + static_cast<int>(col.b), 255);
+    a = (uint8_t)std::min(static_cast<int>(a) + static_cast<int>(col.a), 255);
   }
   uint8_t r, g, b, a;
 };
@@ -80,7 +80,7 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
     }
   }
 
-  ColourField pixels((int)heightfield.rows(), (int)heightfield.cols());
+  ColourField pixels(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()));
   for (int x = 0; x < pixels.dims[0]; x++)
     for (int y = 0; y < pixels.dims[1]; y++)
       pixels(x, y) = Col((uint8_t)(255.0 * (heightfield(x, y) - min_height) / (max_height - min_height)));
@@ -126,7 +126,7 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
       chunk.times[i] = times[i];
       RGBA col;
       col.alpha = colours[i].alpha;
-      Col pix = pixels((int)ind[0], (int)ind[1]);
+      Col pix = pixels(static_cast<int>(ind[0]), static_cast<int>(ind[1]));
       col.red = pix.r;
       col.green = pix.g;
       col.blue = pix.b;
@@ -143,7 +143,7 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
 /// draw the plan-view segmentation (one colour per tree) as an image
 void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vector<TreeNode> &trees)
 {
-  ColourField pixels((int)indexfield_.rows(), (int)indexfield_.cols());
+  ColourField pixels(static_cast<int>(indexfield_.rows()), static_cast<int>(indexfield_.cols()));
   for (int x = 0; x < pixels.dims[0]; x++)
   {
     for (int y = 0; y < pixels.dims[1]; y++)

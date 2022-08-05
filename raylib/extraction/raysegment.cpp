@@ -20,7 +20,7 @@ void connectPointsShortestPath(
   double gravity_factor)
 {
   // 1. get nearest neighbours
-  const int search_size = std::min(20, (int)points.size() - 1);
+  const int search_size = std::min(20, static_cast<int>(points.size()) - 1);
   Eigen::MatrixXd points_p(3, points.size());
   for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i].pos;
   Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
@@ -119,7 +119,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
   // also add points for every vertex on the ground mesh.  
-  int roots_start = (int)points.size();
+  int roots_start = static_cast<int>(points.size());
   for (auto &vert : mesh.vertices())
   {
     points.push_back(Vertex(vert));
@@ -129,7 +129,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   mesh.toHeightField(lowfield, box_min, box_max, pixel_width);
 
   // set heightfield as the height of the canopy above the ground
-  Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant((int)lowfield.rows(), (int)lowfield.cols(), -1e10);
+  Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), -1e10);
   for (auto &point : points)
   {
     Eigen::Vector3i index = ((point.pos - box_min) / pixel_width).cast<int>();
@@ -146,7 +146,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
 
   // create an initial priority queue node for each root point (mesh vertex) using the 
   // observed height as a scaling parameter
-  for (int ind = roots_start; ind < (int)points.size(); ind++)
+  for (int ind = roots_start; ind < static_cast<int>(points.size()); ind++)
   {
     points[ind].distance_to_ground = 0.0;
     points[ind].score = 0.0;
@@ -160,8 +160,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
 
   // next we want to segment the paths into separate trees. To do this we find the number of points and 
   // the maximum height of points that come from each cell index
-  Eigen::ArrayXXi counts = Eigen::ArrayXXi::Constant((int)heightfield.rows(), (int)heightfield.cols(), 0);
-  Eigen::ArrayXXd heights = Eigen::ArrayXXd::Constant((int)heightfield.rows(), (int)heightfield.cols(), 0);
+  Eigen::ArrayXXi counts = Eigen::ArrayXXi::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
+  Eigen::ArrayXXd heights = Eigen::ArrayXXd::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
   for (auto &point : points)
   {
     if (point.root == -1)
@@ -172,21 +172,21 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   }
 
   // in order to avoid boundary artefacts, we create a 2x2 summed array:
-  Eigen::ArrayXXi sums = Eigen::ArrayXXi::Constant((int)counts.rows(), (int)counts.cols(), 0);
-  for (int i = 0; i < (int)sums.rows(); i++)
+  Eigen::ArrayXXi sums = Eigen::ArrayXXi::Constant(static_cast<int>(counts.rows()), static_cast<int>(counts.cols()), 0);
+  for (int i = 0; i < static_cast<int>(sums.rows()); i++)
   {
-    for (int j = 0; j < (int)sums.cols(); j++)
+    for (int j = 0; j < static_cast<int>(sums.cols()); j++)
     {
-      int i2 = std::min(i + 1, (int)sums.rows() - 1);
-      int j2 = std::min(j + 1, (int)sums.cols() - 1);
+      int i2 = std::min(i + 1, static_cast<int>(sums.rows()) - 1);
+      int j2 = std::min(j + 1, static_cast<int>(sums.cols()) - 1);
       sums(i, j) = counts(i, j) + counts(i, j2) + counts(i2, j) + counts(i2, j2);
     }
   }
   // now find the best 2x2 sum for each cell:
-  std::vector<Eigen::Vector2i> bests((int)counts.rows() * (int)counts.cols());
-  for (int x = 0; x < (int)sums.rows(); x++)
+  std::vector<Eigen::Vector2i> bests(static_cast<int>(counts.rows()) * static_cast<int>(counts.cols()));
+  for (int x = 0; x < static_cast<int>(sums.rows()); x++)
   {
-    for (int y = 0; y < (int)sums.cols(); y++)
+    for (int y = 0; y < static_cast<int>(sums.cols()); y++)
     {
       Eigen::Vector2i best_index(-1, -1);
       int largest_sum = -1;
@@ -205,18 +205,18 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     }
   }
   // next we need to find the highest point for each cell....
-  Eigen::ArrayXXd max_heights = Eigen::ArrayXXd::Constant((int)counts.rows(), (int)counts.cols(), 0);
-  for (int i = 0; i < (int)sums.rows(); i++)
+  Eigen::ArrayXXd max_heights = Eigen::ArrayXXd::Constant(static_cast<int>(counts.rows()), static_cast<int>(counts.cols()), 0);
+  for (int i = 0; i < static_cast<int>(sums.rows()); i++)
   {
-    for (int j = 0; j < (int)sums.cols(); j++)
+    for (int j = 0; j < static_cast<int>(sums.cols()); j++)
     {
       Eigen::Vector2i best_index = bests[i + sums.rows() * j];
       double max_height = 0.0;
-      for (int x = best_index[0]; x < std::min(best_index[0] + 2, (int)sums.rows()); x++)
+      for (int x = best_index[0]; x < std::min(best_index[0] + 2, static_cast<int>(sums.rows())); x++)
       {
-        for (int y = best_index[1]; y < std::min(best_index[1] + 2, (int)sums.cols()); y++)
+        for (int y = best_index[1]; y < std::min(best_index[1] + 2, static_cast<int>(sums.cols())); y++)
         {
-          if (bests[x + (int)sums.rows() * y] == best_index)
+          if (bests[x + static_cast<int>(sums.rows()) * y] == best_index)
           {
             max_height = std::max(max_height, heights(x, y));
           }
@@ -229,14 +229,14 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   // now that we have a max height for each cell, we can fill in a list of the root
   // points for each cell
   std::vector<std::vector<int>> roots_lists(sums.rows() * sums.cols());
-  for (int i = roots_start; i < (int)points.size(); i++)
+  for (int i = roots_start; i < static_cast<int>(points.size()); i++)
   {
     Eigen::Vector3i index = ((points[i].pos - box_min) / pixel_width).cast<int>();
-    Eigen::Vector2i best_index = bests[index[0] + (int)sums.rows() * index[1]];
+    Eigen::Vector2i best_index = bests[index[0] + static_cast<int>(sums.rows()) * index[1]];
     double max_height = max_heights(best_index[0], best_index[1]);
     if (max_height >= height_min)
     {
-      int id = best_index[0] + (int)sums.rows() * best_index[1];
+      int id = best_index[0] + static_cast<int>(sums.rows()) * best_index[1];
       roots_lists[id].push_back(i);
     }
   }
@@ -244,11 +244,11 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   // convert this into a contiguous form, which represents the set of 
   // root points for each tree
   std::vector<std::vector<int>> roots_set;  
-  for (int i = 0; i < (int)sums.rows(); i++)
+  for (int i = 0; i < static_cast<int>(sums.rows()); i++)
   {
-    for (int j = 0; j < (int)sums.cols(); j++)
+    for (int j = 0; j < static_cast<int>(sums.cols()); j++)
     {
-      auto &roots = roots_lists[i + (int)sums.rows() * j];
+      auto &roots = roots_lists[i + static_cast<int>(sums.rows()) * j];
       if (roots.size() > 0)
       {
         roots_set.push_back(roots);

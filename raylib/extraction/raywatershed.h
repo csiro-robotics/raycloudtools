@@ -33,8 +33,8 @@ struct RAYLIB_EXPORT TreeNode
   {
     attaches_to = -1;
     min_bound = max_bound = Eigen::Vector2i(i, j);
-    double x = (double)i * voxel_width;
-    double y = (double)j * voxel_width;
+    double x = static_cast<double>(i) * voxel_width;
+    double y = static_cast<double>(j) * voxel_width;
     children[0] = children[1] = -1;
     ground_height = height = 0;
     peak = Eigen::Vector3d(x, y, height_);  // in which case peak should probably be in metres horizontally
@@ -60,8 +60,8 @@ struct RAYLIB_EXPORT TreeNode
     /*    const double minimum_crown_radius = 0.5;
         const double maximum_crown_radius = max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is
        an outer bound double r = node.crownRadius(); if (r<minimum_crown_radius || r > maximum_crown_radius) return
-       false; Eigen::Vector3d top = node.tip(); for (int i = 0; i<2; i++) if (top[i] < (double)min_bound[i]*voxel_width
-       || top[i] > (double)max_bound[i]*voxel_width) return false;  */
+       false; Eigen::Vector3d top = node.tip(); for (int i = 0; i<2; i++) if (top[i] < static_cast<double>(min_bound[i]*voxel_width
+       || top[i] > static_cast<double>(max_bound[i]*voxel_width) return false;  */
     return true;
   }
   void updateBound(const Eigen::Vector2i &bmin, const Eigen::Vector2i &bmax)

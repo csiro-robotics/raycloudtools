@@ -36,7 +36,7 @@ bool Forest::findSpace(const TreeNode &node, Eigen::Vector3d &tip)
   }
 
   Eigen::Vector3d tip_local = tip / voxel_width_;
-  tip[2] = node.peak[2] - lowfield_((int)tip_local[0], (int)tip_local[1]);
+  tip[2] = node.peak[2] - lowfield_(static_cast<int>(tip_local[0]), static_cast<int>(tip_local[1]));
   if (!calculate)
   {
     return true;
@@ -46,10 +46,10 @@ bool Forest::findSpace(const TreeNode &node, Eigen::Vector3d &tip)
   double radius = tip_local[2] * search_down_gradient;
 
   // now find the closest bit of space to put the tree in:
-  int min_x = std::max(0, (int)(tip_local[0] - radius));
-  int max_x = std::min((int)spacefield_.rows() - 1, (int)(tip_local[0] + radius));
-  int min_y = std::max(0, (int)(tip_local[1] - radius));
-  int max_y = std::min((int)spacefield_.cols() - 1, (int)(tip_local[1] + radius));
+  int min_x = std::max(0, static_cast<int>(tip_local[0] - radius));
+  int max_x = std::min(static_cast<int>(spacefield_.rows()) - 1, static_cast<int>(tip_local[0] + radius));
+  int min_y = std::max(0, static_cast<int>(tip_local[1] - radius));
+  int max_y = std::min(static_cast<int>(spacefield_.cols()) - 1, static_cast<int>(tip_local[1] + radius));
   double best_score = -1e10;
   int best_x = -1;
   int best_y = -1;
@@ -58,7 +58,7 @@ bool Forest::findSpace(const TreeNode &node, Eigen::Vector3d &tip)
   {
     for (int y = min_y; y <= max_y; y++)
     {
-      double dist2 = sqr(((double)x - tip_local[0]) / radius) + sqr(((double)y - tip_local[1]) / radius);
+      double dist2 = sqr((static_cast<double>(x) - tip_local[0]) / radius) + sqr((static_cast<double>(y) - tip_local[1]) / radius);
       double score = spacefield_(x, y) - 0.25 * dist2;  // slight preference for result near the centroid
       if (score > best_score)
       {
@@ -71,8 +71,8 @@ bool Forest::findSpace(const TreeNode &node, Eigen::Vector3d &tip)
   // choose the point that has space (score > 0) and that has the best score
   if (best_score > 0.0)
   {
-    tip[0] = ((double)best_x + 0.5) * voxel_width_;
-    tip[1] = ((double)best_y + 0.5) * voxel_width_;
+    tip[0] = (static_cast<double>(best_x) + 0.5) * voxel_width_;
+    tip[1] = (static_cast<double>(best_y) + 0.5) * voxel_width_;
     return true;
   }
   return false;
@@ -105,7 +105,7 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
       if (colours[i].alpha == 0)
         continue;
       Eigen::Vector3d pos = (ends[i] - min_bounds_) / voxel_width;
-      double &h = highs((int)pos[0], (int)pos[1]);
+      double &h = highs(static_cast<int>(pos[0]), static_cast<int>(pos[1]));
       h = std::max(h, ends[i][2]);
     }
   };
@@ -155,7 +155,7 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
 /// this is a soft hint for where the trees should be found
 void Forest::addTrunkHeights()
 {
-  for (int c = 0; c < (int)trunks_.size(); c++)  // if there are known trunks, then include them...
+  for (int c = 0; c < static_cast<int>(trunks_.size()); c++)  // if there are known trunks, then include them...
   {
     auto &trunk = trunks_[c];
     Eigen::Vector3d posr = (trunk.first - min_bounds_) / voxel_width_;
@@ -168,12 +168,12 @@ void Forest::addTrunkHeights()
     double radius = 10.0 * trunk.second / voxel_width_;
     // define a steepness for the bump due to the trunk
     double height = 80.0 * trunk.second;
-    int rad = (int)std::ceil(radius);
-    for (int x = std::max(0, pos[0] - rad); x <= std::min(pos[0] + rad, (int)heightfield_.rows() - 1); x++)
+    int rad = static_cast<int>(std::ceil(radius));
+    for (int x = std::max(0, pos[0] - rad); x <= std::min(pos[0] + rad, static_cast<int>(heightfield_.rows()) - 1); x++)
     {
-      for (int y = std::max(0, pos[1] - rad); y <= std::min(pos[1] + rad, (int)heightfield_.cols() - 1); y++)
+      for (int y = std::max(0, pos[1] - rad); y <= std::min(pos[1] + rad, static_cast<int>(heightfield_.cols()) - 1); y++)
       {
-        Eigen::Vector2d dif((double)x + 0.5 - posr[0], (double)y + 0.5 - posr[1]);
+        Eigen::Vector2d dif(static_cast<double>(x) + 0.5 - posr[0], static_cast<double>(y) + 0.5 - posr[1]);
         dif /= radius;
         double r = dif.squaredNorm();
         double h = height * (1.0 - r); // this is the paraboloid height
@@ -203,9 +203,9 @@ void Forest::smoothHeightfield()
       double mean = h;
       double count = 1;
       // use a mean of the valid heights in the Moore neighbourhood of each cell
-      for (int xx = std::max(0, x - 1); xx <= std::min(x + 1, (int)heightfield_.rows() - 1); xx++)
+      for (int xx = std::max(0, x - 1); xx <= std::min(x + 1, static_cast<int>(heightfield_.rows()) - 1); xx++)
       {
-        for (int yy = std::max(0, y - 1); yy <= std::min(y + 1, (int)heightfield_.cols() - 1); yy++)
+        for (int yy = std::max(0, y - 1); yy <= std::min(y + 1, static_cast<int>(heightfield_.cols()) - 1); yy++)
         {
           double &h2 = heightfield_(xx, yy);
           if (h2 != -1e10)
@@ -317,7 +317,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       // estimate the tree (crown) radius
       int num_pixels = trees[ind].area;
       result.attributes[tree_radius_id] =
-        std::sqrt(((double)num_pixels * voxel_width_ * voxel_width_) / kPi);  // get from num pixels
+        std::sqrt((static_cast<double>(num_pixels) * voxel_width_ * voxel_width_) / kPi);  // get from num pixels
       result.attributes[trunk_identified_id] = 1;
       // assign its unique id
       result.attributes[section_id] = ind;

@@ -38,7 +38,7 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
       colour.red = (uint8_t)(rand() % 256);
       colour.green = (uint8_t)(rand() % 256);
       colour.blue = (uint8_t)(rand() % 256);
-      Eigen::Vector3d pos = min_bounds_ + voxel_width_ * Eigen::Vector3d(0.5 + (double)x, 0.5 + (double)y, 0);
+      Eigen::Vector3d pos = min_bounds_ + voxel_width_ * Eigen::Vector3d(0.5 + static_cast<double>(x), 0.5 + static_cast<double>(y), 0);
       pos[2] = original_heightfield_(x, y);
       cloud_points.push_back(pos);
       times.push_back(0.0);
@@ -84,8 +84,8 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
       if (spacefield_(i, j) < 1.0)
       {
         double height = lowfield_(i, j) + 0.2;
-        double x = min_bounds_[0] + (double)i * voxel_width_;
-        double y = min_bounds_[1] + (double)j * voxel_width_;
+        double x = min_bounds_[0] + static_cast<double>(i) * voxel_width_;
+        double y = min_bounds_[1] + static_cast<double>(j) * voxel_width_;
         cloud_points.push_back(Eigen::Vector3d(x, y, height));
         times.push_back(0.0);
         colour.red = colour.green = colour.blue = (uint8_t)(255.0 * spacefield_(i, j));
@@ -111,7 +111,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
 {
   // fast array lookup of trunk centres:
   Eigen::ArrayXXi trunkfield = Eigen::ArrayXXi::Constant(indexfield_.rows(), indexfield_.cols(), -1);
-  for (int c = 0; c < (int)trunks_.size(); c++)  // if there are known trunks, then include them...
+  for (int c = 0; c < static_cast<int>(trunks_.size()); c++)  // if there are known trunks, then include them...
   {
     auto &trunk = trunks_[c];
     Eigen::Vector3i pos = ((trunk.first - min_bounds_) / voxel_width_).cast<int>();
@@ -132,8 +132,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       // Moore neighbourhood
       double height = heightfield_(x, y);
       double max_h = 0.0;
-      for (int i = std::max(0, x - 1); i <= std::min(x + 1, (int)heightfield_.rows() - 1); i++)
-        for (int j = std::max(0, y - 1); j <= std::min(y + 1, (int)heightfield_.cols() - 1); j++)
+      for (int i = std::max(0, x - 1); i <= std::min(x + 1, static_cast<int>(heightfield_.rows()) - 1); i++)
+        for (int j = std::max(0, y - 1); j <= std::min(y + 1, static_cast<int>(heightfield_.cols()) - 1); j++)
           if (!(i == x && j == y))
             max_h = std::max(max_h, heightfield_(i, j));
       if (height > max_h && height > -1e10)
@@ -142,7 +142,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         p.x = x;
         p.y = y;
         p.height = height;
-        p.index = (int)basins.size();
+        p.index = static_cast<int>(basins.size());
         basins.push(p);
         heads.insert(p.index);
         indexfield_(x, y) = p.index;
@@ -155,7 +155,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
   int cnt = 0;
   // now iterate until basins is empty
   // Below, don't divide by voxel_width, if you want to verify voxel_width independence
-  int max_tree_pixel_width = (int)(max_tree_canopy_width / (double)voxel_width_);
+  int max_tree_pixel_width = static_cast<int>(max_tree_canopy_width / static_cast<double>(voxel_width_));
   while (!basins.empty())
   {
     Point p = basins.top();
@@ -211,7 +211,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           bool too_small = std::max(mx[0], mx[1]) <= 10;
           if (drop < tree_height * drop_ratio_ || too_small || !space_each)  // good to merge
           {
-            int new_index = (int)trees.size();
+            int new_index = static_cast<int>(trees.size());
             TreeNode node;
             node.peak = p_tree.peak[2] > q_tree.peak[2] ? p_tree.peak : q_tree.peak;
             node.min_bound = p_tree.min_bound;
@@ -248,7 +248,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           }
           else  // a second trunk on a downward slope, we'll have to make a whole new treenodde
           {
-            p_head = (int)trees.size();  // this new pixel will point to the new tree node here
+            p_head = static_cast<int>(trees.size());  // this new pixel will point to the new tree node here
             trees.push_back(TreeNode(xx, yy, q.height, voxel_width_, trunkid));
           }
         }

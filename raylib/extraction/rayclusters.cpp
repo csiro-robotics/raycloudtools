@@ -15,7 +15,7 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
                          std::vector<std::vector<int>> &point_clusters)
 {
   // 1. get nearest neighbours for each point
-  const int search_size = std::min(8, (int)points.size() - 1);
+  const int search_size = std::min(8, static_cast<int>(points.size()) - 1);
   Eigen::MatrixXd points_p(3, points.size());
   for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i];
   Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
@@ -42,7 +42,7 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
   {
     for (int j = 0; j < search_size && indices(j, i) > -1; j++)
     {
-      nds.push_back(Nd((int)i, indices(j, i), dists2(j, i)));
+      nds.push_back(Nd(static_cast<int>(i), indices(j, i), dists2(j, i)));
     }
   }
   std::sort(nds.begin(), nds.end(), [](const Nd &nd1, const Nd &nd2) { return nd1.dist2 < nd2.dist2; });
@@ -62,8 +62,8 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
   {
     clusters[i].min_bound = clusters[i].max_bound = points[i];
     clusters[i].active = true;
-    clusters[i].ids.push_back((int)i);
-    cluster_ids[i] = (int)i;
+    clusters[i].ids.push_back(static_cast<int>(i));
+    cluster_ids[i] = static_cast<int>(i);
     visited[i] = false;
   }
 
@@ -125,7 +125,7 @@ void generateClusters(std::vector<std::vector<int>> &point_clusters, const std::
     std::vector<Eigen::Vector3d> ps;
     for (size_t i = 0; i < point_clusters.size(); i++)
     {
-      double shade = (double)i / (double)(point_clusters.size() - 1);
+      double shade = static_cast<double>(i) / static_cast<double>(point_clusters.size() - 1);
       for (auto &id : point_clusters[i])
       {
         shades.push_back(shade);

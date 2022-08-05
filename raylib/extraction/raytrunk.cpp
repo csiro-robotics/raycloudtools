@@ -86,7 +86,7 @@ void Trunk::estimatePose(const std::vector<Eigen::Vector3d> &points)
   {
     scatter += (point - centre) * (point - centre).transpose();
   }
-  scatter /= (double)points.size();
+  scatter /= static_cast<double>(points.size());
   // calculate an eigendecomposition 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
   // the eigenvector with the largest eigenvalue (the long direction of the ellipsoid)
@@ -180,7 +180,7 @@ void Trunk::updateCentre(const std::vector<Eigen::Vector3d> &points)
     ps[i] = point;
     mean_p += point;
   }
-  mean_p /= (double)points.size();
+  mean_p /= static_cast<double>(points.size());
   // an accumulation structure for planes of best fit
   struct Acc
   {
@@ -222,7 +222,7 @@ void Trunk::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points)
     Eigen::Vector3d to_point = point - centre;
     rad += (to_point - dir * dir.dot(to_point)).norm();
   }
-  double n = (double)points.size();
+  double n = static_cast<double>(points.size());
   radius = rad / n;
 
   // now calculate the mean difference of the points from the expected trunk surface
@@ -235,7 +235,7 @@ void Trunk::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points)
   }
   // we subtract 4 here because this ia sample mean where 4 points were already used
   // to estimate the centre and lean of the trunk
-  double num_points = (double)points.size() - 4.0;
+  double num_points = static_cast<double>(points.size()) - 4.0;
   double variation = raddiff / num_points;  // end part gives sample variation
 
   last_score = score;
@@ -318,7 +318,7 @@ void RayGrid2D::fillRays(const Cloud &cloud)
       Pixel &pix = pixel(inds);
       if (pix.filled)
       {
-        pix.ray_ids.push_back((int)i);
+        pix.ray_ids.push_back(static_cast<int>(i));
       }
     } while (depth <= maxDist);
   }

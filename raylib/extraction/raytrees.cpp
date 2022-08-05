@@ -50,7 +50,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   {
     if (points_[i].parent != -1)
     {
-      children[points_[i].parent].push_back((int)i);
+      children[points_[i].parent].push_back(static_cast<int>(i));
     }
   }
 
@@ -164,7 +164,7 @@ void Trees::calculatePointDistancesToEnd()
 {
   for (size_t i = 0; i < points_.size(); i++)
   {
-    int id = (int)i;
+    int id = static_cast<int>(i);
     int parent = points_[i].parent;
     points_[i].visited = false; // reset the visited flag while we're here
     while (parent != -1)
@@ -196,7 +196,7 @@ void Trees::generateRootSections(const std::vector<std::vector<int>> &roots_list
 
   // we can now find the maximum distance to tip per root section, which allows us to estimate the 
   // section radius for all the root sections.   
-  for (int i = (int)sections_.size() - 1; i >= 0; i--)
+  for (int i = static_cast<int>(sections_.size()) - 1; i >= 0; i--)
   {
     for (auto &root : sections_[i].roots)
       sections_[i].max_distance_to_end = std::max(sections_[i].max_distance_to_end, points_[root].distance_to_end);
@@ -224,7 +224,7 @@ void Trees::setBranchTip()
   }
   if (sum > 0)
   {
-    sections_[sec_].tip /= (double)sum;
+    sections_[sec_].tip /= static_cast<double>(sum);
   }  
 }
 
@@ -236,7 +236,7 @@ Eigen::Vector3d Trees::getRootPosition()
   {
     base += points_[root].pos;
   }
-  base /= (double)sections_[sec_].roots.size();
+  base /= static_cast<double>(sections_[sec_].roots.size());
   return base;
 }
 
@@ -311,7 +311,7 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
   if (par == -1) // if this is the root section
   {
     // then remove children that are smaller than the minimum tree height
-    for (int i = (int)clusters.size() - 1; i >= 0; i--)
+    for (int i = static_cast<int>(clusters.size()) - 1; i >= 0; i--)
     {
       double max_dist = 0.0;
       for (auto &end : clusters[i])
@@ -349,7 +349,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
     if (max_distances[i] > maxmax)
     {
       maxmax = max_distances[i];
-      maxi = (int)i;
+      maxi = static_cast<int>(i);
     }
   }
 
@@ -365,7 +365,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
   // for all other clusters, add new sections to the list...
   for (size_t i = 0; i < clusters.size(); i++)
   {
-    if ((int)i == maxi)
+    if (static_cast<int>(i) == maxi)
       continue;
     BranchSection new_node = sections_[sec_];
     new_node.max_distance_to_end = max_distances[i] + thickness;
@@ -377,7 +377,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
       new_node.ends = clusters[i]; 
       if (par != -1)
       {
-        sections_[par].children.push_back((int)sections_.size());
+        sections_[par].children.push_back(static_cast<int>(sections_.size()));
       }
       sections_.push_back(new_node);
     }
@@ -428,7 +428,7 @@ Eigen::Vector3d Trees::calculateTipFromNodes(const std::vector<int> &nodes)
   }
   if (list.size() > 0)
   {
-    tip /= (double)list.size();
+    tip /= static_cast<double>(list.size());
   }  
   return tip;
 }
@@ -547,7 +547,7 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
 void Trees::addChildSection()
 {
   BranchSection new_node;
-  new_node.parent = (int)sec_;
+  new_node.parent = static_cast<int>(sec_);
   new_node.roots = sections_[sec_].ends;
   new_node.max_distance_to_end = 0.0;
   for (auto &root : new_node.roots)
@@ -559,7 +559,7 @@ void Trees::addChildSection()
   new_node.radius = std::min(sections_[sec_].radius, max_radius_);
   if (new_node.radius > 0.5 * params_->min_diameter)  // if it is the first node, then we need a second node
   {
-    sections_[sec_].children.push_back((int)sections_.size());
+    sections_[sec_].children.push_back(static_cast<int>(sections_.size()));
 
     new_node.tip.setZero();
     for (auto &end : new_node.roots) 
@@ -568,7 +568,7 @@ void Trees::addChildSection()
     }
     if (new_node.roots.size() > 0)
     {
-      new_node.tip /= (double)new_node.roots.size();
+      new_node.tip /= static_cast<double>(new_node.roots.size());
     }
     sections_.push_back(new_node);
   }  
@@ -583,7 +583,7 @@ void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list,
   {
     for (auto &root : roots_list[i])
     {
-      section_ids[root] = (int)i;
+      section_ids[root] = static_cast<int>(i);
     }
   }
   for (sec_ = 0; sec_ < sections_.size(); sec_++)
@@ -622,11 +622,11 @@ void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list,
     }
     for (auto &node : nodes) 
     {
-      section_ids[node] = (int)sec_;
+      section_ids[node] = static_cast<int>(sec_);
     }
     for (auto &end : ends) 
     {
-      section_ids[end] = (int)sec_;
+      section_ids[end] = static_cast<int>(sec_);
     }
   }  
 
@@ -704,10 +704,10 @@ void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bo
   cloud.calcBounds(&min_bound, &max_bound);
   Eigen::Vector3d mid = (min_bound + max_bound) / 2.0;
   Eigen::Vector2i inds(std::round(mid[0] / width), std::round(mid[1] / width));
-  min_bound[0] = width * ((double)inds[0] - 0.5);
-  min_bound[1] = width * ((double)inds[1] - 0.5);
-  max_bound[0] = width * ((double)inds[0] + 0.5);
-  max_bound[1] = width * ((double)inds[1] + 0.5);
+  min_bound[0] = width * (static_cast<double>(inds[0]) - 0.5);
+  min_bound[1] = width * (static_cast<double>(inds[1]) - 0.5);
+  max_bound[0] = width * (static_cast<double>(inds[0]) + 0.5);
+  max_bound[1] = width * (static_cast<double>(inds[1]) + 0.5);
   std::cout << "min bound: " << min_bound.transpose() << ", max bound: " << max_bound.transpose() << std::endl;
 
   // disable trees out of bounds
@@ -764,7 +764,7 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
 void Trees::removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
   std::vector<int> &root_segs)
 {
-  for (int i = (int)cloud.ends.size() - 1; i >= 0; i--)
+  for (int i = static_cast<int>(cloud.ends.size()) - 1; i >= 0; i--)
   {
     if (!cloud.rayBounded(i))
       continue;
