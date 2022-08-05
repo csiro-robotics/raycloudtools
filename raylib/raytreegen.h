@@ -53,6 +53,13 @@ public:
 
   /// access the leaves of the tree
   const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }  
+
+  // convert to a tree structure
+  void toTreeStructure(TreeStructure &tree)
+  {
+    tree.segments() = segments_;
+    tree.attributes() = attribute_names_;
+  }
 private:
   std::vector<Eigen::Vector3d> leaves_;
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;

@@ -7,7 +7,7 @@
 #define RAYLIB_RAYFORESTGEN_H
 
 #include "raylib/raylibconfig.h"
-
+#include "rayforeststructure.h"
 #include "raytreegen.h"
 #include "rayutils.h"
 
@@ -24,7 +24,7 @@ struct ForestParams : TreeParams
 
 /// Forest ray cloud generation class. This generates a realistic random distribution of trees, each of which
 /// has the attributes of a ray cloud. The random distribution can be seeded using @c srand()
-class RAYLIB_EXPORT ForestGen
+class RAYLIB_EXPORT ForestGen 
 {
 public:
   /// makes the forest geometry
@@ -41,6 +41,16 @@ public:
   std::vector<Eigen::Vector3d> getPointCloud();
 
   std::vector<TreeGen> &trees(){ return trees_; };
+
+  /// Convert the forest generator to a base forest structure
+  void toForestStructure(ForestStructure &forest)
+  {
+    forest.trees.resize(trees_.size());
+    for (size_t i = 0; i<trees_.size(); i++)
+    {
+      trees_[i].toTreeStructure(forest.trees[i]);
+    }
+  }
 private:
   std::vector<TreeGen> trees_;
 };
