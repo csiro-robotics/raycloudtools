@@ -74,10 +74,12 @@ public:
   }
 };
 
+// remove additional points that are not connected to the mesh
 void Mesh::reduce()
 {
   std::vector<Eigen::Vector3d> verts;
   std::vector<int> new_ids(vertices_.size(), -1);
+  // we do this by iterating the index list, and only adding the vertices that are in these triangles
   for (auto &ind: index_list_)
   {
     for (int i = 0; i<3; i++)
@@ -93,10 +95,12 @@ void Mesh::reduce()
   vertices_ = verts;
 }
 
+// convert the mesh to a height field
 void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max, double width) const
 {
   double top = box_max[2];
   box_max[2] = box_min[2] + 0.5*width; // ensure that the grid is only 1 voxel high
+  // first convert the mesh to a list of triangles, with calculated normals
   std::vector<Triangle> triangles(index_list_.size());
   for (int i = 0; i<(int)index_list_.size(); i++)
   {
@@ -121,7 +125,6 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
   const double unset = -1e10;
   field = Eigen::ArrayXXd::Constant(grid.dims[0], grid.dims[1], unset);
   std::cout << "dims for low: " << grid.dims.transpose() << ", rows: " << field.rows() << ", cols: " << field.cols() << std::endl;
-
   for (int x = 0; x<grid.dims[0]; x++)
   {
     for (int y = 0; y<grid.dims[1]; y++)
@@ -131,11 +134,13 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
       pos_top[2] = top;
       pos_base[2] = box_min[2];
       auto &tris = grid.cell(x, y, 0).data;
+      // search the triangles in this cell 'bucket'
       for (auto &tri: tris)
       {
         double depth;
         if (tri->intersectsRay(pos_top, pos_base, depth))
         {
+          // intersects so interpolate the height
           double height = pos_top[2] + (pos_base[2] - pos_top[2])*depth;
           field(x, y) = height;
           break;
@@ -156,6 +161,7 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
         {
           double count = 0;
           double total_height = 0;
+          // look at the Moore neighbourhood to obtain a mean neighbour height
           for (int i = std::max(0, x-1); i <= std::min(x+1, grid.dims[0]-1); i++)
           {
             for (int j = std::max(0, y-1); j <= std::min(y+1, grid.dims[1]-1); j++)
@@ -221,9 +227,15 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
       Eigen::Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
       Eigen::Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
       for (int x = (int)tri_min[0]; x<=(int)tri_max[0]; x++)
+      {
         for (int y = (int)tri_min[1]; y<=(int)tri_max[1]; y++)
+        {
           for (int z = (int)tri_min[2]; z<=(int)tri_max[2]; z++)
+          {
             grid.insert(x,y,z, &tri);
+          }
+        }
+      }
     }
 
     // Fourthly, drop each end point downwards to decide whether it is inside or outside..

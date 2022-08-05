@@ -42,8 +42,6 @@ bool readLas(const std::string &file_name,
     *offset_to_remove = offset;
     std::cout << "offset to remove: " << offset.transpose() << std::endl;
   }
-//  std::cout << "Removing global offset " << offset.transpose() << " to maintain floating point precision. Use raytranslate by this value to translate to the original coordinate frame." << std::endl;
-  
 
   const size_t number_of_points = header.GetPointRecordsCount();
   

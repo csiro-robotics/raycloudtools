@@ -34,17 +34,27 @@ public:
   DebugDraw(const std::string &fixed_frame_idid = "map");
   ~DebugDraw();
 
+  /// Draw point cloud, each defined by a position and a shade. The id defines the index
   void drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id);
+
+  /// Draw point cloud, defined by a set of points and a single shade and id
   void drawCloud(const std::vector<Eigen::Vector3d> &points, double shade, int id)
   {
     std::vector<double> shades(points.size());
     for (int i = 0; i < (int)points.size(); i++) shades[i] = shade;
     drawCloud(points, shades, id);
   }
+
+  // Draw lines, as defined by their start, end and colour.
   void drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
                  const std::vector<Eigen::Vector3d> &colours = std::vector<Eigen::Vector3d>());
+
+  // Draw list of cylinders, defined by their start, end, radius and colour. The id allows multiple sets to be drawn independently, where each new call
+  // to drawCylinders only replaces the cylinders of the chosen id. 
   void drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
                      const std::vector<double> &radii, int id, const std::vector<Eigen::Vector4d> &colours = std::vector<Eigen::Vector4d>());
+  
+  // Draw ellipsoids, defined by their centre, pose, colour and vector of radii. The ID allows independent sets
   void drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
                       const std::vector<Eigen::Vector3d> &radii, const Eigen::Vector3d &colour, int id);
 

@@ -12,6 +12,7 @@
 
 namespace ray
 {
+// parameters for specifying the form of terrain 
 struct TerrainParams
 {
   TerrainParams() : point_density(400), ray_height(2.0), range_noise(0.03), walk_radius(4.0) {}
@@ -28,6 +29,8 @@ class RAYLIB_EXPORT TerrainGen
 public:
   /// terrain generation function. The random seed can be specified with @c srand()
   void generate(const TerrainParams &params = TerrainParams());
+  
+  /// generate terrain from a mesh file @c filename, and according to the @c params
   bool generateFromFile(const std::string &filename, const TerrainParams &params = TerrainParams());
 
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }

@@ -21,6 +21,7 @@ namespace ray
 double RAYLIB_EXPORT getMainBranchAngle(double covariance_angle);
 void RAYLIB_EXPORT fillBranchAngleLookup();
 
+// store the basic parameters that describe the tree
 struct TreeParams
 {
   TreeParams() : min_branch_radius(0.001),
@@ -36,12 +37,15 @@ class RAYLIB_EXPORT TreeStructure
 public:
   /// create the tree structure, and list of leaf points
   void make(const TreeParams &params);
+
+  /// generate a set of rays as though the tree has been observed by a viewer circling it
   void generateRays(double ray_density);
 
-  /// the ray cloud attributes
+  /// the rays generated from generateRays
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
   
+  /// The tree is a list of segments, which are connected through the parent_id
   struct Segment
   {
     Segment() : tip(0,0,0), radius(0), parent_id(-1) {}
@@ -58,9 +62,15 @@ public:
   const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }
   /// the position of the base of the tree trunk
   const Eigen::Vector3d &root() const { return segments_[0].tip; }
+
+  /// access the tree's attributes
   std::vector<std::string> &attributes(){ return attribute_names_; }
   const std::vector<std::string> &attributes() const { return attribute_names_; }
+
+  /// calculate the volume of the tree
   double volume();
+
+  /// return the root radius of the tree
   double &radius(){ return segments_[0].radius; }
   const double &radius() const { return segments_[0].radius; }
   

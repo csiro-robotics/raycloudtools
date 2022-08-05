@@ -10,6 +10,10 @@
 
 namespace ray
 {
+// given the input @c main_branch_angle of the larger branch, we can obtain the second branch angle and the 
+// two branch radii (for a base radius of 1). These branch attributes are unique if the branch follows
+// Leonardo's rule (the cross sectional area is unchanged by the bifurcation) and the rule that the centre of
+// mass direction is unchanged by the bifurcation. 
 void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, double &main_branch_radius,
                    double &secondary_branch_radius)
 {
@@ -24,14 +28,16 @@ void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, dou
 
 static const int kBranchAngleSize = 400;
 static double branch_angle_lookup[kBranchAngleSize];
-double getMainBranchAngle(double covariance_angle)
+/// returns the branch angle that best fits a given @c tip_angle 
+double getMainBranchAngle(double tip_angle)
 {
-  double x = covariance_angle * (double)kBranchAngleSize / (0.5 * kPi);
+  double x = tip_angle * (double)kBranchAngleSize / (0.5 * kPi);
   int i = std::max(0, std::min((int)x, kBranchAngleSize - 2));
   double blend = std::max(0.0, std::min(x - (double)i, 1.0));
   return branch_angle_lookup[i] * (1.0 - blend) + branch_angle_lookup[i + 1] * blend;
 }
 
+/// pre-fill the lookup table that approximates the choice of branch angles
 void fillBranchAngleLookup()
 {
   double last_g = 0.0;
@@ -122,7 +128,7 @@ void TreeStructure::make(const TreeParams &params)
   addBranch(0, base, segments_[0].radius, params);
 
   com /= total_mass;
-  // std::cout << "COM: " << COM.transpose() << ", grad = " << COM[2]/trunkRadius << std::endl;
+  // having made the tree, we now scale the whole thing in order that it matches the expected tapering gradient
   double scale = branchGradient / (com[2] / segments_[0].radius);
   Eigen::Vector3d root = segments_[0].tip;
   for (auto &leaf : leaves_) 
@@ -138,15 +144,17 @@ void TreeStructure::make(const TreeParams &params)
   }
 }
 
+// calculate the tree's volume
 double TreeStructure::volume()
 {
   double volume = 0.0;
   for (size_t i = 1; i<segments_.size(); i++)
   {
     auto &branch = segments_[i];
+    // fairly simple cylinder volume calculation...
     volume += (branch.tip - segments_[branch.parent_id].tip).norm() * branch.radius*branch.radius;
   }
-  return volume * kPi;
+  return volume * kPi; // .. but we multiply by pi at the end
 }
 
 // create a set of rays covering the tree at a roughly uniform distribution
@@ -198,7 +206,9 @@ void TreeStructure::generateRays(double ray_density)
     ray_ends_.push_back(pos);
     Eigen::Vector3d from = Eigen::Vector3d(random(-1, 1), random(-1, 1), random(-1, 1));
     if (from.dot(offset) < 0.0)
+    {
       from = -from;
+    }
 
     // closest point to branch position on circle, that is not passing through that branch.
     // This circles are similar to if the tree was scanned by a scanner moving on two circular paths

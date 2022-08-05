@@ -125,11 +125,15 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
     *((float *)&point_cloud.data[data_index + z.offset]) = (float)points[point_index][2];
 
     if (draw_time)
+    {
       *((double *)&point_cloud.data[data_index + time.offset]) = (float)point_shade[point_index];
+    }
   }
 
   if (point_cloud.width > 0)
+  {
     imp_->cloud_publisher[id].publish(point_cloud);
+  }
 }
 
 void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
@@ -175,7 +179,9 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
     p.z = starts[i][2];
     points.points.push_back(p);
     if (colours.size() > 0)
+    {
       points.colors.push_back(colour);
+    }
 
     geometry_msgs::Point n;
     n.x = ends[i][0];
@@ -183,7 +189,9 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
     n.z = ends[i][2];
     points.points.push_back(n);
     if (colours.size() > 0)
+    {
       points.colors.push_back(colour);
+    }
   }
 
   // Publish the marker

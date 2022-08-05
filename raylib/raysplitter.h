@@ -30,11 +30,13 @@ bool RAYLIB_EXPORT splitBox(const std::string &file_name, const std::string &in_
 
 /// Split a ray cloud into a grid of files, named with suffix _X_Y_Z.ply, for each grid coordinate X,Y,Z.
 /// Aligned so that cell 0,0,0 is centred at 0,0,0, and has dimensions @c cell_width
+/// @c overlap generates larger cells so that they overlap by the specified value
 bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
   const Eigen::Vector3d &cell_width, double overlap = 0.0);
 
 /// Split a ray cloud into a grid of files, named with suffix _X_Y_Z_T.ply, for each grid coordinate X,Y,Z,T.
 /// Aligned so that cell 0,0,0,0 is centred at 0,0,0,0 and has dimensions @c cell_width
+/// @c overlap generates larger cells so that they overlap by the specified value
 bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cloud_name_stub, 
   const Eigen::Vector4d &cell_width, double overlap = 0.0);
 

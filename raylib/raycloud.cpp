@@ -203,7 +203,7 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
   std::vector<int> ray_ids;
   ray_ids.reserve(ends.size());
   for (unsigned int i = 0; i < ends.size(); i++)
-  //  if (rayBounded(i))
+    if (rayBounded(i))
       ray_ids.push_back(i);
   Eigen::MatrixXd points_p(3, ray_ids.size());
   for (unsigned int i = 0; i < ray_ids.size(); i++) points_p.col(i) = ends[ray_ids[i]];

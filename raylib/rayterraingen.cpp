@@ -74,6 +74,7 @@ void TerrainGen::generate(const TerrainParams &params)
   }
 }
 
+// generate the terrain based on a .ply mesh file
 bool TerrainGen::generateFromFile(const std::string &filename, const TerrainParams &params)
 {
   // simply rain down rays from a height, onto the mesh at the given density
@@ -85,7 +86,7 @@ bool TerrainGen::generateFromFile(const std::string &filename, const TerrainPara
   std::vector<Eigen::Vector3i> &triangles = mesh.indexList();
   std::vector<Eigen::Vector3d> &vertices = mesh.vertices();
   // for each triangle, add rays in proportion to its horizontal area
-  double area_covered = 0;
+  double area_covered = 0; // we accumulate this value in order to achieve an even density of points
   double total_area = 0.0;
   const double area_per_ray = 1.0 / params.point_density; 
   for (auto &triangle: triangles)
@@ -96,7 +97,8 @@ bool TerrainGen::generateFromFile(const std::string &filename, const TerrainPara
     total_area += area;
     while (area_covered < total_area)
     {
-      double ws[2] = {random(0,1), random(0,1)}; // weights give a random location
+      // we use barycentric coordinates to pick a random point in the triangle
+      double ws[2] = {random(0,1), random(0,1)};
       if (ws[0] + ws[1] > 1.0)
       { 
         ws[0] = 1.0 - ws[0];
@@ -107,9 +109,10 @@ bool TerrainGen::generateFromFile(const std::string &filename, const TerrainPara
       Eigen::Vector3d v2 = vertices[triangle[2]];
       Eigen::Vector3d ray_end = v0 + (v1-v0)*ws[0] + (v2-v0)*ws[1];
 
+      // add some range noise
       ray_end[2] += random(-params.range_noise, params.range_noise);
-      Eigen::Vector3d ray_syart = ray_end + Eigen::Vector3d(0, 0, params.ray_height);
-      ray_starts_.push_back(ray_syart);
+      Eigen::Vector3d ray_start = ray_end + Eigen::Vector3d(0, 0, params.ray_height);
+      ray_starts_.push_back(ray_start);
       ray_ends_.push_back(ray_end);
       area_covered += area_per_ray;
     }

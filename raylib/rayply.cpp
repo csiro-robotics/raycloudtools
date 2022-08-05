@@ -336,6 +336,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   while (line != "end_header\r" && line != "end_header")
   {
     getline(input, line);
+    // support multiple data types
     DataType data_type = kDTnone;
     if (line.find("property float") != std::string::npos)
       data_type = kDTfloat;
@@ -530,17 +531,21 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         {
           intensity = std::max(2.0, std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0))); // clamping to 2 or above allows 1 to be used for the 'uncertain distance' cases
         }
-        else // special case of negative intensity codes. 
+        // special case of negative intensity codes. 
+        // these are flags to support special situations with lidars. If the lidar does not produce negative intensities then
+        // this code is not used. 
+        else 
         {
-          if (intensity == -1.0) // unknown non-return. 
+          // special cases:
+          if (intensity == -1.0)      // non-return of unknown length 
           {
             intensity = 0.0;
           }
-          else if (intensity == -2.0) // within minimum range, so range is not certain
+          else if (intensity == -2.0) // the object is within minimum range, so range is not certain but small
           {
-            intensity = 1.0;
+            intensity = 1.0; 
           }
-          else if (intensity == -3.0) // outside maximum range, so range is uncertain
+          else if (intensity == -3.0) // outside maximum range, so range is uncertain but large
           {
             intensity = 1.0;
           }
@@ -565,9 +570,13 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         for (size_t j = 0; j<intensities.size(); j++)
         {
           colours[j].alpha = intensities[j];
+          // colour zero-intensity rays black. This is a helpful debug tool.
           if (intensities[j] == 0)
+          {
             colours[j].red = colours[j].green = colours[j].blue = 0;
-          else if (intensities[j] == 1) // pale magenta for the small and large range cases
+          }
+          // the special cases for under and over ranged points are coloured pale magenta
+          else if (intensities[j] == 1) 
           {
             colours[j].red = colours[j].blue = 255; 
             colours[j].green = 200;
@@ -617,15 +626,19 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   }
 
   std::vector<Eigen::Vector4f> vertices(mesh.vertices().size());  // 4d to give space for colour
-  if (mesh.colours().size() > 0)
+  if (mesh.colours().size() > 0) // support per-triangle colours on meshes
   {
     for (size_t i = 0; i < mesh.vertices().size(); i++)
+    {
       vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2], (float &)mesh.colours()[i];
+    }
   }
   else
   {
     for (size_t i = 0; i < mesh.vertices().size(); i++)
+    {
       vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2], 1.0;
+    }
   }
 
   FILE *fid = fopen(file_name.c_str(), "w+");

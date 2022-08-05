@@ -9,7 +9,7 @@
 #include "raycloud.h"
 #include "rayparse.h"
 #include "imagewrite.h"
-#if RAYLIB_WITH_TIFF
+#if RAYLIB_WITH_TIFF // build option to support outputting to geotif (.tif) format
 #include "xtiffio.h"  /* for TIFF */
 #include "geotiffio.h" /* for GeoTIFF */
 #endif
@@ -21,6 +21,7 @@
 namespace ray
 {
 #if RAYLIB_WITH_TIFF
+// save to geotif format using floating-point per-channel colour data. This function passes a projection file in order to geolocate the image
 bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file, double origin_x, double origin_y)
 { 
   /* Open TIFF descriptor to write GeoTIFF tags */
@@ -81,6 +82,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     TIFFWriteScanline(tif, &pdst[0], row, 0);
   }
 
+  // read in the projection parameters
   if (projection_file != "")
   {
     std::ifstream ifs(projection_file.c_str(), std::ios::in);
@@ -91,12 +93,13 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     }
     std::string line;
     getline(ifs, line);
+    // the set of keys in the key-value pairs that we are parsing
     const std::vector<std::string> keys = {"+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0"};
     std::vector<std::string> values;
     for (auto &key: keys)
     {
       std::string::size_type found = line.find(key);
-      if (found==std::string::npos)
+      if (found==std::string::npos) // error checking
       {
         if (key == "+ellps")
         {
@@ -107,6 +110,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
         return false;
       }
+      // generate the list of values that correspond to the list of keys
       found += key.length() + 1;
       std::string::size_type space = line.find(" ", found);
       if (space==std::string::npos)
@@ -120,28 +124,29 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     double coord_lat = 0.0;
     if (values[4] != "")
     {
-      coord_lat = std::stod(values[4]);
+      coord_lat = std::stod(values[4]); // latitude
     }
     double coord_long = 0.0;
     if (values[5] != "")
     {
-      coord_long = std::stod(values[5]);
+      coord_long = std::stod(values[5]); // longitude
     }
     Eigen::Vector2d geo_offset(0,0);
     if (values[6] != "")
     {
-      geo_offset[0] = std::stod(values[6]);
+      geo_offset[0] = std::stod(values[6]); // offset in m
     }
     if (values[7] != "")
     {
-      geo_offset[1] = std::stod(values[7]);
+      geo_offset[1] = std::stod(values[7]); // offset in m
     }
     std::cout << "geooffset: " << geo_offset << ", geokey: " << values[1] << ", datum: " << values[2] << ", coord_long: " << coord_long << std::endl;
 
     const double scales[3] = {pixel_width, pixel_width, pixel_width};
-    TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  
+    TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
 
     // Set GeoTIFF information 
+    // We are only supporting a limited set of projection types, so here we assume standard settings
     GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);   
     GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
 
@@ -151,12 +156,15 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
     GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
 
+    // describe the coordinates of the image corners
     const double tiepoints[6]={0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0}; 
     TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
 
-    if (values[1] == "WGS84")
+    if (values[1] == "WGS84") // we support WGS84 by name
+    {
       GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, GCS_WGS_84);
-    else 
+    }
+    else // all other Geographic type geokeys we parse directly by their number
     {
       std::stringstream ss(values[1]);
       int geokey = 0;
@@ -171,8 +179,10 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         return false;
       } 
     }
-    if (values[2] == "WGS84")
+    if (values[2] == "WGS84") // we support the datum type by name
+    {
       GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
+    }
     else if (values[2] != "")
     {
       std::cout << "unknown geodetic datum: " << values[2] << std::endl;
@@ -181,12 +191,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
 
     GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, KvUserDefined);
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
-    if (values[0] != "ortho")
+    if (values[0] != "ortho") // we only support ortho projection
     {
       std::cout << "unknown projection type: " << values[0] << std::endl;
       return false;      
     }
-    if (values[3] != "m")
+    if (values[3] != "m") // we only support metres as the units
     {
       std::cout << "unknown unit type: " << values[3] << std::endl;
       return false;      
@@ -467,14 +477,15 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           const int x = p[ax1], y = p[ax2];
           // using 4 dimensions helps us to accumulate colours in a greater variety of ways
           Eigen::Vector4d &pix = pixels[x + width*y];
-          switch (style)
+          switch (style) // render the image according to the chosen style
           {
             case RenderStyle::Ends: 
             case RenderStyle::Starts: 
             case RenderStyle::Height: 
-              // TODO: fix the == 0.0 part in future, it can cause incorrect occlusion on points with z=0 precisely
-              if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0)
+              if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0) // using 0.0 precisely as a flag here
+              {
                 pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
+              }
               break;
             case RenderStyle::Mean:
               pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
@@ -492,12 +503,12 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
               Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
               const Eigen::Vector3d dir = cloud_end - cloud_start;
 
-            // fast approximate 2D line rendering requires picking the long axis to iterate along
-            const bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
-            const int axis_long = x_long ? ax1 : ax2;
-            const int axis_short = x_long ? ax2 : ax1;
-            const int width_long = x_long ? 1 : width;
-            const int width_short = x_long ? width : 1;
+              // fast approximate 2D line rendering requires picking the long axis to iterate along
+              const bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
+              const int axis_long = x_long ? ax1 : ax2;
+              const int axis_short = x_long ? ax2 : ax1;
+              const int width_long = x_long ? 1 : width;
+              const int width_short = x_long ? width : 1;
 
               const double gradient = dir[axis_short] / dir[axis_long];
               if (dir[axis_long] < 0.0)
@@ -565,7 +576,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         const Eigen::Vector4d colour = pixels[x + width * y];
         Eigen::Vector3d col3d(colour[0], colour[1], colour[2]);
         const uint8_t alpha = colour[3] == 0.0 ? 0 : 255;  // 'punch-through' alpha
-        switch (style)
+        switch (style) // convert to the colour data structure based on the chosen style
         {
           case RenderStyle::Mean:
           case RenderStyle::Rays:
@@ -615,7 +626,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         }
       }
     }
-    if (mark_origin)
+    if (mark_origin) // an option to mark the lidar origin in the image
     {
       if (pixel_colours.empty())
       {
@@ -627,7 +638,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         std::cout << "origin pixel location: " << pos[0] << ", " << pos[1] << std::endl;
         const Eigen::Vector3i p = pos.cast<int>();
         const int x = p[ax1], y = p[ax2];
-#define DRAW_ARROW
+#define DRAW_ARROW // render the origin as an arrow, which therefore defines the x direction in the lidar frame
 #if defined DRAW_ARROW
         for (int xx = x-2; xx <= x+10; xx++)
         {
@@ -662,6 +673,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         }
       }
     }
+    // option to output the transformation of the image
     if (transform_file != nullptr)
     {
       // Compute transform
@@ -701,6 +713,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       ofs.close();
     }
     std::cout << "outputting image: " << image_file << std::endl;
+
+    // write the image depending on the file format
     const char *image_name = image_file.c_str();
     stbi_flip_vertically_on_write(1);
     if (image_ext == "png")
@@ -716,10 +730,12 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   #if RAYLIB_WITH_TIFF
     else if (image_ext == "tif")
     {
+      // obtain the origin offsets
       const Eigen::Vector3d origin(0,0,0);
-      const Eigen::Vector3d pos = -(origin - bounds.min_bound_);// / pix_width; // TODO: do we divide by pixel width here?
+      const Eigen::Vector3d pos = -(origin - bounds.min_bound_);
       const double x = pos[ax1], y = pos[ax2] + (double)height * pix_width;
-      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); // true does scalar / monochrome float
+      // generate the geotiff file
+      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); 
     }
   #endif
     else
@@ -728,7 +744,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       return false;
     }
   }
-  catch (std::bad_alloc const&)
+  catch (std::bad_alloc const&) // catch any memory allocation problems in generating large images
   {
     std::cout << "Not enough memory to process the " << width << "x" << height << " image." << std::endl;
     std::cout << "The --pixel_width option can be used to reduce the resolution." << std::endl;

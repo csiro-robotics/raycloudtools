@@ -20,34 +20,39 @@ bool ForestStructure::load(const std::string &filename)
     return false;
   }  
   std::string line;
-  do
+  do // skip initial comment lines
   {
     std::getline(ifs, line);
   } while (line[0] == '#');
-  std::string mandatory_text = "x,y,z,radius";
+
+  const std::string mandatory_text = "x,y,z,radius";
   if (line.substr(0, mandatory_text.length()) != mandatory_text)
   {
     std::cerr << "Error: tree files must start with the mandatory format: " << mandatory_text << std::endl;
     return false;
   }
+
+  // parse the attributes line. This line defines any additional attributes beyond mandatory_text
   int commas_per_segment = 1 + (int)std::count(line.begin(), line.end(), ',');
   line = line.substr(mandatory_text.length());
   if (line[0] == ',')
-    line = line.substr(1);
+    line = line.substr(1);  
   std::istringstream ss(line);
   std::vector<std::string> attributes;
   bool has_parent_id = false;
+  // parse each attribute
   for (int i = 4; i<commas_per_segment; i++)
   {
     std::string token;
     std::getline(ss, token, ',');
-    if (token == "parent_id")
+    if (token == "parent_id") // parent_id is a special case as it is an int rather than double
       has_parent_id = true;
     else
       attributes.push_back(token);
   }
   if (attributes.size() > 0)
   {
+    // let the user know what attributes it found
     std::cout << "reading extra tree attributes: ";
     for (auto &at: attributes)
       std::cout << at << "; ";
@@ -55,15 +60,18 @@ bool ForestStructure::load(const std::string &filename)
   }
 
   int line_number = 0;
+  // now parse the data, one line at a time
   while (!ifs.eof())
   {
     std::string line;
     std::getline(ifs, line);
-    if (line.length() == 0 || line[0] == '#')
+    if (line.length() == 0 || line[0] == '#') // ignore empty and comment lines
       continue;
+    // use commas to separate the line
     int num_commas = 1 + (int)std::count(line.begin(), line.end(), ',');
     TreeStructure tree;
     tree.attributes() = attributes;
+    // make sure the number of commas is what we expect
     if (num_commas > commas_per_segment && !has_parent_id)
     {
       std::cerr << "Error: trees with multiple segments need parent_id field to connect them" << std::endl;
@@ -74,26 +82,31 @@ bool ForestStructure::load(const std::string &filename)
       std::cerr << "Error: line " << line_number << " contains " << num_commas << " commas, which is not divisible by " << commas_per_segment << std::endl;
       return false;
     }
+
     line_number++;
     std::istringstream ss(line);
+    // for each segment...
     for (int c = 0; c<num_commas; c += commas_per_segment)
     {
       TreeStructure::Segment segment; 
+      // for each attribute of this segment...
       for (int i = 0; i<commas_per_segment; i++)
       {
         std::string token;
         std::getline(ss, token, ',');
         if (i<3)
-          segment.tip[i] = std::stod(token.c_str());
+          segment.tip[i] = std::stod(token.c_str()); // special case for tip x,y,z
         else if (i==3)
-          segment.radius = std::stod(token.c_str());
+          segment.radius = std::stod(token.c_str()); // special case for radius
         else if (i==4 && has_parent_id)
-          segment.parent_id = std::stoi(token.c_str());
+          segment.parent_id = std::stoi(token.c_str()); // special case for parent_id
         else
-          segment.attributes.push_back(std::stod(token.c_str()));
+          segment.attributes.push_back(std::stod(token.c_str())); // user attributes
       }
+      // generate the tree segment from the attributes
       tree.segments().push_back(segment);
     }
+    // another error check
     if (has_parent_id && tree.segments().size() == 1)
     {
       std::cerr << "Error: format contains parent id, but trunk only (single segment) detected on line " << line_number << std::endl;
@@ -106,7 +119,7 @@ bool ForestStructure::load(const std::string &filename)
   if (trees[0].segments().empty())
     return false;
 
-#if defined OUTPUT_MOMENTS
+#if defined OUTPUT_MOMENTS // enabled to provide results for the unit tests
   Eigen::Array<double, 6, 1> mom = getMoments();
   std::cout << "stats: " << std::endl;
   for (int i = 0; i<mom.rows(); i++)
@@ -143,15 +156,18 @@ bool ForestStructure::save(const std::string &filename)
   }
   std::cout << std::endl;
   ofs << std::endl;
+  // for each tree
   for (auto &tree: trees)
   {
+    // for each segment in the tree
     for (size_t i = 0; i<tree.segments().size(); i++)
     {
       auto &segment = tree.segments()[i];
+      // save the mandatory attributes
       ofs << segment.tip[0] << "," << segment.tip[1] << "," << segment.tip[2] << "," << segment.radius;
       if (tree.segments().size() > 1)
-        ofs << "," << segment.parent_id;
-      for (auto &att: segment.attributes)
+        ofs << "," << segment.parent_id; // save the special-case parent_id
+      for (auto &att: segment.attributes) // save the user attributes
         ofs << "," << att;
       if (i != tree.segments().size()-1)
         ofs << ", ";
@@ -239,11 +255,15 @@ Eigen::Array<double, 6, 1> ForestStructure::getMoments() const
 bool ForestGen::makeFromFile(const std::string &filename, const TreeParams &params)
 {
   if (!load(filename))
+  {
     return false;
+  }
   if (trees[0].segments().size() == 1) // must have loaded trunks only
   {
     for (auto &tree: trees)
+    {
       tree.make(params);
+    }
   }
   return true;
 }
@@ -251,14 +271,18 @@ bool ForestGen::makeFromFile(const std::string &filename, const TreeParams &para
 void ForestGen::generateRays(double ray_density)
 {
   for (auto &tree : trees) 
+  {
     tree.generateRays(ray_density);
+  }
 }
 
 std::vector<Eigen::Vector3d> ForestGen::getCanopy()
 {
   std::vector<Eigen::Vector3d> canopy;
   for (auto &tree : trees) 
+  {
     canopy.insert(canopy.end(), tree.leaves().begin(), tree.leaves().end());
+  }
 
   return canopy;
 }
@@ -267,7 +291,9 @@ std::vector<Eigen::Vector3d> ForestGen::getPointCloud()
 {
   std::vector<Eigen::Vector3d> cloud;
   for (auto &tree : trees) 
+  {
     cloud.insert(cloud.end(), tree.rayEnds().begin(), tree.rayEnds().end());
+  }
 
   return cloud;
 }
