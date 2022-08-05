@@ -7,7 +7,7 @@
 #define RAYLIB_RAYTREEGEN_H
 
 #include "raylib/raylibconfig.h"
-
+#include "raytreestructure.h"
 #include "raypose.h"
 #include "rayutils.h"
 
@@ -32,9 +32,15 @@ struct TreeParams
 
 /// Random generation of semi-realistic trees. These are based on a self-similar branching structure
 /// for the @c pitchAngle @c splitAngle and @c branchGradient constants, with an additional @c random_factor
-class RAYLIB_EXPORT TreeStructure
+class RAYLIB_EXPORT TreeGen : public TreeStructure
 {
 public:
+  TreeGen(){}
+  TreeGen(const TreeStructure &base_tree)
+  {
+    segments_ = base_tree.segments();
+    attribute_names_ = base_tree.attributes();
+  }
   /// create the tree structure, and list of leaf points
   void make(const TreeParams &params);
 
@@ -44,41 +50,12 @@ public:
   /// the rays generated from generateRays
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
-  
-  /// The tree is a list of segments, which are connected through the parent_id
-  struct Segment
-  {
-    Segment() : tip(0,0,0), radius(0), parent_id(-1) {}
-    Eigen::Vector3d tip;
-    double radius;
-    int parent_id;
-    std::vector<double> attributes;
-  };
 
-  /// access the geometry of the tree as a list of branches
-  const std::vector<Segment> &segments() const { return segments_; }
-  std::vector<Segment> &segments() { return segments_; }
   /// access the leaves of the tree
-  const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }
-  /// the position of the base of the tree trunk
-  const Eigen::Vector3d &root() const { return segments_[0].tip; }
-
-  /// access the tree's attributes
-  std::vector<std::string> &attributes(){ return attribute_names_; }
-  const std::vector<std::string> &attributes() const { return attribute_names_; }
-
-  /// calculate the volume of the tree
-  double volume();
-
-  /// return the root radius of the tree
-  double &radius(){ return segments_[0].radius; }
-  const double &radius() const { return segments_[0].radius; }
-  
+  const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }  
 private:
   std::vector<Eigen::Vector3d> leaves_;
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
-  std::vector<Segment> segments_;
-  std::vector<std::string> attribute_names_;
 
   void addBranch(int parent_index, Pose pose, double radius, const TreeParams &params);
 };

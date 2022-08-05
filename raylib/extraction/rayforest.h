@@ -9,7 +9,7 @@
 #include "../raycloud.h"
 #include "../raymesh.h"
 #include "../rayutils.h"
-#include "raylib/rayforestgen.h"
+#include "raylib/rayforeststructure.h"
 #include "raylib/raylibconfig.h"
 #include "raygrid2d.h"
 #include "raytrunks.h"
@@ -32,11 +32,11 @@ public:
     , drop_ratio_(0.1)
   {}
   /// Extract tree locations from a specified ray cloud, ground mesh and an optional set of identified trunks
-  ray::ForestStructure extract(const std::string &cloud_name_stub, Mesh &mesh,
+  ForestStructure extract(const std::string &cloud_name_stub, Mesh &mesh,
                                const std::vector<std::pair<Eigen::Vector3d, double>> &trunks, double voxel_width);
   /// Extract tree locations directly from 2D fields: a height field of the canopy (highs) the ground (lows) and the
   /// free space (space).
-  ray::ForestStructure extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space,
+  ForestStructure extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space,
                                double voxel_width, const std::string &cloud_name_stub);
 
   /// save the forest data

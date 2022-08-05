@@ -7,7 +7,7 @@
 #include "raycloud.h"
 #include "raymesh.h"
 #include "rayply.h"
-#include "rayforestgen.h"
+#include "rayforeststructure.h"
 #include <vector>
 #include <gtest/gtest.h>
 #include <cstdlib>

@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     double time = 0.0;
     if (type == "tree") // create a single tree
     {
-      ray::TreeStructure tree_gen;
+      ray::TreeGen tree_gen;
       ray::TreeParams params;
       params.random_factor = 0.25;
       tree_gen.segments().resize(1);
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
         forest_gen.make(params);
       }
       forest_gen.generateRays(density);
-      for (auto &tree : forest_gen.trees)
+      for (auto &tree : forest_gen.trees())
       {  
         const std::vector<Eigen::Vector3d> &ray_starts = tree.rayStarts();
         const std::vector<Eigen::Vector3d> &ray_ends = tree.rayEnds();

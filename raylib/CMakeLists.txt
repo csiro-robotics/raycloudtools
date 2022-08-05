@@ -23,6 +23,7 @@ set(PUBLIC_HEADERS
   rayellipsoid.h
   rayfinealignment.h
   rayforestgen.h
+  rayforeststructure.h
   raygrid.h
   raylaz.h
   raymerger.h
@@ -39,6 +40,7 @@ set(PUBLIC_HEADERS
   raythreads.h
   raytrajectory.h
   raytreegen.h
+  raytreestructure.h
   rayunused.h
   rayutils.h
   rayparse.h
@@ -72,6 +74,7 @@ set(SOURCES
   rayellipsoid.cpp
   rayfinealignment.cpp
   rayforestgen.cpp
+  rayforeststructure.cpp
   raylaz.cpp
   raymerger.cpp
   raymesh.cpp
@@ -85,6 +88,7 @@ set(SOURCES
   raythreads.cpp
   raytrajectory.cpp
   raytreegen.cpp
+  raytreestructure.cpp
   rayparse.cpp
   rayrandom.cpp
   rayrenderer.cpp

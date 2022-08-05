@@ -77,7 +77,7 @@ static const double kMinimumRadius = 0.001;
 static Eigen::Vector3d com(0, 0, 0);
 static double total_mass = 0.0;
 
-void TreeStructure::addBranch(int parent_index, Pose pose, double radius, const TreeParams &params)
+void TreeGen::addBranch(int parent_index, Pose pose, double radius, const TreeParams &params)
 {
   if (radius < params.min_branch_radius)
   {
@@ -119,7 +119,7 @@ void TreeStructure::addBranch(int parent_index, Pose pose, double radius, const 
 }
 
 // create the tree structure, and list of leaf points
-void TreeStructure::make(const TreeParams &params)
+void TreeGen::make(const TreeParams &params)
 {
   com.setZero();
   total_mass = 0.0;
@@ -144,21 +144,8 @@ void TreeStructure::make(const TreeParams &params)
   }
 }
 
-// calculate the tree's volume
-double TreeStructure::volume()
-{
-  double volume = 0.0;
-  for (size_t i = 1; i<segments_.size(); i++)
-  {
-    auto &branch = segments_[i];
-    // fairly simple cylinder volume calculation...
-    volume += (branch.tip - segments_[branch.parent_id].tip).norm() * branch.radius*branch.radius;
-  }
-  return volume * kPi; // .. but we multiply by pi at the end
-}
-
 // create a set of rays covering the tree at a roughly uniform distribution
-void TreeStructure::generateRays(double ray_density)
+void TreeGen::generateRays(double ray_density)
 {
   ASSERT(segments_.size() > 0);
   const double path_trunk_multiplier = 12.0; // observe the tree from this many trunk radii away
