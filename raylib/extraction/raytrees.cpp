@@ -10,6 +10,141 @@
 
 namespace ray
 {
+TreesParams::TreesParams()
+  : max_diameter(0.9)
+  , min_diameter(0.02)
+  , distance_limit(1.0)
+  , height_min(2.0)
+  , length_to_radius(140.0)
+  , cylinder_length_to_width(4.0)
+  , gap_ratio(2.5)
+  , span_ratio(4.5)
+  , gravity_factor(0.3)
+  , radius_exponent(0.67)
+  , linear_range(3.0)
+  , grid_width(0.0)
+  , segment_branches(false){}  
+
+/// The main reconstruction algorithm
+/// It is based on finding the shortest paths using Djikstra's algorithm, followed
+/// by an agglomeration of paths, with repeated splitting from root to tips
+Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose)
+{
+  // firstly, get the full set of shortest paths from ground to tips, and the set of roots
+  params_ = &params;
+  std::vector<std::vector<int>> roots_list = getRootsAndSegment(
+    points_, cloud, mesh, params_->max_diameter, params_->distance_limit, params_->height_min, params_->gravity_factor);
+
+  // Now we want to convert these paths into a set of branch sections, from root to tips
+  // splitting as we go up...
+
+  // calculate the maximum distance to tip for every point in the cloud
+  calculatePointDistancesToEnd();
+  
+  // then generate all the root sections
+  generateRootSections(roots_list);
+
+  // the set of child points will be useful later, so generate them now
+  std::vector<std::vector<int>> children(points_.size());
+  for (size_t i = 0; i < points_.size(); i++)
+  {
+    if (points_[i].parent != -1)
+    {
+      children[points_[i].parent].push_back((int)i);
+    }
+  }
+
+  // now trace from root tree nodes upwards, getting node centroids
+  // create new BranchSections as we go
+  for (sec_ = 0; sec_ < sections_.size(); sec_++)
+  {
+    if (!(sec_ % 10000))
+      std::cout << "generating segment " << sec_ << std::endl;
+    int par = sections_[sec_].parent;
+
+    // any estimate of branch radius is bounded from above by an estimate from the branch's length
+    // estimates from length are more reliable on small branches, and less reliable on large, well
+    // observed trunks. 
+    max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
+
+    // this branch can come to an end as it is now too small
+    if (max_radius_ < 0.5 * params_->min_diameter)
+    {
+      setBranchTip();
+      continue;
+    }
+
+    std::vector<int> nodes; // all the points in the section
+    bool extract_from_ends = sections_[sec_].ends.size() > 0;
+    // if the branch section has no end points recorded, then we need to examine this branch to 
+    // find end points and potentially branch (bifurcate)  
+    if (!extract_from_ends)
+    {
+      Eigen::Vector3d base = getRootPosition();
+      extractNodesAndEndsFromRoots(nodes, base, children);
+      bool points_removed = false;
+      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed);
+
+      if (clusters.size() > 1 || points_removed) // a bifurcation (or an alteration)
+      {
+        extract_from_ends = true;
+        nodes.clear();  // don't trust the found nodes as it is now two separate tree nodes
+        // if points have been removed then this only resets the current section's points
+        // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
+        bifurcate(clusters); 
+        // update the max_radius, since the points have changed
+        max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
+      }
+    }
+
+    // we have split the ends, so we need to extract the set of nodes in a backwards manner
+    if (extract_from_ends)  
+    {
+      extractNodesFromEnds(nodes);
+    }
+
+    // estimate the section's tip (the centre of the cylinder of points)
+    sections_[sec_].tip = calculateTipFromNodes(nodes);
+    // get section's direction
+    Eigen::Vector3d dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0,0,1);
+    // shift to cylinder's centre
+    sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
+    // now find the segment radius
+    sections_[sec_].radius = estimateCylinderRadius(nodes, dir);
+
+    // now add the single child for this particular tree node, assuming there are still ends
+    if (sections_[sec_].ends.size() > 0)
+    {
+      addChildSection();
+    }
+  } // end of loop. We now have created all of the BranchSections
+  
+  // Now calculate the section ids for all of the points, for the segmented cloud
+  std::vector<int> section_ids(points_.size(), -1);
+  calculateSectionIds(roots_list, section_ids, children);
+
+  // debug draw to rviz the set of cylinders
+  drawTrees(verbose);
+
+  generateLocalSectionIds();
+
+  Eigen::Vector3d min_bound(0, 0, 0), max_bound(0, 0, 0);
+  // remove all sections with a root out of bounds, if we have gridded the cloud with an overlap
+  if (params_->grid_width)
+  {
+    removeOutOfBoundSections(cloud, min_bound, max_bound);
+  }
+
+  std::vector<int> root_segs(cloud.ends.size(), -1);
+  // now colour the ray cloud based on the segmentation
+  segmentCloud(cloud, root_segs, section_ids);
+
+  if (params_->grid_width)  // also remove rays from the segmented cloud
+  {
+    removeOutOfBoundRays(cloud, min_bound, max_bound, root_segs);
+  }
+}
+
 /// calculate a branch radius from its length. We use allometric scaling based on a radius exponent and a 
 /// linear range for the final taper of the branch
 /// See "Allometric patterns in Acer platanoides (Aceraceae) branches" for real world data
@@ -648,125 +783,6 @@ void Trees::removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen
       cloud.times.pop_back();
     }
   }  
-}
-/// The main reconstruction algorithm
-/// It is based on finding the shortest paths using Djikstra's algorithm, followed
-/// by an agglomeration of paths, with repeated splitting from root to tips
-Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose)
-{
-  // firstly, get the full set of shortest paths from ground to tips, and the set of roots
-  params_ = &params;
-  std::vector<std::vector<int>> roots_list = getRootsAndSegment(
-    points_, cloud, mesh, params_->max_diameter, params_->distance_limit, params_->height_min, params_->gravity_factor);
-
-  // Now we want to convert these paths into a set of branch sections, from root to tips
-  // splitting as we go up...
-
-  // calculate the maximum distance to tip for every point in the cloud
-  calculatePointDistancesToEnd();
-  
-  // then generate all the root sections
-  generateRootSections(roots_list);
-
-  // the set of child points will be useful later, so generate them now
-  std::vector<std::vector<int>> children(points_.size());
-  for (size_t i = 0; i < points_.size(); i++)
-  {
-    if (points_[i].parent != -1)
-    {
-      children[points_[i].parent].push_back((int)i);
-    }
-  }
-
-  // now trace from root tree nodes upwards, getting node centroids
-  // create new BranchSections as we go
-  for (sec_ = 0; sec_ < sections_.size(); sec_++)
-  {
-    if (!(sec_ % 10000))
-      std::cout << "generating segment " << sec_ << std::endl;
-    int par = sections_[sec_].parent;
-
-    // any estimate of branch radius is bounded from above by an estimate from the branch's length
-    // estimates from length are more reliable on small branches, and less reliable on large, well
-    // observed trunks. 
-    max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
-
-    // this branch can come to an end as it is now too small
-    if (max_radius_ < 0.5 * params_->min_diameter)
-    {
-      setBranchTip();
-      continue;
-    }
-
-    std::vector<int> nodes; // all the points in the section
-    bool extract_from_ends = sections_[sec_].ends.size() > 0;
-    // if the branch section has no end points recorded, then we need to examine this branch to 
-    // find end points and potentially branch (bifurcate)  
-    if (!extract_from_ends)
-    {
-      Eigen::Vector3d base = getRootPosition();
-      extractNodesAndEndsFromRoots(nodes, base, children);
-      bool points_removed = false;
-      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed);
-
-      if (clusters.size() > 1 || points_removed) // a bifurcation (or an alteration)
-      {
-        extract_from_ends = true;
-        nodes.clear();  // don't trust the found nodes as it is now two separate tree nodes
-        // if points have been removed then this only resets the current section's points
-        // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
-        bifurcate(clusters); 
-        // update the max_radius, since the points have changed
-        max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
-      }
-    }
-
-    // we have split the ends, so we need to extract the set of nodes in a backwards manner
-    if (extract_from_ends)  
-    {
-      extractNodesFromEnds(nodes);
-    }
-
-    // estimate the section's tip (the centre of the cylinder of points)
-    sections_[sec_].tip = calculateTipFromNodes(nodes);
-    // get section's direction
-    Eigen::Vector3d dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0,0,1);
-    // shift to cylinder's centre
-    sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
-    // now find the segment radius
-    sections_[sec_].radius = estimateCylinderRadius(nodes, dir);
-
-    // now add the single child for this particular tree node, assuming there are still ends
-    if (sections_[sec_].ends.size() > 0)
-    {
-      addChildSection();
-    }
-  } // end of loop. We now have created all of the BranchSections
-  
-  // Now calculate the section ids for all of the points, for the segmented cloud
-  std::vector<int> section_ids(points_.size(), -1);
-  calculateSectionIds(roots_list, section_ids, children);
-
-  // debug draw to rviz the set of cylinders
-  drawTrees(verbose);
-
-  generateLocalSectionIds();
-
-  Eigen::Vector3d min_bound(0, 0, 0), max_bound(0, 0, 0);
-  // remove all sections with a root out of bounds, if we have gridded the cloud with an overlap
-  if (params_->grid_width)
-  {
-    removeOutOfBoundSections(cloud, min_bound, max_bound);
-  }
-
-  std::vector<int> root_segs(cloud.ends.size(), -1);
-  // now colour the ray cloud based on the segmentation
-  segmentCloud(cloud, root_segs, section_ids);
-
-  if (params_->grid_width)  // also remove rays from the segmented cloud
-  {
-    removeOutOfBoundRays(cloud, min_bound, max_bound, root_segs);
-  }
 }
 
 // save the structure to a text file
