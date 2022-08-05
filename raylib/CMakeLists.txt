@@ -52,7 +52,7 @@ set(PUBLIC_HEADERS
   extraction/rayforest.h
   extraction/raysegment.h
   extraction/raywatershed.h
-  extraction/rayoccupancy2d.h
+  extraction/raygrid2d.h
 )
 
 set(PRIVATE_HEADERS
@@ -88,7 +88,7 @@ set(SOURCES
   rayparse.cpp
   rayrandom.cpp
   rayrenderer.cpp
-  extraction/rayoccupancy2d.cpp
+  extraction/raygrid2d.cpp
   extraction/raytrunk.cpp
   extraction/raytrunks.cpp
   extraction/rayclusters.cpp

@@ -52,47 +52,5 @@ struct Trunk
   void updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points);
 };
 
-// grid structure used for identifying free space
-struct RayGrid2D
-{
-  void init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double pixel_width);
-
-  struct Pixel
-  {
-    std::vector<int> ray_ids;
-    bool filled;
-  };
-  Eigen::Vector3i dims_;
-  Eigen::Vector3d min_bound_;
-  double pixel_width_;
-  std::vector<Pixel> pixels_;
-  Pixel dummy_pixel_;
-  inline Eigen::Vector3i pixelIndex(const Eigen::Vector3d &pos) const
-  {
-    return ((pos - min_bound_) / pixel_width_).cast<int>();
-  }
-  inline const Pixel &pixel(const Eigen::Vector3i &index) const
-  {
-    if (index[0] < 0 || index[1] < 0 || index[0] >= dims_[0] || index[1] >= dims_[1])
-    {
-      return dummy_pixel_;
-    }
-    return pixels_[dims_[1] * index[0] + index[1]];
-  }
-  inline Pixel &pixel(const Eigen::Vector3i &index)
-  {
-    if (index[0] < 0 || index[1] < 0 || index[0] >= dims_[0] || index[1] >= dims_[1])
-    {
-      return dummy_pixel_;
-    }
-    return pixels_[dims_[1] * index[0] + index[1]];
-  }
-  inline const Pixel &pixel(const Eigen::Vector3d &pos) const { return pixel(pixelIndex(pos)); }
-  inline Pixel &pixel(const Eigen::Vector3d &pos) { return pixel(pixelIndex(pos)); }
-
-  // takes the filled cells and adds the ray ids that overlap these filled cells
-  void fillRays(const Cloud &cloud);
-};
-
 }  // namespace ray
 #endif  // RAYLIB_RAYBRANCH_H

@@ -89,7 +89,7 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
 }
 
 /// render the occupancy density value as a shaded plan-view image
-void Occupancy2D::draw(const std::string &filename)
+void OccupancyGrid2D::draw(const std::string &filename)
 {
   ColourField pixels(dims_[0], dims_[1]);
   for (int x = 0; x < pixels.dims[0]; x++)

@@ -9,6 +9,7 @@
 #include "../raycuboid.h"
 #include "../raydebugdraw.h"
 #include "../raygrid.h"
+#include "raygrid2d.h"
 #include "../rayply.h"
 
 namespace ray
@@ -121,6 +122,54 @@ public:
 };
 }  // namespace
 
+// A map of voxels to integers, such as for a count value per voxel
+struct IntegerVoxels
+{
+  IntegerVoxels(double width, const Eigen::Vector3d offset)
+    : voxel_width(width)
+    , offset(offset)
+  {}
+
+  inline Eigen::Vector3i getIndex(const Eigen::Vector3d &pos)
+  {
+    Eigen::Vector3d ind = (pos - offset) / voxel_width;
+    return Eigen::Vector3i(int(std::floor(ind[0])), int(std::floor(ind[1])), int(std::floor(ind[2])));
+  }
+  inline void increment(const Eigen::Vector3d &pos) { increment(getIndex(pos)); }
+  inline void increment(const Eigen::Vector3i &index)
+  {
+    auto it = voxel_map.find(index);
+    if (it == voxel_map.end())
+    {
+      voxel_map[index] = 1;
+    }
+    else
+    {
+      it->second++;
+    }
+  }
+  inline int get(const Eigen::Vector3i &index) const
+  {
+    auto it = voxel_map.find(index);
+    if (it == voxel_map.end())
+      return 0;
+    else
+      return it->second;
+  }
+  void forEach(std::function<void(const struct IntegerVoxels &voxels, double width, const Eigen::Vector3d &offset,
+                                  const Eigen::Vector3i &index, int count)>
+                 func)
+  {
+    for (auto &voxel : voxel_map)
+    {
+      func(*this, voxel_width, offset, voxel.first, voxel.second);
+    }
+  }
+
+  std::map<Eigen::Vector3i, int, Vector3iLess> voxel_map;
+  double voxel_width;
+  Eigen::Vector3d offset;
+};
 
 /// Initial estimate of the trunks
 void initialiseTrunks(std::vector<Trunk> &trunks, const Cloud &cloud, const Eigen::Vector3d &min_bound,

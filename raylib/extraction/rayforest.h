@@ -11,7 +11,7 @@
 #include "../rayutils.h"
 #include "raylib/rayforestgen.h"
 #include "raylib/raylibconfig.h"
-#include "rayoccupancy2d.h"
+#include "raygrid2d.h"
 #include "raytrunks.h"
 #include "raywatershed.h"
 

@@ -125,7 +125,7 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
   }
 
   // generate a 2D grid in order to fill in the 'space field' a 2D array of free space (where the rays are)
-  Occupancy2D grid2D;
+  OccupancyGrid2D grid2D;
   if (!grid2D.load(cloud_name_stub + "_occupied.dat"))
   {
     grid2D.init(min_bounds_, max_bounds_, voxel_width);
