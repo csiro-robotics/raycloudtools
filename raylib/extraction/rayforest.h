@@ -13,12 +13,14 @@
 #include "raylib/raylibconfig.h"
 #include "raygrid2d.h"
 #include "raytrunks.h"
-#include "raywatershed.h"
+#include "raytreenode.h"
 
 namespace ray
 {
 
-/// For storing and extracting basic forest information
+/// Class for storing and extracting basic forest information: the location and size of its trees
+/// This is the class used in the tool raycloud extract forest, for converting ray clouds to a description 
+/// of its trees
 class RAYLIB_EXPORT Forest
 {
 public:
@@ -55,10 +57,20 @@ public:
   double drop_ratio_;     // a tree edge is one that drops more than this height ratio over one pixel
 
 private:
+  /// render the height field to an image file
   void drawHeightField(const std::string &filename, const Eigen::ArrayXXd &heightfield);
+  /// find space below the tree node, and output the found space as the @c tip position
   bool findSpace(const TreeNode &node, Eigen::Vector3d &tip);
+  /// smooth the height field using repeated averaging of the Moore neighbourhood
   void smoothHeightfield();
+  /// include the trunks in the canopy height, as a soft hint for segmentation
   void addTrunkHeights();
+  /// render the final segmentation to an image file
+  void drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
+  /// render the hierarchical watershed result
+  void renderWatershed(const std::string &cloud_name_stub, std::vector<TreeNode> &trees, std::set<int> &indices);
+  /// perform the hierarchical watershed algorithm to segment the trees based on convex crown shapes
+  void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
 
   double voxel_width_;
   Eigen::ArrayXXd heightfield_;
@@ -67,10 +79,6 @@ private:
   Eigen::ArrayXXd spacefield_;
   std::vector<std::pair<Eigen::Vector3d, double>> trunks_;
   Eigen::Vector3d min_bounds_, max_bounds_;
-
-  void drawFinalSegmentation(const std::string &filename, std::vector<TreeNode> &trees);
-  void renderWatershed(const std::string &cloud_name_stub, std::vector<TreeNode> &trees, std::set<int> &indices);
-  void hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &heads);
   Eigen::ArrayXXi indexfield_;
 };
 

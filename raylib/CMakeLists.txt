@@ -53,7 +53,7 @@ set(PUBLIC_HEADERS
   extraction/raytrees.h
   extraction/rayforest.h
   extraction/raysegment.h
-  extraction/raywatershed.h
+  extraction/raytreenode.h
   extraction/raygrid2d.h
 )
 
@@ -100,8 +100,8 @@ set(SOURCES
   extraction/raytrees.cpp
   extraction/rayforest.cpp
   extraction/rayforest_draw.cpp
+  extraction/rayforest_watershed.cpp
   extraction/raysegment.cpp
-  extraction/raywatershed.cpp
 )
 
 # Select the source file to use with raydebudraw.

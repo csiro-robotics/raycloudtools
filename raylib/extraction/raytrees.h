@@ -39,6 +39,8 @@ struct BranchSection; // forwards declaration
 
 /// The class for a set of trees, stored as a list of (connected) branch sections
 /// together with the function for their extrsction from a ray cloud
+/// This is the class used in the tool rayextrsact trees, which reconstructs the branch structures
+/// of the specified ray cloud, and saves them as a text file
 class Trees
 {
 public:

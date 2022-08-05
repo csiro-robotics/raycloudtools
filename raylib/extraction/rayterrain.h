@@ -16,7 +16,9 @@ typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 namespace ray
 {
-/// A class for storage and extraction of a smooth ground height function
+/// A class for storage and extraction of a smooth ground height function, as a triangle mesh
+/// This is the class used in the tool rayextract terrain, which creates a triangle mesh of the ray cloud's
+/// ground surface
 class RAYLIB_EXPORT Terrain
 {
 public:

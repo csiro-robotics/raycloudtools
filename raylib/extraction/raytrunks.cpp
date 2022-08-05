@@ -18,8 +18,9 @@ namespace
 {
 const double inf = 1e10;
 
-void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *extra_points1 = NULL,
-                const std::vector<Eigen::Vector3d> *extra_points2 = NULL)
+/// debug draw the trunks, either as a set of lines to rviz, or as a point cloud.
+void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *closest_approach_points = NULL,
+                const std::vector<Eigen::Vector3d> *pass_through_points = NULL)
 {
 #if USE_RVIZ
   std::vector<Eigen::Vector3d> starts, ends;
@@ -54,9 +55,10 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
   colour.red = colour.green = colour.blue = 0;
   colour.alpha = 255;
 
-  if (extra_points1)
+  // add the optional additional points to the ray cloud
+  if (closest_approach_points)
   {
-    for (auto &point : *extra_points1)
+    for (auto &point : *closest_approach_points)
     {
       cloud_points.push_back(point);
       times.push_back(0.0);
@@ -64,15 +66,16 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
     }
   }
   colour.red = colour.green = 255;
-  if (extra_points2)
+  if (pass_through_points)
   {
-    for (auto &point : *extra_points2)
+    for (auto &point : *pass_through_points)
     {
       cloud_points.push_back(point);
       times.push_back(0.0);
       colours.push_back(colour);
     }
   }
+  // Now draw each of the trunks as a cylinder composed of a set of points
   for (auto &trunk : trunks)
   {
     if (!trunk.active)
@@ -84,9 +87,10 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
     Eigen::Vector3d side1 = trunk.dir.cross(Eigen::Vector3d(1, 2, 3)).normalized();
     Eigen::Vector3d side2 = side1.cross(trunk.dir);
     double rad = trunk.radius;
-    for (double z = -0.5; z < 0.5; z += 0.15)
+    // the point-cloud cylinder is composed of...
+    for (double z = -0.5; z < 0.5; z += 0.15) // multiple heights
     {
-      for (double ang = 0.0; ang < 2.0 * kPi; ang += 0.6)
+      for (double ang = 0.0; ang < 2.0 * kPi; ang += 0.6) // and multiple angles
       {
         Eigen::Vector3d pos =
           trunk.centre + trunk.dir * trunk.length * z + side1 * std::sin(ang) * rad + side2 * std::cos(ang) * rad;
@@ -447,7 +451,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
     // set occupancy from ray cloud
     grid2D.fillRays(cloud);
 
-    std::vector<Eigen::Vector3d> extra_points1, extra_points2;
+    std::vector<Eigen::Vector3d> closest_approach_points, pass_through_points;
     int num_removed = 0;
     for (auto &trunk : trunks)
     {
@@ -460,7 +464,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       auto &ray_ids = grid2D.pixel(trunk.centre).ray_ids;
       double mean_rad = 0.0;
       double mean_num = 0.0;
-      std::vector<Eigen::Vector3d> poins;
+      std::vector<Eigen::Vector3d> nearest_points;
       for (size_t i = 0; i < ray_ids.size(); i++)
       {
         // check whether ray passes through trunk...
@@ -482,7 +486,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
         {
           mean_rad += dist;
           mean_num++;
-          poins.push_back(closest_point);
+          nearest_points.push_back(closest_point);
         }
       }
       if (mean_num > 1)
@@ -492,11 +496,11 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
         {
           trunk.active = false;
           num_removed++;
-          extra_points2.insert(extra_points2.begin(), poins.begin(), poins.end());
+          pass_through_points.insert(pass_through_points.begin(), nearest_points.begin(), nearest_points.end());
         }
         else
         {
-          extra_points1.insert(extra_points1.begin(), poins.begin(), poins.end());
+          closest_approach_points.insert(closest_approach_points.begin(), nearest_points.begin(), nearest_points.end());
         }
       }
     }
@@ -504,7 +508,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
     {
       // visualise the trunks and the removed ones, showing the closest point of passing rays
       std::cout << "num trunks removed: " << num_removed << std::endl;
-      drawTrunks(trunks, &extra_points1, &extra_points2);
+      drawTrunks(trunks, &closest_approach_points, &pass_through_points);
     }
 
     best_trunks = trunks;

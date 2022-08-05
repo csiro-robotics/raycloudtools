@@ -32,12 +32,6 @@ struct OccupancyGrid2D
     inline double density() const { return 1.0 - (static_cast<double>(bits) / static_cast<double>(subpixels * subpixels)); }
   };
 
-  Eigen::Vector3i dims_;
-  Eigen::Vector3d min_bound_;
-  double pixel_width_;
-  std::vector<Pixel> pixels_;
-  Pixel dummy_pixel_;
-
   /// 3D index of the pixel
   inline Eigen::Vector3i pixelIndex(const Eigen::Vector3d &pos) const
   {
@@ -65,6 +59,12 @@ struct OccupancyGrid2D
 
   /// draw the occupancy grid
   void draw(const std::string &filename);
+
+  Eigen::Vector3i dims_;
+  Eigen::Vector3d min_bound_;
+  double pixel_width_;
+  std::vector<Pixel> pixels_;
+  Pixel dummy_pixel_;
 };
 
 // A similar 2d grid structure, but this stores the ray indices per pixel

@@ -18,7 +18,7 @@ static const double trunk_height_to_width = 4.0;  // height extent relative to r
 static const double boundary_radius_scale = 3.0;  // how much farther out is the expected boundary compared to real
                                                   // branch radius? Larger requires more space to declare it a branch
 
-/// Structure defining a single trunk, as used in trunk extraction
+/// Structure defining a single trunk, as used by raytrunks in trunk extraction
 struct Trunk
 {
   Trunk();

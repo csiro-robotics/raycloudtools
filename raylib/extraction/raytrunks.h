@@ -17,6 +17,8 @@ namespace ray
 {
 /// Structure storing a list of tree trunk descriptors. The constructor estimates
 /// the trunks from the ray cloud
+/// This is the class used by the tool rayextract trunks, which converts a ray cloud into
+/// a text file describing its observed tree trunks
 struct Trunks
 {
   /// Reconstruct the set of trunks from the input ray cloud @c cloud, given a mean

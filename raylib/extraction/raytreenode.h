@@ -3,8 +3,8 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#ifndef RAYLIB_RAYWATERSHED_H
-#define RAYLIB_RAYWATERSHED_H
+#ifndef RAYLIB_RAYTREENODE_H
+#define RAYLIB_RAYTREENODE_H
 
 #include "../raycloud.h"
 #include "../raymesh.h"
@@ -15,6 +15,7 @@ typedef Eigen::Matrix<double, 4, 1> Vector4d;
 
 namespace ray
 {
+/// The individual nodes representing trees within rayforest's watershed algorithm
 struct RAYLIB_EXPORT TreeNode
 {
   TreeNode()
@@ -51,19 +52,6 @@ struct RAYLIB_EXPORT TreeNode
   int trunk_id;
   int area;
 
-  //  Eigen::Vector2d centroid() const { return Eigen::Vector2d(curv_mat(1,3) / area(), curv_mat(2,3) / area()); }
-  // inline Eigen::Vector3d weightedMean() const { return Eigen::Vector3d(curv_vec[1] / curv_vec[3], curv_vec[2] /
-  // curv_vec[3], peak[2]); }
-  inline bool validParaboloid(double /*max_tree_width*/, double /*voxel_width*/) const
-  {
-    // Add voxel_width*voxel_width* to below two lines, to verify voxel_width independence
-    /*    const double minimum_crown_radius = 0.5;
-        const double maximum_crown_radius = max_tree_width; // setting radius to the tree diameter (i.e. twice) as it is
-       an outer bound double r = node.crownRadius(); if (r<minimum_crown_radius || r > maximum_crown_radius) return
-       false; Eigen::Vector3d top = node.tip(); for (int i = 0; i<2; i++) if (top[i] < static_cast<double>(min_bound[i]*voxel_width
-       || top[i] > static_cast<double>(max_bound[i]*voxel_width) return false;  */
-    return true;
-  }
   void updateBound(const Eigen::Vector2i &bmin, const Eigen::Vector2i &bmax)
   {
     for (int i = 0; i < 2; i++)
@@ -77,4 +65,4 @@ struct RAYLIB_EXPORT TreeNode
 
 }  // namespace ray
 
-#endif  // RAYLIB_RAYWATERSHED_H
+#endif  // RAYLIB_RAYTREENODE_H
