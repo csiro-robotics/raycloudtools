@@ -134,6 +134,12 @@ private:
   void addChildSection();
   void calculateSectionIds(const std::vector<std::vector<int>> &roots_list, std::vector<int> &section_ids,
     const std::vector<std::vector<int>> &children);
+  void drawTrees(bool verbose);
+  void generateLocalSectionIds();
+  void removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound);
+  void segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids);
+  void removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
+    std::vector<int> &root_segs);
 
   // cache data that is used throughout the processing method
   size_t sec_;

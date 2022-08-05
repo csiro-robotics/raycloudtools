@@ -494,8 +494,161 @@ void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list,
       section_ids[end] = (int)sec_;
     }
   }  
+
+  // for points without a section id (e.g. end points) 
+  // look through their parents
+  for (size_t i = 0; i < points_.size(); i++)
+  {
+    if (section_ids[i] == -1)  // an unfound point
+    {
+      int j = points_[i].parent;
+      while (j != -1 && section_ids[j] == -1) 
+      {
+        j = points_[j].parent;
+      }
+      if (j != -1)
+      {
+        section_ids[i] = section_ids[j];
+      }
+    }
+  }  
 }
 
+void Trees::drawTrees(bool verbose)
+{
+  if (verbose)
+  {
+    std::vector<Eigen::Vector3d> starts;
+    std::vector<Eigen::Vector3d> ends;
+    std::vector<double> radii;
+    for (auto &tree_node : sections_)
+    {
+      if (tree_node.tip == Eigen::Vector3d(0, 0, 0))
+        continue;
+      if (tree_node.parent >= 0)
+      {
+        if ((sections_[tree_node.parent].tip - tree_node.tip).norm() < 0.001)
+          continue;
+        starts.push_back(sections_[tree_node.parent].tip);
+        ends.push_back(tree_node.tip);
+        radii.push_back(tree_node.radius);
+      }
+    }
+    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
+  }
+}
+
+// generate local parent links. These are parent indices that are
+// independent per tree
+void Trees::generateLocalSectionIds()
+{
+  int num = 0;
+  for (auto &section : sections_)
+  {
+    if (section.parent >= 0 || section.children.empty())
+      continue;
+    num++;
+    int child_id = 0;
+    section.id = child_id++;
+    std::vector<int> children = section.children;
+    for (unsigned int c = 0; c < children.size(); c++)
+    {
+      sections_[children[c]].id = child_id++;
+      for (auto i : sections_[children[c]].children) 
+      {
+        children.push_back(i);
+      }
+    }
+  }
+  std::cout << num << " trees saved" << std::endl;  
+}
+
+void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound)
+{
+  double width = params_->grid_width;
+  cloud.calcBounds(&min_bound, &max_bound);
+  Eigen::Vector3d mid = (min_bound + max_bound) / 2.0;
+  Eigen::Vector2i inds(std::round(mid[0] / width), std::round(mid[1] / width));
+  min_bound[0] = width * ((double)inds[0] - 0.5);
+  min_bound[1] = width * ((double)inds[1] - 0.5);
+  max_bound[0] = width * ((double)inds[0] + 0.5);
+  max_bound[1] = width * ((double)inds[1] + 0.5);
+  std::cout << "min bound: " << min_bound.transpose() << ", max bound: " << max_bound.transpose() << std::endl;
+
+  // disable trees out of bounds
+  for (auto &section : sections_)
+  {
+    if (section.parent >= 0 || section.children.empty())
+      continue;
+    Eigen::Vector3d pos = section.tip;
+    if (pos[0] < min_bound[0] || pos[0] > max_bound[0] || pos[1] < min_bound[1] || pos[1] > max_bound[1])
+    {
+      section.children.clear();  // make it a non-tree
+    }
+  }
+}
+
+// colour the cloud by tree id, or by branch segment id
+void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids)
+{
+  int j = -1;
+  for (size_t i = 0; i < cloud.ends.size(); i++)
+  {
+    RGBA &colour = cloud.colours[i];
+    if (cloud.rayBounded(i))
+    {
+      j++;
+      int seg = section_ids[j];
+      int root_id = points_[j].root;
+      root_segs[i] = root_id == -1 ? -1 : section_ids[root_id];
+
+      if (!params_->segment_branches)
+      {
+        if (root_id == -1)
+        {
+          colour.red = colour.green = colour.blue = 0;
+          continue;
+        }
+        seg = section_ids[root_id];
+      }
+      if (seg == -1)
+      {
+        colour.red = colour.green = colour.blue = 0;
+        continue;
+      }
+      convertIntToColour(seg, colour);
+    }
+    else
+    {
+      colour.red = colour.green = colour.blue = 0;
+    }
+  }  
+}
+
+// remove rays from the ray cloud where the end points are out of bounds
+void Trees::removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
+  std::vector<int> &root_segs)
+{
+  for (int i = (int)cloud.ends.size() - 1; i >= 0; i--)
+  {
+    if (!cloud.rayBounded(i))
+      continue;
+    Eigen::Vector3d pos = root_segs[i] == -1 ? cloud.ends[i] : sections_[root_segs[i]].tip;
+
+    if (pos[0] < min_bound[0] || pos[0] > max_bound[0] || pos[1] < min_bound[1] ||
+        pos[1] > max_bound[1])  // nope, can't do this here!
+    {
+      cloud.starts[i] = cloud.starts.back();
+      cloud.starts.pop_back();
+      cloud.ends[i] = cloud.ends.back();
+      cloud.ends.pop_back();
+      cloud.colours[i] = cloud.colours.back();
+      cloud.colours.pop_back();
+      cloud.times[i] = cloud.times.back();
+      cloud.times.pop_back();
+    }
+  }  
+}
 /// The main reconstruction algorithm
 /// It is based on finding the shortest paths using Djikstra's algorithm, followed
 /// by an agglomeration of paths, with repeated splitting from root to tips
@@ -594,147 +747,25 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   std::vector<int> section_ids(points_.size(), -1);
   calculateSectionIds(roots_list, section_ids, children);
 
-  // for points without a section id (e.g. end points) 
-  // look through their parents
-  for (size_t i = 0; i < points_.size(); i++)
-  {
-    if (section_ids[i] == -1)  // an unfound point
-    {
-      int j = points_[i].parent;
-      while (j != -1 && section_ids[j] == -1) 
-      {
-        j = points_[j].parent;
-      }
-      if (j != -1)
-      {
-        section_ids[i] = section_ids[j];
-      }
-    }
-  }
   // debug draw to rviz the set of cylinders
-  if (verbose)
-  {
-    std::vector<Eigen::Vector3d> starts;
-    std::vector<Eigen::Vector3d> ends;
-    std::vector<double> radii;
-    for (auto &tree_node : sections_)
-    {
-      if (tree_node.tip == Eigen::Vector3d(0, 0, 0))
-        continue;
-      if (tree_node.parent >= 0)
-      {
-        if ((sections_[tree_node.parent].tip - tree_node.tip).norm() < 0.001)
-          continue;
-        starts.push_back(sections_[tree_node.parent].tip);
-        ends.push_back(tree_node.tip);
-        radii.push_back(tree_node.radius);
-      }
-    }
-    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
-  }
+  drawTrees(verbose);
 
-  // generate local parent links. These are parent indices that are
-  // independent per tree
-  int num = 0;
-  for (auto &section : sections_)
-  {
-    if (section.parent >= 0 || section.children.empty())
-      continue;
-    num++;
-    int child_id = 0;
-    section.id = child_id++;
-    std::vector<int> children = section.children;
-    for (unsigned int c = 0; c < children.size(); c++)
-    {
-      sections_[children[c]].id = child_id++;
-      for (auto i : sections_[children[c]].children) children.push_back(i);
-    }
-  }
-  std::cout << num << " trees saved" << std::endl;
+  generateLocalSectionIds();
 
   Eigen::Vector3d min_bound(0, 0, 0), max_bound(0, 0, 0);
   // remove all sections with a root out of bounds, if we have gridded the cloud with an overlap
   if (params_->grid_width)
   {
-    double width = params_->grid_width;
-    cloud.calcBounds(&min_bound, &max_bound);
-    Eigen::Vector3d mid = (min_bound + max_bound) / 2.0;
-    Eigen::Vector2i inds(std::round(mid[0] / width), std::round(mid[1] / width));
-    min_bound[0] = width * ((double)inds[0] - 0.5);
-    min_bound[1] = width * ((double)inds[1] - 0.5);
-    max_bound[0] = width * ((double)inds[0] + 0.5);
-    max_bound[1] = width * ((double)inds[1] + 0.5);
-    std::cout << "min bound: " << min_bound.transpose() << ", max bound: " << max_bound.transpose() << std::endl;
-
-    // disable trees out of bounds
-    for (auto &section : sections_)
-    {
-      if (section.parent >= 0 || section.children.empty())
-        continue;
-      Eigen::Vector3d pos = section.tip;
-      if (pos[0] < min_bound[0] || pos[0] > max_bound[0] || pos[1] < min_bound[1] || pos[1] > max_bound[1])
-      {
-        section.children.clear();  // make it a non-tree
-      }
-    }
+    removeOutOfBoundSections(cloud, min_bound, max_bound);
   }
 
-  // now colour the ray cloud based on the segmentation
-  int j = -1;
   std::vector<int> root_segs(cloud.ends.size(), -1);
-  for (size_t i = 0; i < cloud.ends.size(); i++)
+  // now colour the ray cloud based on the segmentation
+  segmentCloud(cloud, root_segs, section_ids);
+
+  if (params_->grid_width)  // also remove rays from the segmented cloud
   {
-    RGBA &colour = cloud.colours[i];
-    if (cloud.rayBounded(i))
-    {
-      j++;
-      int seg = section_ids[j];
-      int root_id = points_[j].root;
-      root_segs[i] = root_id == -1 ? -1 : section_ids[root_id];
-
-      if (!params_->segment_branches)
-      {
-        if (root_id == -1)
-        {
-          colour.red = colour.green = colour.blue = 0;
-          continue;
-        }
-        seg = section_ids[root_id];
-      }
-      if (seg == -1)
-      {
-        colour.red = colour.green = colour.blue = 0;
-        continue;
-      }
-      convertIntToColour(seg, colour);
-    }
-    else
-    {
-      colour.red = colour.green = colour.blue = 0;
-    }
-  }
-
-  if (params_->grid_width)  // also remove edges from the segmented cloud
-  {
-    for (int i = (int)cloud.ends.size() - 1; i >= 0; i--)
-    {
-      if (!cloud.rayBounded(i))
-        continue;
-      Eigen::Vector3d pos = root_segs[i] == -1 ? cloud.ends[i] : sections_[root_segs[i]].tip;
-
-      if (pos[0] < min_bound[0] || pos[0] > max_bound[0] || pos[1] < min_bound[1] ||
-          pos[1] > max_bound[1])  // nope, can't do this here!
-      {
-        cloud.starts[i] = cloud.starts.back();
-        cloud.starts.pop_back();
-        cloud.ends[i] = cloud.ends.back();
-        cloud.ends.pop_back();
-        cloud.colours[i] = cloud.colours.back();
-        cloud.colours.pop_back();
-        cloud.times[i] = cloud.times.back();
-        cloud.times.pop_back();
-      }
-    }
+    removeOutOfBoundRays(cloud, min_bound, max_bound, root_segs);
   }
 }
 
