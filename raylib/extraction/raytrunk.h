@@ -28,13 +28,10 @@ struct Trunk
   double last_score;
   double length;
   double actual_length;
+  double ground_height;
   Eigen::Vector3d dir;
   int parent;
-  double tree_score;
-  double distance_to_ground;
-  double ground_height;
   bool active;
-  bool visited;
 
   /// fill in the overlapping @c points to the trunk using the @c grid of points
   void getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Vector3d> &points, double spacing);

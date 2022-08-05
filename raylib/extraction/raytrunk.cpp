@@ -21,12 +21,11 @@ Trunk::Trunk()
   , score(0)
   , last_score(0)
   , length(0)
+  , actual_length(0)
+  , ground_height(0)
   , dir(0, 0, 0)
   , parent(-1)
-  , tree_score(inf)
-  , distance_to_ground(inf)
   , active(true)
-  , visited(false)
 {}
 
 // return the points that overlap this trunk, using the grid as an acceleration structure
