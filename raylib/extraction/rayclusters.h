@@ -12,7 +12,7 @@
 namespace ray
 {
 /// generate clusters from a set of points based on min and max diameter criteria
-std::vector<std::vector<int>> generateClusters(const std::vector<Eigen::Vector3d> &points, double min_diameter,
-                                               double max_diameter, bool verbose = false);
+void generateClusters(std::vector<std::vector<int>> &point_clusters, const std::vector<Eigen::Vector3d> &points, 
+  double min_diameter, double max_diameter, bool verbose = false);
 }  // namespace ray
 #endif  // RAYLIB_RAYEXTRACT_WOODS_H

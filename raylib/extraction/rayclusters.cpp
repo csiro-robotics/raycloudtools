@@ -103,15 +103,18 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
 }
 
 /// generate clusters from the set of points, with optional debug rending of the output
-std::vector<std::vector<int>> generateClusters(const std::vector<Eigen::Vector3d> &points, double min_diameter,
-                                               double max_diameter, bool verbose)
+void generateClusters(std::vector<std::vector<int>> &point_clusters, const std::vector<Eigen::Vector3d> &points, 
+  double min_diameter, double max_diameter, bool verbose)
 {
-  std::vector<std::vector<int>> point_clusters;
   // corner cases
   if (points.size() == 1)
+  {
     point_clusters.push_back(std::vector<int>(1, 0));
+  }
   if (points.size() <= 1)
-    return point_clusters;
+  {
+    return;
+  }
 
   clustersAgglomerate(points, min_diameter, max_diameter, point_clusters);
 
@@ -131,8 +134,6 @@ std::vector<std::vector<int>> generateClusters(const std::vector<Eigen::Vector3d
     }
     DebugDraw::instance()->drawCloud(ps, shades, 0);
   }
-
-  return point_clusters;
 }
 
 

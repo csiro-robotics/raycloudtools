@@ -103,19 +103,43 @@ struct BranchSection
   std::vector<int> children;
 };
 
-/// The structure for a set of trees, stored as a list of (connected) branch sections
+/// The class for a set of trees, stored as a list of (connected) branch sections
 /// together with the function for their extrsction from a ray cloud
-struct Trees
+class Trees
 {
+public:
   /// Constructs the piecewise cylindrical tree structures from the input ray cloud @c cloud
   /// The ground @c mesh defines the ground and @params are used to control the reconstruction 
   Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
 
   /// save the trees representation to a text file
   bool save(const std::string &filename);
-
+private:
   /// The piecewise cylindrical represenation of all of the trees
-  std::vector<BranchSection> sections;
+  std::vector<BranchSection> sections_;
+
+  double radFromLength(double length);
+  void calculatePointDistancesToEnd();
+  void generateRootSections(const std::vector<std::vector<int>> &roots_list);
+  void setBranchTip();
+  Eigen::Vector3d getRootPosition();
+  void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
+  const std::vector<std::vector<int>> &children);
+  std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed);
+  void bifurcate(const std::vector<std::vector<int>> &clusters);
+  void extractNodesFromEnds(std::vector<int> &nodes);
+  Eigen::Vector3d calculateTipFromNodes(const std::vector<int> &nodes);
+  Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  double estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  void addChildSection();
+  void calculateSectionIds(const std::vector<std::vector<int>> &roots_list, std::vector<int> &section_ids,
+    const std::vector<std::vector<int>> &children);
+
+  // cache data that is used throughout the processing method
+  size_t sec_;
+  const TreesParams *params_;
+  std::vector<Vertex> points_;
+  double max_radius_;
 };
 
 }  // namespace ray
