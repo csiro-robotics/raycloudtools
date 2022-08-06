@@ -22,7 +22,7 @@ namespace ray
 struct Trunks
 {
   /// Reconstruct the set of trunks from the input ray cloud @c cloud, given a mean
-  /// trunk radius @c midRadius. 
+  /// trunk radius @c midRadius.
   Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays);
 
   /// Save the trunks to a text file

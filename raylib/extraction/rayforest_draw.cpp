@@ -115,8 +115,7 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
 
   ray::Cloud chunk;
   auto segment = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                     std::vector<double> &times, std::vector<ray::RGBA> &colours) 
-  {
+                     std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     chunk.resize(ends.size());
     for (size_t i = 0; i < ends.size(); i++)
     {

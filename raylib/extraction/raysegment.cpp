@@ -8,8 +8,8 @@
 #include "rayterrain.h"
 
 namespace ray
-{  
-/// nodes of priority queue used in shortest path algorithm 
+{
+/// nodes of priority queue used in shortest path algorithm
 struct QueueNode
 {
   QueueNode() {}
@@ -34,11 +34,11 @@ public:
   bool operator()(const QueueNode &p1, const QueueNode &p2) { return p1.score > p2.score; }
 };
 
-/// Connect the supplied set of points @c points according to the shortest path to the ground, by filling in their 
+/// Connect the supplied set of points @c points according to the shortest path to the ground, by filling in their
 /// parent indices
 /// @c distance_limit maximum distance between points that can be connected
 /// @c gravity_factor controls how far laterally the shortest paths can travel
-/// @c closest_node a priority queue 
+/// @c closest_node a priority queue
 void connectPointsShortestPath(
   std::vector<Vertex> &points,
   std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> &closest_node, double distance_limit,
@@ -47,7 +47,7 @@ void connectPointsShortestPath(
   // 1. get nearest neighbours
   const int search_size = std::min(20, static_cast<int>(points.size()) - 1);
   Eigen::MatrixXd points_p(3, points.size());
-  for (unsigned int i = 0; i < points.size(); i++) 
+  for (unsigned int i = 0; i < points.size(); i++)
   {
     points_p.col(i) = points[i].pos;
   }
@@ -70,7 +70,7 @@ void connectPointsShortestPath(
       for (int i = 0; i < search_size && indices(i, node.id) > -1; i++)
       {
         const int child = indices(i, node.id);
-        const double dist2 = dists2(i, node.id); // square distance to neighbour
+        const double dist2 = dists2(i, node.id);  // square distance to neighbour
         const double dist = std::sqrt(dist2);
         double new_score = 0;
         const Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
@@ -79,21 +79,21 @@ void connectPointsShortestPath(
         const int ppar = points[node.id].parent;
         if (ppar != -1)
         {
-          if (points[ppar].parent != -1) // this is a bit smoother than...
+          if (points[ppar].parent != -1)  // this is a bit smoother than...
           {
-            dir = (points[node.id].pos - points[points[ppar].parent].pos).normalized();  
+            dir = (points[node.id].pos - points[points[ppar].parent].pos).normalized();
           }
-          else // ..just this
+          else  // ..just this
           {
-            dir = (points[node.id].pos - points[ppar].pos).normalized();  
+            dir = (points[node.id].pos - points[ppar].pos).normalized();
           }
         }
         const double d = std::max(0.001, dif.dot(dir));
-        // we are looking for a minimum score, so large distances are bad, but new points in line with the 
+        // we are looking for a minimum score, so large distances are bad, but new points in line with the
         // path direction are good
-        double score = dist2 / (d*d);
+        double score = dist2 / (d * d);
 
-        if (gravity_factor > 0.0) // penalise paths that are hard to hold up against gravity (lateral direction)
+        if (gravity_factor > 0.0)  // penalise paths that are hard to hold up against gravity (lateral direction)
         {
           Eigen::Vector3d to_node = points[node.id].pos - points[node.root].pos;
           to_node[2] = 0.0;
@@ -104,9 +104,9 @@ void connectPointsShortestPath(
           score *= gravity_scale;
         }
 
-        // scale score according to size of each tree, this prevents small trees from 
+        // scale score according to size of each tree, this prevents small trees from
         // capturing the branches of larger trees
-        score /= node.radius;  
+        score /= node.radius;
 
         new_score = node.score + score;
         if (new_score < points[child].score)
@@ -146,7 +146,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   cloud.calcBounds(&box_min, &box_max);
   std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
-  // also add points for every vertex on the ground mesh.  
+  // also add points for every vertex on the ground mesh.
   const int roots_start = static_cast<int>(points.size());
   for (auto &vert : mesh.vertices())
   {
@@ -157,7 +157,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   mesh.toHeightField(lowfield, box_min, box_max, pixel_width);
 
   // set heightfield as the height of the canopy above the ground
-  Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), -1e10);
+  Eigen::ArrayXXd heightfield =
+    Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), -1e10);
   for (auto &point : points)
   {
     Eigen::Vector3i index = ((point.pos - box_min) / pixel_width).cast<int>();
@@ -172,7 +173,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     }
   }
 
-  // create an initial priority queue node for each root point (mesh vertex) using the 
+  // create an initial priority queue node for each root point (mesh vertex) using the
   // observed height as a scaling parameter
   for (int ind = roots_start; ind < static_cast<int>(points.size()); ind++)
   {
@@ -186,10 +187,12 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   // perform Djikstra's shortest path to ground algorithm to fill in the parent indices in 'points'
   connectPointsShortestPath(points, closest_node, distance_limit, gravity_factor);
 
-  // next we want to segment the paths into separate trees. To do this we find the number of points and 
+  // next we want to segment the paths into separate trees. To do this we find the number of points and
   // the maximum height of points that come from each cell index
-  Eigen::ArrayXXi counts = Eigen::ArrayXXi::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
-  Eigen::ArrayXXd heights = Eigen::ArrayXXd::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
+  Eigen::ArrayXXi counts =
+    Eigen::ArrayXXi::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
+  Eigen::ArrayXXd heights =
+    Eigen::ArrayXXd::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
   for (auto &point : points)
   {
     if (point.root == -1)
@@ -233,7 +236,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     }
   }
   // next we need to find the highest point for each cell....
-  Eigen::ArrayXXd max_heights = Eigen::ArrayXXd::Constant(static_cast<int>(counts.rows()), static_cast<int>(counts.cols()), 0);
+  Eigen::ArrayXXd max_heights =
+    Eigen::ArrayXXd::Constant(static_cast<int>(counts.rows()), static_cast<int>(counts.cols()), 0);
   for (int i = 0; i < static_cast<int>(sums.rows()); i++)
   {
     for (int j = 0; j < static_cast<int>(sums.cols()); j++)
@@ -269,9 +273,9 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     }
   }
 
-  // convert this into a contiguous form, which represents the set of 
+  // convert this into a contiguous form, which represents the set of
   // root points for each tree
-  std::vector<std::vector<int>> roots_set;  
+  std::vector<std::vector<int>> roots_set;
   for (int i = 0; i < static_cast<int>(sums.rows()); i++)
   {
     for (int j = 0; j < static_cast<int>(sums.cols()); j++)

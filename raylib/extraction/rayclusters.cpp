@@ -17,7 +17,7 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
   // 1. get nearest neighbours for each point
   const int search_size = std::min(8, static_cast<int>(points.size()) - 1);
   Eigen::MatrixXd points_p(3, points.size());
-  for (unsigned int i = 0; i < points.size(); i++) 
+  for (unsigned int i = 0; i < points.size(); i++)
   {
     points_p.col(i) = points[i];
   }
@@ -38,7 +38,7 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
       , dist2(dist2)
     {}
     int id1, id2;
-    double dist2; // square distance
+    double dist2;  // square distance
   };
   std::vector<Nd> nds;
   for (size_t i = 0; i < points.size(); i++)
@@ -88,7 +88,7 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
       clusters[first].min_bound = minb;
       clusters[first].max_bound = maxb;
       clusters[first].ids.insert(clusters[first].ids.begin(), clusters[last].ids.begin(), clusters[last].ids.end());
-      for (auto &id : clusters[last].ids) 
+      for (auto &id : clusters[last].ids)
       {
         cluster_ids[id] = first;
       }
@@ -106,8 +106,8 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
 }
 
 /// generate clusters from the set of points, with optional debug rending of the output
-void generateClusters(std::vector<std::vector<int>> &point_clusters, const std::vector<Eigen::Vector3d> &points, 
-  double min_diameter, double max_diameter, bool verbose)
+void generateClusters(std::vector<std::vector<int>> &point_clusters, const std::vector<Eigen::Vector3d> &points,
+                      double min_diameter, double max_diameter, bool verbose)
 {
   // corner cases
   if (points.size() == 1)

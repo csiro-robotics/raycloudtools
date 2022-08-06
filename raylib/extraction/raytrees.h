@@ -18,14 +18,14 @@ namespace ray
 struct TreesParams
 {
   TreesParams();
-  double max_diameter;     // maximum tree diameter. Trees wider than this may be segmented into multiple trees
-  double min_diameter;     // minimum branch diameter. Branches thinner than this are not reconstructed 
-  double distance_limit;   // maximum distance between points that can count as connected
-  double height_min;       // minimum height for a tree. Lower values are considered undergrowth and excluded
-  double length_to_radius; // the taper gradient of branches
-  double cylinder_length_to_width; // the slenderness of the branch segment cylinders
-  double gap_ratio;        // points with a wider gap determine that a branch has become two
-  double span_ratio;       // points that span a larger width determine that a branch has become two
+  double max_diameter;              // maximum tree diameter. Trees wider than this may be segmented into multiple trees
+  double min_diameter;              // minimum branch diameter. Branches thinner than this are not reconstructed
+  double distance_limit;            // maximum distance between points that can count as connected
+  double height_min;                // minimum height for a tree. Lower values are considered undergrowth and excluded
+  double length_to_radius;          // the taper gradient of branches
+  double cylinder_length_to_width;  // the slenderness of the branch segment cylinders
+  double gap_ratio;                 // points with a wider gap determine that a branch has become two
+  double span_ratio;                // points that span a larger width determine that a branch has become two
   double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
   double radius_exponent;  // default 0.67 see "Allometric patterns in Acer platanoides (Aceraceae) branches"
                            // in "Wind loads and competition for light sculpt trees into self-similar structures" they
@@ -35,7 +35,7 @@ struct TreesParams
   bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
 };
 
-struct BranchSection; // forwards declaration
+struct BranchSection;  // forwards declaration
 
 /// The class for a set of trees, stored as a list of (connected) branch sections
 /// together with the function for their extrsction from a ray cloud
@@ -45,11 +45,12 @@ class Trees
 {
 public:
   /// Constructs the piecewise cylindrical tree structures from the input ray cloud @c cloud
-  /// The ground @c mesh defines the ground and @params are used to control the reconstruction 
+  /// The ground @c mesh defines the ground and @params are used to control the reconstruction
   Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
 
   /// save the trees representation to a text file
   bool save(const std::string &filename);
+
 private:
   /// The piecewise cylindrical represenation of all of the trees
   std::vector<BranchSection> sections_;
@@ -66,7 +67,7 @@ private:
   Eigen::Vector3d getRootPosition();
   /// find the points and end points within this branch section
   void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
-  const std::vector<std::vector<int>> &children);
+                                    const std::vector<std::vector<int>> &children);
   /// find separate clusters of points within the branch section
   std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed);
   /// split the branch section to one branch for each cluster
@@ -83,7 +84,7 @@ private:
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
   void calculateSectionIds(const std::vector<std::vector<int>> &roots_list, std::vector<int> &section_ids,
-    const std::vector<std::vector<int>> &children);
+                           const std::vector<std::vector<int>> &children);
   /// debug draw
   void drawTrees(bool verbose);
   /// set ids that are locel (0-based) per tree
@@ -94,7 +95,7 @@ private:
   void segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids);
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds
   void removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
-    std::vector<int> &root_segs);
+                            std::vector<int> &root_segs);
 
   // cached data that is used throughout the processing method
   size_t sec_;

@@ -3,13 +3,13 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include "raytrunk.h"
 #include <nabo/nabo.h>
 #include <map>
 #include <queue>
 #include "../raycuboid.h"
 #include "../raydebugdraw.h"
 #include "../raygrid.h"
-#include "raytrunk.h"
 
 namespace ray
 {
@@ -53,7 +53,7 @@ void Trunk::getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Vec
       {
         auto &cell = grid.cell(ind);
         // iterate over the points in the cell
-        for (auto &pos : cell.data) 
+        for (auto &pos : cell.data)
         {
           // intersect against the trunk cylinder
           Eigen::Vector3d p = pos - centre;
@@ -81,19 +81,19 @@ void Trunk::estimatePose(const std::vector<Eigen::Vector3d> &points)
   // get teh scatter matrix from the points
   Eigen::Matrix3d scatter;
   scatter.setZero();
-  for (auto &point : points) 
+  for (auto &point : points)
   {
     scatter += (point - centre) * (point - centre).transpose();
   }
   scatter /= static_cast<double>(points.size());
-  // calculate an eigendecomposition 
+  // calculate an eigendecomposition
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(scatter.transpose());
   // the eigenvector with the largest eigenvalue (the long direction of the ellipsoid)
   // is the chosed trunk direction
   dir = eigen_solver.eigenvectors().col(2);
 }
 
-// improve the trunk's direction (dir) vector using the nearby set of points 
+// improve the trunk's direction (dir) vector using the nearby set of points
 void Trunk::updateDirection(const std::vector<Eigen::Vector3d> &points)
 {
   // structure used for least squares best fit line
@@ -132,11 +132,11 @@ void Trunk::updateDirection(const std::vector<Eigen::Vector3d> &points)
     offset -= offset * radius_removal_factor * radius / offset.norm();
 
     const double h = to_point.dot(dir);
-    sum.x += h; // shift laong trunk length
-    sum.y += offset; // lateral offset relative to trunk
-    sum.xy += h * offset; // to obtain lean relative to trunk
-    sum.x2 += h * h; // to obtain spread of points along trunk
-    sum.abs_x += std::abs(h); // to obtain length of points
+    sum.x += h;                // shift laong trunk length
+    sum.y += offset;           // lateral offset relative to trunk
+    sum.xy += h * offset;      // to obtain lean relative to trunk
+    sum.x2 += h * h;           // to obtain spread of points along trunk
+    sum.abs_x += std::abs(h);  // to obtain length of points
     sum.weight++;
   }
   const double n = sum.weight;
@@ -152,12 +152,12 @@ void Trunk::updateDirection(const std::vector<Eigen::Vector3d> &points)
 
   dir = (dir + ax1 * sXY[0] + ax2 * sXY[1]).normalized();
   actual_length = 4.0 * (sum.abs_x / n);
-  length = std::max(actual_length, 2.0 * radius * trunk_height_to_width); // avoid getting too short for its width
+  length = std::max(actual_length, 2.0 * radius * trunk_height_to_width);  // avoid getting too short for its width
 }
 
 // update estimation of the centre of the cylinder's circle
 // taking a mean of the points is insufficient to estimate the centre when trunks are scanned
-// from a single side. Instead we project the points to a paraboloid and look for a plane of 
+// from a single side. Instead we project the points to a paraboloid and look for a plane of
 // best fit through this paraboloid.
 void Trunk::updateCentre(const std::vector<Eigen::Vector3d> &points)
 {
@@ -177,7 +177,7 @@ void Trunk::updateCentre(const std::vector<Eigen::Vector3d> &points)
     const Eigen::Vector2d xy = offset / radius;
     const double l2 = xy.squaredNorm();
     // project the points to a paraboloid that has gradient 1 at 1
-    const Eigen::Vector3d point(xy[0], xy[1], 0.5 * l2);  
+    const Eigen::Vector3d point(xy[0], xy[1], 0.5 * l2);
     ps[i] = point;
     mean_p += point;
   }
@@ -242,9 +242,9 @@ void Trunk::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points)
   const double variation = raddiff / num_points;  // end part gives sample variation
 
   last_score = score;
-  // the variation per trunk length is scale invariant. 
+  // the variation per trunk length is scale invariant.
   // We use the reciprocal for the score
-  score = actual_length / variation;  
+  score = actual_length / variation;
 }
 
 }  // namespace ray

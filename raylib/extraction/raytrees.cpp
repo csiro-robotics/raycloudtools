@@ -23,7 +23,8 @@ TreesParams::TreesParams()
   , radius_exponent(0.67)
   , linear_range(3.0)
   , grid_width(0.0)
-  , segment_branches(false){}  
+  , segment_branches(false)
+{}
 
 /// The main reconstruction algorithm
 /// It is based on finding the shortest paths using Djikstra's algorithm, followed
@@ -40,7 +41,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
   // calculate the maximum distance to tip for every point in the cloud
   calculatePointDistancesToEnd();
-  
+
   // then generate all the root sections
   generateRootSections(roots_list);
 
@@ -66,7 +67,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
     // any estimate of branch radius is bounded from above by an estimate from the branch's length
     // estimates from length are more reliable on small branches, and less reliable on large, well
-    // observed trunks. 
+    // observed trunks.
     max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
 
     // this branch can come to an end as it is now too small
@@ -76,10 +77,10 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       continue;
     }
 
-    std::vector<int> nodes; // all the points in the section
+    std::vector<int> nodes;  // all the points in the section
     bool extract_from_ends = sections_[sec_].ends.size() > 0;
-    // if the branch section has no end points recorded, then we need to examine this branch to 
-    // find end points and potentially branch (bifurcate)  
+    // if the branch section has no end points recorded, then we need to examine this branch to
+    // find end points and potentially branch (bifurcate)
     if (!extract_from_ends)
     {
       Eigen::Vector3d base = getRootPosition();
@@ -87,20 +88,20 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       bool points_removed = false;
       std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed);
 
-      if (clusters.size() > 1 || points_removed) // a bifurcation (or an alteration)
+      if (clusters.size() > 1 || points_removed)  // a bifurcation (or an alteration)
       {
         extract_from_ends = true;
         nodes.clear();  // don't trust the found nodes as it is now two separate tree nodes
         // if points have been removed then this only resets the current section's points
         // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
-        bifurcate(clusters); 
+        bifurcate(clusters);
         // update the max_radius, since the points have changed
         max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
       }
     }
 
     // we have split the ends, so we need to extract the set of nodes in a backwards manner
-    if (extract_from_ends)  
+    if (extract_from_ends)
     {
       extractNodesFromEnds(nodes);
     }
@@ -108,7 +109,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     // estimate the section's tip (the centre of the cylinder of points)
     sections_[sec_].tip = calculateTipFromNodes(nodes);
     // get section's direction
-    Eigen::Vector3d dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0,0,1);
+    Eigen::Vector3d dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
     // shift to cylinder's centre
     sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
     // now find the segment radius
@@ -119,8 +120,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     {
       addChildSection();
     }
-  } // end of loop. We now have created all of the BranchSections
-  
+  }  // end of loop. We now have created all of the BranchSections
+
   // Now calculate the section ids for all of the points, for the segmented cloud
   std::vector<int> section_ids(points_.size(), -1);
   calculateSectionIds(roots_list, section_ids, children);
@@ -147,7 +148,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   }
 }
 
-/// calculate a branch radius from its length. We use allometric scaling based on a radius exponent and a 
+/// calculate a branch radius from its length. We use allometric scaling based on a radius exponent and a
 /// linear range for the final taper of the branch
 /// See "Allometric patterns in Acer platanoides (Aceraceae) branches" for real world data
 double Trees::radFromLength(double length)
@@ -168,7 +169,7 @@ void Trees::calculatePointDistancesToEnd()
   {
     int id = static_cast<int>(i);
     int parent = points_[i].parent;
-    points_[i].visited = false; // reset the visited flag while we're here
+    points_[i].visited = false;  // reset the visited flag while we're here
     while (parent != -1)
     {
       const double end_dist =
@@ -196,8 +197,8 @@ void Trees::generateRootSections(const std::vector<std::vector<int>> &roots_list
     sections_.push_back(base);
   }
 
-  // we can now find the maximum distance to tip per root section, which allows us to estimate the 
-  // section radius for all the root sections.   
+  // we can now find the maximum distance to tip per root section, which allows us to estimate the
+  // section radius for all the root sections.
   for (int i = static_cast<int>(sections_.size()) - 1; i >= 0; i--)
   {
     for (auto &root : sections_[i].roots)
@@ -212,15 +213,15 @@ void Trees::setBranchTip()
 {
   // before we finish, we need to calculate the tip of this branch, from its end points
   sections_[sec_].tip.setZero();
-  for (auto &i : sections_[sec_].ends) 
+  for (auto &i : sections_[sec_].ends)
   {
     sections_[sec_].tip += points_[i].pos;
   }
   size_t sum = sections_[sec_].ends.size();
   // if it doesnt have end points then we'll have to use the root points
-  if (sections_[sec_].ends.empty()) 
+  if (sections_[sec_].ends.empty())
   {
-    for (auto &i : sections_[sec_].roots) 
+    for (auto &i : sections_[sec_].roots)
     {
       sections_[sec_].tip += points_[i].pos;
     }
@@ -229,14 +230,14 @@ void Trees::setBranchTip()
   if (sum > 0)
   {
     sections_[sec_].tip /= static_cast<double>(sum);
-  }  
+  }
 }
 
 Eigen::Vector3d Trees::getRootPosition()
 {
   // get a base position for the section
   Eigen::Vector3d base(0, 0, 0);
-  for (auto &root : sections_[sec_].roots) 
+  for (auto &root : sections_[sec_].roots)
   {
     base += points_[root].pos;
   }
@@ -247,7 +248,7 @@ Eigen::Vector3d Trees::getRootPosition()
 // find the node and end points for this section, from the root points
 // return the base point (average of roots)
 void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
-  const std::vector<std::vector<int>> &children)
+                                         const std::vector<std::vector<int>> &children)
 {
   const double thickness = params_->cylinder_length_to_width * max_radius_;
   const double thickness_sqr = thickness * thickness;
@@ -260,10 +261,11 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
     const int i = nodes[ijk];
     for (auto &child : children[i])
     {
-      const double dist_sqr = par == -1 ? sqr(points_[child].pos[2] - base[2]) : (points_[child].pos - base).squaredNorm();
+      const double dist_sqr =
+        par == -1 ? sqr(points_[child].pos[2] - base[2]) : (points_[child].pos - base).squaredNorm();
       if (dist_sqr < thickness_sqr)  // in same slot, so accumulate
       {
-        nodes.push_back(child);      // so we recurse on this child too
+        nodes.push_back(child);  // so we recurse on this child too
       }
       else
       {
@@ -305,14 +307,14 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
   // adjust back to global ids
   for (auto &cluster : clusters)
   {
-    for (auto &id : cluster) 
+    for (auto &id : cluster)
     {
       id = v_indices[id];
     }
   }
 
   points_removed = false;
-  if (par == -1) // if this is the root section
+  if (par == -1)  // if this is the root section
   {
     // then remove children that are smaller than the minimum tree height
     for (int i = static_cast<int>(clusters.size()) - 1; i >= 0; i--)
@@ -329,11 +331,11 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
         points_removed = true;
       }
     }
-  }  
+  }
   return clusters;
 }
 
-// split into multiple branches and add as new branch sections to the end of the sections_ list 
+// split into multiple branches and add as new branch sections to the end of the sections_ list
 // that is being iterated through.
 void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
 {
@@ -346,7 +348,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
   for (size_t i = 0; i < clusters.size(); i++)
   {
     max_distances[i] = 0;
-    for (auto &end : clusters[i]) 
+    for (auto &end : clusters[i])
     {
       max_distances[i] = std::max(max_distances[i], points_[end].distance_to_end);
     }
@@ -358,7 +360,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
   }
 
   // set the current branch section to the cluster with the
-  // maximum distance to tip (i.e. the longest branch). 
+  // maximum distance to tip (i.e. the longest branch).
   if (maxi == -1)
   {
     std::cout << "error: bad maxi" << std::endl;
@@ -376,11 +378,11 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
     BranchSection new_node = sections_[sec_];
     new_node.max_distance_to_end = max_distances[i] + thickness;
     const double maxrad = radFromLength(new_node.max_distance_to_end);
-    if (maxrad > 0.5 * params_->min_diameter) // but only add if they are large enough
+    if (maxrad > 0.5 * params_->min_diameter)  // but only add if they are large enough
     {
-      // we only specify the end points at this stage. They will therefore enter the 
+      // we only specify the end points at this stage. They will therefore enter the
       // extract_from_ends block below when the sec_ for loop gets to their section
-      new_node.ends = clusters[i]; 
+      new_node.ends = clusters[i];
       if (par != -1)
       {
         sections_[par].children.push_back(static_cast<int>(sections_.size()));
@@ -407,20 +409,20 @@ void Trees::extractNodesFromEnds(std::vector<int> &nodes)
       {
         break;
       }
-      nodes.push_back(node); // fill in the nodes in this branch section
+      nodes.push_back(node);  // fill in the nodes in this branch section
       if (std::find(sections_[sec_].roots.begin(), sections_[sec_].roots.end(), node) != sections_[sec_].roots.end())
       {
         break;
       }
       node = points_[node].parent;
     }
-  }  
+  }
 }
 
 // use the nodes to estimate a tip location (which is the mean of the node points)
 Eigen::Vector3d Trees::calculateTipFromNodes(const std::vector<int> &nodes)
 {
-  Eigen::Vector3d tip(0,0,0);
+  Eigen::Vector3d tip(0, 0, 0);
   if (nodes.empty())
   {
     std::cout << "error: there shouldn't be empty nodes at this point in the processing" << std::endl;
@@ -428,20 +430,20 @@ Eigen::Vector3d Trees::calculateTipFromNodes(const std::vector<int> &nodes)
   // get the points in this segment
   auto &list = nodes.empty() ? (sections_[sec_].ends.empty() ? sections_[sec_].roots : sections_[sec_].ends) : nodes;
 
-  for (auto &i : list) 
+  for (auto &i : list)
   {
     tip += points_[i].pos;
   }
   if (list.size() > 0)
   {
     tip /= static_cast<double>(list.size());
-  }  
+  }
   return tip;
 }
 
 Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir)
 {
-#define REAL_CENTROID // finds a new centroid that is robust to branches scanned from a single side
+#define REAL_CENTROID  // finds a new centroid that is robust to branches scanned from a single side
 #if defined REAL_CENTROID
   const int par = sections_[sec_].parent;
   Eigen::Vector3d mean_p(0, 0, 0);
@@ -457,7 +459,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
   {
     const std::vector<int> &node_list = ii == 0 ? nodes : sections_[sec_].ends;
     // project points into a local space parabola
-    for (auto &i : node_list)  
+    for (auto &i : node_list)
     {
       const Eigen::Vector3d pos = points_[i].pos - sections_[sec_].tip;
       const Eigen::Vector2d offset(ax1.dot(pos), ax2.dot(pos));
@@ -470,7 +472,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
     }
   }
   mean_p /= n;
-  if (n > 5) // assuming there are sufficient points for a resonable guess
+  if (n > 5)  // assuming there are sufficient points for a resonable guess
   {
     // accumulation structure for plane least squares fitting
     struct Acc
@@ -500,7 +502,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
       Eigen::Vector2d shift(A, B);
       const double shift2 = shift.squaredNorm();
       if (par >= 0 && shift2 > 1.0)  // don't shift more than one radius each iteration, for safety
-      { 
+      {
         shift /= std::sqrt(shift2);
       }
 
@@ -508,18 +510,18 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
       return (ax1 * shift[0] + ax2 * shift[1]) * sections_[sec_].radius;
     }
   }
-  else if (n > 0) // if only a few points then use the mean instead
+  else if (n > 0)  // if only a few points then use the mean instead
   {
     return (ax1 * mean_p[0] + ax2 * mean_p[1]) * sections_[sec_].radius;
   }
-#endif  
-  return Eigen::Vector3d(0,0,0);
+#endif
+  return Eigen::Vector3d(0, 0, 0);
 }
 
 double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir)
 {
   int par = sections_[sec_].parent;
-  if (par == -1) // if this is the root segment
+  if (par == -1)  // if this is the root segment
   {
     double n = 0, rad = 0;
     // then get the mean radius
@@ -533,12 +535,12 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
     const double radius = list.size() < 2 ? max_radius_ : rad / n;
     return std::min(radius, max_radius_);
   }
-  // for non-root segments 
+  // for non-root segments
 
   // use the parent radius as a prior with a weight of 4 points
   // this avoids spurious radius estimations when the number of points is
   // small
-  double n = 4.0; 
+  double n = 4.0;
   double rad = n * sections_[par].radius;
   for (auto &node : nodes)
   {
@@ -568,7 +570,7 @@ void Trees::addChildSection()
     sections_[sec_].children.push_back(static_cast<int>(sections_.size()));
 
     new_node.tip.setZero();
-    for (auto &end : new_node.roots) 
+    for (auto &end : new_node.roots)
     {
       new_node.tip += points_[end].pos;
     }
@@ -577,12 +579,12 @@ void Trees::addChildSection()
       new_node.tip /= static_cast<double>(new_node.roots.size());
     }
     sections_.push_back(new_node);
-  }  
+  }
 }
 
 // calcualte what section every point belongs to
-void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list, std::vector<int> &section_ids, 
-  const std::vector<std::vector<int>> &children)
+void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list, std::vector<int> &section_ids,
+                                const std::vector<std::vector<int>> &children)
 {
   // first we initialise to one branch section per root
   for (size_t i = 0; i < roots_list.size(); i++)
@@ -607,7 +609,8 @@ void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list,
             break;
           }
           nodes.push_back(node);
-          if (std::find(sections_[sec_].roots.begin(), sections_[sec_].roots.end(), node) != sections_[sec_].roots.end())
+          if (std::find(sections_[sec_].roots.begin(), sections_[sec_].roots.end(), node) !=
+              sections_[sec_].roots.end())
           {
             break;
           }
@@ -620,30 +623,30 @@ void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list,
     {
       for (size_t i = 0; i < ends.size(); i++)
       {
-        for (auto &c : children[ends[i]]) 
+        for (auto &c : children[ends[i]])
         {
           ends.push_back(c);
         }
       }
     }
-    for (auto &node : nodes) 
+    for (auto &node : nodes)
     {
       section_ids[node] = static_cast<int>(sec_);
     }
-    for (auto &end : ends) 
+    for (auto &end : ends)
     {
       section_ids[end] = static_cast<int>(sec_);
     }
-  }  
+  }
 
-  // for points without a section id (e.g. end points) 
+  // for points without a section id (e.g. end points)
   // look through their parents
   for (size_t i = 0; i < points_.size(); i++)
   {
     if (section_ids[i] == -1)  // an unfound point
     {
       int j = points_[i].parent;
-      while (j != -1 && section_ids[j] == -1) 
+      while (j != -1 && section_ids[j] == -1)
       {
         j = points_[j].parent;
       }
@@ -652,7 +655,7 @@ void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list,
         section_ids[i] = section_ids[j];
       }
     }
-  }  
+  }
 }
 
 void Trees::drawTrees(bool verbose)
@@ -701,13 +704,13 @@ void Trees::generateLocalSectionIds()
     for (unsigned int c = 0; c < children.size(); c++)
     {
       sections_[children[c]].id = child_id++;
-      for (auto i : sections_[children[c]].children) 
+      for (auto i : sections_[children[c]].children)
       {
         children.push_back(i);
       }
     }
   }
-  std::cout << num << " trees saved" << std::endl;  
+  std::cout << num << " trees saved" << std::endl;
 }
 
 void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound)
@@ -771,12 +774,12 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
     {
       colour.red = colour.green = colour.blue = 0;
     }
-  }  
+  }
 }
 
 // remove rays from the ray cloud where the end points are out of bounds
 void Trees::removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
-  std::vector<int> &root_segs)
+                                 std::vector<int> &root_segs)
 {
   for (int i = static_cast<int>(cloud.ends.size()) - 1; i >= 0; i--)
   {
@@ -798,7 +801,7 @@ void Trees::removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen
       cloud.times[i] = cloud.times.back();
       cloud.times.pop_back();
     }
-  }  
+  }
 }
 
 // save the structure to a text file
@@ -811,11 +814,11 @@ bool Trees::save(const std::string &filename)
     return false;
   }
   ofs << "# tree structure file:" << std::endl;
-  ofs << "x,y,z,radius,parent_id,section_id" << std::endl; // simple format
+  ofs << "x,y,z,radius,parent_id,section_id" << std::endl;  // simple format
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
     const auto &section = sections_[sec];
-    if (section.parent >= 0 || section.children.empty()) // not a root section, so move on
+    if (section.parent >= 0 || section.children.empty())  // not a root section, so move on
     {
       continue;
     }
@@ -828,7 +831,7 @@ bool Trees::save(const std::string &filename)
       ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << ","
           << sections_[node.parent].id;
       ofs << ", " << children[c];
-      for (auto i : sections_[children[c]].children) 
+      for (auto i : sections_[children[c]].children)
       {
         children.push_back(i);
       }

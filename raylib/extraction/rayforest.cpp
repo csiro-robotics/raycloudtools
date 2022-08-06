@@ -28,7 +28,7 @@ bool Forest::findSpace(const TreeNode &node, Eigen::Vector3d &tip)
   tip[1] = mid[1];
 
   // if this node is associated with a trunk, then use the trunk location, not the centroid
-  if (node.trunk_id >= 0)  
+  if (node.trunk_id >= 0)
   {
     tip = trunks_[node.trunk_id].first - min_bounds_;
     calculate = false;
@@ -57,7 +57,8 @@ bool Forest::findSpace(const TreeNode &node, Eigen::Vector3d &tip)
   {
     for (int y = min_y; y <= max_y; y++)
     {
-      const double dist2 = sqr((static_cast<double>(x) - tip_local[0]) / radius) + sqr((static_cast<double>(y) - tip_local[1]) / radius);
+      const double dist2 =
+        sqr((static_cast<double>(x) - tip_local[0]) / radius) + sqr((static_cast<double>(y) - tip_local[1]) / radius);
       const double score = spacefield_(x, y) - 0.25 * dist2;  // slight preference for result near the centroid
       if (score > best_score)
       {
@@ -149,7 +150,7 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
   Eigen::ArrayXXd space(grid2D.dims_[0], grid2D.dims_[1]);
   for (int i = 0; i < space.rows(); i++)
   {
-    for (int j = 0; j < space.cols(); j++) 
+    for (int j = 0; j < space.cols(); j++)
     {
       space(i, j) = grid2D.pixel(Eigen::Vector3i(i, j, 0)).density();
     }
@@ -178,12 +179,13 @@ void Forest::addTrunkHeights()
     const int rad = static_cast<int>(std::ceil(radius));
     for (int x = std::max(0, pos[0] - rad); x <= std::min(pos[0] + rad, static_cast<int>(heightfield_.rows()) - 1); x++)
     {
-      for (int y = std::max(0, pos[1] - rad); y <= std::min(pos[1] + rad, static_cast<int>(heightfield_.cols()) - 1); y++)
+      for (int y = std::max(0, pos[1] - rad); y <= std::min(pos[1] + rad, static_cast<int>(heightfield_.cols()) - 1);
+           y++)
       {
         Eigen::Vector2d dif(static_cast<double>(x) + 0.5 - posr[0], static_cast<double>(y) + 0.5 - posr[1]);
         dif /= radius;
         const double r = dif.squaredNorm();
-        const double h = height * (1.0 - r); // this is the paraboloid height
+        const double h = height * (1.0 - r);  // this is the paraboloid height
         if (h > 0.0)
         {
           if (heightfield_(x, y) != -1e10)
@@ -228,7 +230,7 @@ void Forest::smoothHeightfield()
   heightfield_ = smooth_heights;
 }
 
-/// extract tree locations from a set of three 2D arrays, a height field (the canopy) a low field (the ground) 
+/// extract tree locations from a set of three 2D arrays, a height field (the canopy) a low field (the ground)
 /// and a space field (the free space)
 ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows,
                                      const Eigen::ArrayXXd &space, double voxel_width,
@@ -254,7 +256,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
 
   // the indexfield assigns a unique index to each cluster (each tree) as we grow using the watershed algorithm
   indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
-  
+
   // ignore the undercroft
   int count = 0;
   for (int x = 0; x < heightfield_.rows(); x++)
@@ -268,11 +270,11 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       }
     }
   }
-  
+
   original_heightfield_ = heightfield_;
   addTrunkHeights();
   drawHeightField(cloud_name_stub + "_trunkhighfield.png", heightfield_);
-  for (int i = 0; i < smooth_iterations_; i++) 
+  for (int i = 0; i < smooth_iterations_; i++)
   {
     smoothHeightfield();
   }
@@ -281,7 +283,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   std::cout << "undercroft removed = " << count << " out of " << heightfield_.rows() * heightfield_.cols() << std::endl;
   std::vector<TreeNode> trees;
   std::set<int> heads;
-  
+
   // this is the main segmentation algorithm, it generates the trees vector
   hierarchicalWatershed(trees, heads);
 
@@ -297,7 +299,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       {
         continue;
       }
-      while (trees[ind].attaches_to != -1) 
+      while (trees[ind].attaches_to != -1)
       {
         ind = trees[ind].attaches_to;
       }
@@ -309,15 +311,15 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   renderWatershed(cloud_name_stub, trees, heads);
 
   // now we generate the actual output 'forest' structure
-  for (auto &ind : heads) // for each tree
+  for (auto &ind : heads)  // for each tree
   {
-    if (trees[ind].area < min_area_) // too small to count as a tree
+    if (trees[ind].area < min_area_)  // too small to count as a tree
     {
       continue;
     }
     Eigen::Vector3d tip;
     const int trunk_id = trees[ind].trunk_id;
-    if (findSpace(trees[ind], tip)) // if this tree actually has space to exist
+    if (findSpace(trees[ind], tip))  // if this tree actually has space to exist
     {
       ray::TreeStructure tree;
       tree.attributes() = attributes;
@@ -338,9 +340,9 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       // if the tree had an identified trunk then use this radius estimate
       if (trunk_id >= 0)
       {
-        result.radius = trunks_[trunk_id].second; 
+        result.radius = trunks_[trunk_id].second;
       }
-      else // otherwise, estimate trunk radius crudely from the tree height
+      else  // otherwise, estimate trunk radius crudely from the tree height
       {
         result.radius = result.attributes[height_id] / approx_height_per_radius_;
         result.attributes[trunk_identified_id] = 0;
@@ -356,9 +358,10 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   std::cout << "number of disallowed trees: " << num_spaces << " / " << forest.trees.size() << std::endl;
 
   // sort trees by their radius
-  std::sort(forest.trees.begin(), forest.trees.end(), [&tree_radius_id](const ray::TreeStructure &a, const ray::TreeStructure &b) {
-    return a.segments()[0].attributes[tree_radius_id] > b.segments()[0].attributes[tree_radius_id];
-  });
+  std::sort(forest.trees.begin(), forest.trees.end(),
+            [&tree_radius_id](const ray::TreeStructure &a, const ray::TreeStructure &b) {
+              return a.segments()[0].attributes[tree_radius_id] > b.segments()[0].attributes[tree_radius_id];
+            });
 
   return forest;
 }

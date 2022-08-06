@@ -9,8 +9,8 @@
 #include "../raycuboid.h"
 #include "../raydebugdraw.h"
 #include "../raygrid.h"
-#include "raygrid2d.h"
 #include "../rayply.h"
+#include "raygrid2d.h"
 
 namespace ray
 {
@@ -96,9 +96,9 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
     const Eigen::Vector3d side2 = side1.cross(trunk.dir);
     const double rad = trunk.radius;
     // the point-cloud cylinder is composed of...
-    for (double z = -0.5; z < 0.5; z += 0.15) // multiple heights
+    for (double z = -0.5; z < 0.5; z += 0.15)  // multiple heights
     {
-      for (double ang = 0.0; ang < 2.0 * kPi; ang += 0.6) // and multiple angles
+      for (double ang = 0.0; ang < 2.0 * kPi; ang += 0.6)  // and multiple angles
       {
         const Eigen::Vector3d pos =
           trunk.centre + trunk.dir * trunk.length * z + side1 * std::sin(ang) * rad + side2 * std::cos(ang) * rad;
@@ -126,7 +126,7 @@ struct QueueNode
 };
 
 //#define MINIMISE_ANGLE // works quite well in flowing along trunks, but sometimes causes multi-trunk problem, where
-//radius was too small.
+// radius was too small.
 class QueueNodeComparator
 {
 public:
@@ -214,7 +214,7 @@ void initialiseTrunks(std::vector<Trunk> &trunks, const Cloud &cloud, const Eige
   auto addTrunk = [&trunks](const struct IntegerVoxels &voxels, double voxel_width, const Eigen::Vector3d &offset,
                             const Eigen::Vector3i &index, int count) {
     const Eigen::Vector3d centre = (index.cast<double>() + Eigen::Vector3d(0.5, 0.5, 0.5)) * voxel_width + offset;
-    if (count < 4) // not enough points to add a candidate trunk
+    if (count < 4)  // not enough points to add a candidate trunk
     {
       return;
     }
@@ -262,15 +262,15 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks)
     {
       continue;
     }
-    
+
     // ideally we would get the volume of overlap of two cylinders, however
-    // since this is complicated, we approximate by taking a multiple points in the 
+    // since this is complicated, we approximate by taking a multiple points in the
     // first cylinder and counting how many overlap the second cylinder
     const Eigen::Vector3d ax1 = Eigen::Vector3d(1, 2, 3).cross(trunk.dir).normalized();
     const Eigen::Vector3d ax2 = trunk.dir.cross(ax1);
     const int num = 5;
     const double s = 0.8;
-    // 5 points in a cross 
+    // 5 points in a cross
     const double xs[num] = { 0, s, 0, -s, 0 };
     const double ys[num] = { 0, 0, s, 0, -s };
     // x 5 heights along the cylinder = 25 points
@@ -282,7 +282,7 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks)
     const Eigen::Vector3d rad(trunk.radius, trunk.radius, trunk.radius);
     const Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
 
-    for (size_t j = 0; j < best_trunks.size(); j++) // brute force
+    for (size_t j = 0; j < best_trunks.size(); j++)  // brute force
     {
       if (i == j)
       {
@@ -351,7 +351,7 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks)
 Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays)
 {
   // spacing helps us choose a grid resolution that is appropriate to the cloud
-  const double spacing = cloud.estimatePointSpacing();  
+  const double spacing = cloud.estimatePointSpacing();
   if (verbose)
   {
     std::cout << "av radius: " << midRadius << ", estimated point spacing: " << spacing
@@ -387,7 +387,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
 
   // 3. iterate every candidate several times
   best_trunks = trunks;
-  for (auto &trunk : best_trunks) 
+  for (auto &trunk : best_trunks)
   {
     trunk.active = false;
   }
@@ -455,7 +455,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   for (auto &trunk : best_trunks)
   {
     bool leaning_too_much = std::abs(trunk.dir[2]) < 0.9;
-    if (trunk.active && trunk.score >= minimum_score && !leaning_too_much)  
+    if (trunk.active && trunk.score >= minimum_score && !leaning_too_much)
     {
       trunks.push_back(trunk);
     }
@@ -480,7 +480,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   // what if there is a clear cylindrical shape in the points, but rays pass through its centre
   // then it cannot be a trunk. We deal with that situation here
   if (exclude_passing_rays)
-  {  
+  {
     for (auto &trunk : trunks)
     {
       if (trunk.active)
@@ -518,7 +518,8 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
         const double d = std::max(0.0, std::min((base - start).dot(side) / line_dir.dot(side), 1.0));
         const Eigen::Vector3d closest_point = start + line_dir * d;
 
-        const double d2 = std::max(0.0, std::min((closest_point - base).dot(trunk.dir), trunk.length + 2.0 * trunk.radius));
+        const double d2 =
+          std::max(0.0, std::min((closest_point - base).dot(trunk.dir), trunk.length + 2.0 * trunk.radius));
         const Eigen::Vector3d closest_point2 = base + trunk.dir * d2;
 
         const double dist = (closest_point - closest_point2).norm();
@@ -532,7 +533,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       if (mean_num > 1)
       {
         mean_rad /= mean_num;
-        if (mean_rad < 0.7 * trunk.radius) // too many pass through the trunk
+        if (mean_rad < 0.7 * trunk.radius)  // too many pass through the trunk
         {
           trunk.active = false;
           num_removed++;

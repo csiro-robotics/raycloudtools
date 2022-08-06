@@ -32,7 +32,7 @@ struct Node
     {
       for (int j = 0; j < 2; j++)
       {
-        for (int k = 0; k < 2; k++) 
+        for (int k = 0; k < 2; k++)
         {
           dir_ids[i][j][k] = -1;
         }
@@ -48,7 +48,7 @@ struct Node
   bool somethingSmaller(std::vector<Node> &nodes, const Vector4d &corner)
   {
     num_visits++;
-#define CONE_CHECK // This checks in a cone rather than just the corner of a cube shape
+#define CONE_CHECK  // This checks in a cone rather than just the corner of a cube shape
     Vector4d dif = corner - pos;
     if (dif == Vector4d(0, 0, 0, 0))
     {
@@ -160,8 +160,7 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
   ProgressThread progress_thread(progress);
   progress.begin("rays processed:", nodes.size());
 
-  const auto process_rays = [&nodes, &root, &front, &progress](size_t n) 
-  {
+  const auto process_rays = [&nodes, &root, &front, &progress](size_t n) {
     progress.increment();
     if (nodes[n].found == 1)
     {
@@ -204,8 +203,8 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
   const double root_3 = sqrt(3.0);
   const double root_2 = sqrt(2.0);
 
-  // the following matrix is because we are rotating a vertical direction into the long-diagonal (1,1,1) 
-  // direction, because we are primarily treating the extraction problem as one of finding a 
+  // the following matrix is because we are rotating a vertical direction into the long-diagonal (1,1,1)
+  // direction, because we are primarily treating the extraction problem as one of finding a
   // pareto front in 3D.
   Eigen::Matrix3d mat;
   mat.row(0) = Eigen::Vector3d(root_2 / root_3, 0, 1.0 / root_3);
@@ -254,12 +253,12 @@ void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, doubl
 {
   // as you might imagine, this is just the reverse of growupwards
   std::vector<Eigen::Vector3d> upsidedown_points = positions;
-  for (auto &point : upsidedown_points) 
+  for (auto &point : upsidedown_points)
   {
     point[2] = -point[2];
   }
   growUpwards(upsidedown_points, gradient);
-  for (auto &point : mesh_.vertices()) 
+  for (auto &point : mesh_.vertices())
   {
     point[2] = -point[2];
   }
@@ -277,11 +276,12 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
 
   // here we generate the grid and find the lowest points per cell
   const Eigen::Vector3d extent = max_bound - min_bound;
-  const Eigen::Vector2i dims(static_cast<int>(std::ceil(extent[0] / pixel_width)), static_cast<int>(std::ceil(extent[1] / pixel_width)));
+  const Eigen::Vector2i dims(static_cast<int>(std::ceil(extent[0] / pixel_width)),
+                             static_cast<int>(std::ceil(extent[1] / pixel_width)));
   std::vector<Eigen::Vector3d> lowests(dims[0] * dims[1]);
   for (int i = 0; i < dims[0]; i++)
   {
-    for (int j = 0; j < dims[1]; j++) 
+    for (int j = 0; j < dims[1]; j++)
     {
       lowests[i + dims[0] * j] = Eigen::Vector3d(0, 0, 1e10);
     }
@@ -349,7 +349,7 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   // preprocessing to make the cloud smaller.
   Eigen::Vector3d min_bound, max_bound;
   cloud.calcBounds(&min_bound, &max_bound);
-  const double spacing = cloud.estimatePointSpacing(); 
+  const double spacing = cloud.estimatePointSpacing();
   const double pixel_width = 2.0 * spacing;
   std::vector<Eigen::Vector3d> ends;
   for (size_t i = 0; i < cloud.ends.size(); i++)
@@ -360,10 +360,10 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
     }
   }
   growUpwardsFast(ends, pixel_width, min_bound, max_bound, gradient);
-  mesh_.reduce(); // remove disconnected vertices in the mesh 
+  mesh_.reduce();  // remove disconnected vertices in the mesh
 
   writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);
-  if (verbose) // debugging output
+  if (verbose)  // debugging output
   {
     RGBA white;
     white.red = white.green = white.blue = white.alpha = 255;

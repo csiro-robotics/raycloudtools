@@ -9,17 +9,16 @@
 #include "../raycloud.h"
 #include "../raymesh.h"
 #include "../rayutils.h"
+#include "raygrid2d.h"
 #include "raylib/rayforeststructure.h"
 #include "raylib/raylibconfig.h"
-#include "raygrid2d.h"
-#include "raytrunks.h"
 #include "raytreenode.h"
+#include "raytrunks.h"
 
 namespace ray
 {
-
 /// Class for storing and extracting basic forest information: the location and size of its trees
-/// This is the class used in the tool raycloud extract forest, for converting ray clouds to a description 
+/// This is the class used in the tool raycloud extract forest, for converting ray clouds to a description
 /// of its trees
 class RAYLIB_EXPORT Forest
 {
@@ -35,11 +34,11 @@ public:
   {}
   /// Extract tree locations from a specified ray cloud, ground mesh and an optional set of identified trunks
   ForestStructure extract(const std::string &cloud_name_stub, Mesh &mesh,
-                               const std::vector<std::pair<Eigen::Vector3d, double>> &trunks, double voxel_width);
+                          const std::vector<std::pair<Eigen::Vector3d, double>> &trunks, double voxel_width);
   /// Extract tree locations directly from 2D fields: a height field of the canopy (highs) the ground (lows) and the
   /// free space (space).
   ForestStructure extract(const Eigen::ArrayXXd &highs, const Eigen::ArrayXXd &lows, const Eigen::ArrayXXd &space,
-                               double voxel_width, const std::string &cloud_name_stub);
+                          double voxel_width, const std::string &cloud_name_stub);
 
   /// save the forest data
   bool save(const std::string &filename);
@@ -53,8 +52,8 @@ public:
   double undercroft_height;  // points below this height above the ground are discarded and treated as undercroft
   double approx_height_per_radius_;  // a default ratio for approximate radius estimation from tree height, when trunk
                                      // not observed
-  int smooth_iterations_; // number of iterations for smoothing
-  double drop_ratio_;     // a tree edge is one that drops more than this height ratio over one pixel
+  int smooth_iterations_;            // number of iterations for smoothing
+  double drop_ratio_;                // a tree edge is one that drops more than this height ratio over one pixel
 
 private:
   /// render the height field to an image file

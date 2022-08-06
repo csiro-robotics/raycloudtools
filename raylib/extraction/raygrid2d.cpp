@@ -14,7 +14,8 @@ void OccupancyGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector
   pixel_width_ = pixel_width;
   const Eigen::Vector3d extent = max_bound - min_bound;
   dims_ = Eigen::Vector3d(std::ceil(extent[0] / pixel_width), std::ceil(extent[1] / pixel_width),
-                          std::ceil(extent[2] / pixel_width)).cast<int>();
+                          std::ceil(extent[2] / pixel_width))
+            .cast<int>();
   std::cout << "min: " << min_bound.transpose() << ", ext: " << extent.transpose() << ", dims: " << dims_.transpose()
             << std::endl;
 
@@ -47,9 +48,10 @@ bool OccupancyGrid2D::load(const std::string &filename)
   return true;
 }
 
-/// fill in the occupancy data (pixels_) based on the rays in the cloud @c cloudname, 
+/// fill in the occupancy data (pixels_) based on the rays in the cloud @c cloudname,
 /// within a height window @c clip_min to @c clip_max
-void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::ArrayXXd &lows, double clip_min, double clip_max)
+void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::ArrayXXd &lows, double clip_min,
+                                    double clip_max)
 {
   ray::Cuboid bounds_;
   const double eps = 1e-9;
@@ -64,7 +66,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
     {
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end = ends[i];
-      bounds_.clipRay(start, end); // clip the ray within the bounds
+      bounds_.clipRay(start, end);  // clip the ray within the bounds
 
       // now walk the pixels
       const Eigen::Vector3d dir = scale * (end - start);
@@ -73,7 +75,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
       const double length = dir.norm();
       const double eps = 1e-9;  // to stay away from edge cases
       // remove 2 subpixels to give a small buffer around the object
-      const double maxDist = (target - source).norm() - 2.0;  
+      const double maxDist = (target - source).norm() - 2.0;
 
       // cached values to speed up the loop below
       Eigen::Vector3i adds;
@@ -115,15 +117,15 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
         p = source + dir * (depth / length);
 
         // get the index of the pixel
-        Eigen::Vector3i index = inds / subpixels; 
-        
+        Eigen::Vector3i index = inds / subpixels;
+
         // find the world space location
         Eigen::Vector3d world_point = start + (end - start) * (depth / length);
         // get the height above ground at this location
         const double height = world_point[2] - lows(index[0], index[1]);
-        if (height > clip_min && height < clip_max) // only update occupancy within height window
+        if (height > clip_min && height < clip_max)  // only update occupancy within height window
         {
-          // some bit trickery to fill in part of the 4x4 grid per pixel 
+          // some bit trickery to fill in part of the 4x4 grid per pixel
           const Eigen::Vector3i rem = inds - subpixels * index;
           const uint16_t bit = uint16_t(subpixels * rem[0] + rem[1]);
           pixel(index).bits |= uint16_t(1 << bit);
@@ -135,7 +137,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
 
   // wherever these is an end point, we want to remove it as free space
   auto removeOccupiedSpace = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
-                                  std::vector<double> &, std::vector<ray::RGBA> &colours) {
+                                 std::vector<double> &, std::vector<ray::RGBA> &colours) {
     for (size_t i = 0; i < ends.size(); ++i)
     {
       if (colours[i].alpha == 0)
@@ -159,8 +161,8 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
       uint16_t bit = uint16_t(subpixels * rem[0] + rem[1]);
 
       double height = ends[i][2] - lows(index[0], index[1]);
-      if (height > clip_min && height < clip_max) // if within the height window
-        pixel(index).bits &= (uint16_t) ~(uint16_t(1 << bit)); // then remove it
+      if (height > clip_min && height < clip_max)               // if within the height window
+        pixel(index).bits &= (uint16_t) ~(uint16_t(1 << bit));  // then remove it
 #endif
     }
   };
@@ -182,7 +184,8 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
     bitcount += vox.bits;
   }
 
-  std::cout << "average bit count: " << static_cast<double>(bitcount) / static_cast<double>(pixels_.size()) << std::endl;
+  std::cout << "average bit count: " << static_cast<double>(bitcount) / static_cast<double>(pixels_.size())
+            << std::endl;
 }
 
 void RayGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double pixel_width)
@@ -264,4 +267,3 @@ void RayGrid2D::fillRays(const Cloud &cloud)
   }
 }
 }  // namespace ray
-

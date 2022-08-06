@@ -38,7 +38,8 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
       colour.red = (uint8_t)(rand() % 256);
       colour.green = (uint8_t)(rand() % 256);
       colour.blue = (uint8_t)(rand() % 256);
-      Eigen::Vector3d pos = min_bounds_ + voxel_width_ * Eigen::Vector3d(0.5 + static_cast<double>(x), 0.5 + static_cast<double>(y), 0);
+      Eigen::Vector3d pos =
+        min_bounds_ + voxel_width_ * Eigen::Vector3d(0.5 + static_cast<double>(x), 0.5 + static_cast<double>(y), 0);
       pos[2] = original_heightfield_(x, y);
       cloud_points.push_back(pos);
       times.push_back(0.0);
@@ -181,7 +182,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         continue;
       }
       int p_head = p.index;
-      while (trees[p_head].attaches_to != -1) 
+      while (trees[p_head].attaches_to != -1)
       {
         p_head = trees[p_head].attaches_to;
       }
@@ -215,7 +216,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           const Eigen::Vector2d mid = Eigen::Vector2d(xx, yy) * voxel_width_;
           const Eigen::Vector2d ptree(p_tree.peak[0], p_tree.peak[1]);
           const Eigen::Vector2d qtree(q_tree.peak[0], q_tree.peak[1]);
-          const double blend = std::max(0.0, std::min((mid - ptree).dot(qtree - ptree) / (qtree - ptree).squaredNorm(), 1.0));
+          const double blend =
+            std::max(0.0, std::min((mid - ptree).dot(qtree - ptree) / (qtree - ptree).squaredNorm(), 1.0));
           const double peak = p_tree.peak[2] * (1.0 - blend) + q_tree.peak[2] * blend;
           const double drop = peak - p.height;
           const double tree_height = std::max(0.0, peak - lowfield_(xx, yy));

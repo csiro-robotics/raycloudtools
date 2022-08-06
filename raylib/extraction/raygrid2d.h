@@ -6,9 +6,9 @@
 #ifndef RAYLIB_RAYGRID2D_H
 #define RAYLIB_RAYGRID2D_H
 
+#include "../rayutils.h"
 #include "raylib/raylibconfig.h"
 #include "raytrunks.h"
-#include "../rayutils.h"
 
 namespace ray
 {
@@ -29,7 +29,10 @@ struct OccupancyGrid2D
   struct Pixel
   {
     uint16_t bits;
-    inline double density() const { return 1.0 - (static_cast<double>(bits) / static_cast<double>(subpixels * subpixels)); }
+    inline double density() const
+    {
+      return 1.0 - (static_cast<double>(bits) / static_cast<double>(subpixels * subpixels));
+    }
   };
 
   /// 3D index of the pixel
@@ -53,7 +56,7 @@ struct OccupancyGrid2D
   inline const Pixel &pixel(const Eigen::Vector3d &pos) const { return pixel(pixelIndex(pos)); }
   inline Pixel &pixel(const Eigen::Vector3d &pos) { return pixel(pixelIndex(pos)); }
 
-  /// fill in the occupancy data (pixels_) based on the rays in the cloud @c cloudname, 
+  /// fill in the occupancy data (pixels_) based on the rays in the cloud @c cloudname,
   /// within a height window @c clip_min to @c clip_max
   void fillDensities(const std::string &cloudname, const Eigen::ArrayXXd &lows, double clip_min, double clip_max);
 
