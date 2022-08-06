@@ -12,10 +12,9 @@ void OccupancyGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector
 {
   min_bound_ = min_bound;
   pixel_width_ = pixel_width;
-  Eigen::Vector3d extent = max_bound - min_bound;
+  const Eigen::Vector3d extent = max_bound - min_bound;
   dims_ = Eigen::Vector3d(std::ceil(extent[0] / pixel_width), std::ceil(extent[1] / pixel_width),
-                          std::ceil(extent[2] / pixel_width))
-            .cast<int>();
+                          std::ceil(extent[2] / pixel_width)).cast<int>();
   std::cout << "min: " << min_bound.transpose() << ", ext: " << extent.transpose() << ", dims: " << dims_.transpose()
             << std::endl;
 
@@ -38,7 +37,9 @@ bool OccupancyGrid2D::load(const std::string &filename)
 {
   std::ifstream input(filename, std::ifstream::in);
   if (!input.good())
+  {
     return false;
+  }
   readPlainOldDataArray(input, pixels_);
   readPlainOldData(input, dims_);
   readPlainOldData(input, min_bound_);
@@ -98,7 +99,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
       do
       {
         // deltas in each axis
-        double ls[2] = { (round(p[0] + offsets[0]) - p[0]) / dir[0], (round(p[1] + offsets[1]) - p[1]) / dir[1] };
+        const double ls[2] = { (round(p[0] + offsets[0]) - p[0]) / dir[0], (round(p[1] + offsets[1]) - p[1]) / dir[1] };
         // shift in the axis with smallest delta
         int axis = (ls[0] < ls[1]) ? 0 : 1;
         // update the index to the new cell
@@ -108,7 +109,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
           break;
         }
         // minimum length of line segment within cell
-        double minL = ls[axis] * length;
+        const double minL = ls[axis] * length;
         depth += minL + eps;
         // update position p
         p = source + dir * (depth / length);
@@ -119,12 +120,12 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
         // find the world space location
         Eigen::Vector3d world_point = start + (end - start) * (depth / length);
         // get the height above ground at this location
-        double height = world_point[2] - lows(index[0], index[1]);
+        const double height = world_point[2] - lows(index[0], index[1]);
         if (height > clip_min && height < clip_max) // only update occupancy within height window
         {
           // some bit trickery to fill in part of the 4x4 grid per pixel 
-          Eigen::Vector3i rem = inds - subpixels * index;
-          uint16_t bit = uint16_t(subpixels * rem[0] + rem[1]);
+          const Eigen::Vector3i rem = inds - subpixels * index;
+          const uint16_t bit = uint16_t(subpixels * rem[0] + rem[1]);
           pixel(index).bits |= uint16_t(1 << bit);
         }
       } while (depth <= maxDist);
@@ -138,7 +139,9 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
     for (size_t i = 0; i < ends.size(); ++i)
     {
       if (colours[i].alpha == 0)
+      {
         continue;
+      }
 //#define REMOVE_WHOLE_VOXEL
 #if defined REMOVE_WHOLE_VOXEL
       const Eigen::Vector3d p = (ends[i] - min_bound_) / pixel_width_;
@@ -169,8 +172,12 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
   {
     uint16_t count = 0;
     for (unsigned long i = 0; i < 16; i++)
+    {
       if (vox.bits & ((uint16_t)1 << i))
+      {
         count++;
+      }
+    }
     vox.bits = count;
     bitcount += vox.bits;
   }
@@ -182,7 +189,7 @@ void RayGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &ma
 {
   min_bound_ = min_bound;
   pixel_width_ = pixel_width;
-  Eigen::Vector3d extent = max_bound - min_bound;
+  const Eigen::Vector3d extent = max_bound - min_bound;
   dims_ = Eigen::Vector3d(std::ceil(extent[0] / pixel_width), std::ceil(extent[1] / pixel_width),
                           std::ceil(extent[2] / pixel_width))
             .cast<int>();
@@ -238,14 +245,14 @@ void RayGrid2D::fillRays(const Cloud &cloud)
     // walk over the grid, one pixel at a time.
     do
     {
-      double ls[2] = { (round(p[0] + offsets[0]) - p[0]) / dir[0], (round(p[1] + offsets[1]) - p[1]) / dir[1] };
-      int axis = (ls[0] < ls[1]) ? 0 : 1;
+      const double ls[2] = { (round(p[0] + offsets[0]) - p[0]) / dir[0], (round(p[1] + offsets[1]) - p[1]) / dir[1] };
+      const int axis = (ls[0] < ls[1]) ? 0 : 1;
       inds[axis] += adds[axis];
       if (inds[axis] < 0 || inds[axis] >= dims_[axis])
       {
         break;
       }
-      double minL = ls[axis] * length;
+      const double minL = ls[axis] * length;
       depth += minL + eps;
       p = source + dir * (depth / length);
       Pixel &pix = pixel(inds);

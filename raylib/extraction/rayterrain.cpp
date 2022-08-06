@@ -1,4 +1,4 @@
-// Copyright (c) 2020
+// Copyright (c) 2022
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
 //
@@ -62,9 +62,9 @@ struct Node
       return dir_ids[0][0][0] != -1;
 #endif
     }
-    int i = static_cast<int>(dif[0] > 0.0);
-    int j = static_cast<int>(dif[1] > 0.0);
-    int k = static_cast<int>(dif[2] > 0.0);
+    const int i = static_cast<int>(dif[0] > 0.0);
+    const int j = static_cast<int>(dif[1] > 0.0);
+    const int k = static_cast<int>(dif[2] > 0.0);
 #if defined CONE_CHECK
     static const double root_third = std::sqrt(1.0 / 3.0);
     static const double cos_ang = std::sqrt(2.0 / 3.0);
@@ -74,7 +74,7 @@ struct Node
     {
 #if defined CONE_CHECK
       num_cone_tests++;
-      Eigen::Vector3d dir = -Eigen::Vector3d(dif[0], dif[1], dif[2]).normalized();
+      const Eigen::Vector3d dir = -Eigen::Vector3d(dif[0], dif[1], dif[2]).normalized();
       if (dir.dot(diagonal) > cos_ang)
         found = 1;
 #else
@@ -85,7 +85,7 @@ struct Node
     {
 #if defined CONE_CHECK
       num_cone_tests++;
-      Eigen::Vector3d dir = Eigen::Vector3d(dif[0], dif[1], dif[2]).normalized();
+      const Eigen::Vector3d dir = Eigen::Vector3d(dif[0], dif[1], dif[2]).normalized();
       if (dir.dot(diagonal) > cos_ang)
       {
         return true;
@@ -95,11 +95,21 @@ struct Node
 #endif
     }
     for (int I = 0; I <= i; I++)
+    {
       for (int J = 0; J <= j; J++)
+      {
         for (int K = 0; K <= k; K++)
+        {
           if (dir_ids[I][J][K] != -1)
+          {
             if (nodes[dir_ids[I][J][K]].somethingSmaller(nodes, corner))
+            {
               return true;
+            }
+          }
+        }
+      }
+    }
     return false;
   }
 };
@@ -111,7 +121,7 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
   int i = 0;
   while (points.size() > 0)
   {
-    int ind = rand() % static_cast<int>(points.size());
+    const int ind = rand() % static_cast<int>(points.size());
     nodes[i++].pos = points[ind];
     points[ind] = points.back();
     points.pop_back();
@@ -119,15 +129,15 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
   // n log n on average, for each node, trace the tree to add correct direction ids
   for (size_t n = 1; n < nodes.size(); n++)
   {
-    Eigen::Vector4d &pos = nodes[n].pos;
+    const Eigen::Vector4d &pos = nodes[n].pos;
     int head = 0;
     for (;;)
     {
-      Vector4d dif = pos - nodes[head].pos;
-      int i = static_cast<int>(dif[0] > 0.0);
-      int j = static_cast<int>(dif[1] > 0.0);
-      int k = static_cast<int>(dif[2] > 0.0);
-      int new_head = nodes[head].dir_ids[i][j][k];
+      const Vector4d dif = pos - nodes[head].pos;
+      const int i = static_cast<int>(dif[0] > 0.0);
+      const int j = static_cast<int>(dif[1] > 0.0);
+      const int k = static_cast<int>(dif[2] > 0.0);
+      const int new_head = nodes[head].dir_ids[i][j][k];
       if (new_head == -1)
       {
         nodes[head].dir_ids[i][j][k] = static_cast<int>(n);
@@ -202,7 +212,7 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
   mat.row(1) = Eigen::Vector3d(-root_half / root_3, -root_half, 1.0 / root_3);
   mat.row(2) = Eigen::Vector3d(-root_half / root_3, root_half, 1.0 / root_3);
   Eigen::Matrix3d imat = mat.inverse();
-  double grad_scale = gradient / std::sqrt(2.0);
+  const double grad_scale = gradient / std::sqrt(2.0);
 
   // generate these transformed points as input
   std::vector<Eigen::Vector4d> points(positions.size());
@@ -211,7 +221,7 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
   {
     Eigen::Vector3d p = positions[i];
     p[2] /= grad_scale;
-    Eigen::Vector3d pos = mat * p;
+    const Eigen::Vector3d pos = mat * p;
     points[i] = Eigen::Vector4d(pos[0], pos[1], pos[2], count++);
   }
 
@@ -244,9 +254,15 @@ void Terrain::growDownwards(const std::vector<Eigen::Vector3d> &positions, doubl
 {
   // as you might imagine, this is just the reverse of growupwards
   std::vector<Eigen::Vector3d> upsidedown_points = positions;
-  for (auto &point : upsidedown_points) point[2] = -point[2];
+  for (auto &point : upsidedown_points) 
+  {
+    point[2] = -point[2];
+  }
   growUpwards(upsidedown_points, gradient);
-  for (auto &point : mesh_.vertices()) point[2] = -point[2];
+  for (auto &point : mesh_.vertices()) 
+  {
+    point[2] = -point[2];
+  }
 }
 
 // a faster version of the growupwards algorithm
@@ -260,41 +276,48 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
   // the way we do this is to put the points into a 2D height grid, and do a course removal based on height
 
   // here we generate the grid and find the lowest points per cell
-  Eigen::Vector3d extent = max_bound - min_bound;
-  Eigen::Vector2i dims(static_cast<int>(std::ceil(extent[0] / pixel_width)), static_cast<int>(std::ceil(extent[1] / pixel_width)));
+  const Eigen::Vector3d extent = max_bound - min_bound;
+  const Eigen::Vector2i dims(static_cast<int>(std::ceil(extent[0] / pixel_width)), static_cast<int>(std::ceil(extent[1] / pixel_width)));
   std::vector<Eigen::Vector3d> lowests(dims[0] * dims[1]);
   for (int i = 0; i < dims[0]; i++)
-    for (int j = 0; j < dims[1]; j++) lowests[i + dims[0] * j] = Eigen::Vector3d(0, 0, 1e10);
+  {
+    for (int j = 0; j < dims[1]; j++) 
+    {
+      lowests[i + dims[0] * j] = Eigen::Vector3d(0, 0, 1e10);
+    }
+  }
   for (size_t i = 0; i < ends.size(); i++)
   {
-    Eigen::Vector3d pos = (ends[i] - min_bound) / static_cast<double>(pixel_width);
-    int index = static_cast<int>(pos[0]) + dims[0] * static_cast<int>(pos[1]);
+    const Eigen::Vector3d pos = (ends[i] - min_bound) / static_cast<double>(pixel_width);
+    const int index = static_cast<int>(pos[0]) + dims[0] * static_cast<int>(pos[1]);
     if (ends[i][2] < lowests[index][2])
+    {
       lowests[index] = ends[i];
+    }
   }
 
   std::vector<Eigen::Vector3d> points;
   // then for each point
   for (size_t i = 0; i < ends.size(); i++)
   {
-    Eigen::Vector3d p = ends[i];
+    const Eigen::Vector3d p = ends[i];
     // we get its cell index
-    Eigen::Vector3d point = (p - min_bound) / static_cast<double>(pixel_width);
-    int I = static_cast<int>(point[0]);
-    int J = static_cast<int>(point[1]);
-    int Imin = std::max(0, I - 1);
-    int Jmin = std::max(0, J - 1);
-    int Imax = std::min(I + 1, dims[0] - 1);
-    int Jmax = std::min(J + 1, dims[1] - 1);
+    const Eigen::Vector3d point = (p - min_bound) / static_cast<double>(pixel_width);
+    const int I = static_cast<int>(point[0]);
+    const int J = static_cast<int>(point[1]);
+    const int Imin = std::max(0, I - 1);
+    const int Jmin = std::max(0, J - 1);
+    const int Imax = std::min(I + 1, dims[0] - 1);
+    const int Jmax = std::min(J + 1, dims[1] - 1);
     bool remove = false;
     // then within the Moore neighbourhood
     for (int x = Imin; x <= Imax; x++)
     {
       for (int y = Jmin; y <= Jmax; y++)
       {
-        int index = x + dims[0] * y;
-        Eigen::Vector3d d = p - lowests[index];
-        double dist2 = (d[0] * d[0] + d[1] * d[1]);
+        const int index = x + dims[0] * y;
+        const Eigen::Vector3d d = p - lowests[index];
+        const double dist2 = (d[0] * d[0] + d[1] * d[1]);
         // remove if neighbour points are lower
         if (d[2] > 0.0 && d[2] * d[2] > dist2)
         {
@@ -303,10 +326,14 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
         }
       }
       if (remove)
+      {
         break;
+      }
     }
     if (remove)
+    {
       continue;
+    }
 
     points.push_back(p);
   }
@@ -322,13 +349,15 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   // preprocessing to make the cloud smaller.
   Eigen::Vector3d min_bound, max_bound;
   cloud.calcBounds(&min_bound, &max_bound);
-  double spacing = cloud.estimatePointSpacing(); 
-  double pixel_width = 2.0 * spacing;
+  const double spacing = cloud.estimatePointSpacing(); 
+  const double pixel_width = 2.0 * spacing;
   std::vector<Eigen::Vector3d> ends;
   for (size_t i = 0; i < cloud.ends.size(); i++)
   {
     if (cloud.rayBounded(i))
+    {
       ends.push_back(cloud.ends[i]);
+    }
   }
   growUpwardsFast(ends, pixel_width, min_bound, max_bound, gradient);
   mesh_.reduce(); // remove disconnected vertices in the mesh 

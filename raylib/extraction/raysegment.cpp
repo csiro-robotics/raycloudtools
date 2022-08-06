@@ -1,4 +1,4 @@
-// Copyright (c) 2021
+// Copyright (c) 2022
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
 //
@@ -47,7 +47,10 @@ void connectPointsShortestPath(
   // 1. get nearest neighbours
   const int search_size = std::min(20, static_cast<int>(points.size()) - 1);
   Eigen::MatrixXd points_p(3, points.size());
-  for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i].pos;
+  for (unsigned int i = 0; i < points.size(); i++) 
+  {
+    points_p.col(i) = points[i].pos;
+  }
   Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
   // Run the search
   Eigen::MatrixXi indices;
@@ -66,14 +69,14 @@ void connectPointsShortestPath(
       // for each unvisited point, look at its nearest neighbours
       for (int i = 0; i < search_size && indices(i, node.id) > -1; i++)
       {
-        int child = indices(i, node.id);
-        double dist2 = dists2(i, node.id); // square distance to neighbour
-        double dist = std::sqrt(dist2);
+        const int child = indices(i, node.id);
+        const double dist2 = dists2(i, node.id); // square distance to neighbour
+        const double dist = std::sqrt(dist2);
         double new_score = 0;
-        Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
+        const Eigen::Vector3d dif = (points[child].pos - points[node.id].pos).normalized();
         Eigen::Vector3d dir(0, 0, 1);
         // estimate direction of path from parent of parent if possible
-        int ppar = points[node.id].parent;
+        const int ppar = points[node.id].parent;
         if (ppar != -1)
         {
           if (points[ppar].parent != -1) // this is a bit smoother than...
@@ -85,7 +88,7 @@ void connectPointsShortestPath(
             dir = (points[node.id].pos - points[ppar].pos).normalized();  
           }
         }
-        double d = std::max(0.001, dif.dot(dir));
+        const double d = std::max(0.001, dif.dot(dir));
         // we are looking for a minimum score, so large distances are bad, but new points in line with the 
         // path direction are good
         double score = dist2 / (d*d);
@@ -94,8 +97,8 @@ void connectPointsShortestPath(
         {
           Eigen::Vector3d to_node = points[node.id].pos - points[node.root].pos;
           to_node[2] = 0.0;
-          double lateral_sqr = to_node.squaredNorm();
-          double gravity_scale =
+          const double lateral_sqr = to_node.squaredNorm();
+          const double gravity_scale =
             1.0 + gravity_factor * lateral_sqr;  // the squaring means gravity plays little role for normal trees,
                                                  // kicking in stronger on outlier lateral ones
           score *= gravity_scale;
@@ -144,7 +147,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
 
   // also add points for every vertex on the ground mesh.  
-  int roots_start = static_cast<int>(points.size());
+  const int roots_start = static_cast<int>(points.size());
   for (auto &vert : mesh.vertices())
   {
     points.push_back(Vertex(vert));
@@ -176,7 +179,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
     points[ind].distance_to_ground = 0.0;
     points[ind].score = 0.0;
     points[ind].root = ind;
-    Eigen::Vector3i index = ((points[ind].pos - box_min) / pixel_width).cast<int>();
+    const Eigen::Vector3i index = ((points[ind].pos - box_min) / pixel_width).cast<int>();
     closest_node.push(QueueNode(0, 0, heightfield(index[0], index[1]), ind, ind));
   }
 
@@ -191,7 +194,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   {
     if (point.root == -1)
       continue;
-    Eigen::Vector3i index = ((points[point.root].pos - box_min) / pixel_width).cast<int>();
+    const Eigen::Vector3i index = ((points[point.root].pos - box_min) / pixel_width).cast<int>();
     counts(index[0], index[1])++;
     heights(index[0], index[1]) = std::max(heights(index[0], index[1]), point.pos[2] - lowfield(index[0], index[1]));
   }
@@ -202,8 +205,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   {
     for (int j = 0; j < static_cast<int>(sums.cols()); j++)
     {
-      int i2 = std::min(i + 1, static_cast<int>(sums.rows()) - 1);
-      int j2 = std::min(j + 1, static_cast<int>(sums.cols()) - 1);
+      const int i2 = std::min(i + 1, static_cast<int>(sums.rows()) - 1);
+      const int j2 = std::min(j + 1, static_cast<int>(sums.cols()) - 1);
       sums(i, j) = counts(i, j) + counts(i, j2) + counts(i2, j) + counts(i2, j2);
     }
   }
@@ -256,12 +259,12 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   std::vector<std::vector<int>> roots_lists(sums.rows() * sums.cols());
   for (int i = roots_start; i < static_cast<int>(points.size()); i++)
   {
-    Eigen::Vector3i index = ((points[i].pos - box_min) / pixel_width).cast<int>();
-    Eigen::Vector2i best_index = bests[index[0] + static_cast<int>(sums.rows()) * index[1]];
-    double max_height = max_heights(best_index[0], best_index[1]);
+    const Eigen::Vector3i index = ((points[i].pos - box_min) / pixel_width).cast<int>();
+    const Eigen::Vector2i best_index = bests[index[0] + static_cast<int>(sums.rows()) * index[1]];
+    const double max_height = max_heights(best_index[0], best_index[1]);
     if (max_height >= height_min)
     {
-      int id = best_index[0] + static_cast<int>(sums.rows()) * best_index[1];
+      const int id = best_index[0] + static_cast<int>(sums.rows()) * best_index[1];
       roots_lists[id].push_back(i);
     }
   }

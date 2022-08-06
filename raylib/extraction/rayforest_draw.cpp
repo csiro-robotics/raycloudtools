@@ -1,4 +1,4 @@
-// Copyright (c) 2020
+// Copyright (c) 2022
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
 //
@@ -108,7 +108,7 @@ void OccupancyGrid2D::draw(const std::string &filename)
 void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels, const Eigen::Vector3d &min_bounds,
                   double voxel_width)
 {
-  std::string filename = cloud_name_stub + ".ply";
+  const std::string filename = cloud_name_stub + ".ply";
   ray::CloudWriter writer;
   if (!writer.begin(cloud_name_stub + "_segmented.ply"))
     return;
@@ -120,7 +120,7 @@ void segmentCloud(const std::string &cloud_name_stub, const ColourField &pixels,
     chunk.resize(ends.size());
     for (size_t i = 0; i < ends.size(); i++)
     {
-      Eigen::Vector3d ind = (ends[i] - min_bounds) / voxel_width;
+      const Eigen::Vector3d ind = (ends[i] - min_bounds) / voxel_width;
       chunk.starts[i] = starts[i];
       chunk.ends[i] = ends[i];
       chunk.times[i] = times[i];
@@ -151,7 +151,9 @@ void Forest::drawFinalSegmentation(const std::string &cloud_name_stub, std::vect
       int ind = indexfield_(x, y);
       Col col;
       if (ind == -1)
+      {
         pixels(x, y) = Col(0);
+      }
       else
       {
         while (trees[ind].attaches_to != -1) ind = trees[ind].attaches_to;

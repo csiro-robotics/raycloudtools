@@ -1,4 +1,4 @@
-// Copyright (c) 2020
+// Copyright (c) 2022
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
 //
@@ -62,7 +62,7 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
     {
       Eigen::Vector3d base = min_bounds_ + tip;
       base[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
-      double rad = tip[2] / approx_height_per_radius_;
+      const double rad = tip[2] / approx_height_per_radius_;
 
       for (double z = 0.0; z < z_max; z += 0.3)
       {
@@ -83,9 +83,9 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
     {
       if (spacefield_(i, j) < 1.0)
       {
-        double height = lowfield_(i, j) + 0.2;
-        double x = min_bounds_[0] + static_cast<double>(i) * voxel_width_;
-        double y = min_bounds_[1] + static_cast<double>(j) * voxel_width_;
+        const double height = lowfield_(i, j) + 0.2;
+        const double x = min_bounds_[0] + static_cast<double>(i) * voxel_width_;
+        const double y = min_bounds_[1] + static_cast<double>(j) * voxel_width_;
         cloud_points.push_back(Eigen::Vector3d(x, y, height));
         times.push_back(0.0);
         colour.red = colour.green = colour.blue = (uint8_t)(255.0 * spacefield_(i, j));
@@ -114,7 +114,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
   for (int c = 0; c < static_cast<int>(trunks_.size()); c++)  // if there are known trunks, then include them...
   {
     auto &trunk = trunks_[c];
-    Eigen::Vector3i pos = ((trunk.first - min_bounds_) / voxel_width_).cast<int>();
+    const Eigen::Vector3i pos = ((trunk.first - min_bounds_) / voxel_width_).cast<int>();
     if (pos[0] < 0 || pos[0] >= trunkfield.rows() || pos[1] < 0 || pos[1] >= trunkfield.cols())
     {
       std::cout << "warning: trunk " << c << " location is out of bounds" << std::endl;
@@ -130,12 +130,18 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
     for (int y = 0; y < heightfield_.cols(); y++)
     {
       // Moore neighbourhood
-      double height = heightfield_(x, y);
+      const double height = heightfield_(x, y);
       double max_h = 0.0;
       for (int i = std::max(0, x - 1); i <= std::min(x + 1, static_cast<int>(heightfield_.rows()) - 1); i++)
+      {
         for (int j = std::max(0, y - 1); j <= std::min(y + 1, static_cast<int>(heightfield_.cols()) - 1); j++)
+        {
           if (!(i == x && j == y))
+          {
             max_h = std::max(max_h, heightfield_(i, j));
+          }
+        }
+      }
       if (height > max_h && height > -1e10)
       {
         Point p;
@@ -158,29 +164,39 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
   int max_tree_pixel_width = static_cast<int>(max_tree_canopy_width / static_cast<double>(voxel_width_));
   while (!basins.empty())
   {
-    Point p = basins.top();
+    const Point p = basins.top();
     basins.pop();  // removes it from basins. p still exists
-    int x = p.x;
-    int y = p.y;
-    int xs[4] = { x - 1, x, x, x + 1 };
-    int ys[4] = { y, y + 1, y - 1, y };
+    const int x = p.x;
+    const int y = p.y;
+    const int xs[4] = { x - 1, x, x, x + 1 };
+    const int ys[4] = { y, y + 1, y - 1, y };
     for (int i = 0; i < 4; i++)
     {
       if (xs[i] < 0 || xs[i] >= indexfield_.rows())
+      {
         continue;
+      }
       if (ys[i] < 0 || ys[i] >= indexfield_.cols())
+      {
         continue;
+      }
       int p_head = p.index;
-      while (trees[p_head].attaches_to != -1) p_head = trees[p_head].attaches_to;
+      while (trees[p_head].attaches_to != -1) 
+      {
+        p_head = trees[p_head].attaches_to;
+      }
 
-      int xx = xs[i];
-      int yy = ys[i];
+      const int xx = xs[i];
+      const int yy = ys[i];
       int &ind = indexfield_(xx, yy);
 
       int q_head = ind;
       if (q_head != -1)
       {
-        while (trees[q_head].attaches_to != -1) q_head = trees[q_head].attaches_to;
+        while (trees[q_head].attaches_to != -1)
+        {
+          q_head = trees[q_head].attaches_to;
+        }
       }
 
       if (ind != -1 && p_head != q_head)  // connecting separate trees, so trigger a future merge event
@@ -191,27 +207,27 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
         mx -= mn;
 
-        bool mergable = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
-        bool separate_trunks = p_tree.trunk_id >= 0 && q_tree.trunk_id >= 0 && p_tree.trunk_id != q_tree.trunk_id;
+        const bool mergable = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
+        const bool separate_trunks = p_tree.trunk_id >= 0 && q_tree.trunk_id >= 0 && p_tree.trunk_id != q_tree.trunk_id;
         if (mergable && !separate_trunks)
         {
           // add a merge task:
-          Eigen::Vector2d mid = Eigen::Vector2d(xx, yy) * voxel_width_;
-          Eigen::Vector2d ptree(p_tree.peak[0], p_tree.peak[1]);
-          Eigen::Vector2d qtree(q_tree.peak[0], q_tree.peak[1]);
-          double blend = std::max(0.0, std::min((mid - ptree).dot(qtree - ptree) / (qtree - ptree).squaredNorm(), 1.0));
-          double peak = p_tree.peak[2] * (1.0 - blend) + q_tree.peak[2] * blend;
-          double drop = peak - p.height;
-          double tree_height = std::max(0.0, peak - lowfield_(xx, yy));
+          const Eigen::Vector2d mid = Eigen::Vector2d(xx, yy) * voxel_width_;
+          const Eigen::Vector2d ptree(p_tree.peak[0], p_tree.peak[1]);
+          const Eigen::Vector2d qtree(q_tree.peak[0], q_tree.peak[1]);
+          const double blend = std::max(0.0, std::min((mid - ptree).dot(qtree - ptree) / (qtree - ptree).squaredNorm(), 1.0));
+          const double peak = p_tree.peak[2] * (1.0 - blend) + q_tree.peak[2] * blend;
+          const double drop = peak - p.height;
+          const double tree_height = std::max(0.0, peak - lowfield_(xx, yy));
 
           // if there is no space under one of the two areas, then do the merge
           Eigen::Vector3d tip;
-          bool space_each = findSpace(p_tree, tip) && findSpace(q_tree, tip);
+          const bool space_each = findSpace(p_tree, tip) && findSpace(q_tree, tip);
 
-          bool too_small = std::max(mx[0], mx[1]) <= 10;
+          const bool too_small = std::max(mx[0], mx[1]) <= 10;
           if (drop < tree_height * drop_ratio_ || too_small || !space_each)  // good to merge
           {
-            int new_index = static_cast<int>(trees.size());
+            const int new_index = static_cast<int>(trees.size());
             TreeNode node;
             node.peak = p_tree.peak[2] > q_tree.peak[2] ? p_tree.peak : q_tree.peak;
             node.min_bound = p_tree.min_bound;
@@ -239,7 +255,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
         q.height = heightfield_(xx, yy);
         cnt++;
 
-        int trunkid = trunkfield(xx, yy);
+        const int trunkid = trunkfield(xx, yy);
         if (trunkid >= 0)
         {
           if (trees[p_head].trunk_id == -1)
@@ -261,24 +277,4 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
   }
 }
 
-/*
-bool Forest::save(const std::string &filename)
-{
-  std::ofstream ofs(filename.c_str(), std::ios::out);
-  if (!ofs.is_open())
-  {
-    std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
-    return false;
-  }
-  ofs << "# Forest extraction, tree base location list: x, y, z, radius" << std::endl;
-  for (auto &result: results_)
-  {
-    Eigen::Vector3d base = result.tree_tip * voxel_width_;
-    base[2] = result.ground_height;
-    const double tree_radius_to_trunk_radius = 1.0/20.0; // TODO: temporary until we have a better parameter choice
-    ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << result.radius*tree_radius_to_trunk_radius <<
-std::endl;
-  }
-  return true;
-}*/
 }  // namespace ray
