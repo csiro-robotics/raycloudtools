@@ -39,9 +39,12 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument max_intensity_option("max_intensity", 'm', &max_intensity);
   ray::OptionalFlagArgument remove("remove_start_pos", 'r');
   ray::FileArgument cloud_file, trajectory_file;
-  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &trajectory_file}, {&max_intensity_option, &remove});
-  bool position_format = ray::parseCommandLine(argc, argv, {&cloud_file, &position}, {&max_intensity_option, &remove});
-  bool ray_format      = ray::parseCommandLine(argc, argv, {&cloud_file, &ray_text, &ray_vec}, {&max_intensity_option, &remove});
+  bool standard_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &trajectory_file }, { &max_intensity_option, &remove });
+  bool position_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &position }, { &max_intensity_option, &remove });
+  bool ray_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &ray_text, &ray_vec }, { &max_intensity_option, &remove });
   if (!standard_format && !position_format && !ray_format)
     usage();
 
@@ -70,7 +73,7 @@ int main(int argc, char *argv[])
       else
       {
         if (!ray::readLas(traj_file, ends, times, colours, maximum_intensity))
-          return false;        
+          return false;
       }
       trajectory.points() = std::move(ends);
       trajectory.times() = std::move(times);
@@ -87,9 +90,9 @@ int main(int argc, char *argv[])
   ray::RayPlyBuffer buffer;
   if (!ray::writeRayCloudChunkStart(save_file + ".ply", ofs))
     usage();
-  Eigen::Vector3d start_pos(0,0,0);    
-  auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times, std::vector<ray::RGBA> &colours)
-  {
+  Eigen::Vector3d start_pos(0, 0, 0);
+  auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                       std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     if (start_pos.squaredNorm() == 0.0)
     {
       start_pos = ends[0];
@@ -99,30 +102,28 @@ int main(int argc, char *argv[])
     {
       starts = ends;
       Eigen::Vector3d pos = position.value();
-      for (auto &start: starts)
-        start = pos;      
+      for (auto &start : starts) start = pos;
     }
-    // user provides a constant ray vector 
+    // user provides a constant ray vector
     // e.g. for an overhead aerial scan, if no trajectory is available
     else if (ray_format)
     {
       starts = ends;
       Eigen::Vector3d offset = -ray_vec.value();
-      for (auto &start: starts)
-        start += offset;         
+      for (auto &start : starts) start += offset;
     }
     // otherwise, a trajectory has been passed in
     else
     {
       // find the corresponding sensor locations for each point in the cloud
       trajectory.calculateStartPoints(times, starts);
-      for (size_t i = 0; i<colours.size(); i++)
+      for (size_t i = 0; i < colours.size(); i++)
       {
-        if (colours[i].alpha == 0 && ends[i][2] < starts[i][2]) // a nonreturn, we need to remove downward ones
+        if (colours[i].alpha == 0 && ends[i][2] < starts[i][2])  // a nonreturn, we need to remove downward ones
         {
           Eigen::Vector3d dir = (ends[i] - starts[i]).normalized();
           const double minimal_distance_for_nonreturns = 0.1;
-          ends[i] = starts[i] + dir*minimal_distance_for_nonreturns; 
+          ends[i] = starts[i] + dir * minimal_distance_for_nonreturns;
         }
       }
     }
@@ -130,10 +131,8 @@ int main(int argc, char *argv[])
     // this is particularly useful if we are storing the ray cloud positions using floats
     if (remove.isSet())
     {
-      for (auto &end: ends)
-        end -= start_pos;
-      for (auto &start: starts)
-        start -= start_pos;
+      for (auto &end : ends) end -= start_pos;
+      for (auto &start : starts) start -= start_pos;
     }
     if (maximum_intensity == 0.0)
     {
@@ -147,7 +146,8 @@ int main(int argc, char *argv[])
   Eigen::Vector3d *offset = remove.isSet() ? &start_pos : nullptr;
   if (cloud_file.nameExt() == "ply")
   {
-    if (!ray::readPly(cloud_file.name(), false, add_chunk, maximum_intensity)) // special case of reading a non-ray-cloud ply
+    if (!ray::readPly(cloud_file.name(), false, add_chunk,
+                      maximum_intensity))  // special case of reading a non-ray-cloud ply
       usage();
   }
   else if (cloud_file.nameExt() == "laz" || cloud_file.nameExt() == "las")

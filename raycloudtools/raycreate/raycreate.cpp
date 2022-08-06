@@ -35,11 +35,11 @@ void usage(int exit_code = 1)
 
 int main(int argc, char *argv[])
 {
-  ray::KeyChoice cloud_type({"room", "building", "tree", "forest", "terrain"});
-  ray::IntArgument seed(1,1000000);
+  ray::KeyChoice cloud_type({ "room", "building", "tree", "forest", "terrain" });
+  ray::IntArgument seed(1, 1000000);
   ray::FileArgument input_file;
-  bool from_seed = ray::parseCommandLine(argc, argv, {&cloud_type, &seed});
-  bool from_file = ray::parseCommandLine(argc, argv, {&cloud_type, &input_file});
+  bool from_seed = ray::parseCommandLine(argc, argv, { &cloud_type, &seed });
+  bool from_file = ray::parseCommandLine(argc, argv, { &cloud_type, &input_file });
   if (!from_seed && !from_file)
     usage();
 
@@ -99,10 +99,10 @@ int main(int argc, char *argv[])
     const double ground_ray_vertical_height = 1.5;  // height above ground for ray start
 
     ray::fillBranchAngleLookup();
-    Eigen::Vector3d box_min(-tree_ground_extent, -tree_ground_extent, -ground_noise_extent); 
+    Eigen::Vector3d box_min(-tree_ground_extent, -tree_ground_extent, -ground_noise_extent);
     Eigen::Vector3d box_max(tree_ground_extent, tree_ground_extent, ground_noise_extent);
     double time = 0.0;
-    if (type == "tree") // create a single tree
+    if (type == "tree")  // create a single tree
     {
       ray::TreeGen tree_gen;
       ray::TreeParams params;
@@ -122,12 +122,12 @@ int main(int argc, char *argv[])
       }
       colourByTime(cloud.times, cloud.colours);
     }
-    else if (type == "forest") // create multiple trees on a plane
+    else if (type == "forest")  // create multiple trees on a plane
     {
       ray::ForestParams params;
       params.random_factor = 0.25;
       ray::ForestGen forest_gen;
-      if (from_file) // load a forest from an _trees.txt file
+      if (from_file)  // load a forest from an _trees.txt file
       {
         if (!forest_gen.makeFromFile(input_file.name(), params))
         {
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
       }
       forest_gen.generateRays(density);
       for (auto &tree : forest_gen.trees())
-      {  
+      {
         const std::vector<Eigen::Vector3d> &ray_starts = tree.rayStarts();
         const std::vector<Eigen::Vector3d> &ray_ends = tree.rayEnds();
         cloud.starts.insert(cloud.starts.end(), ray_starts.begin(), ray_starts.end());
@@ -160,13 +160,12 @@ int main(int argc, char *argv[])
       int num = int(0.25 * density * (box_max[0] - box_min[0]) * (box_max[1] - box_min[1]));
       for (int i = 0; i < num; i++)
       {
-        Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), 
-                            ray::random(box_min[1], box_max[1]), 
+        Eigen::Vector3d pos(ray::random(box_min[0], box_max[0]), ray::random(box_min[1], box_max[1]),
                             ray::random(box_min[2], box_max[2]));
         cloud.ends.push_back(pos);
-        cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-ground_ray_deviation, ground_ray_deviation), 
-                                                    ray::random(-ground_ray_deviation, ground_ray_deviation), 
-                                                    ground_ray_vertical_height));
+        cloud.starts.push_back(pos + Eigen::Vector3d(ray::random(-ground_ray_deviation, ground_ray_deviation),
+                                                     ray::random(-ground_ray_deviation, ground_ray_deviation),
+                                                     ground_ray_vertical_height));
         cloud.times.push_back(time);
         time += time_delta;
       }
@@ -176,8 +175,8 @@ int main(int argc, char *argv[])
   else if (type == "terrain")
   {
     ray::TerrainGen terrain;
-    if (from_file) // generate ray cloud terrain from a .ply mesh file
-    {    
+    if (from_file)  // generate ray cloud terrain from a .ply mesh file
+    {
       terrain.generateFromFile(input_file.name());
     }
     else

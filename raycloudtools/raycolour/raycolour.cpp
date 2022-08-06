@@ -3,19 +3,19 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include "raylib/extraction/raysegment.h"
 #include "raylib/raycloud.h"
 #include "raylib/raycloudwriter.h"
 #include "raylib/rayparse.h"
-#include "raylib/extraction/raysegment.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "raylib/imageread.h"
 
+#include <nabo/nabo.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
 #include <map>
-#include <nabo/nabo.h>
 
 void usage(int exit_code = 1)
 {
@@ -36,11 +36,12 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-/// This is a 2D area measurement on a 3x3 matrix, it is the measure halfway between the trace (1D) and the determinant (3D) 
-/// of the matrix.
+/// This is a 2D area measurement on a 3x3 matrix, it is the measure halfway between the trace (1D) and the determinant
+/// (3D) of the matrix.
 double areaMeasure(const Eigen::Matrix3d &mat)
 {
-  return mat(0,0)*mat(1,1) - mat(0,1)*mat(1,0) + mat(0,0)*mat(2,2) - mat(0,2)*mat(2,0) + mat(1,1)*mat(2,2) - mat(1,2)*mat(2,1);
+  return mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0) + mat(0, 0) * mat(2, 2) - mat(0, 2) * mat(2, 0) +
+         mat(1, 1) * mat(2, 2) - mat(1, 2) * mat(2, 1);
 }
 
 // shortcut, to place the red green blue spectrum into the RGBA structure
@@ -98,7 +99,7 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, image_file;
-  ray::KeyChoice colour_type({"time", "height", "shape", "normal", "alpha", "branches"});
+  ray::KeyChoice colour_type({ "time", "height", "shape", "normal", "alpha", "branches" });
   ray::OptionalFlagArgument lit("lit", 'l');
   ray::Vector3dArgument col(0.0, 1.0);
   ray::DoubleArgument alpha(0.0, 1.0);
@@ -113,18 +114,17 @@ int main(int argc, char *argv[])
   std::string in_file = cloud_file.name();
   const std::string out_file = cloud_file.nameStub() + "_coloured.ply";
   const std::string type = colour_type.selectedKey();
-  uint8_t split_alpha = 100; 
+  uint8_t split_alpha = 100;
 
-  if (type != "shape" && type != "normal" && type != "branches") // chunk loading possible for simple cases
+  if (type != "shape" && type != "normal" && type != "branches")  // chunk loading possible for simple cases
   {
     ray::CloudWriter writer;
     if (!writer.begin(out_file))
       usage();
 
-    auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer, &split_alpha]
-      (std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, 
-       std::vector<double> &times, std::vector<ray::RGBA> &colours)
-    {
+    auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer, &split_alpha](
+                         std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                         std::vector<double> &times, std::vector<ray::RGBA> &colours) {
       if (flat_colour)
       {
         for (auto &colour : colours)
@@ -260,8 +260,8 @@ int main(int argc, char *argv[])
       cloud.colours[i].blue = (uint8_t)(255.0 * (0.5 + 0.5 * normals[i][2]));
     }
   }
-  // colour in order to distinguish branches. 
-  // The red channel is a function of the lidar return intensiity, which is typically higher on 
+  // colour in order to distinguish branches.
+  // The red channel is a function of the lidar return intensiity, which is typically higher on
   // branches than on leaves.
   // The green channel is a measure of the cylindricality of the neighbourhood of points
   // The resulting colour can be used to segment out branches by thresholding using
@@ -275,50 +275,51 @@ int main(int argc, char *argv[])
       // we use the median of the neighbour points to be robust to noise
       cols.clear();
       cols.push_back(cloud.colours[i].alpha);
-      for (int j = 0; j<4 && indices(j, i) > -1; j++)
+      for (int j = 0; j < 4 && indices(j, i) > -1; j++)
       {
         cols.push_back(cloud.colours[indices(j, i)].alpha);
       }
       if (cols.size() == 1)
         cloud.colours[i].red = cloud.colours[i].alpha;
-      else 
+      else
         cloud.colours[i].red = (uint8_t)ray::median(cols);
 
       // we also compensate for a change in intensity with scale
       double range = (cloud.ends[i] - cloud.starts[i]).norm();
       double half_range = 100.0;
-      double red = (double) cloud.colours[i].red / (1.0 + range / half_range);
+      double red = (double)cloud.colours[i].red / (1.0 + range / half_range);
       double scale = 2.0;
-      cloud.colours[i].red = (uint8_t)std::max(0, std::min(127 + ((int)(0.5 + red*scale) - (int)(split_alpha*scale)), 255));
+      cloud.colours[i].red =
+        (uint8_t)std::max(0, std::min(127 + ((int)(0.5 + red * scale) - (int)(split_alpha * scale)), 255));
 
       // 2. green is cylindricality
-      Eigen::Vector3d mean = cloud.ends[i]; // centroid
+      Eigen::Vector3d mean = cloud.ends[i];  // centroid
       int num = 1;
-      for (int j = 0; j<search_size && indices(j, i) > -1; j++)
+      for (int j = 0; j < search_size && indices(j, i) > -1; j++)
       {
         mean += cloud.ends[indices(j, i)];
         num++;
       }
       mean /= (double)num;
       // get teh scatter matrix of the neighbourhood of points
-      Eigen::Matrix3d scatter = (cloud.ends[i]-mean)*(cloud.ends[i]-mean).transpose();
-      for (int j = 0; j<search_size && indices(j, i) > -1; j++)
+      Eigen::Matrix3d scatter = (cloud.ends[i] - mean) * (cloud.ends[i] - mean).transpose();
+      for (int j = 0; j < search_size && indices(j, i) > -1; j++)
       {
-        Eigen::Vector3d v = cloud.ends[indices(j, i)]-mean;
-        scatter += v*v.transpose();
+        Eigen::Vector3d v = cloud.ends[indices(j, i)] - mean;
+        scatter += v * v.transpose();
       }
       scatter /= (double)num;
       // if you divide sqrt(area) by the trace, you get a dimensionless value that
       // is large for disks and spheres, but small for lines/cylinders. So 1 minus this
       // value gives a measure of cylindricality
-      double cylind  = 1.0 - 3.0 * std::sqrt(areaMeasure(scatter) / 3.0) / scatter.trace();
-      // the above measure is smoother in parameter space than previous methods, 
+      double cylind = 1.0 - 3.0 * std::sqrt(areaMeasure(scatter) / 3.0) / scatter.trace();
+      // the above measure is smoother in parameter space than previous methods,
       // and avoids the need to do an Eigendecomposition.
       cloud.colours[i].green = (uint8_t)std::max(0.0, 255.0 * std::min(cylind, 1.0));
 
       // 3. blue is nothing
       cloud.colours[i].blue = 0;
-    }    
+    }
   }
   if (lit.isSet())
   {

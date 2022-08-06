@@ -3,24 +3,24 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raylib/raycloud.h"
-#include "raylib/extraction/raytrunks.h"
-#include "raylib/extraction/rayterrain.h"
-#include "raylib/extraction/rayforest.h"
-#include "raylib/extraction/raytrees.h"
-#include "raylib/raydebugdraw.h"
-#include "raylib/rayparse.h"
-#include "raylib/raymesh.h"
-#include "raylib/rayply.h"
 #include "raylib/extraction/rayclusters.h"
+#include "raylib/extraction/rayforest.h"
+#include "raylib/extraction/rayterrain.h"
+#include "raylib/extraction/raytrees.h"
+#include "raylib/extraction/raytrunks.h"
+#include "raylib/raycloud.h"
+#include "raylib/raydebugdraw.h"
 #include "raylib/rayforestgen.h"
+#include "raylib/raymesh.h"
+#include "raylib/rayparse.h"
+#include "raylib/rayply.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
 
-void usage(bool error=false)
+void usage(bool error = false)
 {
   // clang-format off
   std::cout << "Extract natural features into a text file structure" << std::endl;
@@ -57,7 +57,7 @@ void usage(bool error=false)
 
 /// extracts natural features from a scene
 int main(int argc, char *argv[])
-{ 
+{
   ray::FileArgument cloud_file, mesh_file, trunks_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
@@ -67,32 +67,43 @@ int main(int argc, char *argv[])
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
 
-  ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0), min_diameter(0.01, 100.0);
-  ray::DoubleArgument length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0), span_ratio(0.01, 10.0);
-  ray::DoubleArgument gravity_factor(0.0, 100.0), radius_exponent(0.0, 100.0), grid_width(1.0, 100000.0), grid_overlap(0.0, 0.9);
+  ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
+    min_diameter(0.01, 100.0);
+  ray::DoubleArgument length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
+    span_ratio(0.01, 10.0);
+  ray::DoubleArgument gravity_factor(0.0, 100.0), radius_exponent(0.0, 100.0), grid_width(1.0, 100000.0),
+    grid_overlap(0.0, 0.9);
   ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
   ray::OptionalKeyValueArgument min_diameter_option("min_diameter", 'n', &min_diameter);
   ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
   ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
   ray::OptionalKeyValueArgument length_to_radius_option("min_length_per_radius", 'l', &length_to_radius);
   ray::OptionalKeyValueArgument radius_exponent_option("radius_exponent", 'e', &radius_exponent);
-  ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c', &cylinder_length_to_width);
+  ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c',
+                                                                &cylinder_length_to_width);
   ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
   ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
 
   ray::IntArgument smooth(0, 50);
-  ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth), drop_option("drop_ratio", 'd', &drop);
+  ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth),
+    drop_option("drop_ratio", 'd', &drop);
 
   ray::OptionalFlagArgument verbose("verbose", 'v');
 
-  bool extract_terrain = ray::parseCommandLine(argc, argv, {&terrain, &cloud_file}, {&gradient_option, &verbose});
-  bool extract_trunks = ray::parseCommandLine(argc, argv, {&trunks, &cloud_file}, {&exclude_rays, &verbose});
-  bool extract_forest = ray::parseCommandLine(argc, argv, {&forest, &cloud_file}, {&groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose});
-  bool extract_trees = ray::parseCommandLine(argc, argv, {&trees, &cloud_file, &mesh_file}, {&max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option, &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option, &radius_exponent_option, &segment_branches, &grid_width_option, &verbose});
+  bool extract_terrain = ray::parseCommandLine(argc, argv, { &terrain, &cloud_file }, { &gradient_option, &verbose });
+  bool extract_trunks = ray::parseCommandLine(argc, argv, { &trunks, &cloud_file }, { &exclude_rays, &verbose });
+  bool extract_forest = ray::parseCommandLine(
+    argc, argv, { &forest, &cloud_file },
+    { &groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose });
+  bool extract_trees = ray::parseCommandLine(
+    argc, argv, { &trees, &cloud_file, &mesh_file },
+    { &max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option,
+      &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
+      &radius_exponent_option, &segment_branches, &grid_width_option, &verbose });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
-    usage();  
+    usage();
   if (verbose.isSet() && (extract_trunks || extract_trees))
   {
     ray::DebugDraw::init(argc, argv, "rayextract");
@@ -105,7 +116,7 @@ int main(int argc, char *argv[])
     if (!cloud.load(cloud_file.name()))
       usage(true);
 
-    const double radius = 0.1; // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm 
+    const double radius = 0.1;  // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm
     ray::Trunks trunks(cloud, radius, verbose.isSet(), exclude_rays.isSet());
     trunks.save(cloud_file.nameStub() + "_trunks.txt");
   }
@@ -138,13 +149,13 @@ int main(int argc, char *argv[])
     if (gap_ratio_option.isSet())
       params.gap_ratio = gap_ratio.value();
     if (span_ratio_option.isSet())
-      params.span_ratio = span_ratio.value();    
+      params.span_ratio = span_ratio.value();
     if (gravity_factor_option.isSet())
       params.gravity_factor = gravity_factor.value();
     if (grid_width_option.isSet())
       params.grid_width = grid_width.value();
     params.segment_branches = segment_branches.isSet();
-  
+
     ray::Trees trees(cloud, mesh, params, verbose.isSet());
 
     // output the picewise cylindrical description of the trees
@@ -172,7 +183,7 @@ int main(int argc, char *argv[])
       if (!ray::readPlyMesh(mesh_file.name(), mesh))
         usage(true);
     }
-    std::vector<std::pair<Eigen::Vector3d, double> > trunks;
+    std::vector<std::pair<Eigen::Vector3d, double>> trunks;
     // the results from extracting trunks can optionally be passed in, as a guide
     if (trunks_option.isSet())
     {
@@ -181,7 +192,7 @@ int main(int argc, char *argv[])
       {
         usage(true);
       }
-      for (auto &tree: forest.trees)
+      for (auto &tree : forest.trees)
       {
         trunks.push_back(std::pair<Eigen::Vector3d, double>(tree.segments()[0].tip, tree.segments()[0].radius));
       }
@@ -200,10 +211,9 @@ int main(int argc, char *argv[])
       usage(true);
 
     ray::Terrain terrain;
-    const double grad = gradient_option.isSet() ? gradient.value() : 1.0; 
+    const double grad = gradient_option.isSet() ? gradient.value() : 1.0;
     terrain.extract(cloud, cloud_file.nameStub(), grad, verbose.isSet());
   }
   else
     usage(true);
 }
-

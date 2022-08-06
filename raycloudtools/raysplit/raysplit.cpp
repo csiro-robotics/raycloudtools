@@ -44,26 +44,29 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
-  ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
+  ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0),
+    box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument overlap(0.0, 10000.0);
-  ray::DoubleArgument time, alpha(0.0,1.0), range(0.0,1000.0), tube_radius(0.001, 1000.0);
-  ray::KeyValueChoice choice({"plane", "time", "colour", "single_colour", "alpha", "raydir", "range"}, 
-                             {&plane,  &time,  &colour,  &single_colour, &alpha,  &raydir,  &range});
+  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), tube_radius(0.001, 1000.0);
+  ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range" },
+                             { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range });
   ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), tree_text("trees"), percent_text("%");
   ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), tube_text("tube");
   ray::DoubleArgument mesh_offset;
-  bool standard_format = ray::parseCommandLine(argc, argv, {&cloud_file, &choice});
-  bool colour_format = ray::parseCommandLine(argc, argv, {&cloud_file, &colour_text});
-  bool time_percent = ray::parseCommandLine(argc, argv, {&cloud_file, &time_text, &time, &percent_text});
-  bool box_format = ray::parseCommandLine(argc, argv, {&cloud_file, &box_text, &box_radius});
-  bool grid_format = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width});
-  bool grid_format2 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width2});
-  bool grid_format3 = ray::parseCommandLine(argc, argv, {&cloud_file, &grid_text, &cell_width, &overlap});
-  bool mesh_split = ray::parseCommandLine(argc, argv, {&cloud_file, &mesh_file, &distance_text, &mesh_offset});
-  bool tube_split = ray::parseCommandLine(argc, argv, {&cloud_file, &tube_text, &tube_start, &tube_end, &tube_radius});
-  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 && !mesh_split && !time_percent && !tube_split)
+  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice });
+  bool colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_text });
+  bool time_percent = ray::parseCommandLine(argc, argv, { &cloud_file, &time_text, &time, &percent_text });
+  bool box_format = ray::parseCommandLine(argc, argv, { &cloud_file, &box_text, &box_radius });
+  bool grid_format = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width });
+  bool grid_format2 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width2 });
+  bool grid_format3 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width, &overlap });
+  bool mesh_split = ray::parseCommandLine(argc, argv, { &cloud_file, &mesh_file, &distance_text, &mesh_offset });
+  bool tube_split =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &tube_text, &tube_start, &tube_end, &tube_radius });
+  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 &&
+      !mesh_split && !time_percent && !tube_split)
   {
     usage();
   }
@@ -82,16 +85,15 @@ int main(int argc, char *argv[])
     dir /= dir.dot(dir);
     double radius = tube_radius.value();
 
-    res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool 
-    { 
+    res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
       double d = (cloud.ends[i] - start).dot(dir);
       if (d < 0.0 || d > 1.0)
         return true;
-      Eigen::Vector3d pos = cloud.ends[i] + (start - end)*d;
-      if ((pos - start).squaredNorm() > radius*radius)
+      Eigen::Vector3d pos = cloud.ends[i] + (start - end) * d;
+      if ((pos - start).squaredNorm() > radius * radius)
         return true;
       return false;
-    });   
+    });
   }
   else if (colour_format)
   {
@@ -141,18 +143,18 @@ int main(int argc, char *argv[])
     // so that they are treated as unbounded.
     res = ray::splitBox(rc_name, in_name, out_name, Eigen::Vector3d(0, 0, 0), box_radius.value());
   }
-  else if (grid_format) // standard 3D grid of cuboids
+  else if (grid_format)  // standard 3D grid of cuboids
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value());
   }
-  else if (grid_format2) // this is a 3+1D grid (space and time)
+  else if (grid_format2)  // this is a 3+1D grid (space and time)
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width2.value());
-  }  
-  else if (grid_format3) // this is a 3D grid with a specified overlap
+  }
+  else if (grid_format3)  // this is a 3D grid with a specified overlap
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value(), overlap.value());
-  }      
+  }
   else
   {
     const std::string &parameter = choice.selectedKey();
@@ -187,15 +189,16 @@ int main(int argc, char *argv[])
                             (double)cloud.colours[i].blue / 255.0);
         return col.dot(vec) > 1.0;
       });
-    }    
-    else if (parameter == "single_colour") // split out a single colour
+    }
+    else if (parameter == "single_colour")  // split out a single colour
     {
       ray::RGBA col;
       col.red = (uint8_t)single_colour.value()[0];
       col.green = (uint8_t)single_colour.value()[1];
       col.blue = (uint8_t)single_colour.value()[2];
       res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
-        return !(cloud.colours[i].red == col.red && cloud.colours[i].green == col.green && cloud.colours[i].blue == col.blue);
+        return !(cloud.colours[i].red == col.red && cloud.colours[i].green == col.green &&
+                 cloud.colours[i].blue == col.blue);
       });
     }
     else if (parameter == "range")

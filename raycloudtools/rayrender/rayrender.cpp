@@ -9,9 +9,9 @@
 #include <iostream>
 #include "raylib/raycloud.h"
 #include "raylib/raycuboid.h"
+#include "raylib/raylibconfig.h"
 #include "raylib/rayparse.h"
 #include "raylib/rayrenderer.h"
-#include "raylib/raylibconfig.h"
 
 void usage(int exit_code = 1)
 {
@@ -46,8 +46,8 @@ void usage(int exit_code = 1)
 
 int main(int argc, char *argv[])
 {
-  ray::KeyChoice viewpoint({"top", "left", "right", "front", "back"});
-  ray::KeyChoice style({"ends", "mean", "sum", "starts", "rays", "height", "density", "density_rgb"});
+  ray::KeyChoice viewpoint({ "top", "left", "right", "front", "back" });
+  ray::KeyChoice style({ "ends", "mean", "sum", "starts", "rays", "height", "density", "density_rgb" });
   ray::DoubleArgument pixel_width(0.0001, 1000.0);
   ray::FileArgument cloud_file, image_file, transform_file, projection_file(false);
   ray::OptionalFlagArgument mark_origin("mark_origin", 'm');
@@ -55,7 +55,9 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument output_file_option("output", 'o', &image_file);
   ray::OptionalKeyValueArgument projection_file_option("georeference", 'g', &projection_file);
   ray::OptionalKeyValueArgument transform_file_option("output_transform", 't', &transform_file);
-  if (!ray::parseCommandLine(argc, argv, {&cloud_file, &viewpoint, &style}, {&pixel_width_option, &output_file_option, &mark_origin, &transform_file_option, &projection_file_option}))
+  if (!ray::parseCommandLine(
+        argc, argv, { &cloud_file, &viewpoint, &style },
+        { &pixel_width_option, &output_file_option, &mark_origin, &transform_file_option, &projection_file_option }))
   {
     usage();
   }
@@ -67,10 +69,10 @@ int main(int argc, char *argv[])
   // images to be output in geotiff (geolocalised tiff) format.
   if (projection_file_option.isSet())
   {
-    #if !RAYLIB_WITH_TIFF
+#if !RAYLIB_WITH_TIFF
     std::cerr << "Error: georeferencing requires the WITH_TIFF build flag enabled. See README.md." << std::endl;
     usage();
-    #endif
+#endif
     if (image_file.nameExt() != "tif")
     {
       std::cerr << "Error: projection files can only be used when outputting a .tif file" << std::endl;
@@ -111,8 +113,9 @@ int main(int argc, char *argv[])
     usage();
   }
 
-  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(), projection_file.name(),
-                        mark_origin.isSet(), transform_file_option.isSet() ? &transform_file.name() : nullptr))
+  if (!ray::renderCloud(cloud_file.name(), bounds, view_dir, render_style, pix_width, image_file.name(),
+                        projection_file.name(), mark_origin.isSet(),
+                        transform_file_option.isSet() ? &transform_file.name() : nullptr))
   {
     usage();
   }
