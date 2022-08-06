@@ -16,6 +16,7 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Import a point cloud and trajectory file into a ray cloud" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las or .ply file" << std::endl;
@@ -26,6 +27,7 @@ void usage(int exit_code = 1)
   std::cout << "                                                              0 sets all to full intensity (bounded rays)." << std::endl;
   std::cout << "                                        --remove_start_pos  - translate so first point is at 0,0,0" << std::endl;
   std::cout << "The output is a .ply file of the same name (or with suffix _raycloud if the input was a .ply file)." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

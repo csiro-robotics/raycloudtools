@@ -22,6 +22,7 @@
 
 void usage(bool error=false)
 {
+  // clang-format off
   std::cout << "Extract natural features into a text file structure" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayextract terrain cloud.ply                - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
@@ -49,7 +50,7 @@ void usage(bool error=false)
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
-
+  // clang-format on
   exit(error);
 }
 

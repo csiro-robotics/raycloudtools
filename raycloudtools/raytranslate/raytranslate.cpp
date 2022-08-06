@@ -14,10 +14,12 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Translate a raycloud" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raytranslate raycloud 0,0,1 - translation (x,y,z) in metres" << std::endl;
   std::cout << "                      0,0,1,24.3 - optional 4th component translates time" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

@@ -20,12 +20,13 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Extracts the ground surface as a mesh." << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "raywrap raycloud upwards 1.0 - wraps raycloud from the bottom upwards, or: downwards, inwards, outwards"
-            << std::endl;
+  std::cout << "raywrap raycloud upwards 1.0 - wraps raycloud from the bottom upwards, or: downwards, inwards, outwards" << std::endl;
   std::cout << "                               the 1.0 is the maximum curvature to bend to" << std::endl;
   std::cout << "--full                       - the full (slower) method accounts for overhangs." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

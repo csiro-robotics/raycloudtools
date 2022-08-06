@@ -14,15 +14,13 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Reapply changes to a decimated cloud back onto the full resolution cloud." << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout
-    << " rayrestore decimated_cloud 10 cm full_cloud   - decimated_cloud is a modified 10 cm decimation of full_cloud"
-    << std::endl;
-  std::cout << " rayrestore decimated_cloud 10 rays full_cloud - decimated_cloud is a modified 'every tenth ray' "
-               "decimation of full_cloud"
-            << std::endl;
+  std::cout << " rayrestore decimated_cloud 10 cm full_cloud   - decimated_cloud is a 10 cm decimation of full_cloud" << std::endl;
+  std::cout << " rayrestore decimated_cloud 10 rays full_cloud - decimated_cloud is an 'every tenth ray' decimation of full_cloud" << std::endl;
   std::cout << "Note: this tool does not work with raysmooth or temporal translations." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

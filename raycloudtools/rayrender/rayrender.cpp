@@ -15,22 +15,20 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Render a ray cloud as an image, from a specified viewpoint" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayrender raycloudfile.ply top ends        - render from the top (plan view) the end points"
-            << std::endl;
+  std::cout << "rayrender raycloudfile.ply top ends        - render from the top (plan view) the end points" << std::endl;
   std::cout << "                           left            - facing negative x axis" << std::endl;
   std::cout << "                           right           - facing positive x axis" << std::endl;
   std::cout << "                           front           - facing negative y axis" << std::endl;
   std::cout << "                           back            - facing positive y axis" << std::endl;
   std::cout << "                               mean        - mean colour on axis" << std::endl;
-  std::cout << "                               sum         - sum colours (globally scaled to colour range)"
-            << std::endl;
+  std::cout << "                               sum         - sum colours (globally scaled to colour range)" << std::endl;
   std::cout << "                               starts      - render the ray start points" << std::endl;
   std::cout << "                               rays        - render the full set of rays" << std::endl;
   std::cout << "                               height      - render the maximum heights in the view axis" << std::endl;
-  std::cout << "                               density     - shade according to estimated density within pixel"
-            << std::endl;
+  std::cout << "                               density     - shade according to estimated density within pixel" << std::endl;
   std::cout << "                               density_rgb - r->g->b colour by estimated density" << std::endl;
   std::cout << "                     --pixel_width 0.1     - optional pixel width in m" << std::endl;
   std::cout << "                     --output name.png     - optional output file name. " << std::endl;
@@ -42,6 +40,7 @@ void usage(int exit_code = 1)
   std::cout << "                                             view." << std::endl;
   std::cout << "                     --georeference name.proj- projection file name, to output (geo)tif file. " << std::endl;
   std::cout << "Default output is raycloudfile.png" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

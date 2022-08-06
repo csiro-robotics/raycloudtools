@@ -22,18 +22,16 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
   std::cout << "This method is for when there is more than approximately 30% overlap between clouds." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayalign raycloudA raycloudB" << std::endl;
   std::cout << "                             --nonrigid - nonrigid (quadratic) alignment" << std::endl;
-  std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud"
-            << std::endl;
-  std::cout
-    << "                             --local    - fine alignment only, assumes clouds are already approximately aligned"
-    << std::endl;
-  std::cout << "rayalign raycloud  - axis aligns to the walls, placing the major walls at (0,0,0), biggest along y."
-            << std::endl;
+  std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
+  std::cout << "                             --local    - fine alignment only, assumes clouds are already approximately aligned" << std::endl;
+  std::cout << "rayalign raycloud  - axis aligns to the walls, placing the major walls at (0,0,0), biggest along y." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

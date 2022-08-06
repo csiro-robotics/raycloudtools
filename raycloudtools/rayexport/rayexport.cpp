@@ -16,14 +16,13 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Export a ray cloud into a point cloud amd trajectory file" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayexport raycloudfile.ply pointcloud.ply trajectoryfile.ply - output in specified formats"
-            << std::endl;
+  std::cout << "rayexport raycloudfile.ply pointcloud.ply trajectoryfile.ply - output in specified formats" << std::endl;
   std::cout << "                           pointcloud.laz trajectoryfile.txt" << std::endl;
-  std::cout
-    << "                           --traj_delta 0.1 - trajectory temporal decimation period in s. Default is 0.1"
-    << std::endl;
+  std::cout << "                           --traj_delta 0.1 - trajectory temporal decimation period in s. Default is 0.1" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

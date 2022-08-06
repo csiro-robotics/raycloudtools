@@ -22,20 +22,16 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Splits a raycloud into the transient rays and the fixed part" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "raytransients min raycloud 20 rays - splits out positive transients (objects that have since moved)."
-            << std::endl;
-  std::cout << "                                     20 is number of pass through rays to classify as transient."
-            << std::endl;
-  std::cout << "              max    - finds negative transients, such as a hallway exposed when a door opens."
-            << std::endl;
+  std::cout << "raytransients min raycloud 20 rays - splits out positive transients (objects that have since moved)." << std::endl;
+  std::cout << "                                     20 is number of pass through rays to classify as transient." << std::endl;
+  std::cout << "              max    - finds negative transients, such as a hallway exposed when a door opens." << std::endl;
   std::cout << "              oldest - keeps the oldest geometry when there is a difference over time." << std::endl;
   std::cout << "              newest - uses the newest geometry when there is a difference over time." << std::endl;
-  std::cout
-    << " --colour     - also colours the clouds, to help tweak numRays. red: opacity, green: pass throughs, blue: "
-       "planarity."
-    << std::endl;
+  std::cout << " --colour     - also colours the clouds, to help tweak numRays. red: opacity, green: pass throughs, blue: planarity." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

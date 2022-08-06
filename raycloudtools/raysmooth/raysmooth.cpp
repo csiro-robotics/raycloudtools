@@ -15,9 +15,11 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Smooth a ray cloud. Nearby off-surface points are moved onto the nearest surface." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raysmooth raycloud" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

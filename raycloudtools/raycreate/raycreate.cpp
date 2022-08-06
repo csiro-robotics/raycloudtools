@@ -18,6 +18,7 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Generates simple example ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raycreate room 3 - generates a room using the seed 3. Also:" << std::endl;
@@ -28,6 +29,7 @@ void usage(int exit_code = 1)
   std::cout << std::endl;
   std::cout << "          forest trees.txt - generate from a comma-separated list of x,y,z,radius trees" << std::endl;
   std::cout << "          terrain mesh.ply      - generate from a ground mesh" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

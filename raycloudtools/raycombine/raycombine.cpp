@@ -19,10 +19,8 @@
 
 void usage(int exit_code = 1)
 {
-  std::cout
-    << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to "
-       "the merge type specified."
-    << std::endl;
+  // clang-format off
+  std::cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to the merge type specified." << std::endl;
   std::cout << "Outputs the combined cloud and the residual cloud of differences." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at differences" << std::endl;
@@ -35,6 +33,7 @@ void usage(int exit_code = 1)
   std::cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from basecloud) at any differences. " << std::endl;
   std::cout << "                                                       For merge conflicts it uses the specified merge type." << std::endl;
   std::cout << "        --output raycloud_combined.ply               - optionally specify the output file name." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

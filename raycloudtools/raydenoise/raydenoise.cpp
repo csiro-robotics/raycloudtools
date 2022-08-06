@@ -14,11 +14,13 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydenoise raycloud 4 cm     - removes rays that contact more than 4 cm from any other," << std::endl;
   std::cout << "raydenoise raycloud 3 sigmas - removes points more than 3 sigmas from nearest points" << std::endl;
   std::cout << "                    range 4 cm - remove mixed-signal noise that occurs at a range gap." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

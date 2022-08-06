@@ -17,8 +17,8 @@
 
 void usage(int exit_code = 1)
 {
-  std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds"
-            << std::endl;
+  // clang-format off
+  std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raysplit raycloud plane 10,0,0           - splits around plane at 10 m along x axis" << std::endl;
   std::cout << "                  colour                 - splits by colour, one cloud per colour" << std::endl;
@@ -35,6 +35,7 @@ void usage(int exit_code = 1)
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
   std::cout << "                  trees cloud_forest.txt - splits trees into one file each, allowing a buffer around each tree" << std::endl;
   std::cout << "                  tube 1,2,3 10,11,12 5  - splits within a tube (cylinder) using start, end and radius" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

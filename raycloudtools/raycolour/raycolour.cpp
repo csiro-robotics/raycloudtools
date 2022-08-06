@@ -19,21 +19,20 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Colour the ray cloud, and/or shade it" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raycolour raycloud time          - colour by time (optional on all types)" << std::endl;
   std::cout << "                   height        - colour by height" << std::endl;
-  std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)"
-            << std::endl;
+  std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
   std::cout << "                   normal        - colour by normal" << std::endl;
-  std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)"
-            << std::endl;
-  std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)"
-            << std::endl;
+  std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
+  std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
   std::cout << "                   1,1,1         - set r,g,b" << std::endl;
   std::cout << "                   branches      - red and green are lidar intensity and cylindricality respectively, greater for branches than for leaves" << std::endl;
   std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds" << std::endl;
   std::cout << "                         --lit   - shaded (slow on large datasets)" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 
