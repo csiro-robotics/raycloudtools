@@ -12,7 +12,7 @@
 
 #include <functional>
 
-#if RAYLIB_WITH_TBB 
+#if RAYLIB_WITH_TBB
 #define RAYLIB_PARALLEL_GRID 1
 #if RAYLIB_PARALLEL_GRID
 #include <tbb/spin_mutex.h>
@@ -263,7 +263,8 @@ class ContiguousGrid
 {
 public:
   ContiguousGrid() {}
-  ContiguousGrid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width, double voxel_height = 0)
+  ContiguousGrid(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_max, double voxel_width,
+                 double voxel_height = 0)
   {
     init(box_min, box_max, voxel_width, voxel_height);
   }
@@ -273,7 +274,7 @@ public:
     this->voxel_width = voxel_width;
     this->voxel_height = voxel_height ? voxel_height : voxel_width;
     Eigen::Vector3d diff = (box_max - box_min) / voxel_width;
-    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil((box_max[2]-box_min[2])/voxel_height));
+    dims = Eigen::Vector3i(ceil(diff[0]), ceil(diff[1]), ceil((box_max[2] - box_min[2]) / voxel_height));
     cells.resize(dims[0] * dims[1] * dims[2]);
   }
   struct Cell

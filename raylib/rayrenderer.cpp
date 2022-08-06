@@ -3,39 +3,40 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raylib/raylibconfig.h"
 #include "rayrenderer.h"
 #include "imagewrite.h"
 #include "raycloud.h"
+#include "raylib/raylibconfig.h"
 #include "rayparse.h"
-#include "imagewrite.h"
-#if RAYLIB_WITH_TIFF // build option to support outputting to geotif (.tif) format
-#include "xtiffio.h"  /* for TIFF */
+#if RAYLIB_WITH_TIFF   // build option to support outputting to geotif (.tif) format
 #include "geotiffio.h" /* for GeoTIFF */
+#include "xtiffio.h"   /* for TIFF */
 #endif
-#include "rayunused.h"
 #include <fstream>
+#include "rayunused.h"
 
 #define DENSITY_MIN_RAYS 10  // larger is more accurate but more blurred. 0 for no adaptive blending
 
 namespace ray
 {
 #if RAYLIB_WITH_TIFF
-// save to geotif format using floating-point per-channel colour data. This function passes a projection file in order to geolocate the image
-bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar, const std::string &projection_file, double origin_x, double origin_y)
-{ 
+// save to geotif format using floating-point per-channel colour data. This function passes a projection file in order
+// to geolocate the image
+bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar,
+                       const std::string &projection_file, double origin_x, double origin_y)
+{
   /* Open TIFF descriptor to write GeoTIFF tags */
-  TIFF *tif = XTIFFOpen(filename.c_str(), "w");  
-  if (!tif) 
+  TIFF *tif = XTIFFOpen(filename.c_str(), "w");
+  if (!tif)
     return false;
-  
+
   /* Open GTIF Key parser */
   GTIF *gtif = GTIFNew(tif);
-  if (!gtif) 
+  if (!gtif)
     return false;
-  
-  const uint32_t w = (uint32_t) x;
-  const uint32_t h = (uint32_t) y;
+
+  const uint32_t w = (uint32_t)x;
+  const uint32_t h = (uint32_t)y;
   const int channels = scalar ? 2 : 4;
 
   /* Set up standard TIFF file */
@@ -43,7 +44,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   /* set other TIFF tags and write out image ... */
   TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
   TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 32);
-  TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE); 
+  TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
   TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, scalar ? PHOTOMETRIC_MINISBLACK : PHOTOMETRIC_RGB);
   TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
   TIFFSetField(tif, TIFFTAG_FILLORDER, FILLORDER_MSB2LSB);
@@ -56,25 +57,25 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   // now go line by line to write out the image data
   for (uint32_t row = 0; row < h; row++)
   {
-    std::vector<float> pdst(channels*w);
+    std::vector<float> pdst(channels * w);
 
     // moving the data from the dib to a row structure that
     // can be used by the tiff library
     for (uint32_t col = 0; col < w; col++)
     {
-      const uint32_t index = 3*((h - 1 - row)*w + col);
-      const float shade = (data[index + 0] + data[index + 1] + data[index + 2])/3.0f;
+      const uint32_t index = 3 * ((h - 1 - row) * w + col);
+      const float shade = (data[index + 0] + data[index + 1] + data[index + 2]) / 3.0f;
       if (scalar)
       {
-        pdst[2*col] = shade;
-        pdst[2*col + 1] = shade == 0.0 ? 0.0 : 255.0;
+        pdst[2 * col] = shade;
+        pdst[2 * col + 1] = shade == 0.0 ? 0.0 : 255.0;
       }
       else
       {
-        pdst[4*col + 0] = data[index + 0];
-        pdst[4*col + 1] = data[index + 1];
-        pdst[4*col + 2] = data[index + 2];
-        pdst[4*col + 3] = shade == 0.0 ? 0.0 : 255.0;
+        pdst[4 * col + 0] = data[index + 0];
+        pdst[4 * col + 1] = data[index + 1];
+        pdst[4 * col + 2] = data[index + 2];
+        pdst[4 * col + 3] = shade == 0.0 ? 0.0 : 255.0;
       }
     }
 
@@ -94,12 +95,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     std::string line;
     getline(ifs, line);
     // the set of keys in the key-value pairs that we are parsing
-    const std::vector<std::string> keys = {"+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0"};
+    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0" };
     std::vector<std::string> values;
-    for (auto &key: keys)
+    for (auto &key : keys)
     {
       std::string::size_type found = line.find(key);
-      if (found==std::string::npos) // error checking
+      if (found == std::string::npos)  // error checking
       {
         if (key == "+ellps")
         {
@@ -113,41 +114,42 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       // generate the list of values that correspond to the list of keys
       found += key.length() + 1;
       std::string::size_type space = line.find(" ", found);
-      if (space==std::string::npos)
+      if (space == std::string::npos)
         space = line.length() - 1;
       values.push_back(line.substr(found, space - found));
     }
-    if (values[1] == "") // if ellipsoid type not specified, we take it to be the same as the datum
+    if (values[1] == "")  // if ellipsoid type not specified, we take it to be the same as the datum
     {
       values[1] = values[2];
     }
     double coord_lat = 0.0;
     if (values[4] != "")
     {
-      coord_lat = std::stod(values[4]); // latitude
+      coord_lat = std::stod(values[4]);  // latitude
     }
     double coord_long = 0.0;
     if (values[5] != "")
     {
-      coord_long = std::stod(values[5]); // longitude
+      coord_long = std::stod(values[5]);  // longitude
     }
-    Eigen::Vector2d geo_offset(0,0);
+    Eigen::Vector2d geo_offset(0, 0);
     if (values[6] != "")
     {
-      geo_offset[0] = std::stod(values[6]); // offset in m
+      geo_offset[0] = std::stod(values[6]);  // offset in m
     }
     if (values[7] != "")
     {
-      geo_offset[1] = std::stod(values[7]); // offset in m
+      geo_offset[1] = std::stod(values[7]);  // offset in m
     }
-    std::cout << "geooffset: " << geo_offset << ", geokey: " << values[1] << ", datum: " << values[2] << ", coord_long: " << coord_long << std::endl;
+    std::cout << "geooffset: " << geo_offset << ", geokey: " << values[1] << ", datum: " << values[2]
+              << ", coord_long: " << coord_long << std::endl;
 
-    const double scales[3] = {pixel_width, pixel_width, pixel_width};
+    const double scales[3] = { pixel_width, pixel_width, pixel_width };
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
 
-    // Set GeoTIFF information 
+    // Set GeoTIFF information
     // We are only supporting a limited set of projection types, so here we assume standard settings
-    GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);   
+    GTIFKeySet(gtif, GTModelTypeGeoKey, TYPE_SHORT, 1, ModelTypeProjected);
     GTIFKeySet(gtif, GTRasterTypeGeoKey, TYPE_SHORT, 1, RasterPixelIsArea);
 
     GTIFKeySet(gtif, ProjLinearUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
@@ -157,19 +159,19 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
 
     // describe the coordinates of the image corners
-    const double tiepoints[6]={0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0}; 
-    TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);    
+    const double tiepoints[6] = { 0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0 };
+    TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);
 
-    if (values[1] == "WGS84") // we support WGS84 by name
+    if (values[1] == "WGS84")  // we support WGS84 by name
     {
       GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, GCS_WGS_84);
     }
-    else // all other Geographic type geokeys we parse directly by their number
+    else  // all other Geographic type geokeys we parse directly by their number
     {
       std::stringstream ss(values[1]);
       int geokey = 0;
       ss >> geokey;
-      if (!ss.fail()) // we are using a direct number here, so
+      if (!ss.fail())  // we are using a direct number here, so
       {
         GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geokey);
       }
@@ -177,41 +179,41 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       {
         std::cout << "unknown geographic projection type: " << values[1] << std::endl;
         return false;
-      } 
+      }
     }
-    if (values[2] == "WGS84") // we support the datum type by name
+    if (values[2] == "WGS84")  // we support the datum type by name
     {
       GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
     }
     else if (values[2] != "")
     {
       std::cout << "unknown geodetic datum: " << values[2] << std::endl;
-      return false;      
+      return false;
     }
 
     GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, KvUserDefined);
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
-    if (values[0] != "ortho") // we only support ortho projection
+    if (values[0] != "ortho")  // we only support ortho projection
     {
       std::cout << "unknown projection type: " << values[0] << std::endl;
-      return false;      
+      return false;
     }
-    if (values[3] != "m") // we only support metres as the units
+    if (values[3] != "m")  // we only support metres as the units
     {
       std::cout << "unknown unit type: " << values[3] << std::endl;
-      return false;      
+      return false;
     }
     GTIFKeySet(gtif, ProjCenterLongGeoKey, TYPE_DOUBLE, 1, coord_long);
     GTIFKeySet(gtif, ProjCenterLatGeoKey, TYPE_DOUBLE, 1, coord_lat);
 
-    // Store the keys into the TIFF Tags 
-    GTIFWriteKeys(gtif); 
+    // Store the keys into the TIFF Tags
+    GTIFWriteKeys(gtif);
   }
-    
-  // get rid of the key parser 
-  GTIFFree(gtif);  
-  
-  // save and close the TIFF file descriptor 
+
+  // get rid of the key parser
+  GTIFFree(gtif);
+
+  // save and close the TIFF file descriptor
   XTIFFClose(tif);
 
   return true;
@@ -255,7 +257,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         }
       }
 
-      Eigen::Vector3d p = source; // our moving variable as we walk over the grid
+      Eigen::Vector3d p = source;  // our moving variable as we walk over the grid
       Eigen::Vector3i inds = p.cast<int>();
       double depth = 0;
       // walk over the grid, one voxel at a time.
@@ -278,16 +280,16 @@ void DensityGrid::calculateDensities(const std::string &file_name)
           double length_in_voxel = minL + maxDist - depth;
           if (colours[i].alpha > 0)
           {
-            voxels_[index].addHitRay(static_cast<float>(length_in_voxel*voxel_width_));
+            voxels_[index].addHitRay(static_cast<float>(length_in_voxel * voxel_width_));
           }
           else
           {
-            voxels_[index].addMissRay(static_cast<float>(length_in_voxel*voxel_width_));
+            voxels_[index].addMissRay(static_cast<float>(length_in_voxel * voxel_width_));
           }
         }
         else
         {
-          voxels_[index].addMissRay(static_cast<float>(minL*voxel_width_));
+          voxels_[index].addMissRay(static_cast<float>(minL * voxel_width_));
         }
       } while (depth <= maxDist);
     }
@@ -319,7 +321,7 @@ void DensityGrid::addNeighbourPriors()
           num_hit_points++;
         float needed = DENSITY_MIN_RAYS - voxels_[ind].numRays();
         const DensityGrid::Voxel corner_vox = voxels_[ind - X - Y - Z];
-        voxels_[ind - X - Y - Z] = voxels_[ind]; // move centre up to corner
+        voxels_[ind - X - Y - Z] = voxels_[ind];  // move centre up to corner
         DensityGrid::Voxel &voxel = voxels_[ind - X - Y - Z];
         if (needed < 0.0)
           continue;
@@ -359,14 +361,14 @@ void DensityGrid::addNeighbourPriors()
         voxel += neighbours;
         needed -= neighbours.numRays();
 
-        neighbours  = corner_vox;
-        neighbours += voxels_[ind-X-Y+Z];
-        neighbours += voxels_[ind-X+Y-Z];
-        neighbours += voxels_[ind+X-Y-Z];
-        neighbours += voxels_[ind-X+Y+Z];
-        neighbours += voxels_[ind+X-Y+Z];
-        neighbours += voxels_[ind+X+Y-Z];
-        neighbours += voxels_[ind+X+Y+Z];
+        neighbours = corner_vox;
+        neighbours += voxels_[ind - X - Y + Z];
+        neighbours += voxels_[ind - X + Y - Z];
+        neighbours += voxels_[ind + X - Y - Z];
+        neighbours += voxels_[ind - X + Y + Z];
+        neighbours += voxels_[ind + X - Y + Z];
+        neighbours += voxels_[ind + X + Y - Z];
+        neighbours += voxels_[ind + X + Y + Z];
         if (neighbours.numRays() >= needed)
         {
           voxel += neighbours * (needed / neighbours.numRays());  // add minimal amount to reach DENSITY_MIN_RAYS
@@ -378,9 +380,9 @@ void DensityGrid::addNeighbourPriors()
       }
     }
   }
-  const double percentage = 100.0*num_hit_points_unsatisfied/num_hit_points;
-  std::cout << "Density calculation: " << percentage << "% of voxels had insufficient (<"
-    << DENSITY_MIN_RAYS << ") rays within them" << std::endl;
+  const double percentage = 100.0 * num_hit_points_unsatisfied / num_hit_points;
+  std::cout << "Density calculation: " << percentage << "% of voxels had insufficient (<" << DENSITY_MIN_RAYS
+            << ") rays within them" << std::endl;
   if (percentage > 50.0)
   {
     std::cout << "This is high. Consider using a larger pixel size, or a denser cloud, or reducing DENSITY_MIN_RAYS, "
@@ -392,11 +394,11 @@ void DensityGrid::addNeighbourPriors()
     std::cout << "This is low enough that you could get more fidelity from using a smaller pixel size" << std::endl;
     std::cout << "or more accuracy by increasing DENSITY_MIN_RAYS" << std::endl;
   }
-  #endif
+#endif
 }
 
-bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction,
-                 RenderStyle style, double pix_width, const std::string &image_file, const std::string &projection_file, bool mark_origin,
+bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction, RenderStyle style,
+                 double pix_width, const std::string &image_file, const std::string &projection_file, bool mark_origin,
                  const std::string *const transform_file)
 {
   // convert the view direction into useable parameters
@@ -427,7 +429,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   {
     // accumulated colour buffer
     std::vector<Eigen::Vector4d> pixels(width * height);
-    std::fill(pixels.begin(), pixels.end(), Eigen::Vector4d(0,0,0,0));
+    std::fill(pixels.begin(), pixels.end(), Eigen::Vector4d(0, 0, 0, 0));
     // density calculation is a special case
     if (style == RenderStyle::Density || style == RenderStyle::Density_rgb)
     {
@@ -476,57 +478,57 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           const Eigen::Vector3i p = (pos).cast<int>();
           const int x = p[ax1], y = p[ax2];
           // using 4 dimensions helps us to accumulate colours in a greater variety of ways
-          Eigen::Vector4d &pix = pixels[x + width*y];
-          switch (style) // render the image according to the chosen style
+          Eigen::Vector4d &pix = pixels[x + width * y];
+          switch (style)  // render the image according to the chosen style
           {
-            case RenderStyle::Ends: 
-            case RenderStyle::Starts: 
-            case RenderStyle::Height: 
-              if (pos[axis]*dir > pix[3]*dir || pix[3] == 0.0) // using 0.0 precisely as a flag here
-              {
-                pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
-              }
-              break;
-            case RenderStyle::Mean:
-              pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-              break;
-            case RenderStyle::Sum:
-              pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-              break;
-            case RenderStyle::Rays:
+          case RenderStyle::Ends:
+          case RenderStyle::Starts:
+          case RenderStyle::Height:
+            if (pos[axis] * dir > pix[3] * dir || pix[3] == 0.0)  // using 0.0 precisely as a flag here
             {
-              Eigen::Vector3d cloud_start = starts[i];
-              Eigen::Vector3d cloud_end = ends[i];
-              // clip to within the image (since we exclude unbounded rays from the image bounds)
-              bounds.clipRay(cloud_start, cloud_end);
-              Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
-              Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
-              const Eigen::Vector3d dir = cloud_end - cloud_start;
-
-              // fast approximate 2D line rendering requires picking the long axis to iterate along
-              const bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
-              const int axis_long = x_long ? ax1 : ax2;
-              const int axis_short = x_long ? ax2 : ax1;
-              const int width_long = x_long ? 1 : width;
-              const int width_short = x_long ? width : 1;
-
-              const double gradient = dir[axis_short] / dir[axis_long];
-              if (dir[axis_long] < 0.0)
-                std::swap(start, end); // this lets us iterate from low up to high values
-              const int start_long = static_cast<int>(start[axis_long]);
-              const int end_long = static_cast<int>(end[axis_long]);
-              // place a pixel at the height of each midpoint (of the pixel) in the long axis
-              const double start_mid_point = 0.5 + static_cast<double>(start_long);
-              double height = start[axis_short] + (start_mid_point - start[axis_long])*gradient;
-              for (int l = start_long; l <= end_long; l++, height += gradient)
-              {
-                const int s = static_cast<int>(height);
-                pixels[width_long*l + width_short*s] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
-              }
-              break;
+              pix = Eigen::Vector4d(col[0], col[1], col[2], pos[axis]);
             }
-            default:
-              break;
+            break;
+          case RenderStyle::Mean:
+            pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+            break;
+          case RenderStyle::Sum:
+            pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+            break;
+          case RenderStyle::Rays:
+          {
+            Eigen::Vector3d cloud_start = starts[i];
+            Eigen::Vector3d cloud_end = ends[i];
+            // clip to within the image (since we exclude unbounded rays from the image bounds)
+            bounds.clipRay(cloud_start, cloud_end);
+            Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
+            Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
+            const Eigen::Vector3d dir = cloud_end - cloud_start;
+
+            // fast approximate 2D line rendering requires picking the long axis to iterate along
+            const bool x_long = std::abs(dir[ax1]) > std::abs(dir[ax2]);
+            const int axis_long = x_long ? ax1 : ax2;
+            const int axis_short = x_long ? ax2 : ax1;
+            const int width_long = x_long ? 1 : width;
+            const int width_short = x_long ? width : 1;
+
+            const double gradient = dir[axis_short] / dir[axis_long];
+            if (dir[axis_long] < 0.0)
+              std::swap(start, end);  // this lets us iterate from low up to high values
+            const int start_long = static_cast<int>(start[axis_long]);
+            const int end_long = static_cast<int>(end[axis_long]);
+            // place a pixel at the height of each midpoint (of the pixel) in the long axis
+            const double start_mid_point = 0.5 + static_cast<double>(start_long);
+            double height = start[axis_short] + (start_mid_point - start[axis_long]) * gradient;
+            for (int l = start_long; l <= end_long; l++, height += gradient)
+            {
+              const int s = static_cast<int>(height);
+              pixels[width_long * l + width_short * s] += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
+            }
+            break;
+          }
+          default:
+            break;
           }
         }
       };
@@ -538,7 +540,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     double min_val = 0.0;
     const std::string image_ext = getFileNameExtension(image_file);
     const bool is_hdr = image_ext == "hdr" || image_ext == "tif";
-    if (!is_hdr) // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
+    if (!is_hdr)  // limited range, so work out a sensible maximum value, I'm using mean + two standard deviations:
     {
       double sum = 0.0;
       double num = 0.0;
@@ -556,8 +558,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           sum_sqr += sqr(pixel[3] - mean);
       }
       const double standard_deviation = std::sqrt(sum_sqr / num);
-      max_val = mean + 2.0*standard_deviation;
-      min_val = mean - 2.0*standard_deviation;
+      max_val = mean + 2.0 * standard_deviation;
+      min_val = mean - 2.0 * standard_deviation;
     }
 
     // The final pixel buffer
@@ -576,37 +578,38 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         const Eigen::Vector4d colour = pixels[x + width * y];
         Eigen::Vector3d col3d(colour[0], colour[1], colour[2]);
         const uint8_t alpha = colour[3] == 0.0 ? 0 : 255;  // 'punch-through' alpha
-        switch (style) // convert to the colour data structure based on the chosen style
+        switch (style)  // convert to the colour data structure based on the chosen style
         {
-          case RenderStyle::Mean:
-          case RenderStyle::Rays:
-            col3d /= colour[3]; // simple mean
-            break;
-          case RenderStyle::Height:
+        case RenderStyle::Mean:
+        case RenderStyle::Rays:
+          col3d /= colour[3];  // simple mean
+          break;
+        case RenderStyle::Height:
+        {
+          double shade =
+            dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
+          col3d = Eigen::Vector3d(shade, shade, shade);
+          break;
+        }
+        case RenderStyle::Sum:
+        case RenderStyle::Density:
+          col3d /= max_val;  // rescale to within limited colour range
+          break;
+        case RenderStyle::Density_rgb:
+        {
+          if (is_hdr)
+            col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+          else
           {
-            double shade = dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
-            col3d = Eigen::Vector3d(shade, shade, shade);
-            break;
+            double shade = colour[0] / max_val;
+            col3d = redGreenBlueGradient(shade);
+            if (shade < 0.05)
+              col3d *= 20.0 * shade;  // this blends the lowest densities down to black
           }
-          case RenderStyle::Sum: 
-          case RenderStyle::Density: 
-            col3d /= max_val; // rescale to within limited colour range
-            break;
-          case RenderStyle::Density_rgb:
-          {
-            if (is_hdr)
-              col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
-            else
-            {
-              double shade = colour[0] / max_val;
-              col3d = redGreenBlueGradient(shade);
-              if (shade < 0.05)
-                col3d *= 20.0*shade; // this blends the lowest densities down to black
-            }
-            break;
-          }
-          default:
-            break;
+          break;
+        }
+        default:
+          break;
         }
         const int ind = indx + width * y;
         if (is_hdr)
@@ -618,15 +621,15 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         else
         {
           RGBA col;
-          col.red   = uint8_t(std::max(0.0, std::min(255.0*col3d[0], 255.0)));
-          col.green = uint8_t(std::max(0.0, std::min(255.0*col3d[1], 255.0)));
-          col.blue  = uint8_t(std::max(0.0, std::min(255.0*col3d[2], 255.0)));
+          col.red = uint8_t(std::max(0.0, std::min(255.0 * col3d[0], 255.0)));
+          col.green = uint8_t(std::max(0.0, std::min(255.0 * col3d[1], 255.0)));
+          col.blue = uint8_t(std::max(0.0, std::min(255.0 * col3d[2], 255.0)));
           col.alpha = alpha;
           pixel_colours[ind] = col;
         }
       }
     }
-    if (mark_origin) // an option to mark the lidar origin in the image
+    if (mark_origin)  // an option to mark the lidar origin in the image
     {
       if (pixel_colours.empty())
       {
@@ -638,19 +641,19 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         std::cout << "origin pixel location: " << pos[0] << ", " << pos[1] << std::endl;
         const Eigen::Vector3i p = pos.cast<int>();
         const int x = p[ax1], y = p[ax2];
-#define DRAW_ARROW // render the origin as an arrow, which therefore defines the x direction in the lidar frame
+#define DRAW_ARROW  // render the origin as an arrow, which therefore defines the x direction in the lidar frame
 #if defined DRAW_ARROW
-        for (int xx = x-2; xx <= x+10; xx++)
+        for (int xx = x - 2; xx <= x + 10; xx++)
         {
           std::cout << "xx: " << xx << std::endl;
-          for (int yy = y - 2; yy <= y+2; yy++)
+          for (int yy = y - 2; yy <= y + 2; yy++)
           {
-            if (xx >= 6 && std::abs(yy - y) > ((x+10) - xx)/2)
+            if (xx >= 6 && std::abs(yy - y) > ((x + 10) - xx) / 2)
               continue;
             if (xx >= 0 && xx < width && yy >= 0 && yy < height)
             {
               const int indx = flip_x ? width - 1 - xx : xx;
-              RGBA &col = pixel_colours[indx + width*yy];
+              RGBA &col = pixel_colours[indx + width * yy];
               col.red = col.green = 0;
               col.blue = col.alpha = 255;
             }
@@ -660,16 +663,17 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 #endif
         if (x >= 0 && x < width && y >= 0 && y < height)
         {
-          const int indx = flip_x ? width - 1 - x : x; // possible horizontal flip, depending on view direction
+          const int indx = flip_x ? width - 1 - x : x;  // possible horizontal flip, depending on view direction
           // using 4 dimensions helps us to accumulate colours in a greater variety of ways
-          RGBA &col = pixel_colours[indx + width *y];
+          RGBA &col = pixel_colours[indx + width * y];
           col.red = col.blue = col.alpha = 255;
           col.green = 0;
           // we leave alpha alone as it might be needed to indicate the presence of points
         }
         else
         {
-          std::cerr << "error: the origin cannot be marked on this image as it is not within the image bounds" << std::endl;
+          std::cerr << "error: the origin cannot be marked on this image as it is not within the image bounds"
+                    << std::endl;
         }
       }
     }
@@ -680,7 +684,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       const double scale = pix_width;
       const double translate_x = bounds.min_bound_.x();
       const double translate_y = bounds.max_bound_.y();
-      const Eigen::Matrix3d transform = (Eigen::Translation2d(translate_x, translate_y) * Eigen::Scaling(scale, -scale)).matrix();
+      const Eigen::Matrix3d transform =
+        (Eigen::Translation2d(translate_x, translate_y) * Eigen::Scaling(scale, -scale)).matrix();
 
       // Write transform
       std::cout << "outputting transform: " << *transform_file << std::endl;
@@ -727,24 +732,24 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       stbi_write_jpg(image_name, width, height, 4, (void *)&pixel_colours[0], 100);  // 100 is maximal quality
     else if (image_ext == "hdr")
       stbi_write_hdr(image_name, width, height, 3, &float_pixel_colours[0]);
-  #if RAYLIB_WITH_TIFF
+#if RAYLIB_WITH_TIFF
     else if (image_ext == "tif")
     {
       // obtain the origin offsets
-      const Eigen::Vector3d origin(0,0,0);
+      const Eigen::Vector3d origin(0, 0, 0);
       const Eigen::Vector3d pos = -(origin - bounds.min_bound_);
       const double x = pos[ax1], y = pos[ax2] + static_cast<double>(height) * pix_width;
       // generate the geotiff file
-      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y); 
+      writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y);
     }
-  #endif
+#endif
     else
     {
       std::cerr << "Error: image format " << image_ext << " not supported" << std::endl;
       return false;
     }
   }
-  catch (std::bad_alloc const&) // catch any memory allocation problems in generating large images
+  catch (std::bad_alloc const &)  // catch any memory allocation problems in generating large images
   {
     std::cout << "Not enough memory to process the " << width << "x" << height << " image." << std::endl;
     std::cout << "The --pixel_width option can be used to reduce the resolution." << std::endl;

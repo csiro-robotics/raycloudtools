@@ -18,7 +18,7 @@ bool CloudWriter::begin(const std::string &file_name)
   file_name_ = file_name;
   if (!writeRayCloudChunkStart(file_name_, ofs_))
   {
-    return false;    
+    return false;
   }
   return true;
 }

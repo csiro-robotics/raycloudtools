@@ -126,7 +126,7 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
 }
 
 void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
-                 const std::vector<Eigen::Vector3d> &colours)
+                          const std::vector<Eigen::Vector3d> &colours)
 {
   if (starts.empty())
   {

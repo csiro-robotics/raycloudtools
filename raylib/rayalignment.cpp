@@ -20,7 +20,6 @@ static const double kHighPassPower = 0.25;  // This fixes inout->inout11, inoutD
                                             // Doesn't break any. power=0.25. 0 is turned off.
 namespace ray
 {
-
 struct Array1D
 {
   void init(int length);
@@ -66,8 +65,7 @@ void Array3D::init(const Eigen::Vector3d &box_min, const Eigen::Vector3d &box_ma
   Eigen::Vector3d diff = (box_max - box_min) / voxel_width;
   // HERE we need to make it a power of two
   Eigen::Vector3i d;
-  for (int i = 0; i < 3; i++) 
-    d[i] = 1 << (int)ceil(log2(ceil(diff[i])));  // next power of two larger than diff
+  for (int i = 0; i < 3; i++) d[i] = 1 << (int)ceil(log2(ceil(diff[i])));  // next power of two larger than diff
   init(box_min, voxel_width, d);
 }
 

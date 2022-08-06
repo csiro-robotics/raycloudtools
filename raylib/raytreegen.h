@@ -7,8 +7,8 @@
 #define RAYLIB_RAYTREEGEN_H
 
 #include "raylib/raylibconfig.h"
-#include "raytreestructure.h"
 #include "raypose.h"
+#include "raytreestructure.h"
 #include "rayutils.h"
 
 namespace ray
@@ -24,10 +24,12 @@ void RAYLIB_EXPORT fillBranchAngleLookup();
 // store the basic parameters that describe the tree
 struct TreeParams
 {
-  TreeParams() : min_branch_radius(0.001),
-                 random_factor(0.0) {}
-  double min_branch_radius;  
-  double random_factor; // 0 to 1 value
+  TreeParams()
+    : min_branch_radius(0.001)
+    , random_factor(0.0)
+  {}
+  double min_branch_radius;
+  double random_factor;  // 0 to 1 value
 };
 
 /// Random generation of semi-realistic trees. These are based on a self-similar branching structure
@@ -35,7 +37,7 @@ struct TreeParams
 class RAYLIB_EXPORT TreeGen : public TreeStructure
 {
 public:
-  TreeGen(){}
+  TreeGen() {}
   TreeGen(const TreeStructure &base_tree)
   {
     segments_ = base_tree.segments();
@@ -52,7 +54,7 @@ public:
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
 
   /// access the leaves of the tree
-  const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }  
+  const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }
 
   // convert to a tree structure
   void toTreeStructure(TreeStructure &tree)
@@ -60,6 +62,7 @@ public:
     tree.segments() = segments_;
     tree.attributes() = attribute_names_;
   }
+
 private:
   std::vector<Eigen::Vector3d> leaves_;
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;

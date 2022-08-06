@@ -71,4 +71,4 @@ bool Cuboid::intersects(const Eigen::Vector3d &pos) const
          pos[1] <= max_bound_[1] && pos[2] <= max_bound_[2];
 }
 
-} // ray
+}  // namespace ray

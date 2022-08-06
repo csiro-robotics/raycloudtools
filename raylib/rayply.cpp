@@ -16,10 +16,10 @@ namespace ray
 namespace
 {
 // these are set once and are constant after that
-unsigned long chunk_header_length = 0; 
-unsigned long point_cloud_chunk_header_length = 0; 
-unsigned long vertex_size_pos = 0;     
-unsigned long point_cloud_vertex_size_pos = 0;  
+unsigned long chunk_header_length = 0;
+unsigned long point_cloud_chunk_header_length = 0;
+unsigned long vertex_size_pos = 0;
+unsigned long point_cloud_vertex_size_pos = 0;
 
 enum DataType
 {
@@ -29,7 +29,7 @@ enum DataType
   kDTuchar,
   kDTnone
 };
-}  
+}  // namespace
 
 bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
 {
@@ -331,7 +331,8 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   bool pos_is_float = false;
   bool normal_is_float = false;
   DataType intensity_type = kDTnone;
-  int rowsteps[] = {int(sizeof(float)), int(sizeof(double)), int(sizeof(unsigned short)), int(sizeof(unsigned char)), 0}; // to match each DataType enum
+  int rowsteps[] = { int(sizeof(float)), int(sizeof(double)), int(sizeof(unsigned short)), int(sizeof(unsigned char)),
+                     0 };  // to match each DataType enum
 
   while (line != "end_header\r" && line != "end_header")
   {
@@ -409,8 +410,8 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   }
   if (time_offset == -1)
   {
-//    std::cerr << "error: no time information found in " << file_name << std::endl;
-//    return false;
+    //    std::cerr << "error: no time information found in " << file_name << std::endl;
+    //    return false;
   }
   if (colour_offset == -1)
     std::cout << "warning: no colour information found in " << file_name
@@ -418,9 +419,11 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   if (!is_ray_cloud && intensity_offset != -1)
   {
     if (colour_offset != -1)
-      std::cout << "warning: intensity and colour information both found in file. Replacing alpha with intensity value." << std::endl;
+      std::cout << "warning: intensity and colour information both found in file. Replacing alpha with intensity value."
+                << std::endl;
     else
-      std::cout << "intensity information found in file, storing this in the ray cloud 8-bit alpha channel." << std::endl;
+      std::cout << "intensity information found in file, storing this in the ray cloud 8-bit alpha channel."
+                << std::endl;
   }
 
   // pre-reserving avoids memory fragmentation
@@ -525,27 +528,31 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           intensity = (double)((float &)vertices[intensity_offset]);
         else if (intensity_type == kDTdouble)
           intensity = (double &)vertices[intensity_offset];
-        else // (intensity_type == kDTushort)
+        else  // (intensity_type == kDTushort)
           intensity = (double)((unsigned short &)vertices[intensity_offset]);
         if (intensity >= 0.0)
         {
-          intensity = std::max(2.0, std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0))); // clamping to 2 or above allows 1 to be used for the 'uncertain distance' cases
+          intensity = std::max(
+            2.0,
+            std::ceil(255.0 *
+                      clamped(intensity / max_intensity, 0.0,
+                              1.0)));  // clamping to 2 or above allows 1 to be used for the 'uncertain distance' cases
         }
-        // special case of negative intensity codes. 
-        // these are flags to support special situations with lidars. If the lidar does not produce negative intensities then
-        // this code is not used. 
-        else 
+        // special case of negative intensity codes.
+        // these are flags to support special situations with lidars. If the lidar does not produce negative intensities
+        // then this code is not used.
+        else
         {
           // special cases:
-          if (intensity == -1.0)      // non-return of unknown length 
+          if (intensity == -1.0)  // non-return of unknown length
           {
             intensity = 0.0;
           }
-          else if (intensity == -2.0) // the object is within minimum range, so range is not certain but small
+          else if (intensity == -2.0)  // the object is within minimum range, so range is not certain but small
           {
-            intensity = 1.0; 
+            intensity = 1.0;
           }
-          else if (intensity == -3.0) // outside maximum range, so range is uncertain but large
+          else if (intensity == -3.0)  // outside maximum range, so range is uncertain but large
           {
             intensity = 1.0;
           }
@@ -567,7 +574,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       }
       if (!is_ray_cloud && intensity_offset != -1)
       {
-        for (size_t j = 0; j<intensities.size(); j++)
+        for (size_t j = 0; j < intensities.size(); j++)
         {
           colours[j].alpha = intensities[j];
           // colour zero-intensity rays black. This is a helpful debug tool.
@@ -576,9 +583,9 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
             colours[j].red = colours[j].green = colours[j].blue = 0;
           }
           // the special cases for under and over ranged points are coloured pale magenta
-          else if (intensities[j] == 1) 
+          else if (intensities[j] == 1)
           {
-            colours[j].red = colours[j].blue = 255; 
+            colours[j].red = colours[j].blue = 255;
             colours[j].green = 200;
           }
         }
@@ -626,11 +633,12 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   }
 
   std::vector<Eigen::Vector4f> vertices(mesh.vertices().size());  // 4d to give space for colour
-  if (mesh.colours().size() > 0) // support per-triangle colours on meshes
+  if (mesh.colours().size() > 0)                                  // support per-triangle colours on meshes
   {
     for (size_t i = 0; i < mesh.vertices().size(); i++)
     {
-      vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2], (float &)mesh.colours()[i];
+      vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2],
+        (float &)mesh.colours()[i];
     }
   }
   else

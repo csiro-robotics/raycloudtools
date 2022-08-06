@@ -41,7 +41,10 @@ struct Array3D
 
   // Accessors and modifiers
   inline Complex &operator()(int x, int y, int z) { return cells_[x + dims_[0] * y + dims_[0] * dims_[1] * z]; }
-  inline const Complex &operator()(int x, int y, int z) const { return cells_[x + dims_[0] * y + dims_[0] * dims_[1] * z]; }
+  inline const Complex &operator()(int x, int y, int z) const
+  {
+    return cells_[x + dims_[0] * y + dims_[0] * dims_[1] * z];
+  }
   inline Complex &operator()(const Eigen::Vector3i &index) { return (*this)(index[0], index[1], index[2]); }
   inline const Complex &operator()(const Eigen::Vector3i &index) const { return (*this)(index[0], index[1], index[2]); }
   Complex &operator()(const Eigen::Vector3d &pos)
@@ -60,13 +63,13 @@ struct Array3D
       return (*this)(Eigen::Vector3i(index.cast<int>()));
     return null_cell_;
   }
-  inline Eigen::Vector3i &dimensions(){ return dims_; }
+  inline Eigen::Vector3i &dimensions() { return dims_; }
   inline const Eigen::Vector3i &dimensions() const { return dims_; }
-  inline double voxelWidth(){ return voxel_width_; }
-  void clearCells(){ cells_.clear(); }
+  inline double voxelWidth() { return voxel_width_; }
+  void clearCells() { cells_.clear(); }
 
   void conjugate();
-  
+
   // Location in the grid of the cell wiith the largest real part
   Eigen::Vector3i maxRealIndex() const;
 
@@ -75,6 +78,7 @@ struct Array3D
 
   Eigen::Vector3d box_min_, box_max_;
   double voxel_width_;
+
 private:
   Eigen::Vector3i dims_;
   std::vector<Complex> cells_;

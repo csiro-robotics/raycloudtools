@@ -25,19 +25,20 @@ enum class RAYLIB_EXPORT ViewDirection
 /// Supported render styles on cloud data
 enum class RAYLIB_EXPORT RenderStyle
 {
-  Ends, 
-  Mean, 
-  Sum, 
-  Starts, 
-  Rays, 
+  Ends,
+  Mean,
+  Sum,
+  Starts,
+  Rays,
   Height,
-  Density, 
+  Density,
   Density_rgb
 };
 
 /// Render a ray cloud according to the supplied parameters
 bool RAYLIB_EXPORT renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction,
-                               RenderStyle style, double pix_width, const std::string &image_file, const std::string &projection_file, bool mark_origin,
+                               RenderStyle style, double pix_width, const std::string &image_file,
+                               const std::string &projection_file, bool mark_origin,
                                const std::string *transform_file = nullptr);
 
 /// This is used for estimating the per-voxel density of a ray cloud
@@ -48,10 +49,13 @@ bool RAYLIB_EXPORT renderCloud(const std::string &cloud_file, const Cuboid &boun
 struct RAYLIB_EXPORT DensityGrid
 {
   static const int min_voxel_hits = 2;
-  static constexpr double spherical_distribution_scale = 2.0; // average area scale due to a spherical uniform distribution of leave angles relative to the rays
+  static constexpr double spherical_distribution_scale =
+    2.0;  // average area scale due to a spherical uniform distribution of leave angles relative to the rays
 
-  DensityGrid(const Cuboid &grid_bounds, double vox_width, const Eigen::Vector3i &dims) :
-    bounds_(grid_bounds), voxel_width_(vox_width), voxel_dims_(dims)
+  DensityGrid(const Cuboid &grid_bounds, double vox_width, const Eigen::Vector3i &dims)
+    : bounds_(grid_bounds)
+    , voxel_width_(vox_width)
+    , voxel_dims_(dims)
   {
     voxels_.resize(dims[0] * dims[1] * dims[2]);
   }
@@ -105,19 +109,19 @@ private:
 // inline functions
 inline double DensityGrid::Voxel::numerator() const
 {
-  return spherical_distribution_scale * (num_rays_-1.0) * num_hits_;
+  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_;
 }
 inline double DensityGrid::Voxel::denominator() const
 {
-  return 1e-10 + num_rays_*path_length_;
+  return 1e-10 + num_rays_ * path_length_;
 }
-inline double DensityGrid::Voxel::density() const 
-{ 
+inline double DensityGrid::Voxel::density() const
+{
   if (num_rays_ <= min_voxel_hits)
     return 0.0;
-  return spherical_distribution_scale * (num_rays_-1.0) * num_hits_ / (1e-10 + num_rays_*path_length_);
+  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (1e-10 + num_rays_ * path_length_);
 }
-void DensityGrid::Voxel::operator +=(const DensityGrid::Voxel &other)
+void DensityGrid::Voxel::operator+=(const DensityGrid::Voxel &other)
 {
   num_hits_ += other.num_hits_;
   num_rays_ += other.num_rays_;
@@ -144,7 +148,7 @@ void DensityGrid::Voxel::addMissRay(float length)
 }
 int DensityGrid::getIndex(const Eigen::Vector3i &inds) const
 {
-  return inds[0] + inds[1]*voxel_dims_[0] + inds[2] * voxel_dims_[0]*voxel_dims_[1];
+  return inds[0] + inds[1] * voxel_dims_[0] + inds[2] * voxel_dims_[0] * voxel_dims_[1];
 }
 int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
 {

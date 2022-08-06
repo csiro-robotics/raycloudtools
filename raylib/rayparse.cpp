@@ -32,7 +32,8 @@ std::string getFileNameExtension(const std::string &name)
 bool parseCommandLine(int argc, char *argv[], const std::vector<FixedArgument *> &fixed_arguments,
                       std::vector<OptionalArgument *> optional_arguments, bool set_values_)
 {
-  // if we are setting the argument values_ then first run the parsing without setting them, and then only continue (to set them) if the format matches.
+  // if we are setting the argument values_ then first run the parsing without setting them, and then only continue (to
+  // set them) if the format matches.
   if (set_values_ && !parseCommandLine(argc, argv, fixed_arguments, optional_arguments, false))
     return false;
   int c = 1;
@@ -84,19 +85,19 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
 
     // we don't check file existence, that is up to whatever uses the file.
     // but we do check that the string contains a '.' and (if set)
-    // that it has a valid 3-letter file extension 
+    // that it has a valid 3-letter file extension
     // This lets us disambiguate files_ from other arguments
     // and isn't too restrictive, we would rather users use extensions on their file names.
     size_t extension_pos = file.rfind('.');
-    if (extension_pos == std::string::npos) // no '.' in file name
+    if (extension_pos == std::string::npos)  // no '.' in file name
       return false;
     const std::string ext = file.substr(extension_pos);
     bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1));
     for (size_t index = 2; index < ext.size(); ++index)
     {
       valid_ext = valid_ext && std::isalnum(ext.at(index));
-    }    
-    if (!valid_ext) 
+    }
+    if (!valid_ext)
       return false;
   }
   if (set_value)
@@ -125,9 +126,10 @@ bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
   if (!in_range)
   {
     index--;
-    std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
+    std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
+              << std::endl;
   }
-  value_ = val; 
+  value_ = val;
   return in_range;
 }
 
@@ -152,7 +154,8 @@ bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
   if (!in_range)
   {
     index--;
-    std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_ << std::endl;
+    std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
+              << std::endl;
   }
   value_ = (int)val;
   return in_range;
@@ -277,7 +280,7 @@ bool KeyValueChoice::parse(int argc, char *argv[], int &index, bool set_value)
   if (index >= argc)
     return false;
   std::string str(argv[index++]);
-  for (size_t i = 0; i<keys_.size(); i++)
+  for (size_t i = 0; i < keys_.size(); i++)
   {
     if (keys_[i] == str)
     {
@@ -345,8 +348,8 @@ bool OptionalKeyValueArgument::parse(int argc, char *argv[], int &index, bool se
   {
     if (set_value)
       is_set_ = true;
-    
-    index++; // for optional parameters, we only increment the argument index when it has been found
+
+    index++;  // for optional parameters, we only increment the argument index when it has been found
     if (!value_->parse(argc, argv, index, set_value))
     {
       index--;

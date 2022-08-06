@@ -19,7 +19,11 @@ public:
   /// The tree is a list of segments, which are connected through the parent_id
   struct Segment
   {
-    Segment() : tip(0,0,0), radius(0), parent_id(-1) {}
+    Segment()
+      : tip(0, 0, 0)
+      , radius(0)
+      , parent_id(-1)
+    {}
     Eigen::Vector3d tip;
     double radius;
     int parent_id;
@@ -33,19 +37,19 @@ public:
   const Eigen::Vector3d &root() const { return segments_[0].tip; }
 
   /// access the tree's attributes
-  std::vector<std::string> &attributes(){ return attribute_names_; }
+  std::vector<std::string> &attributes() { return attribute_names_; }
   const std::vector<std::string> &attributes() const { return attribute_names_; }
 
   /// calculate the volume of the tree
   double volume();
 
   /// return the root radius of the tree
-  double &radius(){ return segments_[0].radius; }
+  double &radius() { return segments_[0].radius; }
   const double &radius() const { return segments_[0].radius; }
 
 protected:
   std::vector<Segment> segments_;
   std::vector<std::string> attribute_names_;
 };
-} // namespace ray
+}  // namespace ray
 #endif  // RAYLIB_RAYTREESTRUCTURE_H

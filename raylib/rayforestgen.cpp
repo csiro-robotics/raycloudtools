@@ -4,8 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "rayforestgen.h"
-#include "rayutils.h"
 #include "rayforeststructure.h"
+#include "rayutils.h"
 // #define OUTPUT_MOMENTS  // used in unit tests
 
 namespace ray
@@ -55,13 +55,13 @@ bool ForestGen::makeFromFile(const std::string &filename, const TreeParams &para
   {
     return false;
   }
-  for (auto &tree: forest.trees)
+  for (auto &tree : forest.trees)
   {
-    trees_.push_back(TreeGen(tree)); 
+    trees_.push_back(TreeGen(tree));
   }
-  if (trees_[0].segments().size() == 1) // must have loaded trunks only
+  if (trees_[0].segments().size() == 1)  // must have loaded trunks only
   {
-    for (auto &tree: trees_)
+    for (auto &tree : trees_)
     {
       tree.make(params);
     }
@@ -71,7 +71,7 @@ bool ForestGen::makeFromFile(const std::string &filename, const TreeParams &para
 
 void ForestGen::generateRays(double ray_density)
 {
-  for (auto &tree : trees_) 
+  for (auto &tree : trees_)
   {
     tree.generateRays(ray_density);
   }
@@ -80,7 +80,7 @@ void ForestGen::generateRays(double ray_density)
 std::vector<Eigen::Vector3d> ForestGen::getCanopy()
 {
   std::vector<Eigen::Vector3d> canopy;
-  for (auto &tree : trees_) 
+  for (auto &tree : trees_)
   {
     canopy.insert(canopy.end(), tree.leaves().begin(), tree.leaves().end());
   }
@@ -91,7 +91,7 @@ std::vector<Eigen::Vector3d> ForestGen::getCanopy()
 std::vector<Eigen::Vector3d> ForestGen::getPointCloud()
 {
   std::vector<Eigen::Vector3d> cloud;
-  for (auto &tree : trees_) 
+  for (auto &tree : trees_)
   {
     cloud.insert(cloud.end(), tree.rayEnds().begin(), tree.rayEnds().end());
   }

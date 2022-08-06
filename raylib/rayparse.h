@@ -39,12 +39,13 @@ std::string RAYLIB_EXPORT getFileNameExtension(const std::string &name);
 /// if (!format1 && !format2)
 ///   print_usage_and_exit();
 /// Values are set only for the parseCommandLine that returned true. e.g. scale_val.value() is used if format1
-bool RAYLIB_EXPORT parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments,
-                      std::vector<struct OptionalArgument *> optional_arguments = std::vector<struct OptionalArgument *>(),
-                      bool set_values = true);
+bool RAYLIB_EXPORT
+  parseCommandLine(int argc, char *argv[], const std::vector<struct FixedArgument *> &fixed_arguments,
+                   std::vector<struct OptionalArgument *> optional_arguments = std::vector<struct OptionalArgument *>(),
+                   bool set_values = true);
 
-/// Argument structures. These are conceptually structs, they have independent data that can be accessed and modified directly,
-/// and mainly contain a just single function for parsing
+/// Argument structures. These are conceptually structs, they have independent data that can be accessed and modified
+/// directly, and mainly contain a just single function for parsing
 class RAYLIB_EXPORT Argument
 {
 public:
@@ -209,8 +210,11 @@ private:
 class RAYLIB_EXPORT KeyValueChoice : public FixedArgument
 {
 public:
-  KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<FixedArgument *> &values) :
-    keys_(keys), values_(values), selected_id_(-1) {}
+  KeyValueChoice(const std::initializer_list<std::string> &keys, const std::initializer_list<FixedArgument *> &values)
+    : keys_(keys)
+    , values_(values)
+    , selected_id_(-1)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
   inline const std::vector<FixedArgument *> &values() const { return values_; }
@@ -224,13 +228,16 @@ private:
   std::string selected_key_;
 };
 
-/// A choice of different value-key pairs. Usually commands defined by their units, e.g. "13.4 cm" / "12 rays" / "3.5 sigmas"
+/// A choice of different value-key pairs. Usually commands defined by their units, e.g. "13.4 cm" / "12 rays" / "3.5
+/// sigmas"
 class RAYLIB_EXPORT ValueKeyChoice : public FixedArgument
 {
 public:
-  ValueKeyChoice(const std::initializer_list<ValueArgument *> &values,
-                 const std::initializer_list<std::string> &keys) :
-                   values_(values), keys_(keys), selected_id_(-1) {}
+  ValueKeyChoice(const std::initializer_list<ValueArgument *> &values, const std::initializer_list<std::string> &keys)
+    : values_(values)
+    , keys_(keys)
+    , selected_id_(-1)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<std::string> &keys() const { return keys_; }
   inline const std::vector<ValueArgument *> &values() const { return values_; }
@@ -253,8 +260,11 @@ class RAYLIB_EXPORT OptionalArgument : public Argument
 class RAYLIB_EXPORT OptionalFlagArgument : public OptionalArgument
 {
 public:
-  OptionalFlagArgument(const std::string &name, char character) :
-    name_(name), character_(character), is_set_(false) {}
+  OptionalFlagArgument(const std::string &name, char character)
+    : name_(name)
+    , character_(character)
+    , is_set_(false)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
   inline bool isSet() const { return is_set_; }
@@ -269,8 +279,12 @@ private:
 struct RAYLIB_EXPORT OptionalKeyValueArgument : OptionalArgument
 {
 public:
-  OptionalKeyValueArgument(const std::string &name, char character, FixedArgument *value) :
-    name_(name), character_(character), value_(value), is_set_(false) {}
+  OptionalKeyValueArgument(const std::string &name, char character, FixedArgument *value)
+    : name_(name)
+    , character_(character)
+    , value_(value)
+    , is_set_(false)
+  {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::string &name() const { return name_; }
   inline bool isSet() const { return is_set_; }

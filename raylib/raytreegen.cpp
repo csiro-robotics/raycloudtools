@@ -10,10 +10,10 @@
 
 namespace ray
 {
-// given the input @c main_branch_angle of the larger branch, we can obtain the second branch angle and the 
+// given the input @c main_branch_angle of the larger branch, we can obtain the second branch angle and the
 // two branch radii (for a base radius of 1). These branch attributes are unique if the branch follows
 // Leonardo's rule (the cross sectional area is unchanged by the bifurcation) and the rule that the centre of
-// mass direction is unchanged by the bifurcation. 
+// mass direction is unchanged by the bifurcation.
 void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, double &main_branch_radius,
                    double &secondary_branch_radius)
 {
@@ -28,7 +28,7 @@ void getBranchInfo(double main_branch_angle, double &secondary_branch_angle, dou
 
 static const int kBranchAngleSize = 400;
 static double branch_angle_lookup[kBranchAngleSize];
-/// returns the branch angle that best fits a given @c tip_angle 
+/// returns the branch angle that best fits a given @c tip_angle
 double getMainBranchAngle(double tip_angle)
 {
   double x = tip_angle * (double)kBranchAngleSize / (0.5 * kPi);
@@ -89,7 +89,8 @@ void TreeGen::addBranch(int parent_index, Pose pose, double radius, const TreePa
   pose.position = pose * Eigen::Vector3d(0, 0, radius * branchGradient * rand_scale);
   double phi = (sqrt(5) + 1.0) / 2.0;
   rand_scale = random(1.0 - params.random_factor, 1.0 + params.random_factor);
-  pose.rotation = pose.rotation * Eigen::Quaterniond(Eigen::AngleAxisd(2.0 * kPi * phi * rand_scale, Eigen::Vector3d(0, 0, 1)));
+  pose.rotation =
+    pose.rotation * Eigen::Quaterniond(Eigen::AngleAxisd(2.0 * kPi * phi * rand_scale, Eigen::Vector3d(0, 0, 1)));
   Segment branch;
   branch.tip = pose.position;
   branch.radius = radius;
@@ -123,7 +124,8 @@ void TreeGen::make(const TreeParams &params)
 {
   com.setZero();
   total_mass = 0.0;
-  Pose base(segments_[0].tip, Eigen::Quaterniond(Eigen::AngleAxisd(params.random_factor * random(0.0, 2.0 * kPi), Eigen::Vector3d(0, 0, 1))));
+  Pose base(segments_[0].tip, Eigen::Quaterniond(Eigen::AngleAxisd(params.random_factor * random(0.0, 2.0 * kPi),
+                                                                   Eigen::Vector3d(0, 0, 1))));
 
   addBranch(0, base, segments_[0].radius, params);
 
@@ -131,13 +133,10 @@ void TreeGen::make(const TreeParams &params)
   // having made the tree, we now scale the whole thing in order that it matches the expected tapering gradient
   double scale = branchGradient / (com[2] / segments_[0].radius);
   Eigen::Vector3d root = segments_[0].tip;
-  for (auto &leaf : leaves_) 
-    leaf = root + (leaf - root) * scale;
-  for (auto &start : ray_starts_) 
-    start = root + (start - root) * scale;
-  for (auto &end : ray_ends_) 
-    end = root + (end - root) * scale;
-  for (auto &branch : segments_) 
+  for (auto &leaf : leaves_) leaf = root + (leaf - root) * scale;
+  for (auto &start : ray_starts_) start = root + (start - root) * scale;
+  for (auto &end : ray_ends_) end = root + (end - root) * scale;
+  for (auto &branch : segments_)
   {
     branch.tip = root + (branch.tip - root) * scale;
     branch.radius *= scale;
@@ -148,11 +147,12 @@ void TreeGen::make(const TreeParams &params)
 void TreeGen::generateRays(double ray_density)
 {
   ASSERT(segments_.size() > 0);
-  const double path_trunk_multiplier = 12.0; // observe the tree from this many trunk radii away
-  const double ground_path_multiplier = 5.0; // observe the tree from this many trunk radii in height
-  const double flight_path_multiplier = 20.0; // overhead path is at this many trunk radii above the ground
+  const double path_trunk_multiplier = 12.0;   // observe the tree from this many trunk radii away
+  const double ground_path_multiplier = 5.0;   // observe the tree from this many trunk radii in height
+  const double flight_path_multiplier = 20.0;  // overhead path is at this many trunk radii above the ground
   double path_radius = segments_[0].radius * path_trunk_multiplier;
-  double ring_heights[2] = {segments_[0].radius * ground_path_multiplier, segments_[0].radius * flight_path_multiplier};
+  double ring_heights[2] = { segments_[0].radius * ground_path_multiplier,
+                             segments_[0].radius * flight_path_multiplier };
   Eigen::Vector3d root = segments_[0].tip;
 
   std::vector<double> cumulative_size(segments_.size());

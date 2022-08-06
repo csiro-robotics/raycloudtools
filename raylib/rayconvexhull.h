@@ -36,7 +36,7 @@ public:
   void growUpwards(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, 1)); }
   /// downwards growth is for extracting a 'blanket mesh' of a forest canopy or of building roofs
   void growDownwards(double maxCurvature) { growInDirection(maxCurvature, Eigen::Vector3d(0, 0, -1)); }
- 
+
   /// access the generated mesh
   Mesh &mesh() { return mesh_; }
   const Mesh &mesh() const { return mesh_; }

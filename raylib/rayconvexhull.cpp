@@ -31,7 +31,7 @@ public:
 
 void ConvexHull::construct(const std::vector<Eigen::Vector3d> &points, const Eigen::Vector3d ignoreDirection)
 {
-  if (points.size() < 3) // two or fewer points generate an empty mesh
+  if (points.size() < 3)  // two or fewer points generate an empty mesh
   {
     return;
   }
@@ -112,7 +112,8 @@ void ConvexHull::growInDirection(double maxCurvature, const Eigen::Vector3d &dir
   {
     Eigen::Vector3d flat = p - centre;
     flat -= dir * dir.dot(flat);
-    p += dir * 0.5 * flat.squaredNorm() * maxCurvature; // 0.5 * curv * x^2 means the second differential (the curvature) w.r.t. x is curv
+    p += dir * 0.5 * flat.squaredNorm() *
+         maxCurvature;  // 0.5 * curv * x^2 means the second differential (the curvature) w.r.t. x is curv
   }
 
   construct(points, dir);

@@ -80,9 +80,9 @@ void Mesh::reduce()
   std::vector<Eigen::Vector3d> verts;
   std::vector<int> new_ids(vertices_.size(), -1);
   // we do this by iterating the index list, and only adding the vertices that are in these triangles
-  for (auto &ind: index_list_)
+  for (auto &ind : index_list_)
   {
-    for (int i = 0; i<3; i++)
+    for (int i = 0; i < 3; i++)
     {
       if (new_ids[ind[i]] == -1)
       {
@@ -96,56 +96,56 @@ void Mesh::reduce()
 }
 
 // convert the mesh to a height field
-void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max, double width) const
+void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max,
+                         double width) const
 {
   double top = box_max[2];
-  box_max[2] = box_min[2] + 0.5*width; // ensure that the grid is only 1 voxel high
+  box_max[2] = box_min[2] + 0.5 * width;  // ensure that the grid is only 1 voxel high
   // first convert the mesh to a list of triangles, with calculated normals
   std::vector<Triangle> triangles(index_list_.size());
-  for (int i = 0; i<(int)index_list_.size(); i++)
+  for (int i = 0; i < (int)index_list_.size(); i++)
   {
     Triangle &tri = triangles[i];
-    for (int j = 0; j<3; j++)
-      tri.corners[j] = vertices_[index_list_[i][j]];
+    for (int j = 0; j < 3; j++) tri.corners[j] = vertices_[index_list_[i][j]];
     tri.tested = false;
-    tri.normal = (tri.corners[1]-tri.corners[0]).cross(tri.corners[2]-tri.corners[0]);
+    tri.normal = (tri.corners[1] - tri.corners[0]).cross(tri.corners[2] - tri.corners[0]);
   }
 
   // put the triangles into a grid
   Grid<Triangle *> grid(box_min, box_max, width);
-  for (auto &tri: triangles)
+  for (auto &tri : triangles)
   {
-    Eigen::Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min)/width;
-    Eigen::Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min)/width;
-    for (int x = (int)tri_min[0]; x<=(int)tri_max[0]; x++)
-      for (int y = (int)tri_min[1]; y<=(int)tri_max[1]; y++)
-        grid.insert(x,y,0, &tri);
-  }  
+    Eigen::Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min) / width;
+    Eigen::Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min) / width;
+    for (int x = (int)tri_min[0]; x <= (int)tri_max[0]; x++)
+      for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++) grid.insert(x, y, 0, &tri);
+  }
   // now look up the triangle for each pixel centre
   const double unset = -1e10;
   field = Eigen::ArrayXXd::Constant(grid.dims[0], grid.dims[1], unset);
-  std::cout << "dims for low: " << grid.dims.transpose() << ", rows: " << field.rows() << ", cols: " << field.cols() << std::endl;
-  for (int x = 0; x<grid.dims[0]; x++)
+  std::cout << "dims for low: " << grid.dims.transpose() << ", rows: " << field.rows() << ", cols: " << field.cols()
+            << std::endl;
+  for (int x = 0; x < grid.dims[0]; x++)
   {
-    for (int y = 0; y<grid.dims[1]; y++)
+    for (int y = 0; y < grid.dims[1]; y++)
     {
-      Eigen::Vector3d pos_top = box_min + width*(Eigen::Vector3d((double)x + 0.5, (double)y + 0.5, 0));
+      Eigen::Vector3d pos_top = box_min + width * (Eigen::Vector3d((double)x + 0.5, (double)y + 0.5, 0));
       Eigen::Vector3d pos_base = pos_top;
       pos_top[2] = top;
       pos_base[2] = box_min[2];
       auto &tris = grid.cell(x, y, 0).data;
       // search the triangles in this cell 'bucket'
-      for (auto &tri: tris)
+      for (auto &tri : tris)
       {
         double depth;
         if (tri->intersectsRay(pos_top, pos_base, depth))
         {
           // intersects so interpolate the height
-          double height = pos_top[2] + (pos_base[2] - pos_top[2])*depth;
+          double height = pos_top[2] + (pos_base[2] - pos_top[2]) * depth;
           field(x, y) = height;
           break;
         }
-      }       
+      }
     }
   }
   // lastly, we repeatedly fill in the gaps
@@ -153,18 +153,18 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
   while (gaps_remain)
   {
     gaps_remain = false;
-    for (int x = 0; x<grid.dims[0]; x++)
+    for (int x = 0; x < grid.dims[0]; x++)
     {
-      for (int y = 0; y<grid.dims[1]; y++)
+      for (int y = 0; y < grid.dims[1]; y++)
       {
         if (field(x, y) == unset)
         {
           double count = 0;
           double total_height = 0;
           // look at the Moore neighbourhood to obtain a mean neighbour height
-          for (int i = std::max(0, x-1); i <= std::min(x+1, grid.dims[0]-1); i++)
+          for (int i = std::max(0, x - 1); i <= std::min(x + 1, grid.dims[0] - 1); i++)
           {
-            for (int j = std::max(0, y-1); j <= std::min(y+1, grid.dims[1]-1); j++)
+            for (int j = std::max(0, y - 1); j <= std::min(y + 1, grid.dims[1] - 1); j++)
             {
               if (field(i, j) != unset)
               {
@@ -176,10 +176,10 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
           // Note that this immediate modifier is not order/direction independant,
           // but it doesn't matter too much, as there should be very few gaps anyway
           if (count > 0)
-            field(x, y) = total_height / count;  
+            field(x, y) = total_height / count;
           else
             gaps_remain = true;
-        }    
+        }
       }
     }
   }
@@ -224,15 +224,17 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
     Grid<Triangle *> grid(box_min, box_max, voxel_width);
     for (auto &tri : triangles)
     {
-      Eigen::Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
-      Eigen::Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min)/voxel_width;
-      for (int x = (int)tri_min[0]; x<=(int)tri_max[0]; x++)
+      Eigen::Vector3d tri_min =
+        (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min) / voxel_width;
+      Eigen::Vector3d tri_max =
+        (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min) / voxel_width;
+      for (int x = (int)tri_min[0]; x <= (int)tri_max[0]; x++)
       {
-        for (int y = (int)tri_min[1]; y<=(int)tri_max[1]; y++)
+        for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++)
         {
-          for (int z = (int)tri_min[2]; z<=(int)tri_max[2]; z++)
+          for (int z = (int)tri_min[2]; z <= (int)tri_max[2]; z++)
           {
-            grid.insert(x,y,z, &tri);
+            grid.insert(x, y, z, &tri);
           }
         }
       }

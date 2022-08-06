@@ -38,8 +38,9 @@ bool Cloud::load(const std::string &file_name, bool check_extension, int min_num
   // look first for the raycloud PLY
   if (file_name.substr(file_name.size() - 4) == ".ply" || !check_extension)
     return loadPLY(file_name, min_num_rays);
-    
-  std::cerr << "Attempting to load ray cloud " << file_name << " which doesn't have expected file extension .ply" << std::endl;
+
+  std::cerr << "Attempting to load ray cloud " << file_name << " which doesn't have expected file extension .ply"
+            << std::endl;
   return false;
 }
 
@@ -48,7 +49,7 @@ bool Cloud::loadPLY(const std::string &file, int min_num_rays)
   bool res = readPly(file, starts, ends, times, colours, true);
   if ((int)ends.size() < min_num_rays)
     return false;
-  #if defined OUTPUT_CLOUD_MOMENTS
+#if defined OUTPUT_CLOUD_MOMENTS
   getMoments();
 #endif  // defined OUTPUT_CLOUD_MOMENTS
   return res;
@@ -169,7 +170,8 @@ void Cloud::decimate(double voxel_width, std::set<Eigen::Vector3i, Vector3iLess>
   times.resize(subsample.size());
 }
 
-void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours, Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid) const
+void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &indices, int index, int num_neighbours,
+                       Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> &solver, Eigen::Vector3d &centroid) const
 {
   int ray_id = ray_ids[index];
   centroid = ends[ray_id];
@@ -187,7 +189,7 @@ void Cloud::eigenSolve(const std::vector<int> &ray_ids, const Eigen::MatrixXi &i
 }
 
 void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids, std::vector<Eigen::Vector3d> *normals,
-                       std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats, 
+                       std::vector<Eigen::Vector3d> *dimensions, std::vector<Eigen::Matrix3d> *mats,
                        Eigen::MatrixXi *neighbour_indices, double max_distance, bool reject_back_facing_rays) const
 {
   // simplest scheme... find 3 nearest neighbours and do cross product
@@ -257,8 +259,7 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
     if (neighbour_indices)
     {
       int j;
-      for (j = 0; j < num_neighbours; j++) 
-        (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
+      for (j = 0; j < num_neighbours; j++) (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
     }
     if (centroids)
       (*centroids)[ray_id] = centroid;
