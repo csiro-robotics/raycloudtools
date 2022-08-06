@@ -74,7 +74,9 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
   for (auto &node : nds)
   {
     if (cluster_ids[node.id1] == cluster_ids[node.id2])  // already part of same cluster
+    {
       continue;
+    }
     const int cl1 = cluster_ids[node.id1];
     const int cl2 = cluster_ids[node.id2];
     Eigen::Vector3d minb = minVector(clusters[cl1].min_bound, clusters[cl2].min_bound);

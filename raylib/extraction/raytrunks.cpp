@@ -87,10 +87,14 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
   for (auto &trunk : trunks)
   {
     if (!trunk.active)
+    {
       continue;
+    }
     colour.red = colour.green = colour.blue = (uint8_t)std::min(255.0 * trunk.score / (2.0 * minimum_score), 255.0);
     if (trunk.score < minimum_score)
+    {
       colour.green = colour.blue = 0;
+    }
 
     const Eigen::Vector3d side1 = trunk.dir.cross(Eigen::Vector3d(1, 2, 3)).normalized();
     const Eigen::Vector3d side2 = side1.cross(trunk.dir);

@@ -97,7 +97,9 @@ bool ForestStructure::load(const std::string &filename)
     std::string line;
     std::getline(ifs, line);
     if (line.length() == 0 || line[0] == '#')  // ignore empty and comment lines
+    {
       continue;
+    }
     // use commas to separate the line
     int num_commas = 1 + (int)std::count(line.begin(), line.end(), ',');
     TreeStructure tree;

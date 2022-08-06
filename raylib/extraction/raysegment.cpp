@@ -196,7 +196,9 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
   for (auto &point : points)
   {
     if (point.root == -1)
+    {
       continue;
+    }
     const Eigen::Vector3i index = ((points[point.root].pos - box_min) / pixel_width).cast<int>();
     counts(index[0], index[1])++;
     heights(index[0], index[1]) = std::max(heights(index[0], index[1]), point.pos[2] - lowfield(index[0], index[1]));

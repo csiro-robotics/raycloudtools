@@ -103,7 +103,9 @@ int main(int argc, char *argv[])
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
       &radius_exponent_option, &segment_branches, &grid_width_option, &verbose });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
+  {
     usage();
+  }
   if (verbose.isSet() && (extract_trunks || extract_trees))
   {
     ray::DebugDraw::init(argc, argv, "rayextract");
@@ -114,7 +116,9 @@ int main(int argc, char *argv[])
   {
     ray::Cloud cloud;
     if (!cloud.load(cloud_file.name()))
+    {
       usage(true);
+    }
 
     const double radius = 0.1;  // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm
     ray::Trunks trunks(cloud, radius, verbose.isSet(), exclude_rays.isSet());
@@ -126,34 +130,60 @@ int main(int argc, char *argv[])
     ray::Cloud cloud;
     const int min_num_rays = 40;
     if (!cloud.load(cloud_file.name(), true, min_num_rays))
+    {
       usage(true);
+    }
 
     ray::Mesh mesh;
     if (!ray::readPlyMesh(mesh_file.name(), mesh))
+    {
       usage(true);
+    }
     ray::TreesParams params;
     if (max_diameter_option.isSet())
+    {
       params.max_diameter = max_diameter.value();
+    }
     if (distance_limit_option.isSet())
+    {
       params.distance_limit = distance_limit.value();
+    }
     if (height_min_option.isSet())
+    {
       params.height_min = height_min.value();
+    }
     if (min_diameter_option.isSet())
+    {
       params.min_diameter = min_diameter.value();
+    }
     if (length_to_radius_option.isSet())
+    {
       params.length_to_radius = length_to_radius.value();
+    }
     if (radius_exponent_option.isSet())
+    {
       params.radius_exponent = radius_exponent.value();
+    }
     if (cylinder_length_to_width_option.isSet())
+    {
       params.cylinder_length_to_width = cylinder_length_to_width.value();
+    }
     if (gap_ratio_option.isSet())
+    {
       params.gap_ratio = gap_ratio.value();
+    }
     if (span_ratio_option.isSet())
+    {
       params.span_ratio = span_ratio.value();
+    }
     if (gravity_factor_option.isSet())
+    {
       params.gravity_factor = gravity_factor.value();
+    }
     if (grid_width_option.isSet())
+    {
       params.grid_width = grid_width.value();
+    }
     params.segment_branches = segment_branches.isSet();
 
     ray::Trees trees(cloud, mesh, params, verbose.isSet());
@@ -181,7 +211,9 @@ int main(int argc, char *argv[])
     if (groundmesh_option.isSet())
     {
       if (!ray::readPlyMesh(mesh_file.name(), mesh))
+      {
         usage(true);
+      }
     }
     std::vector<std::pair<Eigen::Vector3d, double>> trunks;
     // the results from extracting trunks can optionally be passed in, as a guide
@@ -208,12 +240,16 @@ int main(int argc, char *argv[])
   {
     ray::Cloud cloud;
     if (!cloud.load(cloud_file.name()))
+    {
       usage(true);
+    }
 
     ray::Terrain terrain;
     const double grad = gradient_option.isSet() ? gradient.value() : 1.0;
     terrain.extract(cloud, cloud_file.nameStub(), grad, verbose.isSet());
   }
   else
+  {
     usage(true);
+  }
 }

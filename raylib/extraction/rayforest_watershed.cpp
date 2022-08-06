@@ -30,10 +30,14 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
     {
       int ind = indexfield_(x, y);
       if (ind == -1)
+      {
         continue;
+      }
       while (trees[ind].attaches_to != -1) ind = trees[ind].attaches_to;
       if (trees[ind].area < min_area_)
+      {
         continue;
+      }
       srand(1 + ind);
       colour.red = (uint8_t)(rand() % 256);
       colour.green = (uint8_t)(rand() % 256);
@@ -55,10 +59,14 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
     colour.green = (uint8_t)(rand() % 256);
     colour.blue = (uint8_t)(rand() % 256);
     if (trees[ind].area < min_area_)
+    {
       continue;
+    }
     double z_max = 2.0;
     if (trees[ind].trunk_id >= 0)
+    {
       z_max = 4.0;
+    }
     if (findSpace(trees[ind], tip))
     {
       Eigen::Vector3d base = min_bounds_ + tip;

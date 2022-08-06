@@ -105,7 +105,9 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
     for (size_t i = 0; i < ends.size(); i++)
     {
       if (colours[i].alpha == 0)
+      {
         continue;
+      }
       const Eigen::Vector3d pos = (ends[i] - min_bounds_) / voxel_width;
       double &h = highs(static_cast<int>(pos[0]), static_cast<int>(pos[1]));
       h = std::max(h, ends[i][2]);
@@ -208,7 +210,9 @@ void Forest::smoothHeightfield()
     {
       double &h = heightfield_(x, y);
       if (h == -1e10)
+      {
         continue;
+      }
       double mean = h;
       double count = 1;
       // use a mean of the valid heights in the Moore neighbourhood of each cell
