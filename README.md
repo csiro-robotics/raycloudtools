@@ -160,6 +160,7 @@ To render clouds to geotif (.tif) images:
 
 * git clone https://github.com/OSGeo/libgeotiff.git
 * follow the build instructions in its README.md, note that the "DCMAKE_C_FLAGS" parameter needs a preceeding "-"
+* copy a FindGeoTIFF.cmake file to your cmake folder, such as from here: https://github.com/ufz/geotiff 
 * in raycloudtools/build: cmake .. -DWITH_TIFF=ON (or ccmake .. to turn on/off WITH_TIFF)
 
 ## Unit Tests
