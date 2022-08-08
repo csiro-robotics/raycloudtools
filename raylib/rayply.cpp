@@ -532,30 +532,20 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           intensity = (double)((unsigned short &)vertices[intensity_offset]);
         if (intensity >= 0.0)
         {
-          intensity = std::max(
-            2.0,
-            std::ceil(255.0 *
-                      clamped(intensity / max_intensity, 0.0,
-                              1.0)));  // clamping to 2 or above allows 1 to be used for the 'uncertain distance' cases
+          // only intensity exactly 0 will be used for alpha=0 in uint_8 format.
+          intensity = std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0));  
         }
-        // special case of negative intensity codes.
-        // these are flags to support special situations with lidars. If the lidar does not produce negative intensities
-        // then this code is not used.
-        else
+        // support for special codes for out of range cases, defined by intensity:
+        // -1 non-return of unknown length
+        // -2 the object is within minimum range, so range is not certain but small
+        // -3 outside maximum range, so range is uncertain but large
+        else if (intensity == -1.0) 
         {
-          // special cases:
-          if (intensity == -1.0)  // non-return of unknown length
-          {
-            intensity = 0.0;
-          }
-          else if (intensity == -2.0)  // the object is within minimum range, so range is not certain but small
-          {
-            intensity = 1.0;
-          }
-          else if (intensity == -3.0)  // outside maximum range, so range is uncertain but large
-          {
-            intensity = 1.0;
-          }
+          intensity = 0.0;
+        }
+        else // here a range is specified, just low certainty. We choose to this range.
+        {
+          intensity = 1.0;
         }
         intensities.push_back(static_cast<uint8_t>(intensity));
       }
@@ -565,7 +555,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       if (time_offset == -1)
       {
         times.resize(ends.size());
-        for (size_t j = 0; j < times.size(); j++) times[j] = (double)(i + j);
+        for (size_t j = 0; j < times.size(); j++) 
+        {
+          times[j] = (double)(i + j);
+        }
       }
       if (colour_offset == -1)
       {
@@ -581,12 +574,6 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           if (intensities[j] == 0)
           {
             colours[j].red = colours[j].green = colours[j].blue = 0;
-          }
-          // the special cases for under and over ranged points are coloured pale magenta
-          else if (intensities[j] == 1)
-          {
-            colours[j].red = colours[j].blue = 255;
-            colours[j].green = 200;
           }
         }
       }
