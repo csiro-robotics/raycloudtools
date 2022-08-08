@@ -18,7 +18,7 @@ namespace ray
 static constexpr double inf = 1e10;
 
 /// Vertex structure used in shortest path algorithm
-struct Vertex
+struct RAYLIB_EXPORT Vertex
 {
   Vertex() {}
   Vertex(const Eigen::Vector3d &pos)
@@ -46,9 +46,9 @@ struct Vertex
 /// @c max_diameter maximum diameter of a tree trunk
 /// @c distance_limit maximum distance between points that can be connected
 /// @c gravity_factor controls how far laterally the shortest paths can travel
-std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh,
-                                                 double max_diameter, double distance_limit, double height_min,
-                                                 double gravity_factor);
+std::vector<std::vector<int>> RAYLIB_EXPORT getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh,
+                                                               double max_diameter, double distance_limit, double height_min,
+                                                               double gravity_factor);
 
 }  // namespace ray
 #endif  // RAYLIB_RAYSEGMENT_H

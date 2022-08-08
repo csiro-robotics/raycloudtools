@@ -13,8 +13,9 @@
 namespace ray
 {
 // 2D occupancy grid structure that stores occupancy (density of pixel overlapping rays)
-struct OccupancyGrid2D
+class RAYLIB_EXPORT OccupancyGrid2D
 {
+public:
   /// initialise for a given bounds and pixel width
   void init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double pixel_width);
 
@@ -63,6 +64,9 @@ struct OccupancyGrid2D
   /// draw the occupancy grid
   void draw(const std::string &filename);
 
+  const Eigen::Vector3i &dims() const { return dims_; }
+
+private:
   Eigen::Vector3i dims_;
   Eigen::Vector3d min_bound_;
   double pixel_width_;
@@ -71,20 +75,15 @@ struct OccupancyGrid2D
 };
 
 // A similar 2d grid structure, but this stores the ray indices per pixel
-struct RayGrid2D
+class RAYLIB_EXPORT RayGrid2D
 {
+public:
   void init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double pixel_width);
-
   struct Pixel
   {
     std::vector<int> ray_ids;
     bool filled;
   };
-  Eigen::Vector3i dims_;
-  Eigen::Vector3d min_bound_;
-  double pixel_width_;
-  std::vector<Pixel> pixels_;
-  Pixel dummy_pixel_;
   inline Eigen::Vector3i pixelIndex(const Eigen::Vector3d &pos) const
   {
     return ((pos - min_bound_) / pixel_width_).cast<int>();
@@ -110,6 +109,13 @@ struct RayGrid2D
 
   // takes the filled cells and adds the ray ids that overlap these filled cells
   void fillRays(const Cloud &cloud);
+
+private:
+  Eigen::Vector3i dims_;
+  Eigen::Vector3d min_bound_;
+  double pixel_width_;
+  std::vector<Pixel> pixels_;
+  Pixel dummy_pixel_;
 };
 
 

@@ -19,7 +19,7 @@ static const double boundary_radius_scale = 3.0;  // how much farther out is the
                                                   // branch radius? Larger requires more space to declare it a branch
 
 /// Structure defining a single trunk, as used by raytrunks in trunk extraction
-struct Trunk
+struct RAYLIB_EXPORT Trunk
 {
   Trunk();
   Eigen::Vector3d centre;

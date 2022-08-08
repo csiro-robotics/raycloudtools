@@ -15,7 +15,7 @@
 namespace ray
 {
 /// structure containing the parameters used in tree reconstruction
-struct TreesParams
+struct RAYLIB_EXPORT TreesParams
 {
   TreesParams();
   double max_diameter;              // maximum tree diameter. Trees wider than this may be segmented into multiple trees
@@ -41,7 +41,7 @@ struct BranchSection;  // forwards declaration
 /// together with the function for their extrsction from a ray cloud
 /// This is the class used in the tool rayextrsact trees, which reconstructs the branch structures
 /// of the specified ray cloud, and saves them as a text file
-class Trees
+class RAYLIB_EXPORT Trees
 {
 public:
   /// Constructs the piecewise cylindrical tree structures from the input ray cloud @c cloud
@@ -105,7 +105,7 @@ private:
 };
 
 /// The structure for a single (cylindrical) branch section
-struct BranchSection
+struct RAYLIB_EXPORT BranchSection
 {
   BranchSection()
     : tip(0, 0, 0)
@@ -126,7 +126,7 @@ struct BranchSection
 
 /// Converts an index in to a unique colour
 /// only for ints up to 255*255*255-1   (as it leaves black as a special colour)
-inline void convertIntToColour(int x, RGBA &colour)
+inline void RAYLIB_EXPORT convertIntToColour(int x, RGBA &colour)
 {
   colour.red = colour.green = colour.blue = 0;
   x++;
@@ -144,7 +144,7 @@ inline void convertIntToColour(int x, RGBA &colour)
 
 /// Converts a colour to a unique integer (index) value
 /// returns -1 for the special case of the colour black, otherwise the integer index that the colour represents
-inline int convertColourToInt(const RGBA &colour)
+inline int RAYLIB_EXPORT convertColourToInt(const RGBA &colour)
 {
   int result = 0;
   for (int i = 0; i < 24; ++i)

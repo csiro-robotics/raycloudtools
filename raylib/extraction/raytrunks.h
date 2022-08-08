@@ -19,8 +19,9 @@ namespace ray
 /// the trunks from the ray cloud
 /// This is the class used by the tool rayextract trunks, which converts a ray cloud into
 /// a text file describing its observed tree trunks
-struct Trunks
+class RAYLIB_EXPORT Trunks
 {
+public:
   /// Reconstruct the set of trunks from the input ray cloud @c cloud, given a mean
   /// trunk radius @c midRadius.
   Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays);
@@ -30,8 +31,8 @@ struct Trunks
 
   /// Load the trunks from a text file
   static std::vector<std::pair<Eigen::Vector3d, double>> load(const std::string &filename);
-
-  std::vector<Trunk> best_trunks;
+private:
+  std::vector<Trunk> best_trunks_;
 };
 
 }  // namespace ray

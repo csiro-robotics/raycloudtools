@@ -252,16 +252,16 @@ void initialiseTrunks(std::vector<Trunk> &trunks, const Cloud &cloud, const Eige
 }
 
 // get rid of trunks that overlap existing trunks
-void removeOverlappingTrunks(std::vector<Trunk> &best_trunks)
+void removeOverlappingTrunks(std::vector<Trunk> &best_trunks_)
 {
   // Brute force approach at the moment!
-  for (size_t i = 0; i < best_trunks.size(); i++)
+  for (size_t i = 0; i < best_trunks_.size(); i++)
   {
     if (!(i % 1000))
     {
-      std::cout << i << " / " << best_trunks.size() << std::endl;
+      std::cout << i << " / " << best_trunks_.size() << std::endl;
     }
-    Trunk &trunk = best_trunks[i];
+    Trunk &trunk = best_trunks_[i];
     if (!trunk.active)
     {
       continue;
@@ -286,13 +286,13 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks)
     const Eigen::Vector3d rad(trunk.radius, trunk.radius, trunk.radius);
     const Cuboid cuboid(minVector(base, top) - rad, maxVector(base, top) + rad);
 
-    for (size_t j = 0; j < best_trunks.size(); j++)  // brute force
+    for (size_t j = 0; j < best_trunks_.size(); j++)  // brute force
     {
       if (i == j)
       {
         continue;
       }
-      Trunk &cylinder = best_trunks[j];
+      Trunk &cylinder = best_trunks_[j];
       if (!cylinder.active)
       {
         continue;
@@ -390,8 +390,8 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   grid2D.init(min_bound, max_bound, 2.0);
 
   // 3. iterate every candidate several times
-  best_trunks = trunks;
-  for (auto &trunk : best_trunks)
+  best_trunks_ = trunks;
+  for (auto &trunk : best_trunks_)
   {
     trunk.active = false;
   }
@@ -421,9 +421,9 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       trunk.updateCentre(points);
       trunk.updateRadiusAndScore(points);
 
-      if (trunk.score > best_trunks[trunk_id].score)  // got worse, so analyse the best result now
+      if (trunk.score > best_trunks_[trunk_id].score)  // got worse, so analyse the best result now
       {
-        best_trunks[trunk_id] = trunk;
+        best_trunks_[trunk_id] = trunk;
       }
       if (trunk.last_score > 0.0 && trunk.score + 3.0 * (trunk.score - trunk.last_score) < minimum_score)
       {
@@ -431,7 +431,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       }
 
       bool leaning_too_much = false;
-      leaning_too_much = std::abs(best_trunks[trunk_id].dir[2]) < 0.85;
+      leaning_too_much = std::abs(best_trunks_[trunk_id].dir[2]) < 0.85;
       if (trunk.length < 4.0 * midRadius || leaning_too_much)  // not enough data to use
       {
         trunk.active = false;
@@ -456,7 +456,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   }
   trunks.clear();
   // keep only trunks that are above the minimum score, and not leaning too much
-  for (auto &trunk : best_trunks)
+  for (auto &trunk : best_trunks_)
   {
     bool leaning_too_much = std::abs(trunk.dir[2]) < 0.9;
     if (trunk.active && trunk.score >= minimum_score && !leaning_too_much)
@@ -464,11 +464,11 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       trunks.push_back(trunk);
     }
   }
-  best_trunks = trunks;
-  removeOverlappingTrunks(best_trunks);
+  best_trunks_ = trunks;
+  removeOverlappingTrunks(best_trunks_);
   trunks.clear();
   // keep only the active trunks
-  for (auto &trunk : best_trunks)
+  for (auto &trunk : best_trunks_)
   {
     if (trunk.active)
     {
@@ -556,9 +556,9 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       drawTrunks(trunks, &closest_approach_points, &pass_through_points);
     }
 
-    best_trunks = trunks;
+    best_trunks_ = trunks;
     trunks.clear();
-    for (auto &trunk : best_trunks)
+    for (auto &trunk : best_trunks_)
     {
       if (trunk.active)
         trunks.push_back(trunk);
@@ -663,10 +663,10 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
     writePlyPointCloud("trunks_verbose.ply", cloud_points, times, colours);
   }
 
-  best_trunks.clear();
+  best_trunks_.clear();
   for (auto &id : lowest_trunk_ids)
   {
-    best_trunks.push_back(trunks[id]);
+    best_trunks_.push_back(trunks[id]);
   }
 }
 
@@ -680,7 +680,7 @@ bool Trunks::save(const std::string &filename)
   }
   ofs << "# tree trunks file:" << std::endl;
   ofs << "x,y,z,radius" << std::endl;
-  for (auto &trunk : best_trunks)
+  for (auto &trunk : best_trunks_)
   {
     if (!trunk.active)
     {

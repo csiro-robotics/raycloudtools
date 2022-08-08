@@ -143,13 +143,13 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
     grid2D.fillDensities(cloud_name_stub + ".ply", lows, 1.0, 1.5);
     grid2D.save(cloud_name_stub + "_occupied.dat");
   }
-  if (grid2D.dims_[0] != lows.rows() || grid2D.dims_[1] != lows.cols())
+  if (grid2D.dims()[0] != lows.rows() || grid2D.dims()[1] != lows.cols())
   {
-    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << grid2D.dims_[0] << " or "
-              << lows.cols() << "!=" << grid2D.dims_[1] << std::endl;
+    std::cerr << "error: arrays are different widths " << lows.rows() << "!=" << grid2D.dims()[0] << " or "
+              << lows.cols() << "!=" << grid2D.dims()[1] << std::endl;
   }
   // move the grid into a 2D 'space' array
-  Eigen::ArrayXXd space(grid2D.dims_[0], grid2D.dims_[1]);
+  Eigen::ArrayXXd space(grid2D.dims()[0], grid2D.dims()[1]);
   for (int i = 0; i < space.rows(); i++)
   {
     for (int j = 0; j < space.cols(); j++)
