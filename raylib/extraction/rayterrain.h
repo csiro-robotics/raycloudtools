@@ -25,6 +25,8 @@ public:
   /// Extracts a robust smooth surface mesh from the ray cloud. This is a highest lower bound
   /// conditioned on a maximum ground gradient @c gradient. As such it is a sand model of ground extraction,
   /// it treats ground like sand, being incapable of having a gradient beyond the specified value
+  /// The input is the @c cloud and its @c file_prefix (to name debug outputs), and a specified @c gradient
+  /// The output is the stored mesh, which is accessed with the mesh() accessor.
   void extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose);
 
   /// Direct extraction of the pareto front points

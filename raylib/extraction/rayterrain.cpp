@@ -48,7 +48,9 @@ struct Node
   bool somethingSmaller(std::vector<Node> &nodes, const Vector4d &corner)
   {
     num_visits++;
-#define CONE_CHECK  // This checks in a cone rather than just the corner of a cube shape
+// This checks in a cone rather than just the corner of a cube shape that you would get
+// from a raw Pareto front calculation    
+#define CONE_CHECK  
     Vector4d dif = corner - pos;
     if (dif == Vector4d(0, 0, 0, 0))
     {
@@ -197,8 +199,14 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
 void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
 {
 #if RAYLIB_WITH_QHULL
-  // based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
+  // The idea behind ground extraction is to tilt the upwards vector to the (1,1,1) direction then 
+  // find the Pareto front in the three principle axes. https://en.wikipedia.org/wiki/Pareto_front
+  //
+  // Efficient Pareto front calculation is based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
   // but modified to use an Octal Space Partition tree. (like a BSP tree, but divided into 8 axis aligned per node)
+  //
+  // Parento fronts approximate a gradient constraint on the ground surface, but we modify the algorithm
+  // in the CONE_CHECK code, to apply an exact gradient constraint.
   const double root_half = sqrt(0.5);
   const double root_3 = sqrt(3.0);
   const double root_2 = sqrt(2.0);
@@ -343,6 +351,7 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
 #endif
 }
 
+// Convert the @c cloud input to the mesh_ member variable. 
 void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
 {
 #if RAYLIB_WITH_QHULL
