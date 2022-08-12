@@ -20,7 +20,7 @@ struct RAYLIB_EXPORT ForestStructure
   bool load(const std::string &filename);
   bool save(const std::string &filename);
   bool trunksOnly() { return trees.size() > 0 && trees[0].segments().size() == 1; }
-  Eigen::Array<double, 6, 1> getMoments() const;
+  Eigen::Array<double, 9, 1> getMoments() const;
 };
 }  // namespace ray
 #endif  // RAYLIB_RAYFORESTSTRUCTURE_H

@@ -49,8 +49,14 @@ bool Cloud::loadPLY(const std::string &file, int min_num_rays)
   bool res = readPly(file, starts, ends, times, colours, true);
   if ((int)ends.size() < min_num_rays)
     return false;
-#if defined OUTPUT_CLOUD_MOMENTS
-  getMoments();
+#if defined OUTPUT_CLOUD_MOMENTS // Only used to supply data to unit tests
+  Eigen::Array<double, 22, 1> mom = getMoments();
+  std::cout << "stats: " << std::endl;
+  for (int i = 0; i < mom.rows(); i++) 
+  {
+    std::cout << ", " << mom[i];
+  }
+  std::cout << std::endl;
 #endif  // defined OUTPUT_CLOUD_MOMENTS
   return res;
 }

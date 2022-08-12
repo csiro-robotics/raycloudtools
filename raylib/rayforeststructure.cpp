@@ -4,11 +4,14 @@
 //
 // Author: Thomas Lowe
 #include "rayforeststructure.h"
+// #define OUTPUT_MOMENTS  // used in unit tests
+#include <unordered_map>
+
 namespace ray
 {
-Eigen::Array<double, 6, 1> ForestStructure::getMoments() const
+Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
 {
-  Eigen::Array<double, 6, 1> moments;
+  Eigen::Array<double, 9, 1> moments;
   moments[0] = (double)trees.size();
   Eigen::Vector3d sum(0, 0, 0);
   Eigen::Vector3d sum_sqr(0, 0, 0);
@@ -33,11 +36,38 @@ Eigen::Array<double, 6, 1> ForestStructure::getMoments() const
       }
     }
   }
+  std::hash<std::string> hasher;
+
+  size_t attribute_hash = 0;
+  for (auto &attribute: trees[0].attributes())
+  {
+    attribute_hash += hasher(attribute);
+  }
+  double sum_attributes = 0.0; // a total over all the attributes
+  for (auto &tree: trees)
+  {
+    for (auto &segment: tree.segments())
+    {
+      for (auto &att: segment.attributes)
+      {
+        sum_attributes += att;
+      }
+    }
+  }
+  sum_attributes /= static_cast<double>(trees.size());
+  sum_attributes /= static_cast<double>(trees[0].segments().size());
+  // keep the hash small enough to be represented uniquely by a double
+  attribute_hash = attribute_hash % 100000; 
   moments[1] = sum.norm();
   moments[2] = sum_sqr.norm();
   moments[3] = rad;
   moments[4] = rad_sqr;
   moments[5] = volume * kPi;
+  // we should care about attributes too:
+  moments[6] = static_cast<double>(trees[0].attributes().size());
+  moments[7] = static_cast<double>(attribute_hash);
+  moments[8] = sum_attributes;
+
   return moments;
 }
 
@@ -155,9 +185,12 @@ bool ForestStructure::load(const std::string &filename)
     return false;
 
 #if defined OUTPUT_MOMENTS  // enabled to provide results for the unit tests
-  Eigen::Array<double, 6, 1> mom = getMoments();
-  std::cout << "stats: " << std::endl;
-  for (int i = 0; i < mom.rows(); i++) std::cout << ", " << mom[i];
+  Eigen::Array<double, 9, 1> mom = getMoments();
+  std::cout << "load stats: " << std::endl;
+  for (int i = 0; i < mom.rows(); i++) 
+  {
+    std::cout << ", " << mom[i];
+  }
   std::cout << std::endl;
 #endif  // defined OUTPUT_MOMENTS
   return true;
@@ -170,6 +203,17 @@ bool ForestStructure::save(const std::string &filename)
     std::cerr << "No data to save to " << filename << std::endl;
     return false;
   }
+
+#if defined OUTPUT_MOMENTS  // enabled to provide results for the unit tests
+  Eigen::Array<double, 9, 1> mom = getMoments();
+  std::cout << "save stats: " << std::endl;
+  for (int i = 0; i < mom.rows(); i++) 
+  {
+    std::cout << ", " << mom[i];
+  }
+  std::cout << std::endl;
+#endif  // defined OUTPUT_MOMENTS
+
   std::cout << "outputting tree file: " << filename << std::endl;
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())

@@ -6,7 +6,6 @@
 #include "rayforestgen.h"
 #include "rayforeststructure.h"
 #include "rayutils.h"
-// #define OUTPUT_MOMENTS  // used in unit tests
 
 namespace ray
 {

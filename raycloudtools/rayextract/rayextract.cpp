@@ -20,7 +20,7 @@
 #include <string.h>
 #include <iostream>
 
-void usage(bool error = false)
+void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Extract natural features into a text file structure" << std::endl;
@@ -51,7 +51,7 @@ void usage(bool error = false)
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on
-  exit(error);
+  exit(exit_code);
 }
 
 
@@ -252,4 +252,5 @@ int main(int argc, char *argv[])
   {
     usage(true);
   }
+  return 0;
 }

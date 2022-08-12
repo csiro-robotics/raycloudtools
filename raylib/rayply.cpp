@@ -676,7 +676,10 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
 #if defined OUTPUT_MOMENTS
   Eigen::Array<double, 6, 1> mom = mesh.getMoments();
   std::cout << "stats: " << std::endl;
-  for (int i = 0; i < mom.rows(); i++) std::cout << ", " << mom[i];
+  for (int i = 0; i < mom.rows(); i++) 
+  { 
+    std::cout << ", " << mom[i];
+  }
   std::cout << std::endl;
 #endif  // defined OUTPUT_MOMENTS
   return true;
