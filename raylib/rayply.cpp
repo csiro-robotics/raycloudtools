@@ -673,7 +673,7 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
     return false;
   }
 
-#if defined OUTPUT_MOMENTS
+#if defined OUTPUT_MOMENTS // Only used to supply data to unit tests
   Eigen::Array<double, 6, 1> mom = mesh.getMoments();
   std::cout << "stats: " << std::endl;
   for (int i = 0; i < mom.rows(); i++) 

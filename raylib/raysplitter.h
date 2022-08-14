@@ -44,6 +44,12 @@ bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cl
 /// the cloud are given a unique colour
 bool RAYLIB_EXPORT splitColour(const std::string &file_name, const std::string &cloud_name_stub);
 
+/// Split the ray cloud around a capsule shape, defined by two end points @c end1 and @c end2
+/// and a @c radius. This function also splits the rays, rather than just splitting on end position.
+bool splitCapsule(const std::string &file_name, const std::string &in_name, const std::string &out_name,
+                  const Eigen::Vector3d &end1, const Eigen::Vector3d &end2, double radius);
+
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYSPLITTER_H

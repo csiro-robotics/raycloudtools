@@ -34,7 +34,7 @@ void usage(int exit_code = 1)
   std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
   std::cout << "                  trees cloud_forest.txt - splits trees into one file each, allowing a buffer around each tree" << std::endl;
-  std::cout << "                  tube 1,2,3 10,11,12 5  - splits within a tube (cylinder) using start, end and radius" << std::endl;
+  std::cout << "                  capsule 1,2,3 10,11,12 5  - splits within a capsule using start, end and radius" << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -45,15 +45,15 @@ int main(int argc, char *argv[])
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
   ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0),
-    box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
+    box_radius(0.0001, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument overlap(0.0, 10000.0);
-  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), tube_radius(0.001, 1000.0);
+  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), capsule_radius(0.001, 1000.0);
   ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range" },
                              { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range });
   ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), tree_text("trees"), percent_text("%");
-  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), tube_text("tube");
+  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), capsule_text("capsule");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice });
   bool colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_text });
@@ -63,10 +63,10 @@ int main(int argc, char *argv[])
   bool grid_format2 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width2 });
   bool grid_format3 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width, &overlap });
   bool mesh_split = ray::parseCommandLine(argc, argv, { &cloud_file, &mesh_file, &distance_text, &mesh_offset });
-  bool tube_split =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &tube_text, &tube_start, &tube_end, &tube_radius });
+  bool capsule_split =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &capsule_text, &capsule_start, &capsule_end, &capsule_radius });
   if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 &&
-      !mesh_split && !time_percent && !tube_split)
+      !mesh_split && !time_percent && !capsule_split)
   {
     usage();
   }
@@ -76,24 +76,10 @@ int main(int argc, char *argv[])
   const std::string rc_name = cloud_file.name();  // ray cloud name
   bool res = true;
 
-  // split the cloud around a tube (capsule) shape
-  if (tube_split)
+  // split the cloud around a capsule shape
+  if (capsule_split)
   {
-    Eigen::Vector3d start = tube_start.value();
-    Eigen::Vector3d end = tube_end.value();
-    Eigen::Vector3d dir = end - start;
-    dir /= dir.dot(dir);
-    double radius = tube_radius.value();
-
-    res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
-      double d = (cloud.ends[i] - start).dot(dir);
-      if (d < 0.0 || d > 1.0)
-        return true;
-      Eigen::Vector3d pos = cloud.ends[i] + (start - end) * d;
-      if ((pos - start).squaredNorm() > radius * radius)
-        return true;
-      return false;
-    });
+    res = ray::splitCapsule(rc_name, in_name, out_name, capsule_start.value(), capsule_end.value(), capsule_radius.value());
   }
   else if (colour_format)
   {
