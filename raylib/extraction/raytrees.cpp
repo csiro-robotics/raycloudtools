@@ -779,7 +779,7 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
 
 // remove rays from the ray cloud where the end points are out of bounds
 void Trees::removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
-                                 std::vector<int> &root_segs)
+                                 const std::vector<int> &root_segs)
 {
   for (int i = static_cast<int>(cloud.ends.size()) - 1; i >= 0; i--)
   {
