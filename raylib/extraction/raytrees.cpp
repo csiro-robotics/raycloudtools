@@ -261,7 +261,7 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
 
   nodes = sections_[sec_].roots;
   // 2. find all the points (and the end points) for this section:
-  for (unsigned int ijk = 0; ijk < nodes.size(); ijk++)
+  for (int i: nodes)
   {
     const int i = nodes[ijk];
     for (auto &child : children[i])
@@ -436,7 +436,7 @@ Eigen::Vector3d Trees::calculateTipFromVertices(const std::vector<int> &vertices
   {
     tip += points_[i].pos;
   }
-  if (list.size() > 0)
+  if (!list.empty())
   {
     tip /= static_cast<double>(list.size());
   }
@@ -483,7 +483,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
       double x2, y2, xy, xz, yz;
     };
     Acc plane;
-    for (auto &p : ps)
+    for (const auto &p : ps)
     {
       // fill in the parameters to estimate the plane of best fit to the paraboloid
       Eigen::Vector3d q = p - mean_p;
@@ -766,8 +766,8 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
 }
 
 // remove rays from the ray cloud where the end points are out of bounds
-void Trees::removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
-                                 std::vector<int> &root_segs)
+void Trees::removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound,
+                                 const std::vector<int> &root_segs)
 {
   for (int i = static_cast<int>(cloud.ends.size()) - 1; i >= 0; i--)
   {
