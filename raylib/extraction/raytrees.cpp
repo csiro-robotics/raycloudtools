@@ -434,7 +434,7 @@ Eigen::Vector3d Trees::calculateTipFromNodes(const std::vector<int> &nodes)
   {
     tip += points_[i].pos;
   }
-  if (list.size() > 0)
+  if (!list.empty())
   {
     tip /= static_cast<double>(list.size());
   }
