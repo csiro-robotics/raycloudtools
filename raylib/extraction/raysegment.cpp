@@ -6,13 +6,14 @@
 #include "raysegment.h"
 #include <nabo/nabo.h>
 #include "rayterrain.h"
+#include <queue>
 
 namespace ray
 {
 /// nodes of priority queue used in shortest path algorithm
 struct QueueNode
 {
-  QueueNode() {}
+//  QueueNode() {}
   QueueNode(double distance_to_ground, double score, double radius, int root, int index)
     : distance_to_ground(distance_to_ground)
     , score(score)
@@ -21,11 +22,11 @@ struct QueueNode
     , id(index)
   {}
 
-  double distance_to_ground;
-  double score;
-  double radius;
-  int root;
-  int id;
+  double distance_to_ground; // path distance to the ground
+  double score;              // score is the modified edge length metric being minimised
+  double radius;             // radius of the tree base, this acts as a score scale coefficient
+  int root;                  // index of the root of the path
+  int id;                    // index into the points_ array for this node
 };
 
 class QueueNodeComparator
@@ -127,7 +128,7 @@ void connectPointsShortestPath(
 
 /// Converts a ray cloud to a set of points @c points connected by the shortest path to the ground @c mesh
 /// the returned vector of index sets provides the root points for each separated tree
-std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh,
+std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, const Cloud &cloud, const Mesh &mesh,
                                                  double max_diameter, double distance_limit, double height_min,
                                                  double gravity_factor)
 {
@@ -158,7 +159,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, Cl
 
   // set heightfield as the height of the canopy above the ground
   Eigen::ArrayXXd heightfield =
-    Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), -1e10);
+    Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), std::numeric_limits<double>::lowest());
   for (auto &point : points)
   {
     Eigen::Vector3i index = ((point.pos - box_min) / pixel_width).cast<int>();

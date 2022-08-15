@@ -56,7 +56,7 @@ private:
   std::vector<BranchSection> sections_;
 
   /// estimate branch radius from its length
-  double radFromLength(double length);
+  double radFromLength(double length) const;
   /// calculate the distance to farthest connected branch tip, for each point in the cloud
   void calculatePointDistancesToEnd();
   /// create the start branch segments at the root positions
@@ -64,7 +64,7 @@ private:
   /// finalise the attributes of an end (tip) of a branch
   void setBranchTip();
   /// get the root position for the current section
-  Eigen::Vector3d getRootPosition();
+  Eigen::Vector3d getRootPosition() const;
   /// find the points and end points within this branch section
   void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
                                     const std::vector<std::vector<int>> &children);
@@ -74,12 +74,12 @@ private:
   void bifurcate(const std::vector<std::vector<int>> &clusters);
   /// find the points within the branch section from its end points
   void extractNodesFromEnds(std::vector<int> &nodes);
-  /// set the branch section tip position from the nodes within it
-  Eigen::Vector3d calculateTipFromNodes(const std::vector<int> &nodes);
+  /// set the branch section tip position from the supplied list of Vertex IDs
+  Eigen::Vector3d calculateTipFromVertices(const std::vector<int> &nodes) const;
   /// estimate the vector to the cylinder centre from the set of nodes
-  Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const;
   /// estimate the cylinder's radius from its centre, @c dir and set of nodes
-  double estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  double estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const;
   /// add a new section to continue reconstructing the branch
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
@@ -102,6 +102,7 @@ private:
   const TreesParams *params_;
   std::vector<Vertex> points_;
   double max_radius_;
+  double radius_length_scale_; /// Cached ratio from branch taper parameters
 };
 
 /// The structure for a single (cylindrical) branch section

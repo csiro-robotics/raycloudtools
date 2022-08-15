@@ -106,7 +106,10 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
   for (int i = 0; i < (int)index_list_.size(); i++)
   {
     Triangle &tri = triangles[i];
-    for (int j = 0; j < 3; j++) tri.corners[j] = vertices_[index_list_[i][j]];
+    for (int j = 0; j < 3; j++) 
+    {
+      tri.corners[j] = vertices_[index_list_[i][j]];
+    }
     tri.tested = false;
     tri.normal = (tri.corners[1] - tri.corners[0]).cross(tri.corners[2] - tri.corners[0]);
   }
@@ -118,7 +121,12 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
     Eigen::Vector3d tri_min = (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min) / width;
     Eigen::Vector3d tri_max = (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min) / width;
     for (int x = (int)tri_min[0]; x <= (int)tri_max[0]; x++)
-      for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++) grid.insert(x, y, 0, &tri);
+    {
+      for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++) 
+      {
+        grid.insert(x, y, 0, &tri);
+      }
+    }
   }
   // now look up the triangle for each pixel centre
   const double unset = -1e10;
