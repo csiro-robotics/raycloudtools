@@ -94,9 +94,8 @@ private:
   /// colour the cloud based on the section id for each point
   void segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids);
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds
-  void removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
-                            std::vector<int> &root_segs);
-
+  void removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound,
+                            const std::vector<int> &root_segs);
   // cached data that is used throughout the processing method
   size_t sec_;
   const TreesParams *params_;

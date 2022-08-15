@@ -261,9 +261,10 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
 
   nodes = sections_[sec_].roots;
   // 2. find all the points (and the end points) for this section:
-  for (int i: nodes)
+  for (unsigned int index = 0; index < nodes.size(); index++)
   {
-    const int i = nodes[ijk];
+    // we cannot use the for (int i: nodes) syntax above, as we are pushing into nodes as we go
+    const int i = nodes[index];
     for (auto &child : children[i])
     {
       const double dist_sqr =
@@ -793,7 +794,7 @@ void Trees::removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound,
 }
 
 // save the structure to a text file
-bool Trees::save(const std::string &filename)
+bool Trees::save(const std::string &filename) const
 {
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
