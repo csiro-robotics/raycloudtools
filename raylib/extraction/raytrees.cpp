@@ -256,7 +256,7 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
 
   nodes = sections_[sec_].roots;
   // 2. find all the points (and the end points) for this section:
-  for (unsigned int ijk = 0; ijk < nodes.size(); ijk++)
+  for (int i: nodes)
   {
     const int i = nodes[ijk];
     for (auto &child : children[i])
