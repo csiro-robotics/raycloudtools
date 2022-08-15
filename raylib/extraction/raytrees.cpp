@@ -481,7 +481,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
       double x2, y2, xy, xz, yz;
     };
     Acc plane;
-    for (auto &p : ps)
+    for (const auto &p : ps)
     {
       // fill in the parameters to estimate the plane of best fit to the paraboloid
       Eigen::Vector3d q = p - mean_p;
