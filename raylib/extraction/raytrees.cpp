@@ -160,7 +160,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 /// See "Allometric patterns in Acer platanoides (Aceraceae) branches" for real world data
 double Trees::radFromLength(double length) const
 {
-  if (length / params_->linear_range)
+  if (length < params_->linear_range)
   {
     return length / params_->length_to_radius;
   }
