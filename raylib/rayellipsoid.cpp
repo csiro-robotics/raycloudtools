@@ -82,7 +82,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     scatter.setZero();
     Eigen::Vector3d centroid(0, 0, 0);
     double num_neighbours = 0;
-    for (int j = 0; j < search_size && indices(j, i) > -1; ++j)
+    for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; ++j)
     {
       int index = indices(j, i);
       if (cloud.rayBounded(index))
@@ -96,7 +96,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
       return;
     }
     centroid /= num_neighbours;
-    for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+    for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
     {
       int index = indices(j, i);
       if (cloud.rayBounded(index))
