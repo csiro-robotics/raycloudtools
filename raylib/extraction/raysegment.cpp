@@ -160,7 +160,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
   // set heightfield as the height of the canopy above the ground
   Eigen::ArrayXXd heightfield =
     Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), std::numeric_limits<double>::lowest());
-  for (auto &point : points)
+  for (const auto &point : points)
   {
     Eigen::Vector3i index = ((point.pos - box_min) / pixel_width).cast<int>();
     heightfield(index[0], index[1]) = std::max(heightfield(index[0], index[1]), point.pos[2]);
@@ -194,7 +194,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
     Eigen::ArrayXXi::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
   Eigen::ArrayXXd heights =
     Eigen::ArrayXXd::Constant(static_cast<int>(heightfield.rows()), static_cast<int>(heightfield.cols()), 0);
-  for (auto &point : points)
+  for (const auto &point : points)
   {
     if (point.root == -1)
     {

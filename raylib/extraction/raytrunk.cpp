@@ -29,8 +29,9 @@ Trunk::Trunk()
 {}
 
 // return the points that overlap this trunk, using the grid as an acceleration structure
-void Trunk::getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Vector3d> &points, double spacing)
+std::vector<Eigen::Vector3d> Trunk::getOverlappingPoints(const Grid<Eigen::Vector3d> &grid, double spacing)
 {
+  std::vector<Eigen::Vector3d> points;
   // get grid bounds
   const Eigen::Vector3d base = centre - 0.5 * length * dir;
   const Eigen::Vector3d top = centre + 0.5 * length * dir;
@@ -72,6 +73,7 @@ void Trunk::getOverlap(const Grid<Eigen::Vector3d> &grid, std::vector<Eigen::Vec
       }
     }
   }
+  return points;
 }
 
 // estimate the pose (centre and direction) of the trunk, from the set of points
@@ -81,7 +83,7 @@ void Trunk::estimatePose(const std::vector<Eigen::Vector3d> &points)
   // get teh scatter matrix from the points
   Eigen::Matrix3d scatter;
   scatter.setZero();
-  for (auto &point : points)
+  for (const auto &point : points)
   {
     scatter += (point - centre) * (point - centre).transpose();
   }
@@ -103,16 +105,16 @@ void Trunk::updateDirection(const std::vector<Eigen::Vector3d> &points)
       : weight(0)
       , x(0)
       , abs_x(0)
+      , x2(0)
       , y(0, 0)
       , xy(0, 0)
-      , x2(0)
     {}
     double weight;
     double x;
     double abs_x;
+    double x2;
     Eigen::Vector2d y;
     Eigen::Vector2d xy;
-    double x2;
   };
   // start by taking two orthogonal axes to the current trunk dir
   const Eigen::Vector3d ax1 = Eigen::Vector3d(1, 2, 3).cross(dir).normalized();
@@ -145,7 +147,8 @@ void Trunk::updateDirection(const std::vector<Eigen::Vector3d> &points)
   // based on http://mathworld.wolfram.com/LeastSquaresFitting.html
   Eigen::Vector2d sXY = sum.xy - sum.x * sum.y / n;
   const double sXX = sum.x2 - sum.x * sum.x / n;
-  if (std::abs(sXX) > 1e-10)
+  const double eps = 1e-10; // minimal value to use for the division
+  if (std::abs(sXX) > eps)
   {
     sXY /= sXX;
   }
@@ -213,24 +216,28 @@ void Trunk::updateCentre(const std::vector<Eigen::Vector3d> &points)
   centre += (ax1 * shift[0] + ax2 * shift[1]) * radius;
 }
 
-// estimate the radius of the trunk from the points, then calculate a score to
-// represent how well the trunk fits to the points
-void Trunk::updateRadiusAndScore(const std::vector<Eigen::Vector3d> &points)
+// estimate the radius of the trunk from the points
+void Trunk::updateRadius(const std::vector<Eigen::Vector3d> &points)
 {
-  std::vector<double> scores(points.size());
   // radius is just the mean radius relative to the previously calculated trunk pose
   double rad = 0;
-  for (auto &point : points)
+  for (const auto &point : points)
   {
     const Eigen::Vector3d to_point = point - centre;
     rad += (to_point - dir * dir.dot(to_point)).norm();
   }
   const double n = static_cast<double>(points.size());
   radius = rad / n;
+}
 
+
+// calculate a score to represent how well the trunk fits to the points
+void Trunk::updateScore(const std::vector<Eigen::Vector3d> &points)
+{
+  std::vector<double> scores(points.size());
   // now calculate the mean difference of the points from the expected trunk surface
   double raddiff = 0.0;
-  for (auto &point : points)
+  for (const auto &point : points)
   {
     const Eigen::Vector3d to_point = point - centre;
     double rad = (to_point - dir * dir.dot(to_point)).norm();
