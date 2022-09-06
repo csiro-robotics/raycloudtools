@@ -97,7 +97,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     // the set of keys in the key-value pairs that we are parsing
     const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0" };
     std::vector<std::string> values;
-    for (auto &key : keys)
+    for (const auto &key : keys)
     {
       std::string::size_type found = line.find(key);
       if (found == std::string::npos)  // error checking
