@@ -84,7 +84,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   }
 
   // read in the projection parameters
-  if (projection_file != "")
+  if (!projection_file.empty())
   {
     std::ifstream ifs(projection_file.c_str(), std::ios::in);
     if (ifs.fail())
