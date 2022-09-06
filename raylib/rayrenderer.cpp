@@ -118,7 +118,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         space = line.length() - 1;
       values.push_back(line.substr(found, space - found));
     }
-    if (values[1] == "")  // if ellipsoid type not specified, we take it to be the same as the datum
+    if (values[1].empty())  // if ellipsoid type not specified, we take it to be the same as the datum
     {
       values[1] = values[2];
     }
