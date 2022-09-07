@@ -162,7 +162,7 @@ public:
     return null_cell_;
   }
 
-  inline void insert(int x, int y, int z, const T &value)
+  void insert(int x, int y, int z, const T &value)
   {
     Eigen::Vector3i index(x, y, z);
     insert(index, value);
