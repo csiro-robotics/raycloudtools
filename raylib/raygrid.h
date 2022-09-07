@@ -168,7 +168,7 @@ public:
     insert(index, value);
   }
 
-  inline void insert(const Eigen::Vector3i &index, const T &value)
+  void insert(const Eigen::Vector3i &index, const T &value)
   {
     int hash = hashFunc(index[0], index[1], index[2]);
     Bucket &bucket = buckets_.at(hash);
