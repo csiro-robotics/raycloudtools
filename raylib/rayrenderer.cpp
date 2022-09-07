@@ -93,7 +93,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   }
 
   // read in the projection parameters
-  if (projection_file != "")
+  if (!projection_file.empty())
   {
     std::ifstream ifs(projection_file.c_str(), std::ios::in);
     if (ifs.fail())
@@ -109,7 +109,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     // the set of keys in the key-value pairs that we are parsing
     const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0" };
     std::vector<std::string> values;
-    for (auto &key : keys)
+    for (const auto &key : keys)
     {
       std::string::size_type found = line.find(key);
       if (found == std::string::npos)  // error checking
@@ -130,7 +130,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         space = line.length() - 1;
       values.push_back(line.substr(found, space - found));
     }
-    if (values[1] == "")  // if ellipsoid type not specified, we take it to be the same as the datum
+    if (values[1].empty())  // if ellipsoid type not specified, we take it to be the same as the datum
     {
       values[1] = values[2];
     }
