@@ -358,7 +358,7 @@ Eigen::Array<double, 6, 1> Mesh::getMoments() const
   Eigen::Array3d sigma(0, 0, 0);
   for (auto &v : vertices_) 
   {
-    sigma += std::pow((v.array() - mean), 2);
+    sigma += (v.array() - mean) * (v.array() - mean);
   }
   sigma = (sigma / (double)vertices_.size()).sqrt();
   Eigen::Array<double, 6, 1> result;
