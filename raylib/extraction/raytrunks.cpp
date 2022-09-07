@@ -708,12 +708,10 @@ std::vector<std::pair<Eigen::Vector3d, double>> Trunks::load(const std::string &
     return std::vector<std::pair<Eigen::Vector3d, double>>();
   }
   std::vector<std::pair<Eigen::Vector3d, double>> trunks;
-  while (!ifs.eof())
+  for (std::string line; std::getline(ifs, line);)
   {
     Eigen::Vector3d base;
     double radius;
-    std::string line;
-    std::getline(ifs, line);
     if (line.length() == 0 || line[0] == '#')
     {
       continue;

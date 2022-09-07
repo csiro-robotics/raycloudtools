@@ -50,7 +50,10 @@ void TerrainGen::generate(const TerrainParams &params)
                                traj_radius2 * Eigen::Vector2d(sin(phase / rad_scale), cos(phase / rad_scale));
 
     double floor_y = 0.0;
-    for (auto &wave : waves) floor_y += wave.amplitude * sin(traj_pos.dot(wave.dir));
+    for (auto &wave : waves) 
+    {
+      floor_y += wave.amplitude * sin(traj_pos.dot(wave.dir));
+    }
 
     Eigen::Vector3d start(traj_pos[0], traj_pos[1], floor_y + params.ray_height);
     Eigen::Vector3d dir(random(-1.0, 1.0), random(-1.0, 1.0), random(-1.0, -0.6));
@@ -59,12 +62,16 @@ void TerrainGen::generate(const TerrainParams &params)
     // now project the ray onto the terrain... how?
     // well we use an iterative scheme where we add the distance to the ground iteratively as a next guess
     double range = params.ray_height;
-    for (int i = 0; i < 5; i++)
+    const int num_intersection_iterations = 5;
+    for (int i = 0; i < num_intersection_iterations; i++)
     {
       Eigen::Vector3d pos = start + range * dir;
       Eigen::Vector2d p(pos[0], pos[1]);
       double floor_y = 0.0;
-      for (auto &wave : waves) floor_y += wave.amplitude * sin(p.dot(wave.dir));
+      for (auto &wave : waves) 
+      {
+        floor_y += wave.amplitude * sin(p.dot(wave.dir));
+      }
       range += pos[2] - floor_y;
     }
 

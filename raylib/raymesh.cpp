@@ -129,7 +129,7 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
     }
   }
   // now look up the triangle for each pixel centre
-  const double unset = -1e10;
+  const double unset = std::numeric_limits<double>::lowest();
   field = Eigen::ArrayXXd::Constant(grid.dims[0], grid.dims[1], unset);
   std::cout << "dims for low: " << grid.dims.transpose() << ", rows: " << field.rows() << ", cols: " << field.cols()
             << std::endl;

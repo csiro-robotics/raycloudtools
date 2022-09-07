@@ -212,8 +212,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       {
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
-        Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
-        Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
+        Eigen::Vector2i mx = p_tree.max_bound.cwiseMax(q_tree.max_bound);
+        Eigen::Vector2i mn = p_tree.min_bound.cwiseMin(q_tree.min_bound);
         mx -= mn;
 
         const bool mergable = std::max(mx[0], mx[1]) <= max_tree_pixel_width;

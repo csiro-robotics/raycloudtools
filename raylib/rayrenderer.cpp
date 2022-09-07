@@ -28,13 +28,22 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   /* Open TIFF descriptor to write GeoTIFF tags */
   TIFF *tif = XTIFFOpen(filename.c_str(), "w");
   if (!tif)
+  {
     return false;
+  }
 
   /* Open GTIF Key parser */
   GTIF *gtif = GTIFNew(tif);
   if (!gtif)
+  {
     return false;
+  }
 
+  if (x < 0 || y < 0)
+  {
+    std::cerr << "Bad image size: " << x << ", " << y << std::endl;
+    return false;
+  }
   const uint32_t w = (uint32_t)x;
   const uint32_t h = (uint32_t)y;
   const int channels = scalar ? 2 : 4;
@@ -93,7 +102,10 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       return false;
     }
     std::string line;
-    getline(ifs, line);
+    if (!getline(ifs, line))
+    {
+      return false;
+    }
     // the set of keys in the key-value pairs that we are parsing
     const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0" };
     std::vector<std::string> values;

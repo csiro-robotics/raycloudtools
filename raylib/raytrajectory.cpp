@@ -71,9 +71,8 @@ bool Trajectory::load(const std::string &file_name)
     }
     ASSERT(!ifs.fail());
 
-    while (!ifs.eof())
+    while (getline(ifs, line))
     {
-      getline(ifs, line);
       if (line.length() == 0 || line[0] == '%')
         continue;
       size++;

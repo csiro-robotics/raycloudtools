@@ -41,7 +41,8 @@ void usage(int exit_code = 1)
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
   std::cout << "                            --min_length_per_radius 140- (-l) the tapering rate of branches" << std::endl;
-// These are available parameters that I don't expose as they are 'advanced' only, you would rarely adjust them
+  std::cout << "                            (for internal constants -e -c -g -s see source file rayextract)" << std::endl;
+// These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
 //  std::cout << "                            --radius_exponent 0.67 - (-e) exponent of radius in estimating length" << std::endl;
 //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
 //  std::cout << "                            --gap_ratio 2.5      - (-g) will split for lateral gaps at this multiple of radius" << std::endl;

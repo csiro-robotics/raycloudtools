@@ -80,25 +80,33 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
   std::string file = std::string(argv[index]);
   if (check_extension_)
   {
-    if (file.length() <= 4)
+    if (file.length() <= 2)
       return false;
 
     // we don't check file existence, that is up to whatever uses the file.
     // but we do check that the string contains a '.' and (if set)
-    // that it has a valid 3-letter file extension
+    // that it has a valid >0-letter file extension
     // This lets us disambiguate files_ from other arguments
     // and isn't too restrictive, we would rather users use extensions on their file names.
     size_t extension_pos = file.rfind('.');
     if (extension_pos == std::string::npos)  // no '.' in file name
+    {
       return false;
+    }
     const std::string ext = file.substr(extension_pos);
+    if (ext.length() < 2)
+    {
+      return false;
+    }
     bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1));
-    for (size_t index = 2; index < ext.size(); ++index)
+    for (size_t index = 2; index < ext.length(); ++index)
     {
       valid_ext = valid_ext && std::isalnum(ext.at(index));
     }
     if (!valid_ext)
+    {
       return false;
+    }
   }
   if (set_value)
     name_ = file;
