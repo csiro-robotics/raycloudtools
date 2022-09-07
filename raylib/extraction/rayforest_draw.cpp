@@ -5,9 +5,9 @@
 // Author: Thomas Lowe
 #include "rayforest.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 //#define STB_IMAGE_WRITE_IMPLEMENTATION

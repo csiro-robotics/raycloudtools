@@ -20,7 +20,7 @@
 #include <unordered_map>
 
 #ifdef __unix__
-#include <stdio.h>
+#include <cstdio>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <termios.h>

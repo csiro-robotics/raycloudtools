@@ -4,8 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "raytreegen.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 
 namespace ray
