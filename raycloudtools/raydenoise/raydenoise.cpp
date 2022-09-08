@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
         newVec[1] /= dimensions[other_i][1];
         newVec[2] /= dimensions[other_i][2];
         int num = 0;
-        for (int j = 0; j < search_size && indices(j, i) != -1; j++) num = j + 1;
+        for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++) num = j + 1;
         nums += (double)num;
         dims += dimensions[other_i];
         cnt++;
