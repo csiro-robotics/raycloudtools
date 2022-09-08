@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
       bool is_noise = false;
       if (cloud.rayBounded(i))
       {
-        if (indices(0, i) == -1)  // no neighbours in range, we consider this as noise
+        if (indices(0, i) == Nabo::NNSearchD::InvalidIndex)  // no neighbours in range, we consider this as noise
           continue;
         int other_i = indices(0, i);
         Eigen::Vector3d vec = cloud.ends[i] - centroids[other_i];
