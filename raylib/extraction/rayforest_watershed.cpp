@@ -151,7 +151,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           }
         }
       }
-      if (height > max_h && height > -1e10)
+      if (height > max_h && height > std::numeric_limits<double>::lowest())
       {
         Point p;
         p.x = x;
@@ -257,7 +257,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           }
         }
       }
-      if (ind == -1 && heightfield_(xx, yy) > -1e10)  // adding a single pixel to a tree
+      if (ind == -1 && heightfield_(xx, yy) > std::numeric_limits<double>::lowest())  // adding a single pixel to a tree
       {
         Point q;
         q.x = xx;

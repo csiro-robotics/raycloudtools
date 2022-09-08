@@ -19,8 +19,8 @@ namespace ray
 struct RAYLIB_EXPORT TreeNode
 {
   TreeNode()
-    : min_bound(1e10, 1e10)
-    , max_bound(-1e10, -1e10)
+    : min_bound(std::numeric_limits<double>::max(), std::numeric_limits<double>::max())
+    , max_bound(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest())
     , attaches_to(-1)
     , trunk_id(-1)
   {

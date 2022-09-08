@@ -13,7 +13,6 @@
 
 namespace ray
 {
-const double inf = 1e10;
 
 Trunk::Trunk()
   : centre(0, 0, 0)

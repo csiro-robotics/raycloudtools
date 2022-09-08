@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
   const int num_neighbours = 16;
   std::vector<Eigen::Vector3d> normals;
   Eigen::MatrixXi neighbour_indices;
-  cloud.getSurfels(num_neighbours, NULL, &normals, NULL, NULL, &neighbour_indices);
+  cloud.getSurfels(num_neighbours, nullptr, &normals, nullptr, nullptr, &neighbour_indices);
 
   std::vector<Eigen::Vector3d> centroids(cloud.ends.size());
   for (size_t i = 0; i < cloud.ends.size(); i++)

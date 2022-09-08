@@ -135,21 +135,21 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       values[1] = values[2];
     }
     double coord_lat = 0.0;
-    if (values[4] != "")
+    if (!values[4].empty())
     {
       coord_lat = std::stod(values[4]);  // latitude
     }
     double coord_long = 0.0;
-    if (values[5] != "")
+    if (!values[5].empty())
     {
       coord_long = std::stod(values[5]);  // longitude
     }
     Eigen::Vector2d geo_offset(0, 0);
-    if (values[6] != "")
+    if (!values[6].empty())
     {
       geo_offset[0] = std::stod(values[6]);  // offset in m
     }
-    if (values[7] != "")
+    if (!values[7].empty())
     {
       geo_offset[1] = std::stod(values[7]);  // offset in m
     }
@@ -197,7 +197,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     {
       GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
     }
-    else if (values[2] != "")
+    else if (!values[2].empty())
     {
       std::cout << "unknown geodetic datum: " << values[2] << std::endl;
       return false;

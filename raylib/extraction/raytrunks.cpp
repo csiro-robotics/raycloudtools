@@ -17,8 +17,8 @@ namespace ray
 namespace
 {
 /// debug draw the trunks, either as a set of lines to rviz, or as a point cloud.
-void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *closest_approach_points = NULL,
-                const std::vector<Eigen::Vector3d> *pass_through_points = NULL)
+void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *closest_approach_points = nullptr,
+                const std::vector<Eigen::Vector3d> *pass_through_points = nullptr)
 {
   std::vector<Eigen::Vector3d> cloud_points;
   std::vector<double> times;
@@ -490,7 +490,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
 void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, std::vector<Trunk> &trunks, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound)
 {
   // first we make a 2D grid to store which horizontal cells (pixels) have rays passing through them
-  RayGrid2D grid2D;
+  RayIndexGrid2D grid2D;
   grid2D.init(min_bound, max_bound, 2.0);
   for (auto &trunk : trunks)
   {

@@ -208,9 +208,9 @@ int main(int argc, char *argv[])
   std::vector<Eigen::Vector3d> dimensions;
   std::vector<Eigen::Vector3d> normals;
   Eigen::MatrixXi indices;
-  std::vector<Eigen::Vector3d> *cents = NULL, *dims = NULL, *norms = NULL;
-  std::vector<Eigen::Matrix3d> *mats = NULL;
-  Eigen::MatrixXi *inds = NULL;
+  std::vector<Eigen::Vector3d> *cents = nullptr, *dims = nullptr, *norms = nullptr;
+  std::vector<Eigen::Matrix3d> *mats = nullptr;
+  Eigen::MatrixXi *inds = nullptr;
   double max_distance = 0.0;
 
   // what do we want to calculate...

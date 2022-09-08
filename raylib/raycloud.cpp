@@ -291,7 +291,7 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
 std::vector<Eigen::Vector3d> Cloud::generateNormals(int search_size)
 {
   std::vector<Eigen::Vector3d> normals;
-  getSurfels(search_size, NULL, &normals, NULL, NULL, NULL);
+  getSurfels(search_size, nullptr, &normals, nullptr, nullptr, nullptr);
   return normals;
 }
 

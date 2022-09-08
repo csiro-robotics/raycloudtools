@@ -13,6 +13,9 @@
 namespace ray
 {
 // 2D occupancy grid structure that stores occupancy (density of pixel overlapping rays)
+// If pixel sparsity is the number of subpixels that overlap rays, divided by the number of subpixels, then
+// pixel density is 1 minus sparsity. A pixel with lots of rays passing through it is a strong indication that
+// it is free space, so its density will be low.   
 class RAYLIB_EXPORT OccupancyGrid2D
 {
 public:
@@ -75,7 +78,8 @@ private:
 };
 
 // A similar 2d grid structure, but this stores the ray indices per pixel
-class RAYLIB_EXPORT RayGrid2D
+// this is an acceleration structure that allows overlapping rays to be quickly accessed at any location
+class RAYLIB_EXPORT RayIndexGrid2D
 {
 public:
   void init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double pixel_width);
@@ -111,11 +115,11 @@ public:
   void fillRays(const Cloud &cloud);
 
 private:
-  Eigen::Vector3i dims_;
-  Eigen::Vector3d min_bound_;
-  double pixel_width_;
-  std::vector<Pixel> pixels_;
-  Pixel dummy_pixel_;
+  Eigen::Vector3i dims_;       // dimensions of the grid. Only the first two elements are used here
+  Eigen::Vector3d min_bound_;  // minimum bound of grid, SI units
+  double pixel_width_;         // pixel width
+  std::vector<Pixel> pixels_;  // storing the 2D data contiguously as a vector
+  Pixel dummy_pixel_;          // to allow return values (containing no data) for out-of-range locations
 };
 
 

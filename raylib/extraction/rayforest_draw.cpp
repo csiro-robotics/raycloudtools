@@ -67,8 +67,8 @@ void Forest::drawHeightField(const std::string &filename, const Eigen::ArrayXXd 
 {
   if (!verbose)
     return;
-  double max_height = -1e10;
-  double min_height = 1e10;
+  double max_height = std::numeric_limits<double>::lowest();
+  double min_height = std::numeric_limits<double>::max();
   for (int i = 0; i < heightfield.rows(); i++)
   {
     for (int j = 0; j < heightfield.cols(); j++)

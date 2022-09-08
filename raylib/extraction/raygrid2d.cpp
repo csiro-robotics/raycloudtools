@@ -188,7 +188,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
             << std::endl;
 }
 
-void RayGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double pixel_width)
+void RayIndexGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound, double pixel_width)
 {
   min_bound_ = min_bound;
   pixel_width_ = pixel_width;
@@ -203,7 +203,7 @@ void RayGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &ma
   memset(&pixels_[0], 0, sizeof(Pixel) * pixels_.size());
 }
 
-void RayGrid2D::fillRays(const Cloud &cloud)
+void RayIndexGrid2D::fillRays(const Cloud &cloud)
 {
   ray::Cuboid bounds_;
   const double eps = 1e-9;

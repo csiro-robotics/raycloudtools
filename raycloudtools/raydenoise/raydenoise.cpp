@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     Eigen::MatrixXi indices;
 
     const int search_size = std::min(10, (int)cloud.ends.size() - 1);
-    cloud.getSurfels(search_size, &centroids, NULL, &dimensions, &matrices, &indices);
+    cloud.getSurfels(search_size, &centroids, nullptr, &dimensions, &matrices, &indices);
 
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());

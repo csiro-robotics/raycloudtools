@@ -251,7 +251,7 @@ bool ConcaveHull::growFront(double maxCurvature)
   bool intersects = vertex_on_surface_[newVertex];
   int faceIntersects = -1;
   int numFaceIntersects = 0;
-  const SurfaceFace *faceIntersectTri = NULL;
+  const SurfaceFace *faceIntersectTri = nullptr;
   for (int j = 0; j < 4; j++)
   {
     if (tetra.triangles[j] == face.triangle)
