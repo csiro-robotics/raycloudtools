@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include "extraction/rayforest.h"
 #include "raycloudwriter.h"
 #include "raycuboid.h"
 
@@ -163,14 +164,18 @@ bool splitBox(const std::string &file_name, const std::string &in_name, const st
 }
 
 /// Special case for splitting based on a grid.
-bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector3d &cell_width)
+bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector3d &cell_width,
+               double overlap)
 {
-  return splitGrid(file_name, cloud_name_stub, Eigen::Vector4d(cell_width[0], cell_width[1], cell_width[2], 0));
+  return splitGrid(file_name, cloud_name_stub, Eigen::Vector4d(cell_width[0], cell_width[1], cell_width[2], 0),
+                   overlap);
 }
 
 /// Special case for splitting based on a grid.
-bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector4d &cell_width)
+bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub, const Eigen::Vector4d &cell_width,
+               double overlap)
 {
+  overlap /= 2.0;  // it now means overlap relative to grid edge
   Cloud::Info info;
   Cloud::getInfo(cloud_name_stub + ".ply", info);
   const Eigen::Vector3d &min_bound = info.rays_bound.min_bound_;
@@ -220,20 +225,24 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
 
   // splitting performed per chunk
   auto per_chunk = [&min_index, &max_index, &width, min_time, &dimensions, &cells, &chunks, length, &cell_width,
-                    &cloud_name_stub](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                                      std::vector<double> &times, std::vector<RGBA> &colours) {
+                    &cloud_name_stub, &overlap](std::vector<Eigen::Vector3d> &starts,
+                                                std::vector<Eigen::Vector3d> &ends, std::vector<double> &times,
+                                                std::vector<RGBA> &colours) {
     for (size_t i = 0; i < ends.size(); i++)
     {
       // get set of cells that the ray may intersect
       const Eigen::Vector3d from(0.5 + starts[i][0] / width[0], 0.5 + starts[i][1] / width[1],
                                  0.5 + starts[i][2] / width[2]);
       const Eigen::Vector3d to(0.5 + ends[i][0] / width[0], 0.5 + ends[i][1] / width[1], 0.5 + ends[i][2] / width[2]);
-      const Eigen::Vector3d pos0 = minVector(from, to);
-      const Eigen::Vector3d pos1 = maxVector(from, to);
-      const Eigen::Vector3i minI =
-        Eigen::Vector3d(std::floor(pos0[0]), std::floor(pos0[1]), std::floor(pos0[2])).cast<int>();
-      const Eigen::Vector3i maxI =
-        Eigen::Vector3d(std::ceil(pos1[0]), std::ceil(pos1[1]), std::ceil(pos1[2])).cast<int>();
+      const Eigen::Vector3d pos0 = minVector(from, to) - Eigen::Vector3d(overlap, overlap, 0.0);
+      const Eigen::Vector3d pos1 = maxVector(from, to) + Eigen::Vector3d(overlap, overlap, 0.0);
+      Eigen::Vector3i minI = Eigen::Vector3d(std::floor(pos0[0]), std::floor(pos0[1]), std::floor(pos0[2])).cast<int>();
+      Eigen::Vector3i maxI = Eigen::Vector3d(std::ceil(pos1[0]), std::ceil(pos1[1]), std::ceil(pos1[2])).cast<int>();
+      if (overlap > 0.0)
+      {
+        minI = maxVector(minI, min_index);
+        maxI = minVector(maxI, max_index);
+      }
       const long int t = static_cast<long int>(std::floor(0.5 + times[i] / width[3]));
       for (int x = minI[0]; x < maxI[0]; x++)
       {
@@ -251,10 +260,10 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
               return;
             }
             // do actual clipping here....
-            const Eigen::Vector3d box_min(((double)x - 0.5) * width[0], ((double)y - 0.5) * width[1],
-                                          ((double)z - 0.5) * width[2]);
-            const Eigen::Vector3d box_max(((double)x + 0.5) * width[0], ((double)y + 0.5) * width[1],
-                                          ((double)z + 0.5) * width[2]);
+            const Eigen::Vector3d box_min(((double)x - 0.5) * width[0] - overlap,
+                                          ((double)y - 0.5) * width[1] - overlap, ((double)z - 0.5) * width[2]);
+            const Eigen::Vector3d box_max(((double)x + 0.5) * width[0] + overlap,
+                                          ((double)y + 0.5) * width[1] + overlap, ((double)z + 0.5) * width[2]);
             const Cuboid cuboid(box_min, box_max);
             Eigen::Vector3d start = starts[i];
             Eigen::Vector3d end = ends[i];
@@ -262,7 +271,7 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
             if (cuboid.clipRay(start, end))
             {
               RGBA col = colours[i];
-              if (cells[index].fileName() == "")  // first time in this cell, so start writing to a new file
+              if (cells[index].fileName().empty())  // first time in this cell, so start writing to a new file
               {
                 std::stringstream name;
                 name << cloud_name_stub;
@@ -367,7 +376,7 @@ bool splitColour(const std::string &file_name, const std::string &cloud_name_stu
       {
         int index = vox->second;
 
-        if (cells[index].fileName() == "")  // first time in this cell, so start writing to a new file
+        if (cells[index].fileName().empty())  // first time in this cell, so start writing to a new file
         {
           std::stringstream name;
           name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue

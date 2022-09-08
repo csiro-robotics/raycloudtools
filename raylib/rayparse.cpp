@@ -66,7 +66,11 @@ bool TextArgument::parse(int argc, char *argv[], int &index, bool)
 {
   if (index >= argc)
     return false;
-  return std::string(argv[index++]) == name_;
+  bool matches = std::string(argv[index]) == name_;
+  if (!matches)
+    return false;
+  index++;
+  return true;
 }
 
 bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
@@ -74,22 +78,35 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
   if (index >= argc)
     return false;
   std::string file = std::string(argv[index]);
-  if (file.length() <= 4)
-    return false;
-
-  // we don't check file existence, that is up to whatever uses the file.
-  // but we do check that the string contains a '.' and (if set)
-  // that it has a valid 3-letter file extension
-  // This lets us disambiguate files_ from other arguments
-  // and isn't too restrictive, we would rather users use extensions on their file names.
-  if (file.find('.') == std::string::npos)  // no '.' in file name
-    return false;
   if (check_extension_)
   {
-    std::string ext = file.substr(file.length() - 4);
-    bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1)) && std::isalnum(ext.at(2)) && std::isalnum(ext.at(3));
-    if (!valid_ext)
+    if (file.length() <= 2)
       return false;
+
+    // we don't check file existence, that is up to whatever uses the file.
+    // but we do check that the string contains a '.' and (if set)
+    // that it has a valid >0-letter file extension
+    // This lets us disambiguate files_ from other arguments
+    // and isn't too restrictive, we would rather users use extensions on their file names.
+    size_t extension_pos = file.rfind('.');
+    if (extension_pos == std::string::npos)  // no '.' in file name
+    {
+      return false;
+    }
+    const std::string ext = file.substr(extension_pos);
+    if (ext.length() < 2)
+    {
+      return false;
+    }
+    bool valid_ext = ext.at(0) == '.' && std::isalpha(ext.at(1));
+    for (size_t index = 2; index < ext.length(); ++index)
+    {
+      valid_ext = valid_ext && std::isalnum(ext.at(index));
+    }
+    if (!valid_ext)
+    {
+      return false;
+    }
   }
   if (set_value)
     name_ = file;
@@ -115,8 +132,11 @@ bool DoubleArgument::parse(int argc, char *argv[], int &index, bool set_value)
     return true;
   bool in_range = val >= min_value_ && val <= max_value_;
   if (!in_range)
+  {
+    index--;
     std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
               << std::endl;
+  }
   value_ = val;
   return in_range;
 }
@@ -140,8 +160,11 @@ bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
     return true;
   bool in_range = val >= (long int)min_value_ && val <= (long int)max_value_;
   if (!in_range)
+  {
+    index--;
     std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
               << std::endl;
+  }
   value_ = (int)val;
   return in_range;
 }
@@ -156,7 +179,7 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
 {
   if (index >= argc)
     return false;
-  std::stringstream ss(argv[index++]);
+  std::stringstream ss(argv[index]);
   std::string field;
   int i = 0;
   while (std::getline(ss, field, ','))
@@ -182,6 +205,7 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
   }
   if (i != 3)
     return false;
+  index++;
   return true;
 }
 
@@ -195,7 +219,7 @@ bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
 {
   if (index >= argc)
     return false;
-  std::stringstream ss(argv[index++]);
+  std::stringstream ss(argv[index]);
   std::string field;
   int i = 0;
   while (std::getline(ss, field, ','))
@@ -221,6 +245,7 @@ bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
   }
   if (i != 4)
     return false;
+  index++;
   return true;
 }
 
@@ -262,8 +287,7 @@ bool KeyValueChoice::parse(int argc, char *argv[], int &index, bool set_value)
 {
   if (index >= argc)
     return false;
-  std::string str(argv[index]);
-  index++;
+  std::string str(argv[index++]);
   for (size_t i = 0; i < keys_.size(); i++)
   {
     if (keys_[i] == str)
@@ -273,9 +297,15 @@ bool KeyValueChoice::parse(int argc, char *argv[], int &index, bool set_value)
         selected_id_ = (int)i;
         selected_key_ = str;
       }
-      return values_[i]->parse(argc, argv, index, set_value);
+      if (!values_[i]->parse(argc, argv, index, set_value))
+      {
+        index--;
+        return false;
+      }
+      return true;
     }
   }
+  index--;
   return false;
 }
 
@@ -294,7 +324,8 @@ bool ValueKeyChoice::parse(int argc, char *argv[], int &index, bool set_value)
         selected_key_ = str;
       }
       bool parsed = values_[i]->parse(argc, argv, index, set_value);
-      index++;
+      if (parsed)
+        index++;
       return parsed;
     }
   }
@@ -325,8 +356,13 @@ bool OptionalKeyValueArgument::parse(int argc, char *argv[], int &index, bool se
   {
     if (set_value)
       is_set_ = true;
+
     index++;  // for optional parameters, we only increment the argument index when it has been found
-    value_->parse(argc, argv, index, set_value);
+    if (!value_->parse(argc, argv, index, set_value))
+    {
+      index--;
+      return false;
+    }
     return true;
   }
   return false;

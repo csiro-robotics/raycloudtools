@@ -3,9 +3,9 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include "raylib/raycloud.h"
@@ -16,14 +16,13 @@
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Export a ray cloud into a point cloud amd trajectory file" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayexport raycloudfile.ply pointcloud.ply trajectoryfile.ply - output in specified formats"
-            << std::endl;
+  std::cout << "rayexport raycloudfile.ply pointcloud.ply trajectoryfile.ply - output in specified formats" << std::endl;
   std::cout << "                           pointcloud.laz trajectoryfile.txt" << std::endl;
-  std::cout
-    << "                           --traj_delta 0.1 - trajectory temporal decimation period in s. Default is 0.1"
-    << std::endl;
+  std::cout << "                           --traj_delta 0.1 - trajectory temporal decimation period in s. Default is 0.1" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 
@@ -51,9 +50,10 @@ int main(int argc, char *argv[])
     std::ofstream ofs;
     if (!ray::writePointCloudChunkStart(pointcloud_file.name(), ofs))
       usage();
-    auto add_chunk = [&ofs, &buffer](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+    bool has_warned = false;
+    auto add_chunk = [&ofs, &buffer, &has_warned](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
                                      std::vector<double> &times, std::vector<ray::RGBA> &colours) {
-      ray::writePointCloudChunk(ofs, buffer, ends, times, colours);
+      ray::writePointCloudChunk(ofs, buffer, ends, times, colours, has_warned);
     };
     if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0))
       usage();
@@ -80,7 +80,8 @@ int main(int argc, char *argv[])
       usage();
     ray::Cloud chunk;
 
-    auto decimate_time = [&time_slots, &ofs, &buffer, &chunk, &last_time_slot, time_step](
+    bool has_warned = false;
+    auto decimate_time = [&time_slots, &ofs, &buffer, &chunk, &last_time_slot, time_step, &has_warned](
                            std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                            std::vector<double> &times, std::vector<ray::RGBA> &colours) {
       chunk.clear();
@@ -98,7 +99,7 @@ int main(int argc, char *argv[])
         }
         last_time_slot = time_slot;
       }
-      ray::writePointCloudChunk(ofs, buffer, chunk.starts, chunk.times, chunk.colours);
+      ray::writePointCloudChunk(ofs, buffer, chunk.starts, chunk.times, chunk.colours, has_warned);
     };
     if (!ray::readPly(raycloud_file.name(), true, decimate_time, 0))
       usage();

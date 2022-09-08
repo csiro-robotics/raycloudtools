@@ -7,18 +7,20 @@
 #include "raylib/rayparse.h"
 
 #include <nabo/nabo.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydenoise raycloud 4 cm     - removes rays that contact more than 4 cm from any other," << std::endl;
   std::cout << "raydenoise raycloud 3 sigmas - removes points more than 3 sigmas from nearest points" << std::endl;
   std::cout << "                    range 4 cm - remove mixed-signal noise that occurs at a range gap." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 
@@ -78,7 +80,7 @@ int main(int argc, char *argv[])
     nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
     // Run the search
-    const int search_size = 10;
+    const int search_size = std::min(10, (int)points.size() - 1);
     indices.resize(search_size, points.size());
     dists2.resize(search_size, points.size());
     nns->knn(points_p, indices, dists2, search_size, ray::kNearestNeighbourEpsilon, 0);
@@ -103,8 +105,8 @@ int main(int argc, char *argv[])
     std::vector<Eigen::Matrix3d> matrices;
     Eigen::MatrixXi indices;
 
-    const int search_size = 10;
-    cloud.getSurfels(search_size, &centroids, NULL, &dimensions, &matrices, &indices);
+    const int search_size = std::min(10, (int)cloud.ends.size() - 1);
+    cloud.getSurfels(search_size, &centroids, nullptr, &dimensions, &matrices, &indices);
 
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
@@ -118,7 +120,7 @@ int main(int argc, char *argv[])
       bool is_noise = false;
       if (cloud.rayBounded(i))
       {
-        if (indices(0, i) == -1)  // no neighbours in range, we consider this as noise
+        if (indices(0, i) == Nabo::NNSearchD::InvalidIndex)  // no neighbours in range, we consider this as noise
           continue;
         int other_i = indices(0, i);
         Eigen::Vector3d vec = cloud.ends[i] - centroids[other_i];
@@ -127,7 +129,7 @@ int main(int argc, char *argv[])
         newVec[1] /= dimensions[other_i][1];
         newVec[2] /= dimensions[other_i][2];
         int num = 0;
-        for (int j = 0; j < search_size && indices(j, i) != -1; j++) num = j + 1;
+        for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++) num = j + 1;
         nums += (double)num;
         dims += dimensions[other_i];
         cnt++;

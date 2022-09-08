@@ -45,19 +45,22 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
   RAYLIB_UNUSED(id);
 }
 
-void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
+void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                          const std::vector<Eigen::Vector3d> &colours)
 {
   RAYLIB_UNUSED(starts);
   RAYLIB_UNUSED(ends);
+  RAYLIB_UNUSED(colours);
 }
 
 void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
-                              const std::vector<double> &radii, int id)
+                              const std::vector<double> &radii, int id, const std::vector<Eigen::Vector4d> &colours)
 {
   RAYLIB_UNUSED(starts);
   RAYLIB_UNUSED(ends);
   RAYLIB_UNUSED(radii);
   RAYLIB_UNUSED(id);
+  RAYLIB_UNUSED(colours);
 }
 
 void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, const std::vector<Eigen::Matrix3d> &poses,
@@ -69,4 +72,5 @@ void DebugDraw::drawEllipsoids(const std::vector<Eigen::Vector3d> &centres, cons
   RAYLIB_UNUSED(colour);
   RAYLIB_UNUSED(id);
 }
+
 }  // namespace ray

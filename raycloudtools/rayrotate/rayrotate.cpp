@@ -7,18 +7,19 @@
 #include "raylib/rayparse.h"
 #include "raylib/rayply.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Rotate a raycloud about the origin" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "rayrotate raycloud 30,0,0  - rotation (rx,ry,rz) is a rotation vector in degrees:" << std::endl;
-  std::cout << "                             so this example rotates the cloud by 30 degrees in the x axis."
-            << std::endl;
+  std::cout << "                             so this example rotates the cloud by 30 degrees in the x axis." << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 

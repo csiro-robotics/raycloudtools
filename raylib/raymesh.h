@@ -21,22 +21,33 @@ public:
   /// The two resulting clouds are @c inside and @c outside
   void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);
 
+  /// Convert the mesh into a height field (2D array of heights) based on the supplied bounding box and cell width
+  void toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max,
+                     double width) const;
+
   /// access the mesh's vertices
   inline std::vector<Eigen::Vector3d> &vertices() { return vertices_; }
   inline const std::vector<Eigen::Vector3d> &vertices() const { return vertices_; }
   /// access the mesh's index list
-  inline std::vector<Eigen::Vector3i> &index_list() { return index_list_; }
-  inline const std::vector<Eigen::Vector3i> &index_list() const { return index_list_; }
+  inline std::vector<Eigen::Vector3i> &indexList() { return index_list_; }
+  inline const std::vector<Eigen::Vector3i> &indexList() const { return index_list_; }
+  /// access the mesh's colours
+  inline std::vector<RGBA> &colours() { return colours_; }
+  inline const std::vector<RGBA> &colours() const { return colours_; }
 
   /// Get first and second order moments of mesh. This can be used as a simple way to compare meshes
   /// numerically. Note that different stats guarantee different meshes, but same stats do not guarantee same meshes
   /// These stats are arranged as the mean vertex location, then the standard deviation in each axis
   Eigen::Array<double, 6, 1> getMoments() const;
 
+  // remove surplus points that are not part of any triangles
+  void reduce();
+
 private:
   std::vector<Eigen::Vector3d> vertices_;
   std::vector<Eigen::Vector3i>
-    index_list_;  // one per triangle, gives the index into the vertices_ array for each corner
+    index_list_;               // one per triangle, gives the index into the vertices_ array for each corner
+  std::vector<RGBA> colours_;  // optional, if empty then not used
 };
 
 

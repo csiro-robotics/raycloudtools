@@ -3,35 +3,45 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include "raylib/extraction/raysegment.h"
 #include "raylib/raycloud.h"
 #include "raylib/raycloudwriter.h"
 #include "raylib/rayparse.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "raylib/imageread.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <nabo/nabo.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
+#include <map>
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Colour the ray cloud, and/or shade it" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raycolour raycloud time          - colour by time (optional on all types)" << std::endl;
   std::cout << "                   height        - colour by height" << std::endl;
-  std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)"
-            << std::endl;
+  std::cout << "                   shape         - colour by geometry shape (r,g,b: spherical, cylinderical, planar)" << std::endl;
   std::cout << "                   normal        - colour by normal" << std::endl;
-  std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)"
-            << std::endl;
-  std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)"
-            << std::endl;
+  std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
+  std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
   std::cout << "                   1,1,1         - set r,g,b" << std::endl;
-  std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds"
-            << std::endl;
+  std::cout << "                   branches      - red and green are lidar intensity and cylindricality respectively, greater for branches than for leaves" << std::endl;
+  std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds" << std::endl;
   std::cout << "                         --lit   - shaded (slow on large datasets)" << std::endl;
+  // clang-format on
   exit(exit_code);
+}
+
+/// This is a 2D area measurement on a 3x3 matrix, it is the measure halfway between the trace (1D) and the determinant
+/// (3D) of the matrix.
+double areaMeasure(const Eigen::Matrix3d &mat)
+{
+  return mat(0, 0) * mat(1, 1) - mat(0, 1) * mat(1, 0) + mat(0, 0) * mat(2, 2) - mat(0, 2) * mat(2, 0) +
+         mat(1, 1) * mat(2, 2) - mat(1, 2) * mat(2, 1);
 }
 
 // shortcut, to place the red green blue spectrum into the RGBA structure
@@ -89,7 +99,7 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
 int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, image_file;
-  ray::KeyChoice colour_type({ "time", "height", "shape", "normal", "alpha" });
+  ray::KeyChoice colour_type({ "time", "height", "shape", "normal", "alpha", "branches" });
   ray::OptionalFlagArgument lit("lit", 'l');
   ray::Vector3dArgument col(0.0, 1.0);
   ray::DoubleArgument alpha(0.0, 1.0);
@@ -101,17 +111,18 @@ int main(int argc, char *argv[])
   if (!standard_format && !flat_colour && !flat_alpha && !image_format)
     usage();
 
-  const std::string type = colour_type.selectedKey();
   std::string in_file = cloud_file.name();
   const std::string out_file = cloud_file.nameStub() + "_coloured.ply";
+  const std::string type = colour_type.selectedKey();
+  uint8_t split_alpha = 100;
 
-  if (type != "shape" && type != "normal")  // chunk loading possible for simple cases
+  if (type != "shape" && type != "normal" && type != "branches")  // chunk loading possible for simple cases
   {
     ray::CloudWriter writer;
     if (!writer.begin(out_file))
       usage();
 
-    auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer](
+    auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer, &split_alpha](
                          std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                          std::vector<double> &times, std::vector<ray::RGBA> &colours) {
       if (flat_colour)
@@ -192,14 +203,15 @@ int main(int argc, char *argv[])
     double curvature;
   };
   std::vector<Data> data(cloud.ends.size());
-  const int search_size = 20;
+  const int search_size = std::min(20, (int)cloud.ends.size() - 1);
   std::vector<Eigen::Vector3d> centroids;
   std::vector<Eigen::Vector3d> dimensions;
   std::vector<Eigen::Vector3d> normals;
   Eigen::MatrixXi indices;
-  std::vector<Eigen::Vector3d> *cents = NULL, *dims = NULL, *norms = NULL;
-  std::vector<Eigen::Matrix3d> *mats = NULL;
-  Eigen::MatrixXi *inds = NULL;
+  std::vector<Eigen::Vector3d> *cents = nullptr, *dims = nullptr, *norms = nullptr;
+  std::vector<Eigen::Matrix3d> *mats = nullptr;
+  Eigen::MatrixXi *inds = nullptr;
+  double max_distance = 0.0;
 
   // what do we want to calculate...
   bool calc_surfels = true;
@@ -207,6 +219,11 @@ int main(int argc, char *argv[])
     norms = &normals;
   else if (type == "shape")
     dims = &dimensions;
+  else if (type == "branches")
+  {
+    inds = &indices;
+    dims = &dimensions;
+  }
   else
     calc_surfels = lit.isSet();
   if (lit.isSet())
@@ -217,7 +234,7 @@ int main(int argc, char *argv[])
   }
 
   if (calc_surfels)
-    cloud.getSurfels(search_size, cents, norms, dims, mats, inds);
+    cloud.getSurfels(search_size, cents, norms, dims, mats, inds, max_distance, false);
   if (type == "shape")
   {
     for (int i = 0; i < (int)cloud.ends.size(); i++)
@@ -227,9 +244,9 @@ int main(int argc, char *argv[])
       const double sphericity = dimensions[i][0] / dimensions[i][2];
       const double cylindricality = 1.0 - dimensions[i][1] / dimensions[i][2];
       const double planarity = 1.0 - dimensions[i][0] / dimensions[i][1];
-      cloud.colours[i].red = (uint8_t)(255.0 * (0.3 + 0.7 * sphericity));
-      cloud.colours[i].green = (uint8_t)(255.0 * (0.3 + 0.7 * cylindricality));
-      cloud.colours[i].blue = (uint8_t)(255.0 * (0.3 + 0.7 * planarity));
+      cloud.colours[i].red = (uint8_t)(255.0 * sphericity);
+      cloud.colours[i].green = (uint8_t)(255.0 * cylindricality);
+      cloud.colours[i].blue = (uint8_t)(255.0 * planarity);
     }
   }
   else if (type == "normal")
@@ -243,7 +260,67 @@ int main(int argc, char *argv[])
       cloud.colours[i].blue = (uint8_t)(255.0 * (0.5 + 0.5 * normals[i][2]));
     }
   }
+  // colour in order to distinguish branches.
+  // The red channel is a function of the lidar return intensiity, which is typically higher on
+  // branches than on leaves.
+  // The green channel is a measure of the cylindricality of the neighbourhood of points
+  // The resulting colour can be used to segment out branches by thresholding using
+  //  raysplit cloud.ply colour x,y,0 for a choice of x, y
+  else if (type == "branches")
+  {
+    std::vector<uint8_t> cols;
+    for (int i = 0; i < (int)cloud.ends.size(); i++)
+    {
+      // 1. red is median alpha value, rescaled
+      // we use the median of the neighbour points to be robust to noise
+      cols.clear();
+      cols.push_back(cloud.colours[i].alpha);
+      for (int j = 0; j < 4 && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
+      {
+        cols.push_back(cloud.colours[indices(j, i)].alpha);
+      }
+      if (cols.size() == 1)
+        cloud.colours[i].red = cloud.colours[i].alpha;
+      else
+        cloud.colours[i].red = (uint8_t)ray::median(cols);
 
+      // we also compensate for a change in intensity with scale
+      double range = (cloud.ends[i] - cloud.starts[i]).norm();
+      double half_range = 100.0;
+      double red = (double)cloud.colours[i].red / (1.0 + range / half_range);
+      double scale = 2.0;
+      cloud.colours[i].red =
+        (uint8_t)std::max(0, std::min(127 + ((int)(0.5 + red * scale) - (int)(split_alpha * scale)), 255));
+
+      // 2. green is cylindricality
+      Eigen::Vector3d mean = cloud.ends[i];  // centroid
+      int num = 1;
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
+      {
+        mean += cloud.ends[indices(j, i)];
+        num++;
+      }
+      mean /= (double)num;
+      // get teh scatter matrix of the neighbourhood of points
+      Eigen::Matrix3d scatter = (cloud.ends[i] - mean) * (cloud.ends[i] - mean).transpose();
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
+      {
+        Eigen::Vector3d v = cloud.ends[indices(j, i)] - mean;
+        scatter += v * v.transpose();
+      }
+      scatter /= (double)num;
+      // if you divide sqrt(area) by the trace, you get a dimensionless value that
+      // is large for disks and spheres, but small for lines/cylinders. So 1 minus this
+      // value gives a measure of cylindricality
+      double cylind = 1.0 - 3.0 * std::sqrt(areaMeasure(scatter) / 3.0) / scatter.trace();
+      // the above measure is smoother in parameter space than previous methods,
+      // and avoids the need to do an Eigendecomposition.
+      cloud.colours[i].green = (uint8_t)std::max(0.0, 255.0 * std::min(cylind, 1.0));
+
+      // 3. blue is nothing
+      cloud.colours[i].blue = 0;
+    }
+  }
   if (lit.isSet())
   {
     std::vector<double> curvatures(cloud.ends.size());
@@ -252,7 +329,7 @@ int main(int argc, char *argv[])
       if (!cloud.rayBounded(i))
         continue;
       double sum_x = 0, sum_y = 0, sum_xy = 0, sum_xx = 0, sum_yy = 0, n = 0;
-      for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
       {
         int id = indices(j, i);
         Eigen::Vector3d flat = cloud.ends[id] - centroids[i];

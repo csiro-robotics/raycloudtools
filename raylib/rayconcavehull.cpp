@@ -20,7 +20,7 @@
 #include <unordered_map>
 
 #ifdef __unix__
-#include <stdio.h>
+#include <cstdio>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <termios.h>
@@ -251,7 +251,7 @@ bool ConcaveHull::growFront(double maxCurvature)
   bool intersects = vertex_on_surface_[newVertex];
   int faceIntersects = -1;
   int numFaceIntersects = 0;
-  const SurfaceFace *faceIntersectTri = NULL;
+  const SurfaceFace *faceIntersectTri = nullptr;
   for (int j = 0; j < 4; j++)
   {
     if (tetra.triangles[j] == face.triangle)
@@ -457,7 +457,7 @@ void ConcaveHull::convertToMesh()
     }
     else
       num_bads++;
-    mesh_.index_list().push_back(tri_verts);
+    mesh_.indexList().push_back(tri_verts);
   }
   if (num_bads > 0)
     std::cout << "number of surfaces that didn't have enough information to orient: " << num_bads << std::endl;

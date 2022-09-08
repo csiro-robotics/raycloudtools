@@ -7,8 +7,8 @@
 #define RAYLIB_RAYTREEGEN_H
 
 #include "raylib/raylibconfig.h"
-
 #include "raypose.h"
+#include "raytreestructure.h"
 #include "rayutils.h"
 
 namespace ray
@@ -21,40 +21,53 @@ namespace ray
 double RAYLIB_EXPORT getMainBranchAngle(double covariance_angle);
 void RAYLIB_EXPORT fillBranchAngleLookup();
 
+// store the basic parameters that describe the tree
+struct TreeParams
+{
+  TreeParams()
+    : min_branch_radius(0.001)
+    , random_factor(0.0)
+  {}
+  double min_branch_radius;
+  double random_factor;  // 0 to 1 value
+};
+
 /// Random generation of semi-realistic trees. These are based on a self-similar branching structure
 /// for the @c pitchAngle @c splitAngle and @c branchGradient constants, with an additional @c random_factor
-class RAYLIB_EXPORT TreeGen
+class RAYLIB_EXPORT TreeGen : public TreeStructure
 {
 public:
+  TreeGen() {}
+  TreeGen(const TreeStructure &base_tree)
+  {
+    segments_ = base_tree.segments();
+    attribute_names_ = base_tree.attributes();
+  }
   /// create the tree structure, and list of leaf points
-  void make(const Eigen::Vector3d &root_pos, double trunk_radius, double random_factor = 0.0);  // 0 to 1
-  /// create a set of rays covering the tree at a roughly uniform distribution
+  void make(const TreeParams &params);
+
+  /// generate a set of rays as though the tree has been observed by a viewer circling it
   void generateRays(double ray_density);
 
-  /// the ray cloud attributes
+  /// the rays generated from generateRays
   inline const std::vector<Eigen::Vector3d> rayStarts() const { return ray_starts_; }
   inline const std::vector<Eigen::Vector3d> rayEnds() const { return ray_ends_; }
 
-  struct Branch
-  {
-    Eigen::Vector3d tip;
-    double radius;
-    int parent_index;
-  };
-  /// access the geometry of the tree as a list of branches
-  const std::vector<Branch> &branches() const { return branches_; }
   /// access the leaves of the tree
   const std::vector<Eigen::Vector3d> leaves() const { return leaves_; }
-  /// the position of the base of the tree trunk
-  const Eigen::Vector3d &root() const { return root_; }
+
+  // convert to a tree structure
+  void toTreeStructure(TreeStructure &tree)
+  {
+    tree.segments() = segments_;
+    tree.attributes() = attribute_names_;
+  }
 
 private:
   std::vector<Eigen::Vector3d> leaves_;
   std::vector<Eigen::Vector3d> ray_starts_, ray_ends_;
-  std::vector<Branch> branches_;
-  Eigen::Vector3d root_;
 
-  void addBranch(int parent_index, Pose pose, double radius, double random_factor);
+  void addBranch(int parent_index, Pose pose, double radius, const TreeParams &params);
 };
 
 }  // namespace ray

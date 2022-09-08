@@ -7,7 +7,6 @@
 #define RAYLIB_RAYRENDERER_H
 
 #include "raycuboid.h"
-#include "raylib/raylibconfig.h"
 #include "raypose.h"
 #include "rayutils.h"
 
@@ -31,13 +30,16 @@ enum class RAYLIB_EXPORT RenderStyle
   Sum,
   Starts,
   Rays,
+  Height,
   Density,
   Density_rgb
 };
 
 /// Render a ray cloud according to the supplied parameters
 bool RAYLIB_EXPORT renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirection view_direction,
-                               RenderStyle style, double pix_width, const std::string &image_file);
+                               RenderStyle style, double pix_width, const std::string &image_file,
+                               const std::string &projection_file, bool mark_origin,
+                               const std::string *transform_file = nullptr);
 
 /// This is used for estimating the per-voxel density of a ray cloud
 /// Density represents the surface area per volume, assuming an unbiased distribution of surface angles
@@ -65,6 +67,8 @@ struct RAYLIB_EXPORT DensityGrid
     Voxel() { num_hits_ = num_rays_ = path_length_ = 0.0; }
     /// return the density that the voxel represents
     inline double density() const;
+    inline double numerator() const;
+    inline double denominator() const;
     /// the densities can be summed element-wise
     inline void operator+=(const Voxel &other);
     /// the densities can be multiplied by a scalar, element-wise
@@ -91,6 +95,7 @@ struct RAYLIB_EXPORT DensityGrid
   /// Note, for performance, this index function does not check that the specified indices are in valid bounds.
   /// It is up to the calling function to assure this condition
   inline int getIndex(const Eigen::Vector3i &inds) const;
+  inline int getIndexFromPos(const Eigen::Vector3d &pos) const;
   /// Return the vector of density voxels
   inline const std::vector<Voxel> &voxels() const { return voxels_; }
 
@@ -102,11 +107,23 @@ private:
 };
 
 // inline functions
-inline double DensityGrid::Voxel::density() const
+double DensityGrid::Voxel::numerator() const
+{
+  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_;
+}
+double DensityGrid::Voxel::denominator() const
+{
+  const double eps = 1e-10; // avoid division by 0
+  return eps + num_rays_ * path_length_;
+}
+double DensityGrid::Voxel::density() const
 {
   if (num_rays_ <= min_voxel_hits)
+  {
     return 0.0;
-  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (1e-10 + num_rays_ * path_length_);
+  }
+  const double eps = 1e-10; // avoid division by 0
+  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (eps + num_rays_ * path_length_);
 }
 void DensityGrid::Voxel::operator+=(const DensityGrid::Voxel &other)
 {
@@ -137,5 +154,11 @@ int DensityGrid::getIndex(const Eigen::Vector3i &inds) const
 {
   return inds[0] + inds[1] * voxel_dims_[0] + inds[2] * voxel_dims_[0] * voxel_dims_[1];
 }
+int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
+{
+  Eigen::Vector3d gridspace = (pos - bounds_.min_bound_) / voxel_width_;
+  return getIndex(gridspace.cast<int>());
+}
+
 }  // namespace ray
 #endif  // RAYLIB_RAYRENDERER_H

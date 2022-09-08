@@ -9,38 +9,33 @@
 #include "raylib/rayply.h"
 #include "raylib/raysplitter.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
 
 void usage(int exit_code = 1)
 {
-  std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds"
-            << std::endl;
+  // clang-format off
+  std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raysplit raycloud plane 10,0,0           - splits around plane at 10 m along x axis" << std::endl;
   std::cout << "                  colour                 - splits by colour, one cloud per colour" << std::endl;
   std::cout << "                  colour 0.5,0,0         - splits by colour, around half red component" << std::endl;
-  std::cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity"
-            << std::endl;
-  std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface"
-            << std::endl;
-  std::cout
-    << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays"
-    << std::endl;
+  std::cout << "                  single_colour 255,0,0  - splits out a single colour, in 0-255 units" << std::endl;
+  std::cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity" << std::endl;
+  std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << std::endl;
+  std::cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
-  std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)"
-            << std::endl;
-  std::cout << "                  box rx,ry,rz           - splits around a centred axis-aligned box of the given radii"
-            << std::endl;
-  std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width "
-               "wx,wy,wz. 0 for unused axes."
-            << std::endl;
-  std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period "
-               "wt. 0 for unused axes."
-            << std::endl;
+  std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
+  std::cout << "                  box rx,ry,rz           - splits around a centred axis-aligned box of the given radii" << std::endl;
+  std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
+  std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
+  std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
+  std::cout << "                  trees cloud_forest.txt - splits trees into one file each, allowing a buffer around each tree" << std::endl;
+  std::cout << "                  tube 1,2,3 10,11,12 5  - splits within a tube (cylinder) using start, end and radius" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 
@@ -49,15 +44,16 @@ int main(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
-  ray::Vector3dArgument plane, colour(0.0, 1.0), raydir(-1.0, 1.0), box_radius(0.0001, max_val),
-    cell_width(0.0, max_val);
+  ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0),
+    box_radius(0.0001, max_val), cell_width(0.0, max_val), tube_start, tube_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
-  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0);
-  ray::KeyValueChoice choice({ "plane", "time", "colour", "alpha", "raydir", "range" },
-                             { &plane, &time, &colour, &alpha, &raydir, &range });
-  ray::FileArgument mesh_file;
-  ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
-  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour");
+  ray::DoubleArgument overlap(0.0, 10000.0);
+  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), tube_radius(0.001, 1000.0);
+  ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range" },
+                             { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range });
+  ray::FileArgument mesh_file, tree_file;
+  ray::TextArgument distance_text("distance"), time_text("time"), tree_text("trees"), percent_text("%");
+  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), tube_text("tube");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice });
   bool colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_text });
@@ -65,9 +61,12 @@ int main(int argc, char *argv[])
   bool box_format = ray::parseCommandLine(argc, argv, { &cloud_file, &box_text, &box_radius });
   bool grid_format = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width });
   bool grid_format2 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width2 });
+  bool grid_format3 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width, &overlap });
   bool mesh_split = ray::parseCommandLine(argc, argv, { &cloud_file, &mesh_file, &distance_text, &mesh_offset });
-  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !mesh_split &&
-      !time_percent)
+  bool tube_split =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &tube_text, &tube_start, &tube_end, &tube_radius });
+  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 &&
+      !mesh_split && !time_percent && !tube_split)
   {
     usage();
   }
@@ -77,7 +76,26 @@ int main(int argc, char *argv[])
   const std::string rc_name = cloud_file.name();  // ray cloud name
   bool res = true;
 
-  if (colour_format)
+  // split the cloud around a tube (capsule) shape
+  if (tube_split)
+  {
+    Eigen::Vector3d start = tube_start.value();
+    Eigen::Vector3d end = tube_end.value();
+    Eigen::Vector3d dir = end - start;
+    dir /= dir.dot(dir);
+    double radius = tube_radius.value();
+
+    res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
+      double d = (cloud.ends[i] - start).dot(dir);
+      if (d < 0.0 || d > 1.0)
+        return true;
+      Eigen::Vector3d pos = cloud.ends[i] + (start - end) * d;
+      if ((pos - start).squaredNorm() > radius * radius)
+        return true;
+      return false;
+    });
+  }
+  else if (colour_format)
   {
     res = ray::splitColour(cloud_file.name(), cloud_file.nameStub());
   }
@@ -125,13 +143,17 @@ int main(int argc, char *argv[])
     // so that they are treated as unbounded.
     res = ray::splitBox(rc_name, in_name, out_name, Eigen::Vector3d(0, 0, 0), box_radius.value());
   }
-  else if (grid_format)
+  else if (grid_format)  // standard 3D grid of cuboids
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value());
   }
-  else if (grid_format2)
+  else if (grid_format2)  // this is a 3+1D grid (space and time)
   {
     res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width2.value());
+  }
+  else if (grid_format3)  // this is a 3D grid with a specified overlap
+  {
+    res = ray::splitGrid(rc_name, cloud_file.nameStub(), cell_width.value(), overlap.value());
   }
   else
   {
@@ -166,6 +188,17 @@ int main(int argc, char *argv[])
         Eigen::Vector3d col((double)cloud.colours[i].red / 255.0, (double)cloud.colours[i].green / 255.0,
                             (double)cloud.colours[i].blue / 255.0);
         return col.dot(vec) > 1.0;
+      });
+    }
+    else if (parameter == "single_colour")  // split out a single colour
+    {
+      ray::RGBA col;
+      col.red = (uint8_t)single_colour.value()[0];
+      col.green = (uint8_t)single_colour.value()[1];
+      col.blue = (uint8_t)single_colour.value()[2];
+      res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
+        return !(cloud.colours[i].red == col.red && cloud.colours[i].green == col.green &&
+                 cloud.colours[i].blue == col.blue);
       });
     }
     else if (parameter == "range")

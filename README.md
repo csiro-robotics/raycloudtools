@@ -147,7 +147,7 @@ The imported .laz point cloud format is the 3D point, time and intensity fields.
 
 For rayconvert to work from .laz files:
 * git clone https://github.com/LASzip/LASzip.git, then git checkout tags/2.0.1, then mkdir build, cd build, cmake .., make, sudo make install. 
-* git clone https://github.com/libLAS/libLAS.git, then mkdir build, cd build, cmake .. -DWITH_LAS_ZIP=ON, make, sudo make install
+* git clone https://github.com/libLAS/libLAS.git, then mkdir build, cd build, cmake .. -DWITH_LASZIP=ON, make, sudo make install
 * in raycloudtools/build: cmake .. -DWITH_LAS=ON  (or ccmake .. to turn on/off WITH_LAS)
 
 For raywrap:
@@ -155,6 +155,13 @@ For raywrap:
 * git clone http://github.com/qhull/qhull.git, git checkout tags/v7.3.2
 * In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install. 
 * in raycloudtools/build: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
+
+To render clouds to geotif (.tif) images:
+
+* git clone https://github.com/OSGeo/libgeotiff.git
+* follow the build instructions in its README.md, note that the "DCMAKE_C_FLAGS" parameter needs a preceeding "-"
+* copy a FindGeoTIFF.cmake file to your cmake folder, such as from here: https://github.com/ufz/geotiff 
+* in raycloudtools/build: cmake .. -DWITH_TIFF=ON (or ccmake .. to turn on/off WITH_TIFF)
 
 ## Unit Tests
 
@@ -193,7 +200,7 @@ Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in pere
 
 ## Notes
 
-### Dependencies
+### Additional Dependencies
 
 > To be converted into instructions.
 

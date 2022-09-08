@@ -8,17 +8,19 @@
 #include "raylib/rayparse.h"
 #include "raylib/rayply.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Decimate a ray cloud spatially or temporally" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm" << std::endl;
   std::cout << "raydecimate raycloud 4 rays - reduces to every fourth ray" << std::endl;
+  // clang-format off
   exit(exit_code);
 }
 

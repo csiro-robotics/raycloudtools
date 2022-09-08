@@ -18,6 +18,8 @@ struct DebugDrawDetail
   ros::Publisher line_publisher;
   ros::Publisher cylinder_publisher[2];
   ros::Publisher ellipsoid_publisher[6];
+  ros::Publisher cylinders_publisher;
+  ros::Publisher ring_publisher;
   std::string fixed_frame_id;
 };
 }  // namespace ray
@@ -38,6 +40,8 @@ DebugDraw::DebugDraw(const std::string &fixed_frame_id)
   imp_->ellipsoid_publisher[3] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids4", 3, true);
   imp_->ellipsoid_publisher[4] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
   imp_->ellipsoid_publisher[5] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
+  imp_->cylinders_publisher = imp_->n.advertise<visualization_msgs::Marker>("cylinders", 3, true);
+  imp_->ring_publisher = imp_->n.advertise<visualization_msgs::Marker>("rings", 3, true);
   imp_->fixed_frame_id = fixed_frame_id;
 }
 
@@ -73,7 +77,7 @@ void setField2(sensor_msgs::PointField &field, const std::string &name, int offs
 void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &point_shade, int id)
 {
   sensor_msgs::PointCloud2 point_cloud;
-  point_cloud.header.frame_id = 3;
+  point_cloud.header.frame_id = imp_->fixed_frame_id;
   point_cloud.header.stamp = ros::Time();
   unsigned int point_step = 0;
 
@@ -121,14 +125,19 @@ void DebugDraw::drawCloud(const std::vector<Eigen::Vector3d> &points, const std:
     *((float *)&point_cloud.data[data_index + z.offset]) = (float)points[point_index][2];
 
     if (draw_time)
+    {
       *((double *)&point_cloud.data[data_index + time.offset]) = (float)point_shade[point_index];
+    }
   }
 
   if (point_cloud.width > 0)
+  {
     imp_->cloud_publisher[id].publish(point_cloud);
+  }
 }
 
-void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends)
+void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
+                          const std::vector<Eigen::Vector3d> &colours)
 {
   visualization_msgs::Marker points;
   points.header.frame_id = imp_->fixed_frame_id;
@@ -153,19 +162,36 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
   points.color.b = 0.3f;
   points.color.a = 1.0f;
 
+  std_msgs::ColorRGBA colour;
+  colour.a = 1.0;
   for (unsigned int i = 0; i < starts.size(); i++)
   {
+    if (colours.size() > 0)
+    {
+      colour.r = (float)colours[i][0];
+      colour.g = (float)colours[i][1];
+      colour.b = (float)colours[i][2];
+    }
+
     geometry_msgs::Point p;
     p.x = starts[i][0];
     p.y = starts[i][1];
     p.z = starts[i][2];
     points.points.push_back(p);
+    if (colours.size() > 0)
+    {
+      points.colors.push_back(colour);
+    }
 
     geometry_msgs::Point n;
     n.x = ends[i][0];
     n.y = ends[i][1];
     n.z = ends[i][2];
     points.points.push_back(n);
+    if (colours.size() > 0)
+    {
+      points.colors.push_back(colour);
+    }
   }
 
   // Publish the marker
@@ -173,7 +199,7 @@ void DebugDraw::drawLines(const std::vector<Eigen::Vector3d> &starts, const std:
 }
 
 void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const std::vector<Eigen::Vector3d> &ends,
-                              const std::vector<double> &radii, int id)
+                              const std::vector<double> &radii, int id, const std::vector<Eigen::Vector4d> &colours)
 {
   visualization_msgs::MarkerArray marker_array;
   for (int i = 0; i < (int)starts.size(); i++)
@@ -185,19 +211,23 @@ void DebugDraw::drawCylinders(const std::vector<Eigen::Vector3d> &starts, const 
     marker.action = marker.ADD;
     marker.scale.x = marker.scale.y = 2.0 * radii[i];
     marker.scale.z = (starts[i] - ends[i]).norm();
+    if (marker.scale.x <= 0.0f || !(marker.scale.x))
+      std::cout << "bad radii " << marker.scale.x << ", i: " << i << std::endl;
+    if (marker.scale.z <= 0.0f || !(marker.scale.z))
+      std::cout << "bad norm " << i << std::endl;
     if (id == 0)
     {
-      marker.color.a = 1.0f;
       marker.color.r = 0.8f;
       marker.color.g = 0.7f;
       marker.color.b = 0.4f;
+      marker.color.a = 1.0f;
     }
     else
     {
-      marker.color.a = 0.5f;
-      marker.color.r = 0.5f;
-      marker.color.g = 0.3f;
-      marker.color.b = 0.4f;
+      marker.color.r = (float)colours[i][0];
+      marker.color.g = (float)colours[i][1];
+      marker.color.b = (float)colours[i][2];
+      marker.color.a = (float)colours[i][3];
     }
 
     Eigen::Vector3d dir = (starts[i] - ends[i]).normalized();

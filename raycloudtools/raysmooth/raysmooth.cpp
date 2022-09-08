@@ -8,16 +8,18 @@
 
 #include <nabo/nabo.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 void usage(int exit_code = 1)
 {
+  // clang-format off
   std::cout << "Smooth a ray cloud. Nearby off-surface points are moved onto the nearest surface." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raysmooth raycloud" << std::endl;
+  // clang-format on
   exit(exit_code);
 }
 
@@ -38,7 +40,7 @@ int main(int argc, char *argv[])
   const int num_neighbours = 16;
   std::vector<Eigen::Vector3d> normals;
   Eigen::MatrixXi neighbour_indices;
-  cloud.getSurfels(num_neighbours, NULL, &normals, NULL, NULL, &neighbour_indices);
+  cloud.getSurfels(num_neighbours, nullptr, &normals, nullptr, nullptr, &neighbour_indices);
 
   std::vector<Eigen::Vector3d> centroids(cloud.ends.size());
   for (size_t i = 0; i < cloud.ends.size(); i++)
@@ -47,7 +49,7 @@ int main(int argc, char *argv[])
       continue;
     double total_weight = 0.2;  // more averaging if it uses less of the central position, but 0 risks a divide by 0
     Eigen::Vector3d weighted_sum = cloud.ends[i] * total_weight;
-    for (int j = 0; j < num_neighbours && neighbour_indices(j, i) > -1; j++)
+    for (int j = 0; j < num_neighbours && neighbour_indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
     {
       int k = neighbour_indices(j, i);
       double weight = std::max(0.0, 1.0 - (normals[k] - normals[i]).squaredNorm());

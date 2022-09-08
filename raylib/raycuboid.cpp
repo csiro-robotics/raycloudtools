@@ -71,12 +71,4 @@ bool Cuboid::intersects(const Eigen::Vector3d &pos) const
          pos[1] <= max_bound_[1] && pos[2] <= max_bound_[2];
 }
 
-bool Cuboid::overlaps(const Cuboid &other) const
-{
-  bool outside = other.min_bound_[0] > max_bound_[0] || other.min_bound_[1] > max_bound_[1] ||
-                 other.min_bound_[2] > max_bound_[2] || other.max_bound_[0] < min_bound_[0] ||
-                 other.max_bound_[1] < min_bound_[1] || other.max_bound_[2] < min_bound_[2];
-  return !outside;
-}
-
 }  // namespace ray

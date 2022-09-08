@@ -102,9 +102,9 @@ void FineAlignment::generateSurfels()
     }
 
     // Now find all the finely decimated points that are close neighbours of each coarse candidate point
-    int search_size = 20;
     size_t q_size = candidates.size();
     size_t p_size = decimated_points.size();
+    const int search_size = std::min(20, (int)p_size - 1);
     Nabo::NNSearchD *nns;
     Eigen::MatrixXd points_q(3, q_size);
     for (size_t i = 0; i < q_size; i++) points_q.col(i) = candidate_points[i];
@@ -128,7 +128,7 @@ void FineAlignment::generateSurfels()
     for (size_t i = 0; i < q_size; i++)
     {
       ids.clear();
-      for (int j = 0; j < search_size && indices(j, i) > -1; j++) ids.push_back(indices(j, i));
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++) ids.push_back(indices(j, i));
       if (ids.size() < min_points_per_ellipsoid)  // not dense enough
         continue;
 
@@ -221,7 +221,7 @@ void FineAlignment::generateSurfelMatches(std::vector<Match> &matches)
 
   for (int i = 0; i < (int)q_size; i++)
   {
-    for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+    for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
     {
       Match match;
       match.ids[0] = i;

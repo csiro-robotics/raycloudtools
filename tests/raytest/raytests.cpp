@@ -7,6 +7,7 @@
 #include "raycloud.h"
 #include "raymesh.h"
 #include "rayply.h"
+#include "rayforeststructure.h"
 #include <vector>
 #include <gtest/gtest.h>
 #include <cstdlib>
@@ -64,7 +65,7 @@ namespace raytest
     EXPECT_EQ(command("raycolour room.ply normal"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("room_coloured.ply"));
-    compareMoments(cloud.getMoments(), {-0.108066, -0.0410134, 0.052168, 7.05134e-08, 8.45038e-08, 1.93877e-08, -0.276144, -0.0760758, 0.065631, 2.42455, 2.13738, 1.28226, 17.539, 10.1994, 0.312633, 0.314821, 0.354389, 0.987362, 0.180375, 0.164437, 0.310405, 0.111705});
+    compareMoments(cloud.getMoments(), {-0.108066, -0.0410134, 0.052168, 7.05134e-08, 8.45038e-08, 1.93877e-08, -0.276144, -0.0760758, 0.065631, 2.42455, 2.13738, 1.28226, 17.539, 10.1994, 0.497919, 0.496369, 0.490293, 0.987362, 0.248361, 0.203648, 0.385192, 0.111705});
   }
   
   /// Creates two rooms, with different transformations, then combines them, and compares to the expected result.
@@ -98,7 +99,7 @@ namespace raytest
     EXPECT_TRUE(cloud.load("forest_decimated.ply"));
     // Below does not compare the time values (or the colour values, which are based on time here)
     // because spatial decimation does not constraint which time it picks points from.
-    compareMoments(cloud.getMoments(), {-0.0738177, 0.222853, 3.71745, 7.10229, 6.12213, 2.87909, 0.0130996, 0.246609, 3.29735, 6.78257, 6.01936, 3.28887, 179.673, 90.1992, 0.465102, 0.511002, 0.455111, 1, 0.368073, 0.381371, 0.386776, 0});
+    compareMoments(cloud.getMoments(), {-0.222571, 1.08156, 1.67264, 6.00755, 5.78731, 0.508713, -0.202668, 1.09517, 2.6238, 6.0285, 5.85715, 3.22093, 69.0574, 35.2775, 0.48969, 0.498403, 0.443549, 1, 0.379062, 0.366963, 0.389535, 0});
   }
 
   /// Creates a room, and calls denoise using a fixed distance threshols, and compares to expected result
@@ -133,7 +134,7 @@ namespace raytest
     EXPECT_EQ(command("rayrotate forest.ply 10,20,30"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("forest.ply"));
-    compareMoments(cloud.getMoments(), {1.26753, -0.123897, 3.98361, 7.04921, 6.07138, 4.18782, 1.32853, -0.037777, 3.9394, 6.68438, 5.87295, 4.20771, 148.554, 85.768, 0.493815, 0.499403, 0.436111, 1, 0.371176, 0.374394, 0.389949, 0});
+    compareMoments(cloud.getMoments(), {-0.254879, 0.846076, 2.02322, 5.62648, 5.68622, 2.56306, 0.266873, 0.772016, 3.2888, 5.54595, 5.69021, 4.28394, 62.683, 36.1903, 0.514327, 0.504407, 0.413534, 1, 0.372377, 0.365965, 0.391709, 0});
   }  
 
   /// Creates a room and smooths this ray cloud, comparing to the expected result
@@ -153,7 +154,7 @@ namespace raytest
     EXPECT_EQ(command("raysplit room.ply plane 0,0.1,1.5"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("room_outside.ply"));
-    compareMoments(cloud.getMoments(), {-0.108066, -0.0410134, 0.052168, 1.14434e-07, 1.02466e-07, 3.37892e-08, -0.77974, 1.03139, 1.57353, 3.67521, 2.64766, 0.485084, 17.3995, 10.279, 0.311066, 0.759795, 0.425206, 0.951355, 0.321609, 0.226785, 0.39073, 0.215125});
+    compareMoments(cloud.getMoments(), {-0.467731, 1.05075, 1.43662, 2.20441, 1.60162, 0.106775, -0.77974, 1.03139, 1.57353, 3.67521, 2.64766, 0.485084, 17.3995, 10.279, 0.311066, 0.759795, 0.425206, 0.951355, 0.321609, 0.226785, 0.39073, 0.215125});
   }  
 
   /// Creates a room and runs raytransients, comparing the identified transients ray cloud to the expected results
@@ -173,7 +174,7 @@ namespace raytest
     EXPECT_EQ(command("raytranslate forest.ply 10,20,30"), 0);
     ray::Cloud cloud;
     EXPECT_TRUE(cloud.load("forest.ply"));
-    compareMoments(cloud.getMoments(), {9.8432, 20.3123, 34.1676, 7.50948, 6.22758, 2.98594, 9.94944, 20.3467, 34.1428, 7.10014, 6.08883, 3.06454, 148.554, 85.768, 0.493815, 0.499403, 0.436111, 1, 0.371176, 0.374394, 0.389949, 0});
+    compareMoments(cloud.getMoments(), {9.66298, 21.3454, 31.7177, 6.0926, 5.75511, 0.56438, 9.69155, 21.3605, 33.0883, 6.10555, 5.82564, 3.20507, 62.683, 36.1903, 0.514327, 0.504407, 0.413534, 1, 0.372377, 0.365965, 0.391709, 0});
   }
 
 #if RAYLIB_WITH_QHULL
@@ -184,7 +185,34 @@ namespace raytest
     EXPECT_EQ(command("raywrap terrain.ply upwards 1.0"), 0);
     ray::Mesh mesh;
     EXPECT_TRUE(ray::readPlyMesh("terrain_mesh.ply", mesh));
-    compareMoments(mesh.getMoments(), {0.0124983, 0.0318782, -0.00500189, 7.44097, 7.34237, 1.21885});
+    compareMoments(mesh.getMoments(), {0.0386662, -1.52168, -0.139079, 3.30621, 3.35391, 0.705937});
+  }  
+
+  /// Tests extraction of terrain and extraction of trees
+  TEST(Basic, RayExtract)
+  {
+    EXPECT_EQ(command("raycreate forest 2"), 0);
+    EXPECT_EQ(command("rayextract terrain forest.ply"), 0);
+    ray::Mesh mesh;
+    EXPECT_TRUE(ray::readPlyMesh("forest_mesh.ply", mesh));
+    compareMoments(mesh.getMoments(), {-0.00147491, -0.00191917, -0.0617946, 5.77995, 5.80266, 0.0426993});
+    EXPECT_EQ(command("rayextract trees forest.ply forest_mesh.ply"), 0);
+
+    ray::ForestStructure forest;
+    EXPECT_TRUE(forest.load("forest_trees.txt"));
+    compareMoments(forest.getMoments(), {20, 22.2172, 1058.42, 1.39416, 0.112794, 1.6403, 1, 21918, 3102.68});
+
+    EXPECT_EQ(command("rayextract forest forest.ply --ground forest_mesh.ply"), 0);
+
+    ray::ForestStructure forest2;
+    EXPECT_TRUE(forest2.load("forest_forest.txt"));
+    compareMoments(forest2.getMoments(), {11, 8.43828, 586.427, 1.40054, 0.200644, 0, 4, 6476, 42.5851});
+
+    EXPECT_EQ(command("rayextract trunks forest.ply"), 0);
+
+    ray::ForestStructure forest3;
+    EXPECT_TRUE(forest3.load("forest_trunks.txt"));
+    compareMoments(forest3.getMoments(), {21, 20.0797, 1124.61, 1.60427, 0.135159, 0, 0, 0, 0});
   }  
 #endif  // RAYLIB_WITH_QHULL
 } // raytest

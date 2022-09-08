@@ -119,7 +119,7 @@ inline T sqr(const T &val)
 }
 
 template <class T>
-T mean(const std::vector<T> &list)
+inline T mean(const std::vector<T> &list)
 {
   T result = list[0];
   for (unsigned int i = 1; i < list.size(); i++) result += list[i];
@@ -131,7 +131,7 @@ T mean(const std::vector<T> &list)
  * When there are an even number of elements it returns the mean of the two medians
  */
 template <class T>
-T median(std::vector<T> list)
+inline T median(std::vector<T> list)
 {
   typename std::vector<T>::iterator first = list.begin();
   typename std::vector<T>::iterator last = list.end();
@@ -143,7 +143,7 @@ T median(std::vector<T> list)
   {
     typename std::vector<T>::iterator middle2 = middle + 1;
     nth_element(first, middle2, last);
-    return (*middle + *middle2) / 2.0;
+    return (*middle + *middle2) / static_cast<T>(2);
   }
 }
 
@@ -242,6 +242,38 @@ inline void colourByTime(const std::vector<double> &values, std::vector<RGBA> &g
   redGreenBlueSpectrum(values, gradient, colour_repeat_period, replace_alpha);
 }
 
+/// write a C++ data type straight to binary format
+template <typename T>
+void writePlainOldData(std::ofstream &out, const T &t)
+{
+  out.write(reinterpret_cast<const char *>(&t), sizeof(T));
+}
+
+/// read directly from binary into a C++ data type
+template <typename T>
+void readPlainOldData(std::ifstream &in, T &t)
+{
+  in.read(reinterpret_cast<char *>(&t), sizeof(T));
+}
+
+/// write a vector of data directly to a binary file
+template <typename T>
+void writePlainOldDataArray(std::ofstream &out, const std::vector<T> &array)
+{
+  unsigned int size = (unsigned int)array.size();
+  out.write(reinterpret_cast<char *>(&size), sizeof(unsigned int));
+  for (unsigned int i = 0; i < size; i++) writePlainOldData(out, array[i]);
+}
+
+/// read a vector of data directly from a binary file
+template <typename T>
+void readPlainOldDataArray(std::ifstream &in, std::vector<T> &array)
+{
+  unsigned int size;
+  in.read(reinterpret_cast<char *>(&size), sizeof(unsigned int));
+  array.resize(size);
+  for (unsigned int i = 0; i < size; i++) readPlainOldData(in, array[i]);
+}
 
 /// Log a @c std::chrono::clock::duration to an output stream.
 ///
