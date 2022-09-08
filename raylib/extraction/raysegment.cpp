@@ -68,7 +68,7 @@ void connectPointsShortestPath(
     if (!points[node.id].visited)
     {
       // for each unvisited point, look at its nearest neighbours
-      for (int i = 0; i < search_size && indices(i, node.id) > -1; i++)
+      for (int i = 0; i < search_size && indices(i, node.id) != Nabo::NNSearchD::InvalidIndex; i++)
       {
         const int child = indices(i, node.id);
         const double dist2 = dists2(i, node.id);  // square distance to neighbour
