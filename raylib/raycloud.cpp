@@ -235,7 +235,7 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
     int ray_id = ray_ids[i];
     Eigen::Vector3d centroid;
     int num_neighbours;
-    for (num_neighbours = 0; num_neighbours < search_size && indices(num_neighbours, i) > -1; num_neighbours++)
+    for (num_neighbours = 0; num_neighbours < search_size && indices(num_neighbours, i) != Nabo::NNSearchD::InvalidIndex; num_neighbours++)
       ;
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(3);
 

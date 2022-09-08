@@ -16,7 +16,6 @@
 #include <fstream>
 
 // FIXME: Windows compatibility
-#include <getopt.h>
 
 void usage(int exit_code = 1)
 {
