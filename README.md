@@ -75,7 +75,7 @@ The imported .laz point cloud format is the 3D point, time and intensity fields.
 
 This gives an example of how the command line tools could be sequenced to analyse (top down) and generate (bottom up) ray clouds. 
 
-<p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/raycloudtools_cheatsheet.png?at=refs%2Fheads%2Fmaster"/></p>
+<p align="center"><img img width="480" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/raycloudtools_cheatsheet.png?at=refs%2Fheads%2Fmaster"/></p>
 
 ## Individual Examples:
 
