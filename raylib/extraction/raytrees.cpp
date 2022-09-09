@@ -95,7 +95,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       bool points_removed = false;
       std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed);
 
-      if (clusters.size() > 1 || points_removed)  // a bifurcation (or an alteration)
+      if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
         extract_from_ends = true;
         nodes.clear();  // don't trust the found nodes as it is now two separate tree nodes
@@ -365,7 +365,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
       maxi = static_cast<int>(i);
     }
   }
-
+  
   // set the current branch section to the cluster with the
   // maximum distance to tip (i.e. the longest branch).
   sections_[sec_].ends = clusters[maxi];
