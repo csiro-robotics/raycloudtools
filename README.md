@@ -27,13 +27,10 @@ cmake ..
 make
 ```
 
-To run the rayXXXX tools from anywhere, place in your ~/bashrc:
+To run the rayXXXX tools from anywhere either sudo make install, or place in your ~/bashrc:
 ```console
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
 ```
-
-## Current Known Issues:
-The WITH_TBB option defaults to OFF because there is an occasional fault with raytransients/raycombine when it is ON. This will be rectified in upcoming releases.
 
 ## File format:
 Raycloud files are loaded and saved in binary .ply format, the header section is text and follows this format:
@@ -142,6 +139,15 @@ The imported .laz point cloud format is the 3D point, time and intensity fields.
 <p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
+
+**rayextract terrain forest.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh. 
+
+<p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_terrain.png?at=refs%2Fheads%2Fmaster"/></p>
+
+**rayextract trees forest.ply forest_mesh.ply** &nbsp;&nbsp;&nbsp; extracts tree structures to text file, and segments forest. 
+
+<p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextrsact_trees.png?at=refs%2Fheads%2Fmaster"/></p>
+
 
 *Optional build dependencies:*
 
