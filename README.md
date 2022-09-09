@@ -71,7 +71,13 @@ The range of this intensity mapped onto the raycloud's 0-255 alpha value using r
 
 The imported .laz point cloud format is the 3D point, time and intensity fields. Plus the optional colour field. 
 
-## Examples:
+## Visual Guide:
+
+This gives an example of how the command line tools could be sequenced to analyse (top down) and generate (bottom up) ray clouds. 
+
+<p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/raycloudtools_cheatsheet.png?at=refs%2Fheads%2Fmaster"/></p>
+
+## Individual Examples:
 
 **rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line. 
 
