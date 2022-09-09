@@ -140,13 +140,13 @@ The imported .laz point cloud format is the 3D point, time and intensity fields.
 
 **rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
 
-**rayextract terrain forest.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh. 
+**rayextract terrain cloud.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh. 
 
 <p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_terrain.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **rayextract trees forest.ply forest_mesh.ply** &nbsp;&nbsp;&nbsp; extracts tree structures to text file, and segments forest. 
 
-<p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextrsact_trees.png?at=refs%2Fheads%2Fmaster"/></p>
+<p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_trees.png?at=refs%2Fheads%2Fmaster"/></p>
 
 
 *Optional build dependencies:*
