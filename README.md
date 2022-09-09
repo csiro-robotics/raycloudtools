@@ -140,7 +140,7 @@ The imported .laz point cloud format is the 3D point, time and intensity fields.
 
 **rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
 
-**rayextract terrain cloud.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh. 
+**rayextract terrain cloud.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh based on a conical height condition. 
 
 <p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_terrain.png?at=refs%2Fheads%2Fmaster"/></p>
 
