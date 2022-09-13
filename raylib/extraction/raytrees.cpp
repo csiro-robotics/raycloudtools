@@ -90,13 +90,23 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     // find end points and potentially branch (bifurcate)
     if (!extract_from_ends)
     {
-      // thickness varies linearly with distance to end, but max_radius is superlinear, so larger branch sections are fatter
-      double thickness = params_->cylinder_length_to_width * sections_[sec_].max_distance_to_end / params_->length_to_radius;
-
+      double thickness = params_->cylinder_length_to_width * max_radius_; // sections_[sec_].max_distance_to_end / params_->length_to_radius;
+      if (par == -1)
+      {
+        thickness *= 0.5;
+      }
       Eigen::Vector3d base = getRootPosition();
       extractNodesAndEndsFromRoots(nodes, base, children, thickness);
       bool points_removed = false;
       std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness);
+
+      /*Eigen::Vector3d dif = (base - Eigen::Vector3d(3.5, 17.0, 0));
+      dif[2] = 0.0;
+      if (par == -1  && max_radius_ > 0.5 && dif.norm() < 5.0)
+      {
+        std::cout << "distance to end: " << sections_[sec_].max_distance_to_end << ", max radius: " << max_radius_ << ", thickness: " << thickness << ", pos: " << base.transpose() << ", clusters: " << clusters.size() << std::endl;
+        std::cout << "ratio: " << thickness / max_radius_ << std::endl;
+      }*/
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
