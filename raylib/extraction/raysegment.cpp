@@ -151,7 +151,11 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
   const int roots_start = static_cast<int>(points.size());
   for (auto &vert : mesh.vertices())
   {
-    points.push_back(Vertex(vert));
+    if (vert[0] >= box_min[0] && vert[1] >= box_min[1] &&
+        vert[0] <= box_max[0] && vert[1] <= box_max[1])
+    {
+      points.push_back(Vertex(vert));
+    }
   }
   // convert the ground mesh to an easy look-up height field
   Eigen::ArrayXXd lowfield;
