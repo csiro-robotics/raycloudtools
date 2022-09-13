@@ -90,10 +90,13 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     // find end points and potentially branch (bifurcate)
     if (!extract_from_ends)
     {
+      // thickness varies linearly with distance to end, but max_radius is superlinear, so larger branch sections are fatter
+      double thickness = params_->cylinder_length_to_width * sections_[sec_].max_distance_to_end / params_->length_to_radius;
+
       Eigen::Vector3d base = getRootPosition();
-      extractNodesAndEndsFromRoots(nodes, base, children);
+      extractNodesAndEndsFromRoots(nodes, base, children, thickness);
       bool points_removed = false;
-      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed);
+      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness);
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
@@ -101,7 +104,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         nodes.clear();  // don't trust the found nodes as it is now two separate tree nodes
         // if points have been removed then this only resets the current section's points
         // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
-        bifurcate(clusters);
+        bifurcate(clusters, thickness);
         // update the max_radius, since the points have changed
         max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
       }
@@ -253,9 +256,8 @@ Eigen::Vector3d Trees::getRootPosition() const
 // find the node and end points for this section, from the root points
 // return the base point (average of roots)
 void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
-                                         const std::vector<std::vector<int>> &children)
+                                         const std::vector<std::vector<int>> &children, double thickness)
 {
-  const double thickness = params_->cylinder_length_to_width * max_radius_;
   const double thickness_sqr = thickness * thickness;
   const int par = sections_[sec_].parent;
 
@@ -282,9 +284,9 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
 }
 
 // find clusters of points from the root points up the shortest paths, up to the cylinder length
-std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &base, bool &points_removed)
+std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
+                              double thickness)
 {
-  const double thickness = params_->cylinder_length_to_width * max_radius_;
   const int par = sections_[sec_].parent;
 
   std::vector<int> all_ends = sections_[sec_].ends;
@@ -345,9 +347,8 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
 
 // split into multiple branches and add as new branch sections to the end of the sections_ list
 // that is being iterated through.
-void Trees::bifurcate(const std::vector<std::vector<int>> &clusters)
+void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thickness)
 {
-  const double thickness = params_->cylinder_length_to_width * max_radius_;
   const int par = sections_[sec_].parent;
   // find the maximum distance (to tip) for each cluster
   std::vector<double> max_distances(clusters.size(), 0.0);

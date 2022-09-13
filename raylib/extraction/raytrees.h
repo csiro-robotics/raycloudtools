@@ -67,11 +67,12 @@ private:
   Eigen::Vector3d getRootPosition() const;
   /// find the points and end points within this branch section
   void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
-                                    const std::vector<std::vector<int>> &children);
+                                    const std::vector<std::vector<int>> &children, double thickness);
   /// find separate clusters of points within the branch section
-  std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed);
+  std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
+                                                  double thickness);
   /// split the branch section to one branch for each cluster
-  void bifurcate(const std::vector<std::vector<int>> &clusters);
+  void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness);
   /// find the points within the branch section from its end points
   void extractNodesFromEnds(std::vector<int> &nodes);
   /// set the branch section tip position from the supplied list of Vertex IDs
