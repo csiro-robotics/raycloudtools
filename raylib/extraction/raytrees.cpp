@@ -110,8 +110,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
-        extract_from_ends = true;
-        nodes.clear();  // don't trust the found nodes as it is now two separate tree nodes
+        extract_from_ends = true; // don't trust the found nodes as it is now two separate tree nodes
         // if points have been removed then this only resets the current section's points
         // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
         bifurcate(clusters, thickness);
@@ -120,8 +119,11 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       }
     }
 
-    // we have split the ends, so we need to extract the set of nodes in a backwards manner
-    if (extract_from_ends)
+    if (par == -1) // special-case for root segment, to avoid including ground points
+    {
+      nodes = sections_[sec_].ends;
+    }
+    else if (extract_from_ends) // we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
       extractNodesFromEnds(nodes);
     }
@@ -134,6 +136,16 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
     // now find the segment radius
     sections_[sec_].radius = estimateCylinderRadius(nodes, dir);
+
+    // for the root segment we just look at the lowest point coming down from the ends
+    if (par == -1)
+    {
+      extractNodesFromEnds(nodes);
+      for (const auto &i: nodes)
+      {
+        sections_[sec_].tip[2] = std::min(sections_[sec_].tip[2], points_[i].pos[2]);
+      }
+    }
 
     // now add the single child for this particular tree node, assuming there are still ends
     if (sections_[sec_].ends.size() > 0)
@@ -409,6 +421,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
 // find the nodes between the section end points and the section root points
 void Trees::extractNodesFromEnds(std::vector<int> &nodes)
 {
+  nodes.clear();  
   for (auto &end : sections_[sec_].ends)
   {
     int node = points_[end].parent;
@@ -452,6 +465,7 @@ Eigen::Vector3d Trees::calculateTipFromVertices(const std::vector<int> &vertices
   {
     tip /= static_cast<double>(list.size());
   }
+
   return tip;
 }
 
