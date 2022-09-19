@@ -11,9 +11,9 @@
 #include "../rayply.h"
 #include "rayterrain.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 namespace ray
@@ -49,7 +49,7 @@ bool Forest::findSpace(const TreeNode &node, Eigen::Vector3d &tip)
   const int max_x = std::min(static_cast<int>(spacefield_.rows()) - 1, static_cast<int>(tip_local[0] + radius));
   const int min_y = std::max(0, static_cast<int>(tip_local[1] - radius));
   const int max_y = std::min(static_cast<int>(spacefield_.cols()) - 1, static_cast<int>(tip_local[1] + radius));
-  double best_score = -1e10;
+  double best_score = std::numeric_limits<double>::lowest();
   int best_x = -1;
   int best_y = -1;
   // for each cell with in the calculated bounds
@@ -97,7 +97,7 @@ ray::ForestStructure Forest::extract(const std::string &cloud_name_stub, Mesh &m
   const double length = (max_bounds_[1] - min_bounds_[1]) / voxel_width;
   const Eigen::Vector2i grid_dims(ceil(width), ceil(length));
   std::cout << "dims for heightfield: " << grid_dims.transpose() << std::endl;
-  Eigen::ArrayXXd highs = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], -1e10);
+  Eigen::ArrayXXd highs = Eigen::ArrayXXd::Constant(grid_dims[0], grid_dims[1], std::numeric_limits<double>::lowest());
 
   // fill in the highest points on the input cloud
   auto fillHeightField = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends, std::vector<double> &,
@@ -190,7 +190,7 @@ void Forest::addTrunkHeights()
         const double h = height * (1.0 - r);  // this is the paraboloid height
         if (h > 0.0)
         {
-          if (heightfield_(x, y) != -1e10)
+          if (heightfield_(x, y) != std::numeric_limits<double>::lowest())
           {
             heightfield_(x, y) += h;
           }
@@ -209,7 +209,7 @@ void Forest::smoothHeightfield()
     for (int y = 0; y < heightfield_.cols(); y++)
     {
       double &h = heightfield_(x, y);
-      if (h == -1e10)
+      if (h == std::numeric_limits<double>::lowest())
       {
         continue;
       }
@@ -221,7 +221,7 @@ void Forest::smoothHeightfield()
         for (int yy = std::max(0, y - 1); yy <= std::min(y + 1, static_cast<int>(heightfield_.cols()) - 1); yy++)
         {
           const double &h2 = heightfield_(xx, yy);
-          if (h2 != -1e10)
+          if (h2 != std::numeric_limits<double>::lowest())
           {
             mean += h2;
             count++;
@@ -269,7 +269,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
     {
       if (heightfield_(x, y) < lowfield_(x, y) + undercroft_height)
       {
-        heightfield_(x, y) = -1e10;
+        heightfield_(x, y) = std::numeric_limits<double>::lowest();
         count++;
       }
     }

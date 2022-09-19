@@ -3,9 +3,9 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 #include "raylib/raycloud.h"
@@ -91,6 +91,7 @@ int main(int argc, char *argv[])
   if (!ray::writeRayCloudChunkStart(save_file + ".ply", ofs))
     usage();
   Eigen::Vector3d start_pos(0, 0, 0);
+  bool has_warned = false;
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                        std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     if (start_pos.squaredNorm() == 0.0)
@@ -131,14 +132,23 @@ int main(int argc, char *argv[])
     // this is particularly useful if we are storing the ray cloud positions using floats
     if (remove.isSet())
     {
-      for (auto &end : ends) end -= start_pos;
-      for (auto &start : starts) start -= start_pos;
+      for (auto &end : ends) 
+      {
+        end -= start_pos;
+      }
+      for (auto &start : starts) 
+      {
+        start -= start_pos;
+      }
     }
     if (maximum_intensity == 0.0)
     {
-      for (auto &c : colours) c.alpha = 255;
+      for (auto &c : colours) 
+      {
+        c.alpha = 255;
+      }
     }
-    if (!ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours))
+    if (!ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours, has_warned))
     {
       usage();
     }
@@ -148,12 +158,16 @@ int main(int argc, char *argv[])
   {
     if (!ray::readPly(cloud_file.name(), false, add_chunk,
                       maximum_intensity))  // special case of reading a non-ray-cloud ply
+    {
       usage();
+    }
   }
   else if (cloud_file.nameExt() == "laz" || cloud_file.nameExt() == "las")
   {
     if (!ray::readLas(cloud_file.name(), add_chunk, num_bounded, maximum_intensity, offset))
+    {
       usage();
+    }
   }
   else
   {

@@ -4,8 +4,8 @@
 //
 // Author: Thomas Lowe
 #include "raytreegen.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 
 namespace ray
@@ -132,7 +132,7 @@ void TreeGen::make(const TreeParams &params)
   com /= total_mass;
   // having made the tree, we now scale the whole thing in order that it matches the expected tapering gradient
   double scale = branchGradient / (com[2] / segments_[0].radius);
-  Eigen::Vector3d root = segments_[0].tip;
+  const Eigen::Vector3d &root = TreeStructure::root();
   for (auto &leaf : leaves_) leaf = root + (leaf - root) * scale;
   for (auto &start : ray_starts_) start = root + (start - root) * scale;
   for (auto &end : ray_ends_) end = root + (end - root) * scale;

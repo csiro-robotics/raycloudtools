@@ -84,8 +84,15 @@ bool ForestStructure::load(const std::string &filename)
   std::string line;
   do  // skip initial comment lines
   {
-    std::getline(ifs, line);
+    if (!std::getline(ifs, line))
+    {
+      break;
+    }
   } while (line[0] == '#');
+  if (!ifs) 
+  {
+    return false;
+  }
 
   const std::string mandatory_text = "x,y,z,radius";
   if (line.substr(0, mandatory_text.length()) != mandatory_text)
@@ -122,10 +129,8 @@ bool ForestStructure::load(const std::string &filename)
 
   int line_number = 0;
   // now parse the data, one line at a time
-  while (!ifs.eof())
+  for (std::string line; std::getline(ifs, line); )
   {
-    std::string line;
-    std::getline(ifs, line);
     if (line.length() == 0 || line[0] == '#')  // ignore empty and comment lines
     {
       continue;
@@ -157,15 +162,26 @@ bool ForestStructure::load(const std::string &filename)
       for (int i = 0; i < commas_per_segment; i++)
       {
         std::string token;
-        std::getline(ss, token, ',');
+        if (!std::getline(ss, token, ','))
+        {
+          break;
+        }
         if (i < 3)
+        {
           segment.tip[i] = std::stod(token.c_str());  // special case for tip x,y,z
+        }
         else if (i == 3)
+        {
           segment.radius = std::stod(token.c_str());  // special case for radius
+        }
         else if (i == 4 && has_parent_id)
+        {
           segment.parent_id = std::stoi(token.c_str());  // special case for parent_id
+        }
         else
+        {
           segment.attributes.push_back(std::stod(token.c_str()));  // user attributes
+        }
       }
       // generate the tree segment from the attributes
       tree.segments().push_back(segment);

@@ -27,13 +27,10 @@ cmake ..
 make
 ```
 
-To run the rayXXXX tools from anywhere, place in your ~/bashrc:
+To run the rayXXXX tools from anywhere either sudo make install, or place in your ~/bashrc:
 ```console
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
 ```
-
-## Current Known Issues:
-The WITH_TBB option defaults to OFF because there is an occasional fault with raytransients/raycombine when it is ON. This will be rectified in upcoming releases.
 
 ## File format:
 Raycloud files are loaded and saved in binary .ply format, the header section is text and follows this format:
@@ -74,7 +71,13 @@ The range of this intensity mapped onto the raycloud's 0-255 alpha value using r
 
 The imported .laz point cloud format is the 3D point, time and intensity fields. Plus the optional colour field. 
 
-## Examples:
+## Visual Guide:
+
+This gives an example of how the command line tools could be sequenced to analyse (top down) and generate (bottom up) ray clouds. 
+
+<p align="center"><img img width="480" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/raycloudtools_cheatsheet.png?at=refs%2Fheads%2Fmaster"/></p>
+
+## Individual Examples:
 
 **rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line. 
 
@@ -142,6 +145,15 @@ The imported .laz point cloud format is the 3D point, time and intensity fields.
 <p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
 **rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
+
+**rayextract terrain cloud.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh based on a conical height condition. 
+
+<p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_terrain.png?at=refs%2Fheads%2Fmaster"/></p>
+
+**rayextract trees forest.ply forest_mesh.ply** &nbsp;&nbsp;&nbsp; extracts tree structures to text file, and segments forest. 
+
+<p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_trees.png?at=refs%2Fheads%2Fmaster"/></p>
+
 
 *Optional build dependencies:*
 

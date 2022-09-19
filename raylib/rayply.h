@@ -57,14 +57,14 @@ bool RAYLIB_EXPORT writeRayCloudChunkStart(const std::string &file_name, std::of
 bool RAYLIB_EXPORT writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices,
                                       const std::vector<Eigen::Vector3d> &starts,
                                       const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
-                                      const std::vector<RGBA> &colours);
+                                      const std::vector<RGBA> &colours, bool &has_warned);
 unsigned long RAYLIB_EXPORT writeRayCloudChunkEnd(std::ofstream &out);
 
 /// Chunked version of writePlyPointCloud
 bool RAYLIB_EXPORT writePointCloudChunkStart(const std::string &file_name, std::ofstream &out);
 bool RAYLIB_EXPORT writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices,
                                         const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
-                                        const std::vector<RGBA> &colours);
+                                        const std::vector<RGBA> &colours, bool &has_warned);
 void RAYLIB_EXPORT writePointCloudChunkEnd(std::ofstream &out);
 
 /// Simple function for converting a ray cloud according to the per-ray function @c apply

@@ -43,7 +43,7 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
   std::vector<Nd> nds;
   for (size_t i = 0; i < points.size(); i++)
   {
-    for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+    for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
     {
       nds.push_back(Nd(static_cast<int>(i), indices(j, i), dists2(j, i)));
     }
@@ -59,7 +59,6 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
   };
   std::vector<Cluster> clusters(points.size());
   std::vector<int> cluster_ids(points.size());
-  std::vector<bool> visited(points.size());
   // initialise the clusters
   for (size_t i = 0; i < points.size(); i++)
   {
@@ -67,7 +66,6 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
     clusters[i].active = true;
     clusters[i].ids.push_back(static_cast<int>(i));
     cluster_ids[i] = static_cast<int>(i);
-    visited[i] = false;
   }
 
   // 2. for each node in turn, from smallest to highest distance, agglomerate

@@ -23,7 +23,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
 {
   ellipsoids->clear();
   ellipsoids->resize(cloud.rayCount());
-  int search_size = std::min(16, (int)cloud.rayCount() - 1);
+  const int search_size = std::min(16, (int)cloud.rayCount() - 1);
   const double max_double = std::numeric_limits<double>::max();
   Eigen::Vector3d ellipsoids_min(max_double, max_double, max_double);
   Eigen::Vector3d ellipsoids_max(-max_double, -max_double, -max_double);
@@ -82,7 +82,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     scatter.setZero();
     Eigen::Vector3d centroid(0, 0, 0);
     double num_neighbours = 0;
-    for (int j = 0; j < search_size && indices(j, i) > -1; ++j)
+    for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; ++j)
     {
       int index = indices(j, i);
       if (cloud.rayBounded(index))
@@ -96,7 +96,7 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
       return;
     }
     centroid /= num_neighbours;
-    for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+    for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
     {
       int index = indices(j, i);
       if (cloud.rayBounded(index))

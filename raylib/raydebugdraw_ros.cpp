@@ -18,8 +18,8 @@ struct DebugDrawDetail
   ros::Publisher line_publisher;
   ros::Publisher cylinder_publisher[2];
   ros::Publisher ellipsoid_publisher[6];
-  ros::Publisher cylinderPublisher;
-  ros::Publisher ringPublisher;
+  ros::Publisher cylinders_publisher;
+  ros::Publisher ring_publisher;
   std::string fixed_frame_id;
 };
 }  // namespace ray
@@ -40,8 +40,8 @@ DebugDraw::DebugDraw(const std::string &fixed_frame_id)
   imp_->ellipsoid_publisher[3] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids4", 3, true);
   imp_->ellipsoid_publisher[4] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids5", 3, true);
   imp_->ellipsoid_publisher[5] = imp_->n.advertise<visualization_msgs::MarkerArray>("ellipsoids6", 3, true);
-  imp_->cylinderPublisher = imp_->n.advertise<visualization_msgs::Marker>("cylinders", 3, true);
-  imp_->ringPublisher = imp_->n.advertise<visualization_msgs::Marker>("rings", 3, true);
+  imp_->cylinders_publisher = imp_->n.advertise<visualization_msgs::Marker>("cylinders", 3, true);
+  imp_->ring_publisher = imp_->n.advertise<visualization_msgs::Marker>("rings", 3, true);
   imp_->fixed_frame_id = fixed_frame_id;
 }
 

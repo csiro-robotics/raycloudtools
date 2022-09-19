@@ -6,7 +6,6 @@
 #ifndef RAYLIB_RAYSEGMENT_H
 #define RAYLIB_RAYSEGMENT_H
 
-#include <queue>
 #include "../raycloud.h"
 #include "../raymesh.h"
 #include "../rayutils.h"
@@ -15,20 +14,18 @@
 
 namespace ray
 {
-static constexpr double inf = 1e10;
 
 /// Vertex structure used in shortest path algorithm
 struct RAYLIB_EXPORT Vertex
 {
-  Vertex() {}
   Vertex(const Eigen::Vector3d &pos)
     : pos(pos)
     , edge_pos(0, 0, 0)
     , parent(-1)
     , root(-1)
-    , distance_to_ground(inf)
+    , distance_to_ground(std::numeric_limits<double>::max())
     , distance_to_end(0.0)
-    , score(inf)
+    , score(std::numeric_limits<double>::max())
     , visited(false)
   {}
   Eigen::Vector3d pos;
@@ -46,7 +43,7 @@ struct RAYLIB_EXPORT Vertex
 /// @c max_diameter maximum diameter of a tree trunk
 /// @c distance_limit maximum distance between points that can be connected
 /// @c gravity_factor controls how far laterally the shortest paths can travel
-std::vector<std::vector<int>> RAYLIB_EXPORT getRootsAndSegment(std::vector<Vertex> &points, Cloud &cloud, const Mesh &mesh,
+std::vector<std::vector<int>> RAYLIB_EXPORT getRootsAndSegment(std::vector<Vertex> &points, const Cloud &cloud, const Mesh &mesh,
                                                                double max_diameter, double distance_limit, double height_min,
                                                                double gravity_factor);
 

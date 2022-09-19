@@ -11,9 +11,9 @@
 #include "raylib/imageread.h"
 
 #include <nabo/nabo.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <map>
 
@@ -208,9 +208,9 @@ int main(int argc, char *argv[])
   std::vector<Eigen::Vector3d> dimensions;
   std::vector<Eigen::Vector3d> normals;
   Eigen::MatrixXi indices;
-  std::vector<Eigen::Vector3d> *cents = NULL, *dims = NULL, *norms = NULL;
-  std::vector<Eigen::Matrix3d> *mats = NULL;
-  Eigen::MatrixXi *inds = NULL;
+  std::vector<Eigen::Vector3d> *cents = nullptr, *dims = nullptr, *norms = nullptr;
+  std::vector<Eigen::Matrix3d> *mats = nullptr;
+  Eigen::MatrixXi *inds = nullptr;
   double max_distance = 0.0;
 
   // what do we want to calculate...
@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
       // we use the median of the neighbour points to be robust to noise
       cols.clear();
       cols.push_back(cloud.colours[i].alpha);
-      for (int j = 0; j < 4 && indices(j, i) > -1; j++)
+      for (int j = 0; j < 4 && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
       {
         cols.push_back(cloud.colours[indices(j, i)].alpha);
       }
@@ -295,7 +295,7 @@ int main(int argc, char *argv[])
       // 2. green is cylindricality
       Eigen::Vector3d mean = cloud.ends[i];  // centroid
       int num = 1;
-      for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
       {
         mean += cloud.ends[indices(j, i)];
         num++;
@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
       mean /= (double)num;
       // get teh scatter matrix of the neighbourhood of points
       Eigen::Matrix3d scatter = (cloud.ends[i] - mean) * (cloud.ends[i] - mean).transpose();
-      for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
       {
         Eigen::Vector3d v = cloud.ends[indices(j, i)] - mean;
         scatter += v * v.transpose();
@@ -329,7 +329,7 @@ int main(int argc, char *argv[])
       if (!cloud.rayBounded(i))
         continue;
       double sum_x = 0, sum_y = 0, sum_xy = 0, sum_xx = 0, sum_yy = 0, n = 0;
-      for (int j = 0; j < search_size && indices(j, i) > -1; j++)
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++)
       {
         int id = indices(j, i);
         Eigen::Vector3d flat = cloud.ends[id] - centroids[i];

@@ -28,13 +28,22 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   /* Open TIFF descriptor to write GeoTIFF tags */
   TIFF *tif = XTIFFOpen(filename.c_str(), "w");
   if (!tif)
+  {
     return false;
+  }
 
   /* Open GTIF Key parser */
   GTIF *gtif = GTIFNew(tif);
   if (!gtif)
+  {
     return false;
+  }
 
+  if (x < 0 || y < 0)
+  {
+    std::cerr << "Bad image size: " << x << ", " << y << std::endl;
+    return false;
+  }
   const uint32_t w = (uint32_t)x;
   const uint32_t h = (uint32_t)y;
   const int channels = scalar ? 2 : 4;
@@ -84,7 +93,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   }
 
   // read in the projection parameters
-  if (projection_file != "")
+  if (!projection_file.empty())
   {
     std::ifstream ifs(projection_file.c_str(), std::ios::in);
     if (ifs.fail())
@@ -93,11 +102,14 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       return false;
     }
     std::string line;
-    getline(ifs, line);
+    if (!getline(ifs, line))
+    {
+      return false;
+    }
     // the set of keys in the key-value pairs that we are parsing
     const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0" };
     std::vector<std::string> values;
-    for (auto &key : keys)
+    for (const auto &key : keys)
     {
       std::string::size_type found = line.find(key);
       if (found == std::string::npos)  // error checking
@@ -118,26 +130,26 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         space = line.length() - 1;
       values.push_back(line.substr(found, space - found));
     }
-    if (values[1] == "")  // if ellipsoid type not specified, we take it to be the same as the datum
+    if (values[1].empty())  // if ellipsoid type not specified, we take it to be the same as the datum
     {
       values[1] = values[2];
     }
     double coord_lat = 0.0;
-    if (values[4] != "")
+    if (!values[4].empty())
     {
       coord_lat = std::stod(values[4]);  // latitude
     }
     double coord_long = 0.0;
-    if (values[5] != "")
+    if (!values[5].empty())
     {
       coord_long = std::stod(values[5]);  // longitude
     }
     Eigen::Vector2d geo_offset(0, 0);
-    if (values[6] != "")
+    if (!values[6].empty())
     {
       geo_offset[0] = std::stod(values[6]);  // offset in m
     }
-    if (values[7] != "")
+    if (!values[7].empty())
     {
       geo_offset[1] = std::stod(values[7]);  // offset in m
     }
@@ -185,7 +197,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     {
       GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
     }
-    else if (values[2] != "")
+    else if (!values[2].empty())
     {
       std::cout << "unknown geodetic datum: " << values[2] << std::endl;
       return false;

@@ -70,11 +70,9 @@ bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
   return true;
 }
 
-static bool warned = false;
-
 bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &starts,
                         const std::vector<Eigen::Vector3d> &ends, const std::vector<double> &times,
-                        const std::vector<RGBA> &colours)
+                        const std::vector<RGBA> &colours, bool &has_warned)
 {
   if (ends.size() == 0)
   {
@@ -90,26 +88,26 @@ bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::v
 
   for (size_t i = 0; i < ends.size(); i++)
   {
-    if (!warned)
+    if (!has_warned)
     {
       if (!(ends[i] == ends[i]))
       {
         std::cout << "WARNING: nans in point: " << i << ": " << ends[i].transpose() << std::endl;
-        warned = true;
+        has_warned = true;
       }
 #if !RAYLIB_DOUBLE_RAYS
       if (abs(ends[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << ends[i].transpose() << ", suspicious"
                   << std::endl;
-        warned = true;
+        has_warned = true;
       }
 #endif
       bool b = starts[i] == starts[i];
       if (!b)
       {
         std::cout << "WARNING: nans in start: " << i << ": " << starts[i].transpose() << std::endl;
-        warned = true;
+        has_warned = true;
       }
     }
     Eigen::Vector3d n = starts[i] - ends[i];
@@ -169,9 +167,12 @@ bool writePlyRayCloud(const std::string &file_name, const std::vector<Eigen::Vec
   if (!writeRayCloudChunkStart(file_name, ofs))
     return false;
   RayPlyBuffer buffer;
+  bool has_warned = false;
   // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
-  if (!writeRayCloudChunk(ofs, buffer, starts, ends, times, rgb))
+  if (!writeRayCloudChunk(ofs, buffer, starts, ends, times, rgb, has_warned))
+  {
     return false;
+  }
   const unsigned long num_rays = ray::writeRayCloudChunkEnd(ofs);
   std::cout << num_rays << " rays saved to " << file_name << std::endl;
   return true;
@@ -217,7 +218,7 @@ bool writePointCloudChunkStart(const std::string &file_name, std::ofstream &out)
 }
 
 bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const std::vector<Eigen::Vector3d> &points,
-                          const std::vector<double> &times, const std::vector<RGBA> &colours)
+                          const std::vector<double> &times, const std::vector<RGBA> &colours, bool &has_warned)
 {
   if (points.size() == 0)
   {
@@ -233,19 +234,19 @@ bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const st
 
   for (size_t i = 0; i < points.size(); i++)
   {
-    if (!warned)
+    if (!has_warned)
     {
       if (!(points[i] == points[i]))
       {
         std::cout << "WARNING: nans in point: " << i << ": " << points[i].transpose() << std::endl;
-        warned = true;
+        has_warned = true;
       }
 #if !RAYLIB_DOUBLE_RAYS
       if (abs(points[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << points[i].transpose() << ", suspicious"
                   << std::endl;
-        warned = true;
+        has_warned = true;
       }
 #endif
     }
@@ -295,17 +296,24 @@ bool writePlyPointCloud(const std::string &file_name, const std::vector<Eigen::V
 {
   std::vector<RGBA> rgb(times.size());
   if (colours.size() > 0)
+  {
     rgb = colours;
+  }
   else
+  {
     colourByTime(times, rgb);
+  }
 
   std::ofstream ofs;
   if (!writePointCloudChunkStart(file_name, ofs))
     return false;
   PointPlyBuffer buffer;
+  bool has_warned = false;
   // TODO: could split this into chunks aswell, it would allow saving out files roughly twice as large
-  if (!writePointCloudChunk(ofs, buffer, points, times, rgb))
+  if (!writePointCloudChunk(ofs, buffer, points, times, rgb, has_warned))
+  {
     return false;
+  }
   writePointCloudChunkEnd(ofs);
   return true;
 }
@@ -336,7 +344,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
 
   while (line != "end_header\r" && line != "end_header")
   {
-    getline(input, line);
+    if (!getline(input, line))
+    {
+      break;
+    }
     // support multiple data types
     DataType data_type = kDTnone;
     if (line.find("property float") != std::string::npos)
@@ -701,7 +712,10 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
   char char1[100], char2[100];
   while (line != "end_header\r" && line != "end_header")
   {
-    getline(input, line);
+    if (!getline(input, line))
+    {
+      break;
+    }
     if (line.find("float") != std::string::npos)
     {
       row_size += 4;
@@ -711,9 +725,13 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
       row_size++;
     }
     if (line.find("element vertex") != std::string::npos)
+    {
       sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_vertices);
+    }
     if (line.find("element face") != std::string::npos)
+    {
       sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_faces);
+    }
   }
 
   std::vector<Eigen::Vector4f> vertices(number_of_vertices);
@@ -724,11 +742,15 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
 
   mesh.vertices().resize(vertices.size());
   for (int i = 0; i < (int)vertices.size(); i++)
+  {
     mesh.vertices()[i] = Eigen::Vector3d(vertices[i][0], vertices[i][1], vertices[i][2]);
+  }
 
   mesh.indexList().resize(triangles.size());
   for (int i = 0; i < (int)triangles.size(); i++)
+  {
     mesh.indexList()[i] = Eigen::Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
+  }
   std::cout << "reading from " << file << ", " << mesh.indexList().size() << " triangles." << std::endl;
   return true;
 }
@@ -738,11 +760,14 @@ bool convertCloud(const std::string &in_name, const std::string &out_name,
 {
   std::ofstream ofs;
   if (!writeRayCloudChunkStart(out_name, ofs))
+  {
     return false;
+  }
   ray::RayPlyBuffer buffer;
 
+  bool has_warned = false;
   // run the function 'apply' on each ray as it is read in, and write it out, one chunk at a time
-  auto applyToChunk = [&apply, &buffer, &ofs](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+  auto applyToChunk = [&apply, &buffer, &ofs, &has_warned](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                                               std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     for (size_t i = 0; i < ends.size(); i++)
     {
@@ -750,10 +775,12 @@ bool convertCloud(const std::string &in_name, const std::string &out_name,
       // side effects
       apply(starts[i], ends[i], times[i], colours[i]);
     }
-    ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours);
+    ray::writeRayCloudChunk(ofs, buffer, starts, ends, times, colours, has_warned);
   };
   if (!ray::readPly(in_name, true, applyToChunk, 0))
+  {
     return false;
+  }
   ray::writeRayCloudChunkEnd(ofs);
   return true;
 }

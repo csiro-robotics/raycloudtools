@@ -107,19 +107,23 @@ private:
 };
 
 // inline functions
-inline double DensityGrid::Voxel::numerator() const
+double DensityGrid::Voxel::numerator() const
 {
   return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_;
 }
-inline double DensityGrid::Voxel::denominator() const
+double DensityGrid::Voxel::denominator() const
 {
-  return 1e-10 + num_rays_ * path_length_;
+  const double eps = 1e-10; // avoid division by 0
+  return eps + num_rays_ * path_length_;
 }
-inline double DensityGrid::Voxel::density() const
+double DensityGrid::Voxel::density() const
 {
   if (num_rays_ <= min_voxel_hits)
+  {
     return 0.0;
-  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (1e-10 + num_rays_ * path_length_);
+  }
+  const double eps = 1e-10; // avoid division by 0
+  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (eps + num_rays_ * path_length_);
 }
 void DensityGrid::Voxel::operator+=(const DensityGrid::Voxel &other)
 {

@@ -5,9 +5,9 @@
 // Author: Thomas Lowe
 #include "rayforest.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <queue>
 #include "../rayply.h"
@@ -151,7 +151,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           }
         }
       }
-      if (height > max_h && height > -1e10)
+      if (height > max_h && height > std::numeric_limits<double>::lowest())
       {
         Point p;
         p.x = x;
@@ -212,8 +212,8 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
       {
         TreeNode &p_tree = trees[p_head];
         TreeNode &q_tree = trees[q_head];
-        Eigen::Vector2i mx = ray::maxVector2(p_tree.max_bound, q_tree.max_bound);
-        Eigen::Vector2i mn = ray::minVector2(p_tree.min_bound, q_tree.min_bound);
+        Eigen::Vector2i mx = p_tree.max_bound.cwiseMax(q_tree.max_bound);
+        Eigen::Vector2i mn = p_tree.min_bound.cwiseMin(q_tree.min_bound);
         mx -= mn;
 
         const bool mergable = std::max(mx[0], mx[1]) <= max_tree_pixel_width;
@@ -257,7 +257,7 @@ void Forest::hierarchicalWatershed(std::vector<TreeNode> &trees, std::set<int> &
           }
         }
       }
-      if (ind == -1 && heightfield_(xx, yy) > -1e10)  // adding a single pixel to a tree
+      if (ind == -1 && heightfield_(xx, yy) > std::numeric_limits<double>::lowest())  // adding a single pixel to a tree
       {
         Point q;
         q.x = xx;

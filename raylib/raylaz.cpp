@@ -50,7 +50,7 @@ bool readLas(const std::string &file_name,
   bool using_colour = (header.GetDataFormatId() & 2) > 0;
   if (!using_time)
   {
-    std::cerr << "No timetamps found on laz file, these are required" << std::endl;
+    std::cerr << "No timestamps found on laz file, these are required" << std::endl;
     return false;
   }
 

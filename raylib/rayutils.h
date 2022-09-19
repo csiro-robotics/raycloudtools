@@ -51,20 +51,6 @@ inline const T minVector(const T &a, const T &b)
   return T(std::min(a[0], b[0]), std::min(a[1], b[1]), std::min(a[2], b[2]));
 }
 
-/// maximum function on two-dimensional vectors
-template <class T>
-inline const T maxVector2(const T &a, const T &b)
-{
-  return T(std::max(a[0], b[0]), std::max(a[1], b[1]));
-}
-
-/// minimum function on two-dimensional vectors
-template <class T>
-inline const T minVector2(const T &a, const T &b)
-{
-  return T(std::min(a[0], b[0]), std::min(a[1], b[1]));
-}
-
 template <class T>
 T clamped(const T &value, const T &min_value, const T &max_value)
 {

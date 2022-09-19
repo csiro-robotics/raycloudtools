@@ -26,7 +26,7 @@ public:
   bool writeChunk(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &times,
                   std::vector<RGBA> &colours)
   {
-    return writeRayCloudChunk(ofs_, buffer_, starts, ends, times, colours);
+    return writeRayCloudChunk(ofs_, buffer_, starts, ends, times, colours, has_warned_);
   }
 
   /// finish writing, and adjust the vertex count at the start.
@@ -42,6 +42,8 @@ private:
   std::string file_name_;
   /// ray buffer to avoid repeated reallocations
   RayPlyBuffer buffer_;
+  /// whether a warning has been issued or not. This prevents multiple warnings.
+  bool has_warned_;
 };
 
 }  // namespace ray

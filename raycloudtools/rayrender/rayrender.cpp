@@ -3,9 +3,9 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include "raylib/raycloud.h"
 #include "raylib/raycuboid.h"

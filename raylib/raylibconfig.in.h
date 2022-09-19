@@ -49,7 +49,7 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 // TODO(KS): C++17 if enabled.
-#define GLM_FORCE_CXX14
+#define GLM_FORCE_CXX17
 #define GLM_FORCE_INLINE
 // #define GLM_FORCE_ALIGNED_GENTYPES
 // #define GLM_FORCE_INTRINSICS // SimD

@@ -7,9 +7,9 @@
 #include "raylib/rayparse.h"
 
 #include <nabo/nabo.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 void usage(int exit_code = 1)
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     Eigen::MatrixXi indices;
 
     const int search_size = std::min(10, (int)cloud.ends.size() - 1);
-    cloud.getSurfels(search_size, &centroids, NULL, &dimensions, &matrices, &indices);
+    cloud.getSurfels(search_size, &centroids, nullptr, &dimensions, &matrices, &indices);
 
     new_cloud.starts.reserve(cloud.starts.size());
     new_cloud.ends.reserve(cloud.ends.size());
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
       bool is_noise = false;
       if (cloud.rayBounded(i))
       {
-        if (indices(0, i) == -1)  // no neighbours in range, we consider this as noise
+        if (indices(0, i) == Nabo::NNSearchD::InvalidIndex)  // no neighbours in range, we consider this as noise
           continue;
         int other_i = indices(0, i);
         Eigen::Vector3d vec = cloud.ends[i] - centroids[other_i];
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
         newVec[1] /= dimensions[other_i][1];
         newVec[2] /= dimensions[other_i][2];
         int num = 0;
-        for (int j = 0; j < search_size && indices(j, i) != -1; j++) num = j + 1;
+        for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++) num = j + 1;
         nums += (double)num;
         dims += dimensions[other_i];
         cnt++;

@@ -49,14 +49,14 @@ public:
   Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
 
   /// save the trees representation to a text file
-  bool save(const std::string &filename);
+  bool save(const std::string &filename) const;
 
 private:
   /// The piecewise cylindrical represenation of all of the trees
   std::vector<BranchSection> sections_;
 
   /// estimate branch radius from its length
-  double radFromLength(double length);
+  double radFromLength(double length) const;
   /// calculate the distance to farthest connected branch tip, for each point in the cloud
   void calculatePointDistancesToEnd();
   /// create the start branch segments at the root positions
@@ -64,7 +64,7 @@ private:
   /// finalise the attributes of an end (tip) of a branch
   void setBranchTip();
   /// get the root position for the current section
-  Eigen::Vector3d getRootPosition();
+  Eigen::Vector3d getRootPosition() const;
   /// find the points and end points within this branch section
   void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
                                     const std::vector<std::vector<int>> &children);
@@ -74,12 +74,12 @@ private:
   void bifurcate(const std::vector<std::vector<int>> &clusters);
   /// find the points within the branch section from its end points
   void extractNodesFromEnds(std::vector<int> &nodes);
-  /// set the branch section tip position from the nodes within it
-  Eigen::Vector3d calculateTipFromNodes(const std::vector<int> &nodes);
+  /// set the branch section tip position from the supplied list of Vertex IDs
+  Eigen::Vector3d calculateTipFromVertices(const std::vector<int> &nodes) const;
   /// estimate the vector to the cylinder centre from the set of nodes
-  Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const;
   /// estimate the cylinder's radius from its centre, @c dir and set of nodes
-  double estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  double estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const;
   /// add a new section to continue reconstructing the branch
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
@@ -94,14 +94,14 @@ private:
   /// colour the cloud based on the section id for each point
   void segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids);
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds
-  void removeOutOfBoundRays(Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
-                            std::vector<int> &root_segs);
-
+  void removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound,
+                            const std::vector<int> &root_segs);
   // cached data that is used throughout the processing method
   size_t sec_;
   const TreesParams *params_;
   std::vector<Vertex> points_;
   double max_radius_;
+  double radius_length_scale_; /// Cached ratio from branch taper parameters
 };
 
 /// The structure for a single (cylindrical) branch section

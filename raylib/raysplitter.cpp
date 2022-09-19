@@ -398,7 +398,7 @@ bool splitGrid(const std::string &file_name, const std::string &cloud_name_stub,
             if (cuboid.clipRay(start, end))
             {
               RGBA col = colours[i];
-              if (cells[index].fileName() == "")  // first time in this cell, so start writing to a new file
+              if (cells[index].fileName().empty())  // first time in this cell, so start writing to a new file
               {
                 std::stringstream name;
                 name << cloud_name_stub;
@@ -503,7 +503,7 @@ bool splitColour(const std::string &file_name, const std::string &cloud_name_stu
       {
         int index = vox->second;
 
-        if (cells[index].fileName() == "")  // first time in this cell, so start writing to a new file
+        if (cells[index].fileName().empty())  // first time in this cell, so start writing to a new file
         {
           std::stringstream name;
           name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue

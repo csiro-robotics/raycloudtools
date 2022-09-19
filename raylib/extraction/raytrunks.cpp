@@ -16,46 +16,10 @@ namespace ray
 {
 namespace
 {
-const double inf = 1e10;
-
 /// debug draw the trunks, either as a set of lines to rviz, or as a point cloud.
-void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *closest_approach_points = NULL,
-                const std::vector<Eigen::Vector3d> *pass_through_points = NULL)
+void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *closest_approach_points = nullptr,
+                const std::vector<Eigen::Vector3d> *pass_through_points = nullptr)
 {
-#if USE_RVIZ
-  std::vector<Eigen::Vector3d> starts, ends;
-  std::vector<double> radii;
-  std::vector<Eigen::Vector3d> colours;
-  for (size_t i = 0; i < trunks.size(); i++)
-  {
-    if (!trunks[i].active)
-    {
-      continue;
-    }
-    if (!(trunks[i].radius == trunks[i].radius))
-    {
-      std::cout << "nan trunk radius at " << i << std::endl;
-    }
-    if (trunks[i].radius <= 0.0)
-    {
-      std::cout << "bad trunk radius at " << i << std::endl;
-    }
-    if (!(trunks[i].centre == trunks[i].centre))
-    {
-      std::cout << "nan trunk centre at " << i << std::endl;
-    }
-    starts.push_back(trunks[i].centre - trunks[i].dir * trunks[i].length * 0.5);
-    ends.push_back(trunks[i].centre + trunks[i].dir * trunks[i].length * 0.5);
-    radii.push_back(trunks[i].radius);
-    const double shade = std::min(trunks[i].score / (2.0 * minimum_score), 1.0);
-    Eigen::Vector3d col(0, 0, 0);
-    col[0] = col[1] = shade;
-    col[2] = shade > 0.5 ? 1.0 : 0.0;
-    colours.push_back(col);
-  }
-  //  DebugDraw::instance()->drawCylinders(starts, ends, radii, 1, colours);
-  DebugDraw::instance()->drawLines(starts, ends, colours);
-#else
   std::vector<Eigen::Vector3d> cloud_points;
   std::vector<double> times;
   std::vector<RGBA> colours;
@@ -84,13 +48,17 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
     }
   }
   // Now draw each of the trunks as a cylinder composed of a set of points
-  for (auto &trunk : trunks)
+  for (auto const &trunk : trunks)
   {
     if (!trunk.active)
     {
       continue;
     }
+    // grey-scale colour where black to white represents a score of 0 to twice the minimum score.
+    // this range allows results above and below the minimum score to be clearly discerned. 
     colour.red = colour.green = colour.blue = (uint8_t)std::min(255.0 * trunk.score / (2.0 * minimum_score), 255.0);
+    // in order to distinguish results below the minimum score, we keep only the red component. 
+    // red, as is typical, represents failure (to meet the criteria of a cylindrical trunk)
     if (trunk.score < minimum_score)
     {
       colour.green = colour.blue = 0;
@@ -113,13 +81,11 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
     }
   }
   writePlyPointCloud("trunks_verbose.ply", cloud_points, times, colours);
-#endif
 }
 
 /// Used in a priority queue for identifying close neighbouring trunks
 struct QueueNode
 {
-  QueueNode() {}
   QueueNode(double score, int index)
     : score(score)
     , id(index)
@@ -129,8 +95,6 @@ struct QueueNode
   int id;
 };
 
-//#define MINIMISE_ANGLE // works quite well in flowing along trunks, but sometimes causes multi-trunk problem, where
-// radius was too small.
 class QueueNodeComparator
 {
 public:
@@ -139,19 +103,26 @@ public:
 }  // namespace
 
 // A map of voxels to integers, such as for a count value per voxel
-struct IntegerVoxels
+class IntegerVoxels
 {
-  IntegerVoxels(double width, const Eigen::Vector3d offset)
+public:
+  /// Construct from a given @c width and vector @c offset
+  IntegerVoxels(double width, const Eigen::Vector3d &offset)
     : voxel_width(width)
     , offset(offset)
   {}
 
+  /// Obtain the 3D index that overlaps any 3D position @c pos
   inline Eigen::Vector3i getIndex(const Eigen::Vector3d &pos)
   {
     const Eigen::Vector3d ind = (pos - offset) / voxel_width;
     return Eigen::Vector3i(int(std::floor(ind[0])), int(std::floor(ind[1])), int(std::floor(ind[2])));
   }
+
+  /// For a given 3D position @c pos, increment the value of the overlapping voxel
   inline void increment(const Eigen::Vector3d &pos) { increment(getIndex(pos)); }
+
+  /// increment the value of the voxel at the given 3D @c index
   inline void increment(const Eigen::Vector3i &index)
   {
     auto it = voxel_map.find(index);
@@ -164,6 +135,8 @@ struct IntegerVoxels
       it->second++;
     }
   }
+
+  /// get the integer value of the voxel at the specified 3D @c index
   inline int get(const Eigen::Vector3i &index) const
   {
     auto it = voxel_map.find(index);
@@ -176,6 +149,8 @@ struct IntegerVoxels
       return it->second;
     }
   }
+
+  /// apply the specified function @c func to every voxel in the grid
   void forEach(std::function<void(const struct IntegerVoxels &voxels, double width, const Eigen::Vector3d &offset,
                                   const Eigen::Vector3i &index, int count)>
                  func)
@@ -185,13 +160,15 @@ struct IntegerVoxels
       func(*this, voxel_width, offset, voxel.first, voxel.second);
     }
   }
-
+private:
   std::map<Eigen::Vector3i, int, Vector3iLess> voxel_map;
   double voxel_width;
   Eigen::Vector3d offset;
 };
 
-/// Initial estimate of the trunks
+/// This method generates a set of initial trunk candidates at four different scales, by gridding the 
+/// space and initialising a vertically placed trunk centred in each voxel that contains sufficient points
+/// in its neighbourhoood
 void initialiseTrunks(std::vector<Trunk> &trunks, const Cloud &cloud, const Eigen::Vector3d &min_bound,
                       double voxel_width)
 {
@@ -215,6 +192,7 @@ void initialiseTrunks(std::vector<Trunk> &trunks, const Cloud &cloud, const Eige
       voxels[j]->increment(cloud.ends[i]);
     }
   }
+  // add a new trunk for each voxel
   auto addTrunk = [&trunks](const struct IntegerVoxels &voxels, double voxel_width, const Eigen::Vector3d &offset,
                             const Eigen::Vector3i &index, int count) {
     const Eigen::Vector3d centre = (index.cast<double>() + Eigen::Vector3d(0.5, 0.5, 0.5)) * voxel_width + offset;
@@ -352,8 +330,14 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks_)
 }
 
 // trunk identification in ray cloud
-Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_passing_rays)
+Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_permeable_trunks)
 {
+  // The method is iterative, starting with a large set of trunk candidates, it
+  // iteratively adjusts their pose and size to better approximate the neighbourhood of points,
+  // filtering out poor candidates on the fly.
+  // after the iteration loop has finished, the trunks are further filtered to remove overlapping
+  // candidates, and the result is saved to best_trunks_
+
   // spacing helps us choose a grid resolution that is appropriate to the cloud
   const double spacing = cloud.estimatePointSpacing();
   if (verbose)
@@ -386,9 +370,6 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   initialiseTrunks(trunks, cloud, min_bound, voxel_width);
   std::cout << "initialised to " << trunks.size() << " trunks" << std::endl;
 
-  RayGrid2D grid2D;
-  grid2D.init(min_bound, max_bound, 2.0);
-
   // 3. iterate every candidate several times
   best_trunks_ = trunks;
   for (auto &trunk : best_trunks_)
@@ -408,8 +389,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
         continue;
       }
       // get overlapping points to this trunk
-      std::vector<Eigen::Vector3d> points;
-      trunk.getOverlap(grid, points, spacing);
+      std::vector<Eigen::Vector3d> points = trunk.getOverlappingPoints(grid, spacing);
       if (points.size() < min_num_points)  // not enough data to use
       {
         trunk.active = false;
@@ -419,7 +399,8 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       // improve the estimation of the trunk's pose and size
       trunk.updateDirection(points);
       trunk.updateCentre(points);
-      trunk.updateRadiusAndScore(points);
+      trunk.updateRadius(points);
+      trunk.updateScore(points);
 
       if (trunk.score > best_trunks_[trunk_id].score)  // got worse, so analyse the best result now
       {
@@ -467,10 +448,14 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
   best_trunks_ = trunks;
   removeOverlappingTrunks(best_trunks_);
   trunks.clear();
-  // keep only the active trunks
+  
   for (auto &trunk : best_trunks_)
   {
-    if (trunk.active)
+    if (trunk.dir[2] < 0.0) // orient trunks upwards
+    {
+      trunk.dir *= -1.0;
+    }
+    if (trunk.active) // keep only the active trunks
     {
       trunks.push_back(trunk);
     }
@@ -483,89 +468,116 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
 
   // what if there is a clear cylindrical shape in the points, but rays pass through its centre
   // then it cannot be a trunk. We deal with that situation here
-  if (exclude_passing_rays)
+  if (remove_permeable_trunks)
   {
-    for (auto &trunk : trunks)
-    {
-      if (trunk.active)
-      {
-        grid2D.pixel(trunk.centre).filled = true;
-      }
-    }
-    // set occupancy from ray cloud
-    grid2D.fillRays(cloud);
-
-    std::vector<Eigen::Vector3d> closest_approach_points, pass_through_points;
-    int num_removed = 0;
-    for (auto &trunk : trunks)
-    {
-      if (!trunk.active)
-      {
-        continue;
-      }
-
-      Eigen::Vector3d base = trunk.centre - trunk.length * 0.5 * trunk.dir;
-      auto &ray_ids = grid2D.pixel(trunk.centre).ray_ids;
-      double mean_rad = 0.0;
-      double mean_num = 0.0;
-      std::vector<Eigen::Vector3d> nearest_points;
-      for (size_t i = 0; i < ray_ids.size(); i++)
-      {
-        // check whether ray passes through trunk...
-        const Eigen::Vector3d start = cloud.starts[ray_ids[i]];
-        const Eigen::Vector3d end = cloud.ends[ray_ids[i]];
-
-        const Eigen::Vector3d line_dir = end - start;
-        const Eigen::Vector3d across = line_dir.cross(trunk.dir);
-        const Eigen::Vector3d side = across.cross(trunk.dir);
-
-        const double d = std::max(0.0, std::min((base - start).dot(side) / line_dir.dot(side), 1.0));
-        const Eigen::Vector3d closest_point = start + line_dir * d;
-
-        const double d2 =
-          std::max(0.0, std::min((closest_point - base).dot(trunk.dir), trunk.length + 2.0 * trunk.radius));
-        const Eigen::Vector3d closest_point2 = base + trunk.dir * d2;
-
-        const double dist = (closest_point - closest_point2).norm();
-        if (dist < trunk.radius)
-        {
-          mean_rad += dist;
-          mean_num++;
-          nearest_points.push_back(closest_point);
-        }
-      }
-      if (mean_num > 1)
-      {
-        mean_rad /= mean_num;
-        if (mean_rad < 0.7 * trunk.radius)  // too many pass through the trunk
-        {
-          trunk.active = false;
-          num_removed++;
-          pass_through_points.insert(pass_through_points.begin(), nearest_points.begin(), nearest_points.end());
-        }
-        else
-        {
-          closest_approach_points.insert(closest_approach_points.begin(), nearest_points.begin(), nearest_points.end());
-        }
-      }
-    }
-    if (verbose)
-    {
-      // visualise the trunks and the removed ones, showing the closest point of passing rays
-      std::cout << "num trunks removed: " << num_removed << std::endl;
-      drawTrunks(trunks, &closest_approach_points, &pass_through_points);
-    }
-
-    best_trunks_ = trunks;
-    trunks.clear();
-    for (auto &trunk : best_trunks_)
-    {
-      if (trunk.active)
-        trunks.push_back(trunk);
-    }
+    removePermeableTrunks(verbose, cloud, trunks, min_bound, max_bound);
   }
 
-  // get lowest trunks:
+  setTrunkGroundHeights(cloud, trunks, min_bound, max_bound);
+  // find only the lowest trunk to the ground in any near-vertical chain of candidates
+  std::vector<int> lowest_trunk_ids = findLowestTrunks(trunks);
+
+  saveDebugTrunks("trunks_verbose.ply", verbose, lowest_trunk_ids, trunks);
+
+  best_trunks_.clear();
+  for (auto &id : lowest_trunk_ids)
+  {
+    best_trunks_.push_back(trunks[id]);
+  }
+}
+
+/// remove trunk candidates with rays that pass right through them
+void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, std::vector<Trunk> &trunks, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound)
+{
+  // first we make a 2D grid to store which horizontal cells (pixels) have rays passing through them
+  RayIndexGrid2D grid2D;
+  grid2D.init(min_bound, max_bound, 2.0);
+  for (auto &trunk : trunks)
+  {
+    if (trunk.active)
+    {
+      grid2D.pixel(trunk.centre).filled = true;
+    }
+  }
+  // set the grid's occupancy from the rays
+  grid2D.fillRays(cloud);
+
+  std::vector<Eigen::Vector3d> closest_approach_points, pass_through_points;
+  int num_removed = 0;
+  // now check how occupied the pixels are that overlap each trunk
+  for (auto &trunk : trunks)
+  {
+    if (!trunk.active)
+    {
+      continue;
+    }
+
+    Eigen::Vector3d base = trunk.centre - trunk.length * 0.5 * trunk.dir;
+    auto &ray_ids = grid2D.pixel(trunk.centre).ray_ids;
+    double mean_rad = 0.0;
+    double mean_num = 0.0;
+    std::vector<Eigen::Vector3d> nearest_points;
+    for (size_t i = 0; i < ray_ids.size(); i++)
+    {
+      // check whether ray passes through trunk...
+      const Eigen::Vector3d start = cloud.starts[ray_ids[i]];
+      const Eigen::Vector3d end = cloud.ends[ray_ids[i]];
+
+      const Eigen::Vector3d line_dir = end - start;
+      const Eigen::Vector3d across = line_dir.cross(trunk.dir);
+      const Eigen::Vector3d side = across.cross(trunk.dir);
+
+      const double d = std::max(0.0, std::min((base - start).dot(side) / line_dir.dot(side), 1.0));
+      const Eigen::Vector3d closest_point = start + line_dir * d;
+
+      const double d2 =
+        std::max(0.0, std::min((closest_point - base).dot(trunk.dir), trunk.length + 2.0 * trunk.radius));
+      const Eigen::Vector3d closest_point2 = base + trunk.dir * d2;
+
+      const double dist = (closest_point - closest_point2).norm();
+      if (dist < trunk.radius)
+      {
+        mean_rad += dist;
+        mean_num++;
+        nearest_points.push_back(closest_point);
+      }
+    }
+    if (mean_num > 1)
+    {
+      mean_rad /= mean_num;
+      if (mean_rad < 0.7 * trunk.radius)  // too many pass through the trunk
+      {
+        trunk.active = false;
+        num_removed++;
+        pass_through_points.insert(pass_through_points.begin(), nearest_points.begin(), nearest_points.end());
+      }
+      else
+      {
+        closest_approach_points.insert(closest_approach_points.begin(), nearest_points.begin(), nearest_points.end());
+      }
+    }
+  }
+  if (verbose)
+  {
+    // visualise the trunks and the removed ones, showing the closest point of passing rays
+    std::cout << "num trunks removed: " << num_removed << std::endl;
+    drawTrunks(trunks, &closest_approach_points, &pass_through_points);
+  }
+
+  best_trunks_ = trunks;
+  trunks.clear();
+  for (auto &trunk : best_trunks_)
+  {
+    if (trunk.active)
+    {
+      trunks.push_back(trunk);
+    }
+  }
+}
+
+/// set the ground heights for each trunk
+void Trunks::setTrunkGroundHeights(const Cloud &cloud, std::vector<Trunk> &trunks, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound)
+{
   // now get ground height for each trunk:
   const double pixel_width = 2.0;
   const int dimx = static_cast<int>(std::ceil((max_bound[0] - min_bound[0]) / pixel_width));
@@ -585,17 +597,18 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
       h = cloud.ends[i][2];
     }
   }
+  // set the trunk ground height, and orient the trunks to not point downwards
   for (auto &trunk : trunks)
   {
     const Eigen::Vector3i index = ((trunk.centre - min_bound) / pixel_width).cast<int>();
     trunk.ground_height = ground_heights(index[0], index[1]) - 1.0;  // TODO: fix!
-    if (trunk.dir[2] < 0.0)
-    {
-      trunk.dir *= -1.0;
-    }
   }
+}
 
-  // Next a forest nearest path search
+/// a forest nearest path search to find only the lowest trunks of any connected chain
+std::vector<int> Trunks::findLowestTrunks(const std::vector<Trunk> &trunks) const
+{
+  // Next h
   std::priority_queue<QueueNode, std::vector<QueueNode>, QueueNodeComparator> closest_node;
   std::vector<int> lowest_trunk_ids;
   // get the lowest points and fill in closest_node
@@ -619,18 +632,18 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
     }
     if (j == trunks.size())
     {
-      if (trunks[i].dir[2] < 0.0)
-      {
-        trunks[i].dir *= -1;
-      }
       closest_node.push(QueueNode(sqr(trunks[i].centre[2]), static_cast<int>(i)));
       lowest_trunk_ids.push_back(static_cast<int>(i));
     }
   }
   std::cout << "number of ground trunks: " << closest_node.size() << " so " << trunks.size() - closest_node.size()
             << " trunks have been removed" << std::endl;
+  return lowest_trunk_ids;
+}
 
-  // render these trunk points to disk:
+/// render trunk points to disk:
+void Trunks::saveDebugTrunks(const std::string &filename, bool verbose, const std::vector<int> &lowest_trunk_ids, const std::vector<Trunk> &trunks) const
+{
   if (verbose)
   {
     std::vector<Eigen::Vector3d> cloud_points;
@@ -640,7 +653,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
     colour.alpha = 255;
     for (auto &id : lowest_trunk_ids)
     {
-      Trunk &trunk = trunks[id];
+      const Trunk &trunk = trunks[id];
       colour.red = uint8_t(rand() % 255);
       colour.green = uint8_t(rand() % 255);
       colour.blue = uint8_t(rand() % 255);
@@ -660,17 +673,11 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool exclude_
         }
       }
     }
-    writePlyPointCloud("trunks_verbose.ply", cloud_points, times, colours);
-  }
-
-  best_trunks_.clear();
-  for (auto &id : lowest_trunk_ids)
-  {
-    best_trunks_.push_back(trunks[id]);
-  }
+    writePlyPointCloud(filename, cloud_points, times, colours);
+  }  
 }
 
-bool Trunks::save(const std::string &filename)
+bool Trunks::save(const std::string &filename) const
 {
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
@@ -701,12 +708,10 @@ std::vector<std::pair<Eigen::Vector3d, double>> Trunks::load(const std::string &
     return std::vector<std::pair<Eigen::Vector3d, double>>();
   }
   std::vector<std::pair<Eigen::Vector3d, double>> trunks;
-  while (!ifs.eof())
+  for (std::string line; std::getline(ifs, line);)
   {
     Eigen::Vector3d base;
     double radius;
-    std::string line;
-    std::getline(ifs, line);
     if (line.length() == 0 || line[0] == '#')
     {
       continue;

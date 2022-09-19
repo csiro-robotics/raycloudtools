@@ -291,7 +291,7 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
   {
     for (int j = 0; j < dims[1]; j++)
     {
-      lowests[i + dims[0] * j] = Eigen::Vector3d(0, 0, 1e10);
+      lowests[i + dims[0] * j] = Eigen::Vector3d(0, 0, std::numeric_limits<double>::max());
     }
   }
   for (size_t i = 0; i < ends.size(); i++)
