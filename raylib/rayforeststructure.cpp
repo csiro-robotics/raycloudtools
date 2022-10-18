@@ -39,7 +39,11 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   std::hash<std::string> hasher;
 
   size_t attribute_hash = 0;
-  for (auto &attribute: trees[0].attributes())
+  for (auto &attribute: trees[0].treeAttributes())
+  {
+    attribute_hash += hasher(attribute);
+  }
+  for (auto &attribute: trees[0].branchAttributes())
   {
     attribute_hash += hasher(attribute);
   }
@@ -64,7 +68,7 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   moments[4] = rad_sqr;
   moments[5] = volume * kPi;
   // we should care about attributes too:
-  moments[6] = static_cast<double>(trees[0].attributes().size());
+  moments[6] = static_cast<double>(trees[0].treeAttributes().size());
   moments[7] = static_cast<double>(attribute_hash);
   moments[8] = sum_attributes;
 
@@ -100,31 +104,58 @@ bool ForestStructure::load(const std::string &filename)
     std::cerr << "Error: tree files must start with the mandatory format: " << mandatory_text << std::endl;
     return false;
   }
-
-  // parse the attributes line. This line defines any additional attributes beyond mandatory_text
-  int commas_per_segment = 1 + (int)std::count(line.begin(), line.end(), ',');
-  line = line.substr(mandatory_text.length());
-  if (line[0] == ',')
-    line = line.substr(1);
-  std::istringstream ss(line);
-  std::vector<std::string> attributes;
-  bool has_parent_id = false;
-  // parse each attribute
-  for (int i = 4; i < commas_per_segment; i++)
+  // check if there is a second x,y,z,radius on the same line, this will indicate a separate set of branch attributes
+  size_t found = line.find(mandatory_text, mandatory_text.length());
+  std::vector<std::string> attributes[2];
+  std::string lines[2];
+  int num_atts = 1;
+  if (found != std::string::npos)
   {
-    std::string token;
-    std::getline(ss, token, ',');
-    if (token == "parent_id")  // parent_id is a special case as it is an int rather than double
-      has_parent_id = true;
-    else
-      attributes.push_back(token);
+    lines[1] = line.substr(found);
+    lines[0] = line.substr(0, found);
+    num_atts++;
   }
-  if (attributes.size() > 0)
+  int commas_per_segment[2] = {0, 0};
+
+  bool has_parent_id[2] = {false, false};
+  for (int att = 0; att<num_atts; att++)
   {
-    // let the user know what attributes it found
-    std::cout << "reading extra tree attributes: ";
-    for (auto &at : attributes) std::cout << at << "; ";
-    std::cout << std::endl;
+    // parse the attributes line. This line defines any additional attributes beyond mandatory_text
+    commas_per_segment[att] = 1 + (int)std::count(lines[att].begin(), lines[att].end(), ',');
+    lines[att] = lines[att].substr(mandatory_text.length());
+    if (lines[att][0] == ',')
+    {
+      lines[att] = lines[att].substr(1);
+    }
+    std::istringstream ss(lines[att]);
+    // parse each attribute
+    for (int i = 4; i < commas_per_segment[att]; i++)
+    {
+      std::string token;
+      std::getline(ss, token, ',');
+      if (token == "parent_id")  // parent_id is a special case as it is an int rather than double
+      {
+        has_parent_id[att] = true;
+      }
+      else
+      {
+        attributes[att].push_back(token);
+      }
+    }
+    if (attributes[att].size() > 0)
+    {
+      // let the user know what attributes it found
+      std::cout << "reading extra tree attributes: ";
+      for (auto &at : attributes[att]) 
+      {
+        std::cout << at << "; ";
+      }
+      std::cout << std::endl;
+    }
+  }
+  if (lines[1].empty()) // if we don't specify branch attributes then they default to the same as the tree attributes
+  {
+    lines[1] = lines[0];
   }
 
   int line_number = 0;
@@ -138,28 +169,35 @@ bool ForestStructure::load(const std::string &filename)
     // use commas to separate the line
     int num_commas = 1 + (int)std::count(line.begin(), line.end(), ',');
     TreeStructure tree;
-    tree.attributes() = attributes;
+    tree.treeAttributes() = attributes[0];
+    tree.branchAttributes() = attributes[1];
     // make sure the number of commas is what we expect
-    if (num_commas > commas_per_segment && !has_parent_id)
+    if (num_commas > commas_per_segment[0] && !has_parent_id)
     {
       std::cerr << "Error: trees with multiple segments need parent_id field to connect them" << std::endl;
       return false;
     }
-    if (num_commas % commas_per_segment != 0)
+    if (num_commas < commas_per_segment[0] || 
+       (num_commas-commas_per_segment[0]) % commas_per_segment[1] != 0)
     {
-      std::cerr << "Error: line " << line_number << " contains " << num_commas << " commas, which is not divisible by "
-                << commas_per_segment << std::endl;
+      std::cerr << "Error: line " << line_number << " contains " << num_commas << " commas, which is not possible when there are " 
+                << commas_per_segment[0] << " tree commas and " << commas_per_segment[1] << " branch commas" << std::endl;
       return false;
     }
 
     line_number++;
     std::istringstream ss(line);
     // for each segment...
-    for (int c = 0; c < num_commas; c += commas_per_segment)
+    int att_id = 0;
+    for (int c = 0; c < num_commas; c += commas_per_segment[att_id])
     {
       TreeStructure::Segment segment;
+      if (c > 0)
+      {
+        att_id = 1;
+      }
       // for each attribute of this segment...
-      for (int i = 0; i < commas_per_segment; i++)
+      for (int i = 0; i < commas_per_segment[att_id]; i++)
       {
         std::string token;
         if (!std::getline(ss, token, ','))
@@ -174,7 +212,7 @@ bool ForestStructure::load(const std::string &filename)
         {
           segment.radius = std::stod(token.c_str());  // special case for radius
         }
-        else if (i == 4 && has_parent_id)
+        else if (i == 4 && has_parent_id[att_id])
         {
           segment.parent_id = std::stoi(token.c_str());  // special case for parent_id
         }
@@ -237,16 +275,35 @@ bool ForestStructure::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }
-  ofs << "# Tree file:" << std::endl;
+  ofs << "# Tree file. Tree attributes optionally followed by branch attributes after space:" << std::endl;
   ofs << "x,y,z,radius";
-  if (trees[0].segments().size() > 1)
+  bool different_branches = trees[0].segments().size() > 0 && trees[0].branchAttributes() != trees[0].treeAttributes();
+  if (!different_branches)
+  {
     ofs << ",parent_id";
-  if (trees[0].attributes().size() > 0)
-    std::cout << "Saving additional attributes: ";
-  for (auto &att : trees[0].attributes())
+  }
+  if (trees[0].treeAttributes().size() > 0)
+  {
+    std::cout << "Saving additional tree attributes: ";
+  }
+  for (auto &att : trees[0].treeAttributes())
   {
     ofs << "," << att;
     std::cout << att << ", ";
+  }
+
+  if (different_branches) // only need to list branch attributes if they are different
+  {
+    ofs << " x,y,z,radius,parent_id";
+    if (trees[0].branchAttributes().size() > 0)
+    {
+      std::cout << "Saving additional branch attributes: ";
+    }
+    for (auto &att : trees[0].branchAttributes())
+    {
+      ofs << "," << att;
+      std::cout << att << ", ";
+    }
   }
   std::cout << std::endl;
   ofs << std::endl;
@@ -259,12 +316,18 @@ bool ForestStructure::save(const std::string &filename)
       auto &segment = tree.segments()[i];
       // save the mandatory attributes
       ofs << segment.tip[0] << "," << segment.tip[1] << "," << segment.tip[2] << "," << segment.radius;
-      if (tree.segments().size() > 1)
+      if (tree.segments().size() > 1 && (i>0 || !different_branches))
+      {  
         ofs << "," << segment.parent_id;    // save the special-case parent_id
+      }
       for (auto &att : segment.attributes)  // save the user attributes
+      {  
         ofs << "," << att;
+      }
       if (i != tree.segments().size() - 1)
+      {  
         ofs << ", ";
+      }
     }
     ofs << std::endl;
   }

@@ -37,8 +37,10 @@ public:
   const Eigen::Vector3d &root() const { return segments_[0].tip; }
 
   /// access the tree's attributes
-  std::vector<std::string> &attributes() { return attribute_names_; }
-  const std::vector<std::string> &attributes() const { return attribute_names_; }
+  std::vector<std::string> &treeAttributes() { return tree_attribute_names_; }
+  const std::vector<std::string> &treeAttributes() const { return tree_attribute_names_; }
+  std::vector<std::string> &branchAttributes() { return branch_attribute_names_; }
+  const std::vector<std::string> &branchAttributes() const { return branch_attribute_names_; }
 
   /// calculate the volume of the tree
   double volume();
@@ -49,7 +51,8 @@ public:
 
 protected:
   std::vector<Segment> segments_;
-  std::vector<std::string> attribute_names_;
+  std::vector<std::string> tree_attribute_names_;
+  std::vector<std::string> branch_attribute_names_;
 };
 }  // namespace ray
 #endif  // RAYLIB_RAYTREESTRUCTURE_H
