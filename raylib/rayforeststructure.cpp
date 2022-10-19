@@ -105,15 +105,20 @@ bool ForestStructure::load(const std::string &filename)
     return false;
   }
   // check if there is a second x,y,z,radius on the same line, this will indicate a separate set of branch attributes
-  size_t found = line.find(mandatory_text, mandatory_text.length());
+  size_t found = line.find(" " + mandatory_text, mandatory_text.length());
   std::vector<std::string> attributes[2];
-  std::string lines[2] = {line, line};
+  std::string lines[2] = {line, ""};
   int num_atts = 1;
   if (found != std::string::npos)
   {
-    lines[1] = line.substr(found);
-    lines[0] = line.substr(0, found);
+    lines[1] = line.substr(found+1);
+    lines[0] = line.substr(0, found-1);
     num_atts++;
+  }
+  if (num_atts == 1) // if we don't specify branch attributes then they default to the same as the tree attributes
+  {
+    num_atts = 2;
+    lines[1] = lines[0];
   }
   int commas_per_segment[2] = {0, 0};
 
@@ -145,7 +150,7 @@ bool ForestStructure::load(const std::string &filename)
     if (attributes[att].size() > 0)
     {
       // let the user know what attributes it found
-      std::cout << "reading extra tree attributes: ";
+      std::cout << "reading extra " << (att==0 ? "tree" : "branch") << " attributes: ";
       for (auto &at : attributes[att]) 
       {
         std::cout << at << "; ";
@@ -153,10 +158,7 @@ bool ForestStructure::load(const std::string &filename)
       std::cout << std::endl;
     }
   }
-  if (lines[1].empty()) // if we don't specify branch attributes then they default to the same as the tree attributes
-  {
-    lines[1] = lines[0];
-  }
+
 
   int line_number = 0;
   // now parse the data, one line at a time
@@ -177,16 +179,7 @@ bool ForestStructure::load(const std::string &filename)
       std::cerr << "Error: trees with multiple segments need parent_id field to connect them" << std::endl;
       return false;
     }
-    if (num_atts == 1)
-    {
-      if (num_commas%commas_per_segment[0] != 0)
-      {
-        std::cerr << "Error: line " << line_number << " contains " << num_commas << " commas, which is not possible when there are " 
-                  << commas_per_segment[0] << " commas per segment" << std::endl;
-        return false;        
-      }
-    }
-    else if (num_commas < commas_per_segment[0] || 
+    if (num_commas < commas_per_segment[0] || 
             (num_commas-commas_per_segment[0]) % commas_per_segment[1] != 0)
     {
       std::cerr << "Error: line " << line_number << " contains " << num_commas << " commas, which is not possible when there are " 
@@ -201,7 +194,7 @@ bool ForestStructure::load(const std::string &filename)
     for (int c = 0; c < num_commas; c += commas_per_segment[att_id])
     {
       TreeStructure::Segment segment;
-      if (c > 0 && num_atts == 2)
+      if (c > 0)
       {
         att_id = 1;
       }
@@ -300,10 +293,11 @@ bool ForestStructure::save(const std::string &filename)
     ofs << "," << att;
     std::cout << att << ", ";
   }
+  std::cout << std::endl;
 
   if (different_branches) // only need to list branch attributes if they are different
   {
-    ofs << " x,y,z,radius,parent_id";
+    ofs << ", x,y,z,radius,parent_id";
     if (trees[0].branchAttributes().size() > 0)
     {
       std::cout << "Saving additional branch attributes: ";
