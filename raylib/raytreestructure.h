@@ -42,8 +42,11 @@ public:
   std::vector<std::string> &branchAttributes() { return branch_attribute_names_; }
   const std::vector<std::string> &branchAttributes() const { return branch_attribute_names_; }
 
+  /// calculate the number of attributes that are both tree and branch attributes
+  int numSharedAttributes() const;
+
   /// calculate the volume of the tree
-  double volume();
+  double volume() const;
 
   /// return the root radius of the tree
   double &radius() { return segments_[0].radius; }
