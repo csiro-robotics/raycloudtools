@@ -110,10 +110,8 @@ bool ForestStructure::load(const std::string &filename)
   if (found > 1)
   {
     lines[0] = line.substr(0, found-2);
-    std::cout << "tree format: (" << lines[0] << ")" << std::endl; 
   }
   lines[1] = line.substr(found);
-  std::cout << "branch format: (" << lines[1] << ")" << std::endl; 
 
   // check if there is a second x,y,z,radius on the same line, this will indicate a separate set of branch attributes
   int commas_per_segment = 0;
@@ -123,7 +121,6 @@ bool ForestStructure::load(const std::string &filename)
   {
     // parse the attributes line. This line defines any additional attributes beyond mandatory_text
     commas_per_tree = 1 + (int)std::count(lines[0].begin(), lines[0].end(), ',');
-//    std::cout << "commas per tree: " << commas_per_tree << std::endl;
     std::istringstream ss(lines[0]);
     // parse each attribute
     for (int i = 0; i < commas_per_tree; i++)
@@ -142,7 +139,6 @@ bool ForestStructure::load(const std::string &filename)
     {
       lines[1] = lines[1].substr(1);
     }
-//    std::cout << "commas per segment: " << commas_per_segment << std::endl;
     std::istringstream ss(lines[1]);
     // parse each attribute
     for (int i = 4; i < commas_per_segment; i++)
