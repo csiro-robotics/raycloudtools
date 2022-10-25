@@ -817,9 +817,8 @@ bool Trees::save(const std::string &filename) const
     for (unsigned int c = 0; c < children.size(); c++)
     {
       const BranchSection &node = sections_[children[c]];
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << ","
-          << sections_[node.parent].id;
-      ofs << ", " << children[c];
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << "," << sections_[node.parent].id;
+      ofs << "," << children[c];
       for (auto i : sections_[children[c]].children)
       {
         children.push_back(i);

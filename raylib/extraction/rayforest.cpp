@@ -252,11 +252,10 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   ray::ForestStructure forest;
   int num_spaces = 0;
   // and we include four user-defined attributes
-  const std::vector<std::string> tree_attributes = { "tree_radius", "height", "trunk_identified", "section_id" };
+  const std::vector<std::string> tree_attributes = { "tree_radius", "height", "trunk_identified" };
   const int tree_radius_id = 0;
   const int height_id = 1;
   const int trunk_identified_id = 2;
-  const int section_id = 3;
 
   // the indexfield assigns a unique index to each cluster (each tree) as we grow using the watershed algorithm
   indexfield_ = Eigen::ArrayXXi::Constant(heightfield_.rows(), heightfield_.cols(), -1);
@@ -327,6 +326,8 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
     {
       ray::TreeStructure tree;
       tree.treeAttributeNames() = tree_attributes;
+      tree.attributeNames().push_back("section_id");
+      tree.treeAttributes().resize(tree_attributes.size());
       ray::TreeStructure::Segment result;
       // locate the tree
       result.tip = min_bounds_ + tip;
@@ -338,8 +339,8 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       tree.treeAttributes()[tree_radius_id] =
         std::sqrt((static_cast<double>(num_pixels) * voxel_width_ * voxel_width_) / kPi);  // get from num pixels
       tree.treeAttributes()[trunk_identified_id] = 1;
-      // assign its unique id
-      tree.treeAttributes()[section_id] = ind;
+      // assign its unique section id
+      result.attributes.push_back(ind);
       // if the tree had an identified trunk then use this radius estimate
       if (trunk_id >= 0)
       {
@@ -363,7 +364,7 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
   // sort trees by their radius
   std::sort(forest.trees.begin(), forest.trees.end(),
             [&tree_radius_id](const ray::TreeStructure &a, const ray::TreeStructure &b) {
-              return a.segments()[0].attributes[tree_radius_id] > b.segments()[0].attributes[tree_radius_id];
+              return a.treeAttributes()[tree_radius_id] > b.treeAttributes()[tree_radius_id];
             });
 
   return forest;

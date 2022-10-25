@@ -47,11 +47,22 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   {
     attribute_hash += hasher(attribute);
   }
+  double sum_tree_attributes = 0.0; // a total over all the tree attributes
+  for (auto &tree: trees)
+  {
+    for (auto &att: tree.treeAttributes())
+    {
+      sum_tree_attributes += att;
+    }
+  }
+  sum_tree_attributes /= static_cast<double>(trees.size());
   double sum_attributes = 0.0; // a total over all the attributes
+  int num_segments = 0;
   for (auto &tree: trees)
   {
     for (auto &segment: tree.segments())
     {
+      num_segments++;
       for (auto &att: segment.attributes)
       {
         sum_attributes += att;
@@ -59,7 +70,7 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
     }
   }
   sum_attributes /= static_cast<double>(trees.size());
-  sum_attributes /= static_cast<double>(trees[0].segments().size());
+  sum_attributes /= static_cast<double>(num_segments);
   // keep the hash small enough to be represented uniquely by a double
   attribute_hash = attribute_hash % 100000; 
   moments[1] = sum.norm();
@@ -68,8 +79,8 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   moments[4] = rad_sqr;
   moments[5] = volume * kPi;
   // we should care about attributes too:
-  moments[6] = static_cast<double>(trees[0].treeAttributes().size());
-  moments[7] = static_cast<double>(attribute_hash);
+  moments[6] = static_cast<double>(attribute_hash);
+  moments[7] = sum_tree_attributes;
   moments[8] = sum_attributes;
 
   return moments;
