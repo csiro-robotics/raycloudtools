@@ -326,21 +326,20 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
     if (findSpace(trees[ind], tip))  // if this tree actually has space to exist
     {
       ray::TreeStructure tree;
-      tree.treeAttributes() = tree_attributes;
+      tree.treeAttributeNames() = tree_attributes;
       ray::TreeStructure::Segment result;
-      result.attributes.resize(tree_attributes.size());
       // locate the tree
       result.tip = min_bounds_ + tip;
       result.tip[2] = lowfield_(int(tip[0] / voxel_width_), int(tip[1] / voxel_width_));
       // set its height
-      result.attributes[height_id] = tip[2];
+      tree.treeAttributes()[height_id] = tip[2];
       // estimate the tree (crown) radius
       const int num_pixels = trees[ind].area;
-      result.attributes[tree_radius_id] =
+      tree.treeAttributes()[tree_radius_id] =
         std::sqrt((static_cast<double>(num_pixels) * voxel_width_ * voxel_width_) / kPi);  // get from num pixels
-      result.attributes[trunk_identified_id] = 1;
+      tree.treeAttributes()[trunk_identified_id] = 1;
       // assign its unique id
-      result.attributes[section_id] = ind;
+      tree.treeAttributes()[section_id] = ind;
       // if the tree had an identified trunk then use this radius estimate
       if (trunk_id >= 0)
       {
@@ -348,8 +347,8 @@ ray::ForestStructure Forest::extract(const Eigen::ArrayXXd &highs, const Eigen::
       }
       else  // otherwise, estimate trunk radius crudely from the tree height
       {
-        result.radius = result.attributes[height_id] / approx_height_per_radius_;
-        result.attributes[trunk_identified_id] = 0;
+        result.radius = tree.treeAttributes()[height_id] / approx_height_per_radius_;
+        tree.treeAttributes()[trunk_identified_id] = 0;
       }
       tree.segments().push_back(result);
       forest.trees.push_back(tree);

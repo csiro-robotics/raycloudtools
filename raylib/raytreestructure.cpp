@@ -20,20 +20,4 @@ double TreeStructure::volume() const
   return volume * kPi;  // .. but we multiply by pi at the end
 }
 
-int TreeStructure::numSharedAttributes() const
-{
-  int n = 0;
-  for (; n<(int)treeAttributes().size(); n++)
-  {
-    if (n == (int)branchAttributes().size())
-    {
-      break;
-    }
-    if (treeAttributes()[n] != branchAttributes()[n])
-    {
-      break;
-    }
-  }
-  return n;
-}
 }  // namespace ray
