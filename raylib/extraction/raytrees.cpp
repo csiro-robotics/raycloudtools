@@ -802,7 +802,7 @@ bool Trees::save(const std::string &filename) const
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }
-  ofs << "# Tree file. Optional whole-tree attributes, followed by ', x,y,z,radius' and any additional branch segment attributes:" << std::endl;
+  ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
   ofs << "x,y,z,radius,parent_id,section_id" << std::endl;  // simple format
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
