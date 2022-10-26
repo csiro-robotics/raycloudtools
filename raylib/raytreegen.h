@@ -41,7 +41,9 @@ public:
   TreeGen(const TreeStructure &base_tree)
   {
     segments_ = base_tree.segments();
-    attribute_names_ = base_tree.attributes();
+    tree_attribute_names_ = base_tree.treeAttributeNames();
+    branch_attribute_names_ = base_tree.attributeNames();
+    tree_attributes_ = base_tree.treeAttributes();
   }
   /// create the tree structure, and list of leaf points
   void make(const TreeParams &params);
@@ -60,7 +62,9 @@ public:
   void toTreeStructure(TreeStructure &tree)
   {
     tree.segments() = segments_;
-    tree.attributes() = attribute_names_;
+    tree.treeAttributeNames() = tree_attribute_names_;
+    tree.attributeNames() = branch_attribute_names_;
+    tree.treeAttributes() = tree_attributes_;
   }
 
 private:
