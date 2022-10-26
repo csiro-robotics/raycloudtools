@@ -23,13 +23,13 @@ void usage(int exit_code = 1)
   std::cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to the merge type specified." << std::endl;
   std::cout << "Outputs the combined cloud and the residual cloud of differences." << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "raycombine min raycloud1 raycloud2 ... raycloudN 20 rays - combines into one cloud with minimal objects at differences" << std::endl;
-  std::cout << "                                                           20 is the number of pass through rays to define " << std::endl;
+  std::cout << "raycombine all raycloud1 raycloud2 ... raycloudN   - concatenate all the rays in the _combined.ply cloud ('all' is optional)" << std::endl;
+  std::cout << "           min raycloud1 ... raycloudN 20 rays - combines into one cloud with minimal objects at differences" << std::endl;
+  std::cout << "                                                 20 is the number of pass through rays to define " << std::endl;
   std::cout << "           max    - maximal objects included. This is a form of volume intersection (rather than min: union)." << std::endl;
   std::cout << "           oldest - keeps the oldest geometry when there is a difference in later ray clouds." << std::endl;
   std::cout << "           newest - uses the newest geometry when there is a difference in newer ray clouds." << std::endl;
   std::cout << "           order  - conflicts are resolved in argument order, with the first taking priority." << std::endl;
-  std::cout << "           all    - combines as a simple concatenation, with all rays remaining (don't include 'xx rays')." << std::endl;
   std::cout << "raycombine basecloud min raycloud1 raycloud2 20 rays - 3-way merge, choses the changed geometry (from basecloud) at any differences. " << std::endl;
   std::cout << "                                                       For merge conflicts it uses the specified merge type." << std::endl;
   std::cout << "        --output raycloud_combined.ply               - optionally specify the output file name." << std::endl;
@@ -37,7 +37,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-// Decimates the ray cloud, spatially or in timevpn-new.csiro.au
+// Combines multiple clouds together
 int main(int argc, char *argv[])
 {
   ray::KeyChoice merge_type({ "min", "max", "oldest", "newest", "order" });
@@ -50,15 +50,21 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument output("output", 'o', &output_file);
 
   // three-way merge option
-  bool standard_format =
-    ray::parseCommandLine(argc, argv, { &merge_type, &cloud_files, &num_rays, &rays_text }, { &output });
-  bool concatenate = ray::parseCommandLine(argc, argv, { &all_text, &cloud_files }, { &output });
+  bool standard_format = ray::parseCommandLine(argc, argv, { &merge_type, &cloud_files, &num_rays, &rays_text }, { &output });
+  bool concatenate_all = ray::parseCommandLine(argc, argv, { &all_text, &cloud_files }, { &output });
+  bool concatenate = false;
   bool threeway = ray::parseCommandLine(
     argc, argv, { &base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text }, { &output });
   bool threeway_concatenate =
     ray::parseCommandLine(argc, argv, { &base_cloud, &all_text, &cloud_1, &cloud_2 }, { &output });
-  if (!standard_format && !concatenate && !threeway && !threeway_concatenate)
-    usage();
+  if (!standard_format && !concatenate_all && !threeway && !threeway_concatenate)
+  {
+    concatenate = ray::parseCommandLine(argc, argv, { &cloud_files }, { &output }); // a bit more ambiguous, so only try if the other formats failed
+    if (!concatenate)
+    {
+      usage();
+    }
+  }
 
   // we know there is at least one file, as we specified a minimum number in FileArgumentList
   std::string file_stub =
@@ -107,7 +113,7 @@ int main(int argc, char *argv[])
   {
     config.merge_type = ray::MergeType::Maximum;
   }
-  if (concatenate || threeway_concatenate)
+  if (concatenate || threeway_concatenate || concatenate_all)
   {
     config.merge_type = ray::MergeType::All;
   }
@@ -125,7 +131,7 @@ int main(int argc, char *argv[])
       usage();
     merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], &progress);
   }
-  else if (concatenate)
+  else if (concatenate || concatenate_all)
   {
     fixed_cloud = &concatenated_cloud;
     for (auto &cloud : clouds)
