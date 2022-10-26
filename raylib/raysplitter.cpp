@@ -107,6 +107,133 @@ bool splitPlane(const std::string &file_name, const std::string &in_name, const 
   return true;
 }
 
+/// Special case for splitting a capsule.
+bool splitCapsule(const std::string &file_name, const std::string &in_name, const std::string &out_name,
+                  const Eigen::Vector3d &end1, const Eigen::Vector3d &end2, double radius)
+{
+  CloudWriter inside_writer, outside_writer;
+  if (!inside_writer.begin(in_name))
+    return false;
+  if (!outside_writer.begin(out_name))
+    return false;
+  Cloud in_chunk, out_chunk;
+
+  Eigen::Vector3d dir = end2 - end1;
+  double length = dir.norm();
+  if (length > 0.0)
+  {
+    dir /= length;
+  }
+
+  // splitting per chunk
+  auto per_chunk = [&end1, &end2, &dir, &length, &radius, &in_chunk, &out_chunk, &inside_writer, &outside_writer](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                       std::vector<double> &times, std::vector<RGBA> &colours) {
+    for (size_t i = 0; i < ends.size(); i++)
+    {
+      Eigen::Vector3d start = starts[i];
+      Eigen::Vector3d end = ends[i];
+      Eigen::Vector3d ray = end - start;
+      // The approach is to find the d value (ratio along ray) for the first and second intersection with 
+      // the capsule. This can be found by breaking it into a cylinder and two spheres, and
+      // a few min/maxs.
+
+      // cylinder part:
+      double cylinder_intersection1 = 1e10;
+      double cylinder_intersection2 = -1e10;
+      Eigen::Vector3d up = dir.cross(ray);
+      double mag = up.norm();
+      if (mag > 0.0) // two rays are not inline
+      {
+        up /= mag;
+        double gap = std::abs((start - end1).dot(up));
+        if (gap >= radius)
+        {
+          out_chunk.addRay(start, end, times[i], colours[i]);
+          continue; // if it doesn't hit the endless cylinder it won't hit the capsule
+        }
+        Eigen::Vector3d lateral_dir = ray - dir * ray.dot(dir);
+        double lateral_length = lateral_dir.norm();
+        double d_mid = (end1 - start).dot(lateral_dir) / ray.dot(lateral_dir);
+        
+        double shift = std::sqrt(radius*radius - gap*gap) / lateral_length;
+        double d_min = d_mid - shift;
+        double d_max = d_mid + shift;
+        double d1 = (start + ray*d_min - end1).dot(dir) / length;
+        double d2 = (start + ray*d_max - end1).dot(dir) / length;
+        if (d1 > 0.0 && d1 < 1.0)
+        {
+          cylinder_intersection1 = d_min;
+        }
+        if (d2 > 0.0 && d2 < 1.0)
+        {
+          cylinder_intersection2 = d_max;
+        }
+      }
+
+      // the spheres part:
+      double ray_length = ray.norm();
+      double sphere_intersection1[2] = {1e10, 1e10};
+      double sphere_intersection2[2] = {-1e10, -1e10};
+      Eigen::Vector3d ends[2] = {end1, end2};
+      for (int e = 0; e<2; e++)
+      {
+        double mid_d = (ends[e] - start).dot(ray) / (ray_length * ray_length);
+        Eigen::Vector3d shortest_dir = (ends[e] - start) - ray * mid_d;
+        double shortest_sqr = shortest_dir.squaredNorm();
+        if (shortest_sqr < radius*radius)
+        {
+          double shift = std::sqrt(radius * radius - shortest_sqr) / ray_length;
+          sphere_intersection1[e] = mid_d - shift;
+          sphere_intersection2[e] = mid_d + shift;
+        }
+      }
+
+      // combining together
+      double closest_d = std::min( {cylinder_intersection1, sphere_intersection1[0], sphere_intersection1[1]} );
+      double farthest_d = std::max( {cylinder_intersection2, sphere_intersection2[0], sphere_intersection2[1]} );
+
+      RGBA black;
+      black.red = black.green = black.blue = black.alpha = 0;
+      // easy case
+      if (closest_d >= 1.0 || farthest_d <= 0.0)
+      {
+        out_chunk.addRay(start, end, times[i], colours[i]);
+        continue;
+      }
+      // first outside ray
+      if (closest_d > 0.0)
+      {
+        out_chunk.addRay(start, start + ray*closest_d, times[i], black);
+      }
+      // second outside ray
+      if (farthest_d < 1.0)
+      {
+        out_chunk.addRay(start + ray * farthest_d, end, times[i], colours[i]);
+      }
+      // inside ray
+      if (farthest_d < 1.0)
+      {
+        in_chunk.addRay(start + ray * std::max(0.0, closest_d), start + ray*std::min(farthest_d, 1.0), times[i], black);
+      }
+      else
+      {
+        in_chunk.addRay(start + ray * std::max(0.0, closest_d), end, times[i], colours[i]);
+      }
+    }
+    inside_writer.writeChunk(in_chunk);
+    outside_writer.writeChunk(out_chunk);
+    in_chunk.clear();
+    out_chunk.clear();
+  };
+  if (!readPly(file_name, true, per_chunk, 0))
+    return false;
+
+  inside_writer.end();
+  outside_writer.end();
+  return true;
+}
+
+
 /// Special case for splitting a box.
 bool splitBox(const std::string &file_name, const std::string &in_name, const std::string &out_name,
               const Eigen::Vector3d &centre, const Eigen::Vector3d &extents)

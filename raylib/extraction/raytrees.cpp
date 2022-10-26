@@ -827,7 +827,7 @@ bool Trees::save(const std::string &filename) const
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }
-  ofs << "# tree structure file:" << std::endl;
+  ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
   ofs << "x,y,z,radius,parent_id,section_id" << std::endl;  // simple format
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
@@ -842,9 +842,8 @@ bool Trees::save(const std::string &filename) const
     for (unsigned int c = 0; c < children.size(); c++)
     {
       const BranchSection &node = sections_[children[c]];
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << ","
-          << sections_[node.parent].id;
-      ofs << ", " << children[c];
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << "," << sections_[node.parent].id;
+      ofs << "," << children[c];
       for (auto i : sections_[children[c]].children)
       {
         children.push_back(i);

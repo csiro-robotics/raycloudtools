@@ -54,8 +54,8 @@ namespace raytest
     double eps = 0.01 * percentage;
     for (size_t i = 0; i<m2.size(); i++)
     {
-      EXPECT_GT(m1[i], m2[i] * (1.0 - eps));
-      EXPECT_LT(m1[i], m2[i] * (1.0 + eps));
+      EXPECT_GE(m1[i], m2[i] * (1.0 - eps));
+      EXPECT_LE(m1[i], m2[i] * (1.0 + eps));
     }
   }
 
@@ -212,13 +212,13 @@ namespace raytest
 
     ray::ForestStructure forest;
     EXPECT_TRUE(forest.load("forest_trees.txt"));
-    compareMomentsPercentageError(forest.getMoments(), {20, 22.2172, 1058.42, 1.39416, 0.112794, 1.6403, 1, 21918, 3102.68});
+    compareMomentsPercentageError(forest.getMoments(), {20, 22.2172, 1058.42, 1.39416, 0.112794, 1.6403, 21918, 0, 75.75});
 
     EXPECT_EQ(command("rayextract forest forest.ply --ground forest_mesh.ply"), 0);
 
     ray::ForestStructure forest2;
     EXPECT_TRUE(forest2.load("forest_forest.txt"));
-    compareMoments(forest2.getMoments(), {11, 8.43828, 586.427, 1.40054, 0.200644, 0, 4, 6476, 42.5851});
+    compareMoments(forest2.getMoments(), {11, 8.43829, 586.427, 1.40054, 0.200644, 0, 16697, 8.49419, 3.09917});
 
     EXPECT_EQ(command("rayextract trunks forest.ply"), 0);
 

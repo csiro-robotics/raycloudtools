@@ -33,23 +33,31 @@ public:
   /// access the geometry of the tree as a list of branches
   const std::vector<Segment> &segments() const { return segments_; }
   std::vector<Segment> &segments() { return segments_; }
+  /// access the whole tree's attributes
+  const std::vector<double> &treeAttributes() const { return tree_attributes_; }
+  std::vector<double> &treeAttributes() { return tree_attributes_; }
+
   /// the position of the base of the tree trunk
   const Eigen::Vector3d &root() const { return segments_[0].tip; }
 
   /// access the tree's attributes
-  std::vector<std::string> &attributes() { return attribute_names_; }
-  const std::vector<std::string> &attributes() const { return attribute_names_; }
+  std::vector<std::string> &treeAttributeNames() { return tree_attribute_names_; }
+  const std::vector<std::string> &treeAttributeNames() const { return tree_attribute_names_; }
+  std::vector<std::string> &attributeNames() { return branch_attribute_names_; }
+  const std::vector<std::string> &attributeNames() const { return branch_attribute_names_; }
 
   /// calculate the volume of the tree
-  double volume();
+  double volume() const;
 
   /// return the root radius of the tree
   double &radius() { return segments_[0].radius; }
   const double &radius() const { return segments_[0].radius; }
 
 protected:
+  std::vector<double> tree_attributes_;
   std::vector<Segment> segments_;
-  std::vector<std::string> attribute_names_;
+  std::vector<std::string> tree_attribute_names_;
+  std::vector<std::string> branch_attribute_names_;
 };
 }  // namespace ray
 #endif  // RAYLIB_RAYTREESTRUCTURE_H

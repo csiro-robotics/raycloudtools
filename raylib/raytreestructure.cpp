@@ -8,7 +8,7 @@
 namespace ray
 {
 // calculate the tree's volume
-double TreeStructure::volume()
+double TreeStructure::volume() const
 {
   double volume = 0.0;
   for (size_t i = 1; i < segments_.size(); i++)
@@ -19,4 +19,5 @@ double TreeStructure::volume()
   }
   return volume * kPi;  // .. but we multiply by pi at the end
 }
+
 }  // namespace ray
