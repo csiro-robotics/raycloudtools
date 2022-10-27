@@ -549,33 +549,21 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
 double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const
 {
   int par = sections_[sec_].parent;
-  if (par == -1)  // if this is the root segment
-  {
-    double rad = 0;
-    // then get the mean radius
-    const auto &list = sections_[sec_].ends.empty() ? nodes : sections_[sec_].ends;
-    for (auto &id : list)
-    {
-      const Eigen::Vector3d offset = points_[id].pos - sections_[sec_].tip;
-      rad += (offset - dir * offset.dot(dir)).norm();
-    }
-    const double radius = list.size() < 2 ? max_radius_ : rad / static_cast<double>(list.size());
-    return std::min(radius, max_radius_);
-  }
-  // for non-root segments
-
   // use the parent radius as a prior with a weight of 4 points
   // this avoids spurious radius estimations when the number of points is
   // small
-  double n = 4.0;
-  double rad = n * sections_[par].radius;
-  for (auto &node : nodes)
+  double n = par == -1 ? 0 : 4.0;
+  double rad = par == -1 ? 0 : n * sections_[par].radius;
+  // then get the mean radius
+  const auto &list = (par > -1 || sections_[sec_].ends.empty()) ? nodes : sections_[sec_].ends;
+  for (auto &node : list)
   {
     const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
     rad += (offset - dir * offset.dot(dir)).norm();
     n++;
   }
-  return std::min(std::min(rad / n, max_radius_), sections_[par].radius);
+  const double radius = std::min(n < 2 ? max_radius_ : rad / n, max_radius_);
+  return par == -1 ? radius : std::min(radius, sections_[par].radius);
 }
 
 // add a child section to continue reconstructing the tree segments
