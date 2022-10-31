@@ -135,7 +135,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     // shift to cylinder's centre
     sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
     // now find the segment radius
-    sections_[sec_].radius = estimateCylinderRadius(nodes, dir);
+    estimateCylinderTaper(nodes, dir);
 
     // for the root segment we just look at the lowest point coming down from the ends
     if (par == -1)
@@ -178,6 +178,18 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   {
     removeOutOfBoundRays(cloud, min_bound, max_bound, root_segs);
   }
+}
+
+double Trees::meanTaper(const BranchSection &section) const
+{
+ const double k = 0.05; // how much to use total tree taper (vs local taper)
+ int root = section.root;
+ return (section.taper + k*sections_[root].total_taper) / (section.weight + k*sections_[root].total_weight);
+ // return sections_[root].total_taper / sections_[root].total_weight;
+}
+double Trees::radius(const BranchSection &section) const 
+{ 
+  return section.max_distance_to_end * meanTaper(section); // std::min(meanTaper(section), 1.0 / params_->length_to_radius);
 }
 
 /// calculate a branch radius from its length. We use allometric scaling based on a radius exponent and a
@@ -236,7 +248,6 @@ void Trees::generateRootSections(const std::vector<std::vector<int>> &roots_list
     {
       sections_[i].max_distance_to_end = std::max(sections_[i].max_distance_to_end, points_[root].distance_to_end);
     }
- //   sections_[i].radius = 10.0 * radFromLength(sections_[i].max_distance_to_end); // this is not used
   }
 }
 
@@ -548,7 +559,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
   return Eigen::Vector3d(0, 0, 0);
 }
 
-double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir)
+void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir)
 {
   int par = sections_[sec_].parent;
   int root = sections_[sec_].root;
@@ -587,23 +598,15 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   double weight = l * n/percent_error;
   double taper = (rad/l) * weight;
 
-  const double k = 0.05; // strength of taper-based prior. So taper only plays a part after about 20 segments. 
-  double mean_taper = (taper + k*total_taper) / (weight + k*total_weight);
-  double radius = l * std::min(mean_taper, 1.0 / params_->length_to_radius);
-
-/*  if (par > -1 && radius > sections_[par].radius)
-  {
-    taper *= sections_[par].radius / radius; // TODO: I could scale this down even a little more
-    radius = sections_[par].radius;
-  }*/
-
   total_weight += weight;
-  total_taper = std::min(total_taper + taper, total_weight / params_->length_to_radius);
+  total_taper += taper;
+//  total_taper = std::min(total_taper + taper, total_weight / params_->length_to_radius);
 
   sections_[root].total_taper = total_taper;
   sections_[root].total_weight = total_weight;
 
-  return radius;
+  sections_[sec_].taper = taper;
+  sections_[sec_].weight = weight;
 }
 
 // add a child section to continue reconstructing the tree segments
@@ -611,19 +614,17 @@ void Trees::addChildSection()
 {
   BranchSection new_node;
   new_node.parent = static_cast<int>(sec_);
-  new_node.root = static_cast<int>(sections_.size());
+  new_node.root = sections_[sec_].root;
   new_node.roots = sections_[sec_].ends;
-  new_node.total_taper = sections_[sec_].total_taper;
-  new_node.total_weight = sections_[sec_].total_weight;
+  new_node.taper = sections_[sec_].taper;
+  new_node.weight = sections_[sec_].weight;
   
   for (auto &root : new_node.roots)
   {
     new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points_[root].distance_to_end);
   }
   max_radius_ = radFromLength(new_node.max_distance_to_end);
-  // constrain each new node's radius to be no larger than its parent radius. This is a reasonable constraint.
-  new_node.radius = std::min(sections_[sec_].radius, max_radius_);
-  if (new_node.radius > 0.5 * params_->min_diameter)  // if it is the first node, then we need a second node
+  if (radius(new_node) > 0.5 * params_->min_diameter)  
   {
     sections_[sec_].children.push_back(static_cast<int>(sections_.size()));
     new_node.tip = calculateTipFromVertices(new_node.roots);
@@ -725,7 +726,7 @@ void Trees::drawTrees(bool verbose)
         }
         starts.push_back(sections_[tree_node.parent].tip);
         ends.push_back(tree_node.tip);
-        radii.push_back(tree_node.radius);
+        radii.push_back(radius(tree_node));
       }
     }
     DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
@@ -868,13 +869,17 @@ bool Trees::save(const std::string &filename) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << section.radius << ",-1," << sec;
-
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec;
+    int root = section.root;
     std::vector<int> children = section.children;
     for (unsigned int c = 0; c < children.size(); c++)
     {
       const BranchSection &node = sections_[children[c]];
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << node.radius << "," << sections_[node.parent].id;
+      if (node.root != root)
+      {
+        std::cout << "bad format: " << node.root << " != " << root << std::endl;
+      }
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id;
       ofs << "," << children[c];
       for (auto i : sections_[children[c]].children)
       {

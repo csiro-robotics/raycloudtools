@@ -79,8 +79,8 @@ private:
   Eigen::Vector3d calculateTipFromVertices(const std::vector<int> &nodes) const;
   /// estimate the vector to the cylinder centre from the set of nodes
   Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const;
-  /// estimate the cylinder's radius from its centre, @c dir and set of nodes
-  double estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  /// estimate the cylinder's taper rate from its centre, @c dir and set of nodes
+  void estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
   /// add a new section to continue reconstructing the branch
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
@@ -97,6 +97,10 @@ private:
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds
   void removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound,
                             const std::vector<int> &root_segs);
+
+  double meanTaper(const BranchSection &section) const;
+  double radius(const BranchSection &section) const;
+
   // cached data that is used throughout the processing method
   size_t sec_;
   const TreesParams *params_;
@@ -110,7 +114,7 @@ struct RAYLIB_EXPORT BranchSection
 {
   BranchSection()
     : tip(0, 0, 0)
-    , radius(0.0)
+    , taper(0.0)
     , weight(0.0)
     , parent(-1)
     , root(-1)
@@ -120,15 +124,7 @@ struct RAYLIB_EXPORT BranchSection
     , total_weight(0)
   {}
   Eigen::Vector3d tip;
-  inline double meanTaper()
-  {
-    const double k = 0.05; // how much to use total tree taper (vs local taper)
-    return (taper + k*total_taper) / (weight + k*total_weight);
-  }
-  inline double radius(const TreesParams *params)
-  { 
-    return max_distance_to_end * std::min(meanTaper(), 1.0 / params_->length_to_radius);
-  }
+
   double taper;
   double weight;
   int parent;
