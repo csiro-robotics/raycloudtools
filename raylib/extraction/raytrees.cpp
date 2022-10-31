@@ -224,6 +224,7 @@ void Trees::generateRootSections(const std::vector<std::vector<int>> &roots_list
   {
     BranchSection base;
     base.roots = roots_list[i];
+    base.root = static_cast<int>(sections_.size());
     sections_.push_back(base);
   }
 
@@ -235,7 +236,7 @@ void Trees::generateRootSections(const std::vector<std::vector<int>> &roots_list
     {
       sections_[i].max_distance_to_end = std::max(sections_[i].max_distance_to_end, points_[root].distance_to_end);
     }
-    sections_[i].radius = radFromLength(sections_[i].max_distance_to_end);
+ //   sections_[i].radius = 10.0 * radFromLength(sections_[i].max_distance_to_end); // this is not used
   }
 }
 
@@ -491,7 +492,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
     {
       const Eigen::Vector3d pos = points_[i].pos - sections_[sec_].tip;
       const Eigen::Vector2d offset(ax1.dot(pos), ax2.dot(pos));
-      const Eigen::Vector2d xy = offset / sections_[sec_].radius;
+      const Eigen::Vector2d xy = offset;
       const double l2 = xy.squaredNorm();
       const Eigen::Vector3d point(xy[0], xy[1], 0.5 * l2);  // a paraboloid that has gradient 1 at 1
       ps.push_back(point);
@@ -500,6 +501,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
     }
   }
   mean_p /= n;
+  double approx_rad_sqr = 2.0 * mean_p[2];
   if (n > 5)  // assuming there are sufficient points for a resonable guess
   {
     // accumulation structure for plane least squares fitting
@@ -529,31 +531,34 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
 
       Eigen::Vector2d shift(A, B);
       const double shift2 = shift.squaredNorm();
-      if (par >= 0 && shift2 > 1.0)  // don't shift more than one radius each iteration, for safety
+      if (par >= 0 && shift2 > approx_rad_sqr)  // don't shift more than one radius each iteration, for safety
       {
-        shift /= std::sqrt(shift2);
+        shift *= std::sqrt(approx_rad_sqr / shift2);
       }
 
       // apply the plane parameters as a world-space shift in the branch section tip position
-      return (ax1 * shift[0] + ax2 * shift[1]) * sections_[sec_].radius;
+      return ax1 * shift[0] + ax2 * shift[1];
     }
   }
   else if (n > 0)  // if only a few points then use the mean instead
   {
-    return (ax1 * mean_p[0] + ax2 * mean_p[1]) * sections_[sec_].radius;
+    return ax1 * mean_p[0] + ax2 * mean_p[1];
   }
 #endif
   return Eigen::Vector3d(0, 0, 0);
 }
 
-double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const
+double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir)
 {
   int par = sections_[sec_].parent;
-  // use the parent radius as a prior with a weight of 4 points
-  // this avoids spurious radius estimations when the number of points is
-  // small
-  double n = par == -1 ? 0 : 4.0;
-  double rad = par == -1 ? 0 : n * sections_[par].radius;
+  int root = sections_[sec_].root;
+  if (root < 0 || root >= (int)sections_.size())
+  {
+    std::cout << "oh dear " << sec_ << ", par: " << par << ", root: " << root << std::endl;
+  }
+
+  double n = 1;
+  double rad = max_radius_;
   // then get the mean radius
   const auto &list = (par > -1 || sections_[sec_].ends.empty()) ? nodes : sections_[sec_].ends;
   for (auto &node : list)
@@ -562,8 +567,43 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
     rad += (offset - dir * offset.dot(dir)).norm();
     n++;
   }
-  const double radius = std::min(n < 2 ? max_radius_ : rad / n, max_radius_);
-  return par == -1 ? radius : std::min(radius, sections_[par].radius);
+  rad /= n;
+  double e = 0.0;
+  for (auto &node : list)
+  {
+    const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
+    e += std::abs((offset - dir * offset.dot(dir)).norm() - rad);
+  }
+  e /= n;
+  double percent_error = e / rad;
+
+  rad -= e; // preference a smaller radius, e.g. where there is extra foliage
+
+  double l = sections_[sec_].max_distance_to_end;
+
+  double total_taper = par == -1 ? 0 : sections_[root].total_taper;
+  double total_weight = par == -1 ? 0 : sections_[root].total_weight;
+  
+  double weight = l * n/percent_error;
+  double taper = (rad/l) * weight;
+
+  const double k = 0.05; // strength of taper-based prior. So taper only plays a part after about 20 segments. 
+  double mean_taper = (taper + k*total_taper) / (weight + k*total_weight);
+  double radius = l * std::min(mean_taper, 1.0 / params_->length_to_radius);
+
+/*  if (par > -1 && radius > sections_[par].radius)
+  {
+    taper *= sections_[par].radius / radius; // TODO: I could scale this down even a little more
+    radius = sections_[par].radius;
+  }*/
+
+  total_weight += weight;
+  total_taper = std::min(total_taper + taper, total_weight / params_->length_to_radius);
+
+  sections_[root].total_taper = total_taper;
+  sections_[root].total_weight = total_weight;
+
+  return radius;
 }
 
 // add a child section to continue reconstructing the tree segments
@@ -571,7 +611,11 @@ void Trees::addChildSection()
 {
   BranchSection new_node;
   new_node.parent = static_cast<int>(sec_);
+  new_node.root = static_cast<int>(sections_.size());
   new_node.roots = sections_[sec_].ends;
+  new_node.total_taper = sections_[sec_].total_taper;
+  new_node.total_weight = sections_[sec_].total_weight;
+  
   for (auto &root : new_node.roots)
   {
     new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points_[root].distance_to_end);
