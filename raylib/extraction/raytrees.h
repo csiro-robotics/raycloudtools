@@ -122,6 +122,9 @@ struct RAYLIB_EXPORT BranchSection
     , max_distance_to_end(0.0)
     , total_taper(0)
     , total_weight(0)
+    , len(0)
+    , n(0)
+    , accuracy(0)
   {}
   Eigen::Vector3d tip;
 
@@ -133,6 +136,7 @@ struct RAYLIB_EXPORT BranchSection
   double max_distance_to_end;
   double total_taper; // a weighted taper estimate
   double total_weight; // the weighting
+  double len, n, accuracy;
   std::vector<int> roots;  // root points
   std::vector<int> ends;
   std::vector<int> children;

@@ -134,6 +134,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     Eigen::Vector3d dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
     // shift to cylinder's centre
     sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
+    // re-estimate direction
+    dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
     // now find the segment radius
     estimateCylinderTaper(nodes, dir);
 
@@ -184,8 +186,9 @@ double Trees::meanTaper(const BranchSection &section) const
 {
  const double k = 0.05; // how much to use total tree taper (vs local taper)
  int root = section.root;
- return (section.taper + k*sections_[root].total_taper) / (section.weight + k*sections_[root].total_weight);
- // return sections_[root].total_taper / sections_[root].total_weight;
+ // return (section.taper + k*sections_[root].total_taper) / (section.weight + k*sections_[root].total_weight);
+//  return sections_[root].total_taper / sections_[root].total_weight;
+ return section.taper / section.weight;
 }
 double Trees::radius(const BranchSection &section) const 
 { 
@@ -568,11 +571,10 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
     std::cout << "oh dear " << sec_ << ", par: " << par << ", root: " << root << std::endl;
   }
 
-  double n = 1;
-  double rad = max_radius_;
+  double n = 1e-10;
+  double rad = 0.0; // max_radius_;
   // then get the mean radius
-  const auto &list = (par > -1 || sections_[sec_].ends.empty()) ? nodes : sections_[sec_].ends;
-  for (auto &node : list)
+  for (auto &node : nodes)
   {
     const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
     rad += (offset - dir * offset.dot(dir)).norm();
@@ -580,7 +582,7 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
   }
   rad /= n;
   double e = 0.0;
-  for (auto &node : list)
+  for (auto &node : nodes)
   {
     const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
     e += std::abs((offset - dir * offset.dot(dir)).norm() - rad);
@@ -588,7 +590,7 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
   e /= n;
   double percent_error = e / rad;
 
-  rad -= e; // preference a smaller radius, e.g. where there is extra foliage
+//  rad = std::max(rad * 0.1, rad-e); // preference a smaller radius, e.g. where there is extra foliage
 
   double l = sections_[sec_].max_distance_to_end;
 
@@ -607,6 +609,10 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
 
   sections_[sec_].taper = taper;
   sections_[sec_].weight = weight;
+  sections_[sec_].len = l;
+  sections_[sec_].n = n;
+  sections_[sec_].accuracy = 1/percent_error;
+  
 }
 
 // add a child section to continue reconstructing the tree segments
@@ -861,7 +867,8 @@ bool Trees::save(const std::string &filename) const
     return false;
   }
   ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
-  ofs << "x,y,z,radius,parent_id,section_id" << std::endl;  // simple format
+  ofs << "x,y,z,radius,parent_id,section_id,weight,len,n,accuracy" << std::endl;  // simple format
+  int c = 0;
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
     const auto &section = sections_[sec];
@@ -869,7 +876,7 @@ bool Trees::save(const std::string &filename) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec;
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.n << "," << section.accuracy;
     int root = section.root;
     std::vector<int> children = section.children;
     for (unsigned int c = 0; c < children.size(); c++)
@@ -880,7 +887,7 @@ bool Trees::save(const std::string &filename) const
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
       ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id;
-      ofs << "," << children[c];
+      ofs << "," << children[c] << "," << node.weight << "," << node.len << "," << node.n << "," << node.accuracy;
       for (auto i : sections_[children[c]].children)
       {
         children.push_back(i);
