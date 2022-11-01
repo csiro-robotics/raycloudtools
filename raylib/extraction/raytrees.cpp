@@ -137,7 +137,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     // re-estimate direction
     dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
     // now find the segment radius
-    estimateCylinderTaper(nodes, dir);
+    estimateCylinderTaper(nodes, dir, extract_from_ends);
 
     // for the root segment we just look at the lowest point coming down from the ends
     if (par == -1)
@@ -187,8 +187,8 @@ double Trees::meanTaper(const BranchSection &section) const
  const double k = 0.05; // how much to use total tree taper (vs local taper)
  int root = section.root;
  // return (section.taper + k*sections_[root].total_taper) / (section.weight + k*sections_[root].total_weight);
-//  return sections_[root].total_taper / sections_[root].total_weight;
- return section.taper / section.weight;
+ return sections_[root].total_taper / sections_[root].total_weight;
+// return section.taper / section.weight;
 }
 double Trees::radius(const BranchSection &section) const 
 { 
@@ -562,7 +562,7 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
   return Eigen::Vector3d(0, 0, 0);
 }
 
-void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir)
+void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir, bool extract_from_ends)
 {
   int par = sections_[sec_].parent;
   int root = sections_[sec_].root;
@@ -588,31 +588,40 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
     e += std::abs((offset - dir * offset.dot(dir)).norm() - rad);
   }
   e /= n;
-  double percent_error = e / rad;
-
-//  rad = std::max(rad * 0.1, rad-e); // preference a smaller radius, e.g. where there is extra foliage
+  double accuracy = std::max(0.0, rad - 2.0*e) / rad; // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
 
   double l = sections_[sec_].max_distance_to_end;
 
   double total_taper = par == -1 ? 0 : sections_[root].total_taper;
   double total_weight = par == -1 ? 0 : sections_[root].total_weight;
-  
-  double weight = l * n/percent_error;
+
+  double junction_weight = 0.01;
+  if (par > -1)
+  {
+    junction_weight = extract_from_ends ? 0.25 : 1.0; // extracting from ends means we are less confident about the quality
+  }
+
+  double weight = l*l * accuracy * junction_weight;
+//  weight *= weight; // preference the strongest weight sections
   double taper = (rad/l) * weight;
 
   total_weight += weight;
   total_taper += taper;
 //  total_taper = std::min(total_taper + taper, total_weight / params_->length_to_radius);
 
-  sections_[root].total_taper = total_taper;
-  sections_[root].total_weight = total_weight;
+  if (weight >= sections_[root].total_weight)
+  {
+    sections_[root].total_weight = weight;
+    sections_[root].total_taper = taper;
+  }
+//  sections_[root].total_taper = total_taper;
+//  sections_[root].total_weight = total_weight;
 
   sections_[sec_].taper = taper;
   sections_[sec_].weight = weight;
-  sections_[sec_].len = l;
-  sections_[sec_].n = n;
-  sections_[sec_].accuracy = 1/percent_error;
-  
+  sections_[sec_].len = l*l;
+  sections_[sec_].accuracy = accuracy;
+  sections_[sec_].junction_weight = junction_weight;
 }
 
 // add a child section to continue reconstructing the tree segments
@@ -867,7 +876,7 @@ bool Trees::save(const std::string &filename) const
     return false;
   }
   ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
-  ofs << "x,y,z,radius,parent_id,section_id,weight,len,n,accuracy" << std::endl;  // simple format
+  ofs << "x,y,z,radius,parent_id,section_id,weight,len,accuracy,junction_weight" << std::endl;  // simple format
   int c = 0;
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
@@ -876,7 +885,7 @@ bool Trees::save(const std::string &filename) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.n << "," << section.accuracy;
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << /*section.max_distance_to_end * section.taper / section.weight */ radius(section) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
     int root = section.root;
     std::vector<int> children = section.children;
     for (unsigned int c = 0; c < children.size(); c++)
@@ -886,8 +895,8 @@ bool Trees::save(const std::string &filename) const
       {
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id;
-      ofs << "," << children[c] << "," << node.weight << "," << node.len << "," << node.n << "," << node.accuracy;
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << /*node.max_distance_to_end * node.taper / node.weight*/ radius(node) << "," << sections_[node.parent].id;
+      ofs << "," << children[c] << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;
       for (auto i : sections_[children[c]].children)
       {
         children.push_back(i);

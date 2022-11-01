@@ -80,7 +80,7 @@ private:
   /// estimate the vector to the cylinder centre from the set of nodes
   Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const;
   /// estimate the cylinder's taper rate from its centre, @c dir and set of nodes
-  void estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir);
+  void estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir, bool extract_from_ends);
   /// add a new section to continue reconstructing the branch
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
@@ -123,8 +123,8 @@ struct RAYLIB_EXPORT BranchSection
     , total_taper(0)
     , total_weight(0)
     , len(0)
-    , n(0)
     , accuracy(0)
+    , junction_weight(0)
   {}
   Eigen::Vector3d tip;
 
@@ -136,7 +136,7 @@ struct RAYLIB_EXPORT BranchSection
   double max_distance_to_end;
   double total_taper; // a weighted taper estimate
   double total_weight; // the weighting
-  double len, n, accuracy;
+  double len, accuracy, junction_weight;
   std::vector<int> roots;  // root points
   std::vector<int> ends;
   std::vector<int> children;
