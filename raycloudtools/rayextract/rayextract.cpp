@@ -40,7 +40,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --min_diameter 0.02  - (-n) minimum branch diameter" << std::endl;
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
-  std::cout << "                            --min_length_per_radius 140- (-l) the tapering rate of branches" << std::endl;
+  std::cout << "                            --length_per_radius 140- (-l) the tapering rate of branches" << std::endl;
   std::cout << "                            (for internal constants -e -c -g -s see source file rayextract)" << std::endl;
 // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
 //  std::cout << "                            --radius_exponent 0.67 - (-e) exponent of radius in estimating length" << std::endl;
@@ -50,6 +50,8 @@ void usage(int exit_code = 1)
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
+  std::cout << "                            --global_taper 0     - (-b) the expected branch taper: diameter change per length (0 auto-estimates)" << std::endl;
+  std::cout << "                            --global_taper_factor 0.2- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on
   exit(exit_code);
@@ -63,7 +65,7 @@ int main(int argc, char *argv[])
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
-  ray::DoubleArgument gradient(0.001, 1000.0);
+  ray::DoubleArgument gradient(0.001, 1000.0), global_taper(0.0, 0.5), global_taper_factor(0.0, 1.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
@@ -78,7 +80,7 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument min_diameter_option("min_diameter", 'n', &min_diameter);
   ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
   ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
-  ray::OptionalKeyValueArgument length_to_radius_option("min_length_per_radius", 'l', &length_to_radius);
+  ray::OptionalKeyValueArgument length_to_radius_option("length_per_radius", 'l', &length_to_radius);
   ray::OptionalKeyValueArgument radius_exponent_option("radius_exponent", 'e', &radius_exponent);
   ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c',
                                                                 &cylinder_length_to_width);
@@ -86,6 +88,8 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
   ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
+  ray::OptionalKeyValueArgument global_taper_option("global_taper", 'b', &global_taper);
+  ray::OptionalKeyValueArgument global_taper_factor_option("global_taper_factor", 'o', &global_taper_factor);
 
   ray::IntArgument smooth(0, 50);
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth),
@@ -102,7 +106,7 @@ int main(int argc, char *argv[])
     argc, argv, { &trees, &cloud_file, &mesh_file },
     { &max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
-      &radius_exponent_option, &segment_branches, &grid_width_option, &verbose });
+      &radius_exponent_option, &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &verbose });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
   {
     usage();
@@ -185,6 +189,14 @@ int main(int argc, char *argv[])
     {
       params.grid_width = grid_width.value();
     }
+    if (global_taper_option.isSet())
+    {
+      params.global_taper = 0.5 * global_taper.value(); // changing from diameter to radius
+    }
+    if (global_taper_factor_option.isSet())
+    {
+      params.global_taper_factor = global_taper_factor.value();
+    }    
     params.segment_branches = segment_branches.isSet();
 
     ray::Trees trees(cloud, mesh, params, verbose.isSet());

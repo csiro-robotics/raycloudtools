@@ -33,6 +33,8 @@ struct RAYLIB_EXPORT TreesParams
   double linear_range;     // number of metres that branch radius is linear
   double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
   bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
+  double global_taper;     // branch radius change per length
+  double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
 };
 
 struct BranchSection;  // forwards declaration
@@ -107,6 +109,9 @@ private:
   std::vector<Vertex> points_;
   double max_radius_;
   double radius_length_scale_; /// Cached ratio from branch taper parameters
+  double forest_taper_{0};
+  double forest_weight_{0};
+  double forest_weight_squared_{0};
 };
 
 /// The structure for a single (cylindrical) branch section

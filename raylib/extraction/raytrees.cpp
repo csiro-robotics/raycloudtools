@@ -24,6 +24,8 @@ TreesParams::TreesParams()
   , linear_range(3.0)
   , grid_width(0.0)
   , segment_branches(false)
+  , global_taper(0.0)
+  , global_taper_factor(0.5)
 {}
 
 /// The main reconstruction algorithm
@@ -184,15 +186,27 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
 double Trees::meanTaper(const BranchSection &section) const
 {
- const double k = 0.05; // how much to use total tree taper (vs local taper)
- int root = section.root;
- // return (section.taper + k*sections_[root].total_taper) / (section.weight + k*sections_[root].total_weight);
- return sections_[root].total_taper / sections_[root].total_weight;
-// return section.taper / section.weight;
+  int root = section.root;
+  double mean_taper = forest_taper_ / forest_weight_;
+  double mean_weight = forest_weight_squared_ / forest_weight_;
+  double taper = sections_[root].total_taper / sections_[root].total_weight;
+  double weight = sections_[root].total_weight;
+  
+  if (params_->global_taper != 0.0) // user specified override
+  {
+    mean_taper = params_->global_taper;
+  }
+  double blend = params_->global_taper_factor * params_->global_taper_factor;
+  blend = blend * blend; // compensate for the fact that weight is in metres (tree height) ^ 4
+  mean_weight *= blend;
+  weight *= 1.0 - blend;
+  double result = (mean_taper * mean_weight + taper*weight) / (mean_weight + weight);
+ // std::cout << "estimated taper: " << result << ", mt: " << mean_taper << ", mw: " << mean_weight << ", t: " << taper << ", w: " << weight << ", blend: " << blend << std::endl;
+  return result;
 }
 double Trees::radius(const BranchSection &section) const 
 { 
-  return section.max_distance_to_end * meanTaper(section); // std::min(meanTaper(section), 1.0 / params_->length_to_radius);
+  return section.max_distance_to_end * meanTaper(section);
 }
 
 /// calculate a branch radius from its length. We use allometric scaling based on a radius exponent and a
@@ -581,6 +595,10 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
     n++;
   }
   rad /= n;
+  if (!(rad == rad))
+  {
+    std::cout << "bad radius: " << rad << std::endl;
+  }
   double e = 0.0;
   for (auto &node : nodes)
   {
@@ -588,9 +606,14 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
     e += std::abs((offset - dir * offset.dot(dir)).norm() - rad);
   }
   e /= n;
-  double accuracy = std::max(0.0, rad - 2.0*e) / rad; // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
+  double eps = 1e-5;
+  double accuracy = std::max(eps, rad - 2.0*e) / std::max(eps, rad); // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
 
   double l = sections_[sec_].max_distance_to_end;
+  if (l <= 0.0)
+  {
+    std::cout << "bad l: " << l << std::endl;
+  }
 
   double total_taper = par == -1 ? 0 : sections_[root].total_taper;
   double total_weight = par == -1 ? 0 : sections_[root].total_weight;
@@ -602,20 +625,22 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
   }
 
   double weight = l*l * accuracy * junction_weight;
-//  weight *= weight; // preference the strongest weight sections
+  weight *= weight; // preference the strongest weight sections
+  if (weight > 1e16)
+  {
+    std::cout << "bad weight: " << weight << std::endl;
+  }
   double taper = (rad/l) * weight;
 
   total_weight += weight;
   total_taper += taper;
-//  total_taper = std::min(total_taper + taper, total_weight / params_->length_to_radius);
 
-  if (weight >= sections_[root].total_weight)
-  {
-    sections_[root].total_weight = weight;
-    sections_[root].total_taper = taper;
-  }
-//  sections_[root].total_taper = total_taper;
-//  sections_[root].total_weight = total_weight;
+  forest_taper_ += taper;
+  forest_weight_ += weight;
+  forest_weight_squared_ += weight*weight;
+
+  sections_[root].total_taper = total_taper;
+  sections_[root].total_weight = total_weight;
 
   sections_[sec_].taper = taper;
   sections_[sec_].weight = weight;
