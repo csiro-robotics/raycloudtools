@@ -35,6 +35,7 @@ struct RAYLIB_EXPORT TreesParams
   bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
   double global_taper;     // branch radius change per length
   double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
+  bool use_leonardos;      // use Leonardo's rule at branch points. Results in less radius in the outer branches
 };
 
 struct BranchSection;  // forwards declaration
@@ -102,6 +103,7 @@ private:
 
   double meanTaper(const BranchSection &section) const;
   double radius(const BranchSection &section) const;
+  void applyLeonardosRule();
 
   // cached data that is used throughout the processing method
   size_t sec_;
@@ -130,6 +132,9 @@ struct RAYLIB_EXPORT BranchSection
     , len(0)
     , accuracy(0)
     , junction_weight(0)
+    , tubule_linear_area(0)
+    , tubule_constant_area(0)
+    , radius(0)
   {}
   Eigen::Vector3d tip;
 
@@ -142,6 +147,9 @@ struct RAYLIB_EXPORT BranchSection
   double total_taper; // a weighted taper estimate
   double total_weight; // the weighting
   double len, accuracy, junction_weight;
+  double tubule_linear_area;
+  double tubule_constant_area;
+  double radius;
   std::vector<int> roots;  // root points
   std::vector<int> ends;
   std::vector<int> children;

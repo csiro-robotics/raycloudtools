@@ -25,7 +25,8 @@ TreesParams::TreesParams()
   , grid_width(0.0)
   , segment_branches(false)
   , global_taper(0.0)
-  , global_taper_factor(0.5)
+  , global_taper_factor(0.2)
+  , use_leonardos(true)
 {}
 
 /// The main reconstruction algorithm
@@ -182,6 +183,79 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   {
     removeOutOfBoundRays(cloud, min_bound, max_bound, root_segs);
   }
+
+  if (params_->use_leonardos)
+  {
+    applyLeonardosRule();
+  }
+}
+
+void Trees::applyLeonardosRule()
+{
+  // we want the cross section of the child branches to sum to that of the parent branch at each branch point
+  // this is based on the idea of each leaf representing a tubule that runs to the base. The branch cross sectional areas are proportional to the
+  // sum of the cross sectional areas of all the tubules going to the branch's leaves.
+  // this idea has a complication if we assume the tubules are uniform width: 
+  // Non-reconstructed branches will mean that some trees are too fat at their leaves, likewise too many branches will be too thin at the leaves
+  // 
+  // To resolve, per-tree, we apply the same linear taper rate of each tubule's radius, such that it matches the trunk width at the base,
+  // and matches the specified minimum diameter at the leaves. 
+  int c = 0;
+  double mean_taper = 0;
+  double min_taper = 1e10;
+  double max_taper = -1e10;
+  double num = 0;
+  for (size_t sec = 0; sec < sections_.size(); sec++)
+  {
+    auto &section = sections_[sec];
+    if (section.parent >= 0 || section.children.empty())  // not a root section, so move on
+    {
+      continue;
+    }
+    std::vector<int> children = section.children;
+    double min_rad = 0.5 * params_->min_diameter;
+    double min_sqr = ray::sqr(min_rad);
+    for (unsigned int c = 0; c < children.size(); c++)
+    {
+      if (sections_[children[c]].children.empty())
+      {
+        // recurse down
+        int i = children[c];
+        double dist_from_leaf = sections_[i].max_distance_to_end;
+        sections_[i].tubule_linear_area = ray::sqr(dist_from_leaf);
+        sections_[i].tubule_constant_area = min_sqr;
+        while (sections_[i].parent != -1)
+        {
+          dist_from_leaf += (sections_[i].tip - sections_[sections_[i].parent].tip).norm();
+          sections_[sections_[i].parent].tubule_linear_area += ray::sqr(dist_from_leaf);
+          sections_[sections_[i].parent].tubule_constant_area += min_sqr;
+          i = sections_[i].parent;
+        }
+      }
+      for (auto i : sections_[children[c]].children)
+      {
+        children.push_back(i);
+      }
+    }
+    section.radius = radius(section);
+
+    // so taper*sqrt(tubule_linear_area) + j*sqrt(tubule_constant_area) = section.radius
+    // j = 1 right? as leaf tubule_linear_area will be 0, and sqrt(tubule_constant_area) will be the min diameter.
+
+    double taper = (section.radius - std::sqrt(section.tubule_constant_area)) / std::sqrt(section.tubule_linear_area);
+    min_taper = std::min(min_taper, taper);
+    max_taper = std::max(max_taper, taper);
+    mean_taper += taper;
+    num++;
+    for (auto &child_id: children)
+    {
+      auto &child = sections_[child_id];
+      auto &par = sections_[child.parent];
+      child.radius = taper * std::sqrt(child.tubule_linear_area) + std::sqrt(child.tubule_constant_area);
+    }
+  }
+  mean_taper /= num;
+  std::cout << "Applied Leonardo rule: to end at specified min diameter, trees have min taper: " << min_taper << ", mean taper: " << mean_taper << ", max_taper: " << max_taper << std::endl;
 }
 
 double Trees::meanTaper(const BranchSection &section) const
@@ -910,7 +984,7 @@ bool Trees::save(const std::string &filename) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << /*section.max_distance_to_end * section.taper / section.weight */ radius(section) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << (params_->use_leonardos ? section.radius : radius(section)) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
     int root = section.root;
     std::vector<int> children = section.children;
     for (unsigned int c = 0; c < children.size(); c++)
@@ -920,7 +994,7 @@ bool Trees::save(const std::string &filename) const
       {
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << /*node.max_distance_to_end * node.taper / node.weight*/ radius(node) << "," << sections_[node.parent].id;
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << (params_->use_leonardos ? node.radius : radius(node)) << "," << sections_[node.parent].id;
       ofs << "," << children[c] << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;
       for (auto i : sections_[children[c]].children)
       {

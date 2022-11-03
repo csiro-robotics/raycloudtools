@@ -52,6 +52,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
   std::cout << "                            --global_taper 0     - (-b) the expected branch taper: diameter change per length (0 auto-estimates)" << std::endl;
   std::cout << "                            --global_taper_factor 0.2- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
+  std::cout << "                            --linear_radius      - (-r) branch radii proportional to the branch length. Otherwise uses Leonardo's rule." << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on
   exit(exit_code);
@@ -95,7 +96,7 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth),
     drop_option("drop_ratio", 'd', &drop);
 
-  ray::OptionalFlagArgument verbose("verbose", 'v');
+  ray::OptionalFlagArgument verbose("verbose", 'v'), linear_radius_option("linear_radius", 'r');
 
   bool extract_terrain = ray::parseCommandLine(argc, argv, { &terrain, &cloud_file }, { &gradient_option, &verbose });
   bool extract_trunks = ray::parseCommandLine(argc, argv, { &trunks, &cloud_file }, { &exclude_rays, &verbose });
@@ -106,7 +107,7 @@ int main(int argc, char *argv[])
     argc, argv, { &trees, &cloud_file, &mesh_file },
     { &max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
-      &radius_exponent_option, &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &verbose });
+      &radius_exponent_option, &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &linear_radius_option, &verbose });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
   {
     usage();
@@ -198,6 +199,7 @@ int main(int argc, char *argv[])
       params.global_taper_factor = global_taper_factor.value();
     }    
     params.segment_branches = segment_branches.isSet();
+    params.use_leonardos = !linear_radius_option.isSet();
 
     ray::Trees trees(cloud, mesh, params, verbose.isSet());
 
