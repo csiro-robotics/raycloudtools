@@ -192,6 +192,98 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
 void Trees::applyLeonardosRule()
 {
+  #define LENGTH_BASED // child radius is based on max distance to end. Otherwise it is based on number of leaf segments
+  #if defined LENGTH_BASED
+  // 1. go through branch points and calculate parent and child radii
+  for (size_t sec = 0; sec < sections_.size(); sec++)
+  {
+    auto &section = sections_[sec];
+    if (section.parent == -1) // root
+    {
+      section.radius = radius(section);
+    }
+    if (section.children.empty()) // leaf point
+    {
+      section.radius = radius(section); // get from estimated taper
+      if (section.radius == 0.0)
+      {
+        std::cout << "error 0 leaf radius" << std::endl;
+      }
+    }
+    if (section.children.size() > 1)  // not a root section, so move on
+    {
+      double area = 0.0;
+      for (auto &child_id: section.children)
+      {
+        auto &child = sections_[child_id];
+        area += ray::sqr(child.max_distance_to_end);
+      }
+      // k is the scale factor up of the parent and down of the child  
+      double k = std::pow(area/ray::sqr(section.max_distance_to_end), 0.25);
+
+      double parent_radius = radius(section) * k;
+      if (section.radius == 0.0)
+      {
+        section.radius = parent_radius;
+      }
+      else
+      {
+        // parent was also a branch point child, so geometric average the radius
+        section.radius = std::sqrt(section.radius * parent_radius); 
+      }
+      for (auto &child_id: section.children)
+      {
+        sections_[child_id].radius = radius(sections_[child_id]) / k;
+      }
+    }
+  }
+  // 2. go through non-branch points and linearly interpolate between adjacent branch points
+  for (size_t sec = 0; sec < sections_.size(); sec++)
+  {
+    auto &section = sections_[sec];
+    if (section.radius == 0) // mid point
+    {
+      // i is the branch start
+      int i = section.parent;
+      while (sections_[i].radius <= 0.0)
+      {
+        i = sections_[i].parent;
+      }
+      auto &start = sections_[i];
+      // j is the branch end
+      int j = (int)sec;
+      while (sections_[j].radius <= 0.0)
+      {
+        if (sections_[j].children.size() != 1)
+        {
+          std::cout << "sec: " << sec << ", i: " << i << ", j: " << j << ", num children: " << sections_[j].children.size() << ", rd: " << sections_[j].radius << std::endl;
+          std::cout << "error, part 1 should prevent 0 radius segments from having a different number of children" << std::endl;
+        }
+        j = sections_[j].children[0];
+      }
+      auto &end = sections_[j];
+      if (i == j)
+      {
+        std::cout << "nope, this isn't going to work!" << std::endl;
+      }
+      double start_sec_dist = (start.tip - section.tip).norm();
+      double sec_end_dist = (section.tip - end.tip).norm();
+      double blend = (sec_end_dist) / (start_sec_dist + sec_end_dist);
+//      double blend = (section.max_distance_to_end - end.max_distance_to_end) / (start.max_distance_to_end - end.max_distance_to_end);
+      if (blend > 1.0 || blend < 0.0)
+      {
+        std::cout << "error: blend " << blend << " is bad. start " << i << " dist: " << start.max_distance_to_end << ", end: " << j << ", dist: " << end.max_distance_to_end << ", this: " << sec << ", dist: " << section.max_distance_to_end << std::endl;
+      }
+      section.radius = -(end.radius + (start.radius - end.radius)*blend);
+    }
+  }
+  // finally fix the sneaky negative radii
+  for (auto &section: sections_)
+  {
+    section.radius = std::abs(section.radius);
+  }
+
+  #else
   // we want the cross section of the child branches to sum to that of the parent branch at each branch point
   // this is based on the idea of each leaf representing a tubule that runs to the base. The branch cross sectional areas are proportional to the
   // sum of the cross sectional areas of all the tubules going to the branch's leaves.
@@ -256,6 +348,7 @@ void Trees::applyLeonardosRule()
   }
   mean_taper /= num;
   std::cout << "Applied Leonardo rule: to end at specified min diameter, trees have min taper: " << min_taper << ", mean taper: " << mean_taper << ", max_taper: " << max_taper << std::endl;
+  #endif
 }
 
 double Trees::meanTaper(const BranchSection &section) const
@@ -280,6 +373,7 @@ double Trees::meanTaper(const BranchSection &section) const
 }
 double Trees::radius(const BranchSection &section) const 
 { 
+  double rad = section.max_distance_to_end * meanTaper(section);
   return section.max_distance_to_end * meanTaper(section);
 }
 
@@ -682,6 +776,7 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
   e /= n;
   double eps = 1e-5;
   double accuracy = std::max(eps, rad - 2.0*e) / std::max(eps, rad); // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
+  rad = std::max(rad, eps);
 
   double l = sections_[sec_].max_distance_to_end;
   if (l <= 0.0)
@@ -689,8 +784,8 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
     std::cout << "bad l: " << l << std::endl;
   }
 
-  double total_taper = par == -1 ? 0 : sections_[root].total_taper;
-  double total_weight = par == -1 ? 0 : sections_[root].total_weight;
+  double total_taper = sections_[root].total_taper;
+  double total_weight = sections_[root].total_weight;
 
   double junction_weight = 0.01;
   if (par > -1)
@@ -699,6 +794,10 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
   }
 
   double weight = l*l * accuracy * junction_weight;
+  if (weight == 0.0)
+  {
+    std::cout << "bad weight: " << l << ", acc: " << accuracy << ", j: " << junction_weight << std::endl;
+  }
   weight *= weight; // preference the strongest weight sections
   if (weight > 1e16)
   {
