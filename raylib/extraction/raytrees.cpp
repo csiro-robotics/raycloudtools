@@ -217,20 +217,26 @@ void Trees::applyLeonardosRule()
     {
       int id = children[c];
       auto &section = sections_[id];
-  /*    if (section.children.size() == 2) // junction calculation
-      {
-        double r1 = section.children[0].target_radius;
-        double r2 = section.children[1].target_radius;
-        double d1 = section.children[0].max_distance_to_end;
-        double d2 = section.chidlren[1].max_distance_to_end;
-
-        section.target_radius = std::sqrt(r1*r2 * (d1/d2 + d2/d1));
-        double k = std::sqrt((d1/d2) * (r2/r1));
-        section.children[0].target_radius = r1 * k;
-        section.children[1].target_radius = r2 / k;        
+   /*   if (section.children.size() > 1) // junction calculation
+      { // this is a geoometric average
+        double k = 1.0;
+        for (auto &child_id: section.children)
+        {
+          auto &child = sections_[child_id];
+          k *= child.target_radius / child.max_distance_to_end;
+        }
+        k = std::pow(k, 1.0 / (double)section.children.size());
+        double sum_area = 0.0;
+        for (auto &child_id: section.children)
+        {
+          auto &child = sections_[child_id];
+          child.target_radius = k * child.max_distance_to_end;
+          sum_area += ray::sqr(child.target_radius);
+        }
+        section.target_radius = std::sqrt(sum_area); // Leonardo's rule
       }
       else */
-      if (section.children.size() > 1)
+      if (section.children.size() > 1) // this one is an algebraic average, so doesn't under-estimate the larger radius like a geometric average does
       {
         double sum_radius = 0.0;
         double sum_distance = 0.0;
