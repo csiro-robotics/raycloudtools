@@ -192,8 +192,102 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
 void Trees::applyLeonardosRule()
 {
-  #define LENGTH_BASED // child radius is based on max distance to end. Otherwise it is based on number of leaf segments
-  #if defined LENGTH_BASED
+  #define DISTANCE_BASED // otherwise it is based on the number of leaf segments
+  // #define LENGTH_BASED // child radius is based on max distance to end. Otherwise it is based on number of leaf segments
+  #if defined DISTANCE_BASED
+  // 1. from leaf to tip, calculate the expected segment radii based on branch segment radii being proportional to their distance to end
+  // a recursive function seems simplest here, but that relies on an infinite stack size, and not sure how to implement...
+  // alternatively, we generate the list of children in a breadth first way, and iterate through it backwards, each segment using the previously processed data
+
+  for (size_t sec = 0; sec < sections_.size(); sec++)
+  {
+    auto &root = sections_[sec];
+    if (root.parent >= 0 || root.children.empty())  // not a root section, so move on
+    {
+      continue;
+    }
+    std::vector<int> children = {(int)sec}; // root.children;
+    // breadth first list of children of the tree root
+    for (unsigned int c = 0; c < children.size(); c++)
+    {
+      for (auto i : sections_[children[c]].children)
+      {
+        children.push_back(i);
+      }
+    }
+    // backwards breadth first
+    for (int c = (int)children.size()-1; c >= 0; c--)
+    {
+      int id = children[c];
+      auto &section = sections_[id];
+  /*    if (section.children.size() == 2) // junction calculation
+      {
+        double r1 = section.children[0].target_radius;
+        double r2 = section.children[1].target_radius;
+        double d1 = section.children[0].max_distance_to_end;
+        double d2 = section.chidlren[1].max_distance_to_end;
+
+        section.target_radius = std::sqrt(r1*r2 * (d1/d2 + d2/d1));
+        double k = std::sqrt((d1/d2) * (r2/r1));
+        section.children[0].target_radius = r1 * k;
+        section.children[1].target_radius = r2 / k;        
+      }
+      else */
+      if (section.children.size() > 1)
+      {
+        double sum_radius = 0.0;
+        double sum_distance = 0.0;
+        for (auto &child_id: section.children)
+        {
+          auto &child = sections_[child_id];
+          sum_radius += child.target_radius;
+          sum_distance += child.max_distance_to_end;
+        }
+        double mean_gradient = sum_radius / sum_distance;
+        double sum_area = 0.0;
+        for (auto &child_id: section.children)
+        {
+          auto &child = sections_[child_id];
+          child.target_radius = mean_gradient * child.max_distance_to_end;
+          sum_area += ray::sqr(child.target_radius);
+        }
+        section.target_radius = std::sqrt(sum_area); // Leonardo's rule
+      }
+      else if (section.children.size() == 1)
+      {
+        section.target_radius = sections_[section.children[0]].target_radius;
+      }
+      else // a leaf
+      {
+        section.target_radius = radius(section); // entirely taper based
+      }
+      section.tip_distance_to_leaf = 0.0;
+      for (auto &child_id: section.children)
+      {
+        auto &child = sections_[child_id];
+        section.tip_distance_to_leaf = std::max(section.tip_distance_to_leaf, child.tip_distance_to_leaf + (section.tip - child.tip).norm());
+      }
+    }
+
+    // finally we have to iterate forward breadth first, in order to apply a correction taper
+    for (auto &id: children)
+    {
+      auto &section = sections_[id];
+      if (section.parent == -1)
+      {
+        section.error = radius(section) / section.target_radius;
+      }
+      else
+      {
+        auto &parent = sections_[section.parent];
+        double section_length = (section.tip - parent.tip).norm();
+        double blend = section.tip_distance_to_leaf / (section.tip_distance_to_leaf + section_length);
+        section.error = 1.0 + (parent.error-1.0) * blend;
+      }
+      section.radius = section.target_radius * section.error;
+    } 
+  }
+  #elif defined LENGTH_BASED // this is kind of lame and doesn't work well with lots of branches
   // 1. go through branch points and calculate parent and child radii
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
@@ -373,7 +467,6 @@ double Trees::meanTaper(const BranchSection &section) const
 }
 double Trees::radius(const BranchSection &section) const 
 { 
-  double rad = section.max_distance_to_end * meanTaper(section);
   return section.max_distance_to_end * meanTaper(section);
 }
 
@@ -1075,7 +1168,6 @@ bool Trees::save(const std::string &filename) const
   }
   ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
   ofs << "x,y,z,radius,parent_id,section_id,weight,len,accuracy,junction_weight" << std::endl;  // simple format
-  int c = 0;
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
     const auto &section = sections_[sec];

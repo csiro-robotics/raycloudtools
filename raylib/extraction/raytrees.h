@@ -135,6 +135,9 @@ struct RAYLIB_EXPORT BranchSection
     , tubule_linear_area(0)
     , tubule_constant_area(0)
     , radius(0)
+    , target_radius(0)
+    , error(0)
+    , tip_distance_to_leaf(0)
   {}
   Eigen::Vector3d tip;
 
@@ -150,6 +153,9 @@ struct RAYLIB_EXPORT BranchSection
   double tubule_linear_area;
   double tubule_constant_area;
   double radius;
+  double target_radius;
+  double error;
+  double tip_distance_to_leaf;
   std::vector<int> roots;  // root points
   std::vector<int> ends;
   std::vector<int> children;
