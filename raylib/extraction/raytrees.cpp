@@ -193,12 +193,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 void Trees::applyLeonardosRule()
 {
   #define DISTANCE_BASED // otherwise it is based on the number of leaf segments
-  // #define LENGTH_BASED // child radius is based on max distance to end. Otherwise it is based on number of leaf segments
   #if defined DISTANCE_BASED
   // 1. from leaf to tip, calculate the expected segment radii based on branch segment radii being proportional to their distance to end
-  // a recursive function seems simplest here, but that relies on an infinite stack size, and not sure how to implement...
-  // alternatively, we generate the list of children in a breadth first way, and iterate through it backwards, each segment using the previously processed data
-
+  // we generate the list of children in a breadth first way, and iterate through it backwards, each segment using the previously processed data
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
     auto &root = sections_[sec];
@@ -287,96 +284,6 @@ void Trees::applyLeonardosRule()
       section.radius = section.target_radius * section.error;
     } 
   }
-  #elif defined LENGTH_BASED // this is kind of lame and doesn't work well with lots of branches
-  // 1. go through branch points and calculate parent and child radii
-  for (size_t sec = 0; sec < sections_.size(); sec++)
-  {
-    auto &section = sections_[sec];
-    if (section.parent == -1) // root
-    {
-      section.radius = radius(section);
-    }
-    if (section.children.empty()) // leaf point
-    {
-      section.radius = radius(section); // get from estimated taper
-      if (section.radius == 0.0)
-      {
-        std::cout << "error 0 leaf radius" << std::endl;
-      }
-    }
-    if (section.children.size() > 1)  // not a root section, so move on
-    {
-      double area = 0.0;
-      for (auto &child_id: section.children)
-      {
-        auto &child = sections_[child_id];
-        area += ray::sqr(child.max_distance_to_end);
-      }
-      // k is the scale factor up of the parent and down of the child  
-      double k = std::pow(area/ray::sqr(section.max_distance_to_end), 0.25);
-
-      double parent_radius = radius(section) * k;
-      if (section.radius == 0.0)
-      {
-        section.radius = parent_radius;
-      }
-      else
-      {
-        // parent was also a branch point child, so geometric average the radius
-        section.radius = std::sqrt(section.radius * parent_radius); 
-      }
-      for (auto &child_id: section.children)
-      {
-        sections_[child_id].radius = radius(sections_[child_id]) / k;
-      }
-    }
-  }
-  // 2. go through non-branch points and linearly interpolate between adjacent branch points
-  for (size_t sec = 0; sec < sections_.size(); sec++)
-  {
-    auto &section = sections_[sec];
-    if (section.radius == 0) // mid point
-    {
-      // i is the branch start
-      int i = section.parent;
-      while (sections_[i].radius <= 0.0)
-      {
-        i = sections_[i].parent;
-      }
-      auto &start = sections_[i];
-      // j is the branch end
-      int j = (int)sec;
-      while (sections_[j].radius <= 0.0)
-      {
-        if (sections_[j].children.size() != 1)
-        {
-          std::cout << "sec: " << sec << ", i: " << i << ", j: " << j << ", num children: " << sections_[j].children.size() << ", rd: " << sections_[j].radius << std::endl;
-          std::cout << "error, part 1 should prevent 0 radius segments from having a different number of children" << std::endl;
-        }
-        j = sections_[j].children[0];
-      }
-      auto &end = sections_[j];
-      if (i == j)
-      {
-        std::cout << "nope, this isn't going to work!" << std::endl;
-      }
-      double start_sec_dist = (start.tip - section.tip).norm();
-      double sec_end_dist = (section.tip - end.tip).norm();
-      double blend = (sec_end_dist) / (start_sec_dist + sec_end_dist);
-//      double blend = (section.max_distance_to_end - end.max_distance_to_end) / (start.max_distance_to_end - end.max_distance_to_end);
-      if (blend > 1.0 || blend < 0.0)
-      {
-        std::cout << "error: blend " << blend << " is bad. start " << i << " dist: " << start.max_distance_to_end << ", end: " << j << ", dist: " << end.max_distance_to_end << ", this: " << sec << ", dist: " << section.max_distance_to_end << std::endl;
-      }
-      section.radius = -(end.radius + (start.radius - end.radius)*blend);
-    }
-  }
-  // finally fix the sneaky negative radii
-  for (auto &section: sections_)
-  {
-    section.radius = std::abs(section.radius);
-  }
-
   #else
   // we want the cross section of the child branches to sum to that of the parent branch at each branch point
   // this is based on the idea of each leaf representing a tubule that runs to the base. The branch cross sectional areas are proportional to the
