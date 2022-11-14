@@ -37,11 +37,13 @@ bool RAYLIB_EXPORT writePlyMesh(const std::string &file_name, const class Mesh &
 /// ready in a ray cloud or point cloud .ply file, and call the @c apply function one chunk at a time,
 /// @c chunk_size is the number of rays to read at one time. This method can be used on large clouds where
 /// the full set of rays is not required to be in memory at one time.
+/// @c times_optional flag allows clouds to be read with no time stamps
 bool RAYLIB_EXPORT readPly(const std::string &file_name, bool is_ray_cloud,
                            std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                                               std::vector<double> &times, std::vector<RGBA> &colours)>
-                             apply,
-                           double max_intensity, size_t chunk_size = 1000000);
+                             apply, 
+                           double max_intensity, bool times_optional = true, size_t chunk_size = 1000000);
+
 
 /// write a .ply file representing a point cloud
 bool RAYLIB_EXPORT writePlyPointCloud(const std::string &file_name, const std::vector<Eigen::Vector3d> &points,

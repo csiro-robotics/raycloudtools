@@ -87,7 +87,8 @@ bool Trajectory::load(const std::string &file_name)
   points_.resize(size);
   times_.resize(size);
   bool ordered = true;
-  for (int i = 0; i < size; i++)
+  int i = 0; // index along trajectory
+  for (int ln = 0; ln < size; ln++)
   {
     if (ifs.fail())
     {
@@ -106,7 +107,10 @@ bool Trajectory::load(const std::string &file_name)
       return false;
     }
     if (i > 0 && times_[i] < times_[i - 1])
+    {
       ordered = false;
+    }
+    i++;
   }
   if (ifs.fail())
   {

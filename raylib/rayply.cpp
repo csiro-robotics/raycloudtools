@@ -321,8 +321,8 @@ bool writePlyPointCloud(const std::string &file_name, const std::vector<Eigen::V
 bool readPly(const std::string &file_name, bool is_ray_cloud,
              std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                                 std::vector<double> &times, std::vector<RGBA> &colours)>
-               apply,
-             double max_intensity, size_t chunk_size)
+               apply, 
+             double max_intensity, bool times_optional, size_t chunk_size)
 {
   std::cout << "reading: " << file_name << std::endl;
   std::ifstream input(file_name.c_str());
@@ -421,8 +421,15 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   }
   if (time_offset == -1)
   {
-    //    std::cerr << "error: no time information found in " << file_name << std::endl;
-    //    return false;
+    if (times_optional)
+    {
+      std::cout << "Warning: no times provided in file, applying 1 second difference per ray consecutively, starting at 0 seconds" << std::endl;
+    }
+    else
+    {
+      std::cerr << "error: no time information found in " << file_name << std::endl;
+      return false;
+    }
   }
   if (colour_offset == -1)
     std::cout << "warning: no colour information found in " << file_name
@@ -565,6 +572,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     {
       if (time_offset == -1)
       {
+        if (!warning_set)
+        {
+
+        }
         times.resize(ends.size());
         for (size_t j = 0; j < times.size(); j++) 
         {

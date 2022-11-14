@@ -93,7 +93,8 @@ int main(int argc, char *argv[])
   Eigen::Vector3d start_pos(0, 0, 0);
   bool has_warned = false;
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                       std::vector<double> &times, std::vector<ray::RGBA> &colours) {
+                       std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+  {
     if (start_pos.squaredNorm() == 0.0)
     {
       start_pos = ends[0];
@@ -103,7 +104,10 @@ int main(int argc, char *argv[])
     {
       starts = ends;
       Eigen::Vector3d pos = position.value();
-      for (auto &start : starts) start = pos;
+      for (auto &start : starts) 
+      {
+        start = pos;
+      }
     }
     // user provides a constant ray vector
     // e.g. for an overhead aerial scan, if no trajectory is available
@@ -111,7 +115,10 @@ int main(int argc, char *argv[])
     {
       starts = ends;
       Eigen::Vector3d offset = -ray_vec.value();
-      for (auto &start : starts) start += offset;
+      for (auto &start : starts) 
+      {
+        start += offset;
+      }
     }
     // otherwise, a trajectory has been passed in
     else
@@ -156,8 +163,9 @@ int main(int argc, char *argv[])
   Eigen::Vector3d *offset = remove.isSet() ? &start_pos : nullptr;
   if (cloud_file.nameExt() == "ply")
   {
+    bool can_times_be_missing = position_format || ray_format;
     if (!ray::readPly(cloud_file.name(), false, add_chunk,
-                      maximum_intensity))  // special case of reading a non-ray-cloud ply
+                      maximum_intensity, can_times_be_missing))  // special case of reading a non-ray-cloud ply
     {
       usage();
     }
