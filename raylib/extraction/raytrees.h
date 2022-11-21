@@ -70,10 +70,10 @@ private:
   Eigen::Vector3d getRootPosition() const;
   /// find the points and end points within this branch section
   void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
-                                    const std::vector<std::vector<int>> &children, double thickness);
+                                    const std::vector<std::vector<int>> &children, double min_dist, double max_dist);
   /// find separate clusters of points within the branch section
   std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
-                                                  double thickness);
+                                                  double thickness, double radius);
   /// split the branch section to one branch for each cluster
   void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness);
   /// find the points within the branch section from its end points
@@ -82,8 +82,10 @@ private:
   Eigen::Vector3d calculateTipFromVertices(const std::vector<int> &nodes) const;
   /// estimate the vector to the cylinder centre from the set of nodes
   Eigen::Vector3d vectorToCylinderCentre(const std::vector<int> &nodes, const Eigen::Vector3d &dir) const;
+  /// estimate the cylinder's radius
+  double estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir, double &accuracy);
   /// estimate the cylinder's taper rate from its centre, @c dir and set of nodes
-  void estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir, bool extract_from_ends);
+  void estimateCylinderTaper(double radius, double accuracy, bool extract_from_ends);
   /// add a new section to continue reconstructing the branch
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
@@ -109,7 +111,6 @@ private:
   size_t sec_;
   const TreesParams *params_;
   std::vector<Vertex> points_;
-  double max_radius_;
   double radius_length_scale_; /// Cached ratio from branch taper parameters
   double forest_taper_{0};
   double forest_weight_{0};

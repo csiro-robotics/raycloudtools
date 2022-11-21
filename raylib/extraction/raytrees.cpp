@@ -78,38 +78,56 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     // any estimate of branch radius is bounded from above by an estimate from the branch's length
     // estimates from length are more reliable on small branches, and less reliable on large, well
     // observed trunks.
-    max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
+    double estimated_radius = radius(sections_[sec_]);
 
     // this branch can come to an end as it is now too small
-    if (max_radius_ < 0.5 * params_->min_diameter)
+    if (estimated_radius < 0.5 * params_->min_diameter)
     {
       setBranchTip();
       continue;
     }
 
+    double best_accuracy = -1.0;
     std::vector<int> nodes;  // all the points in the section
     bool extract_from_ends = sections_[sec_].ends.size() > 0;
     // if the branch section has no end points recorded, then we need to examine this branch to
     // find end points and potentially branch (bifurcate)
     if (!extract_from_ends)
     {
-      double thickness = params_->cylinder_length_to_width * max_radius_; // sections_[sec_].max_distance_to_end / params_->length_to_radius;
+      double thickness = params_->cylinder_length_to_width * estimated_radius; // sections_[sec_].max_distance_to_end / params_->length_to_radius;
+      Eigen::Vector3d base = getRootPosition();
       if (par == -1)
       {
-        thickness *= 0.5;
-      }
-      Eigen::Vector3d base = getRootPosition();
-      extractNodesAndEndsFromRoots(nodes, base, children, thickness);
-      bool points_removed = false;
-      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness);
+        double best_thickness = 0.0;
+        for (int j = 1; j<=3; j++)
+        {
+          double max_dist = thickness * (double)j / 2.0; // range from 0.5 to 1.5 times the expected thickness
+          nodes.clear();
+          extractNodesAndEndsFromRoots(nodes, base, children, max_dist * 2.0/3.0, max_dist);
 
-      /*Eigen::Vector3d dif = (base - Eigen::Vector3d(3.5, 17.0, 0));
-      dif[2] = 0.0;
-      if (par == -1  && max_radius_ > 0.5 && dif.norm() < 5.0)
+          sections_[sec_].tip = calculateTipFromVertices(nodes);
+          // shift to cylinder's centre
+          sections_[sec_].tip += vectorToCylinderCentre(nodes, Eigen::Vector3d(0,0,1));
+          // now find the segment radius
+          double accuracy = 0.0;
+          double radius = estimateCylinderRadius(nodes, dir, accuracy);
+          if (accuracy > best_accuracy)
+          {
+            best_accuracy = accuracy;
+            estimated_radius = radius;
+            best_dist = max_dist;
+          }
+        }
+
+        nodes.clear();
+        extractNodesAndEndsFromRoots(nodes, base, children, best_dist * 2.0/3.0, best_dist);
+      }
+      else
       {
-        std::cout << "distance to end: " << sections_[sec_].max_distance_to_end << ", max radius: " << max_radius_ << ", thickness: " << thickness << ", pos: " << base.transpose() << ", clusters: " << clusters.size() << std::endl;
-        std::cout << "ratio: " << thickness / max_radius_ << std::endl;
-      }*/
+        extractNodesAndEndsFromRoots(nodes, base, children, 0.0, thickness);
+      }
+      bool points_removed = false;
+      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness, estimated_radius);
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
@@ -117,34 +135,39 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         // if points have been removed then this only resets the current section's points
         // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
         bifurcate(clusters, thickness);
-        // update the max_radius, since the points have changed
-        max_radius_ = radFromLength(sections_[sec_].max_distance_to_end);
       }
     }
 
-    if (par == -1) // special-case for root segment, to avoid including ground points
-    {
-      nodes = sections_[sec_].ends;
-    }
-    else if (extract_from_ends) // we have split the ends, so we need to extract the set of nodes in a backwards manner
+    if (extract_from_ends) // we have split the ends, so we need to extract the set of nodes in a backwards manner
     {
       extractNodesFromEnds(nodes);
     }
 
-    // estimate the section's tip (the centre of the cylinder of points)
-    sections_[sec_].tip = calculateTipFromVertices(nodes);
-    // get section's direction
-    Eigen::Vector3d dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
-    // shift to cylinder's centre
-    sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
-    // re-estimate direction
-    dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
-    // now find the segment radius
-    estimateCylinderTaper(nodes, dir, extract_from_ends);
+    if (!extract_from_ends && par == -1)
+    {
+      estimateCylinderTaper(estimated_radius, best_accuracy, extract_from_ends);
+    }
+    else
+    {
+      // estimate the section's tip (the centre of the cylinder of points)
+      sections_[sec_].tip = calculateTipFromVertices(nodes);
+      // get section's direction
+      Eigen::Vector3d dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
+      // shift to cylinder's centre
+      sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
+      // re-estimate direction
+      dir = par >= 0 ? (sections_[sec_].tip - sections_[par].tip).normalized() : Eigen::Vector3d(0, 0, 1);
+      // now find the segment radius
+      double accuracy = 0.0;
+      double rad = estimateCylinderRadius(nodes, dir, accuracy);
+      // and estimate taper
+      estimateCylinderTaper(rad, accuracy, extract_from_ends);
+    }
 
     // for the root segment we just look at the lowest point coming down from the ends
     if (par == -1)
     {
+      nodes.clear();
       extractNodesFromEnds(nodes);
       for (const auto &i: nodes)
       {
@@ -366,14 +389,20 @@ double Trees::meanTaper(const BranchSection &section) const
   double taper = sections_[root].total_taper / sections_[root].total_weight;
   double weight = sections_[root].total_weight;
   
-  if (params_->global_taper != 0.0) // user specified override
-  {
-    mean_taper = params_->global_taper;
-  }
   double blend = params_->global_taper_factor * params_->global_taper_factor;
   blend = blend * blend; // compensate for the fact that weight is in metres (tree height) ^ 4
   mean_weight *= blend;
   weight *= 1.0 - blend;
+
+/*  if (params_->global_taper != 0.0) // user specified override
+  {
+    mean_taper = params_->global_taper;
+  }*/
+  if (mean_weight + weight == 0.0)
+  {
+    return params->global_taper;
+  }
+
   double result = (mean_taper * mean_weight + taper*weight) / (mean_weight + weight);
  // std::cout << "estimated taper: " << result << ", mt: " << mean_taper << ", mw: " << mean_weight << ", t: " << taper << ", w: " << weight << ", blend: " << blend << std::endl;
   return result;
@@ -388,12 +417,7 @@ double Trees::radius(const BranchSection &section) const
 /// See "Allometric patterns in Acer platanoides (Aceraceae) branches" for real world data
 double Trees::radFromLength(double length) const
 {
-  if (length < params_->linear_range)
-  {
-    return length / params_->length_to_radius;
-  }
-  // length = scale_factor * rad^radius_exponent
-  return std::pow(length * radius_length_scale_, 1.0 / params_->radius_exponent);
+  return length / params_->length_to_radius;
 }
 
 void Trees::calculatePointDistancesToEnd()
@@ -478,12 +502,14 @@ Eigen::Vector3d Trees::getRootPosition() const
   return base;
 }
 
+
 // find the node and end points for this section, from the root points
 // return the base point (average of roots)
 void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
-                                         const std::vector<std::vector<int>> &children, double thickness)
+                                         const std::vector<std::vector<int>> &children, double min_dist, double max_dist)
 {
-  const double thickness_sqr = thickness * thickness;
+  const double min_dist_sqr = min_dist * min_dist;
+  const double max_dist_sqr = max_dist * max_dist;
   const int par = sections_[sec_].parent;
 
   nodes = sections_[sec_].roots;
@@ -496,7 +522,11 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
     {
       const double dist_sqr =
         par == -1 ? sqr(points_[child].pos[2] - base[2]) : (points_[child].pos - base).squaredNorm();
-      if (dist_sqr < thickness_sqr)  // in same slot, so accumulate
+      if (dist_sqr < min_dist_sqr)
+      {
+        continue;
+      }
+      if (dist_sqr < max_dist_sqr)  // in same slot, so accumulate
       {
         nodes.push_back(child);  // so we recurse on this child too
       }
@@ -510,7 +540,7 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
 
 // find clusters of points from the root points up the shortest paths, up to the cylinder length
 std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
-                              double thickness)
+                              double thickness, double radius)
 {
   const int par = sections_[sec_].parent;
 
@@ -538,7 +568,7 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
   }
   // cluster these end points based on two separation criteria (gap_ratio and span_ratio)
   std::vector<std::vector<int>> clusters;
-  generateClusters(clusters, ps, params_->gap_ratio * max_radius_, params_->span_ratio * max_radius_);
+  generateClusters(clusters, ps, params_->gap_ratio * radius, params_->span_ratio * radius);
   // adjust back to global ids
   for (auto &cluster : clusters)
   {
@@ -655,10 +685,9 @@ Eigen::Vector3d Trees::calculateTipFromVertices(const std::vector<int> &vertices
   Eigen::Vector3d tip(0, 0, 0);
   if (vertices.empty())
   {
-    std::cout << "error: there shouldn't be empty nodes at this point in the processing" << std::endl;
+    std::cerr << "error: there shouldn't be empty nodes at this point in the processing" << std::endl;
   }
-  // this code is a backup. If the error above is never called then it is just list = vertices
-  auto &list = vertices.empty() ? (sections_[sec_].ends.empty() ? sections_[sec_].roots : sections_[sec_].ends) : vertices;
+  auto &list = vertices;
 
   for (auto &i : list)
   {
@@ -750,18 +779,11 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
   return Eigen::Vector3d(0, 0, 0);
 }
 
-void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Vector3d &dir, bool extract_from_ends)
+double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir, double &accuracy)
 {
-  int par = sections_[sec_].parent;
-  int root = sections_[sec_].root;
-  if (root < 0 || root >= (int)sections_.size())
-  {
-    std::cout << "oh dear " << sec_ << ", par: " << par << ", root: " << root << std::endl;
-  }
-
   double n = 1e-10;
-  double rad = 0.0; // max_radius_;
-  // then get the mean radius
+  double rad = 0.0;
+  // get the mean radius
   for (auto &node : nodes)
   {
     const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
@@ -769,10 +791,6 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
     n++;
   }
   rad /= n;
-  if (!(rad == rad))
-  {
-    std::cout << "bad radius: " << rad << std::endl;
-  }
   double e = 0.0;
   for (auto &node : nodes)
   {
@@ -781,8 +799,20 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
   }
   e /= n;
   double eps = 1e-5;
-  double accuracy = std::max(eps, rad - 2.0*e) / std::max(eps, rad); // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
+  accuracy = std::max(eps, rad - 2.0*e) / std::max(eps, rad); // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
   rad = std::max(rad, eps);
+
+  return rad;
+}
+
+void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_from_ends)
+{
+  int par = sections_[sec_].parent;
+  int root = sections_[sec_].root;
+  if (root < 0 || root >= (int)sections_.size())
+  {
+    std::cout << "oh dear " << sec_ << ", par: " << par << ", root: " << root << std::endl;
+  }
 
   double l = sections_[sec_].max_distance_to_end;
   if (l <= 0.0)
@@ -809,7 +839,7 @@ void Trees::estimateCylinderTaper(const std::vector<int> &nodes, const Eigen::Ve
   {
     std::cout << "bad weight: " << weight << std::endl;
   }
-  double taper = (rad/l) * weight;
+  double taper = (radius/l) * weight;
 
   total_weight += weight;
   total_taper += taper;
@@ -842,7 +872,6 @@ void Trees::addChildSection()
   {
     new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points_[root].distance_to_end);
   }
-  max_radius_ = radFromLength(new_node.max_distance_to_end);
   if (radius(new_node) > 0.5 * params_->min_diameter)  
   {
     sections_[sec_].children.push_back(static_cast<int>(sections_.size()));
