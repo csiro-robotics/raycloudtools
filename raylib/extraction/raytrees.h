@@ -19,21 +19,17 @@ struct RAYLIB_EXPORT TreesParams
 {
   TreesParams();
   double max_diameter;              // maximum tree diameter. Trees wider than this may be segmented into multiple trees
-  double min_diameter;              // minimum branch diameter. Branches thinner than this are not reconstructed
+  double crop_length;               // distance to end of branch where it crops the branch, and doesn't generate further geometry
   double distance_limit;            // maximum distance between points that can count as connected
   double height_min;                // minimum height for a tree. Lower values are considered undergrowth and excluded
-  double length_to_radius;          // the taper gradient of branches
+  double girth_height_ratio;        // how far up tree to measure girth
   double cylinder_length_to_width;  // the slenderness of the branch segment cylinders
   double gap_ratio;                 // points with a wider gap determine that a branch has become two
   double span_ratio;                // points that span a larger width determine that a branch has become two
   double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
-  double radius_exponent;  // default 0.67 see "Allometric patterns in Acer platanoides (Aceraceae) branches"
-                           // in "Wind loads and competition for light sculpt trees into self-similar structures" they
-                           // suggest a range from 0.54 up to 0.89
   double linear_range;     // number of metres that branch radius is linear
   double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
   bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
-  double global_taper;     // branch radius change per length
   double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
   bool use_leonardos;      // use Leonardo's rule at branch points. Results in less radius in the outer branches
 };
@@ -58,8 +54,6 @@ private:
   /// The piecewise cylindrical represenation of all of the trees
   std::vector<BranchSection> sections_;
 
-  /// estimate branch radius from its length
-  double radFromLength(double length) const;
   /// calculate the distance to farthest connected branch tip, for each point in the cloud
   void calculatePointDistancesToEnd();
   /// create the start branch segments at the root positions
@@ -73,7 +67,7 @@ private:
                                     const std::vector<std::vector<int>> &children, double min_dist, double max_dist);
   /// find separate clusters of points within the branch section
   std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
-                                                  double thickness, double radius);
+                                                  double thickness, double span, double gap);
   /// split the branch section to one branch for each cluster
   void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness);
   /// find the points within the branch section from its end points
@@ -105,13 +99,12 @@ private:
 
   double meanTaper(const BranchSection &section) const;
   double radius(const BranchSection &section) const;
-  void applyLeonardosRule();
+  double mean_radius(const BranchSection &section) const;
 
   // cached data that is used throughout the processing method
   size_t sec_;
   const TreesParams *params_;
   std::vector<Vertex> points_;
-  double radius_length_scale_; /// Cached ratio from branch taper parameters
   double forest_taper_{0};
   double forest_weight_{0};
   double forest_weight_squared_{0};
@@ -139,6 +132,7 @@ struct RAYLIB_EXPORT BranchSection
     , target_radius(0)
     , error(0)
     , tip_distance_to_leaf(0)
+    , radius_scale(1)
   {}
   Eigen::Vector3d tip;
 
@@ -157,6 +151,7 @@ struct RAYLIB_EXPORT BranchSection
   double target_radius;
   double error;
   double tip_distance_to_leaf;
+  double radius_scale;
   std::vector<int> roots;  // root points
   std::vector<int> ends;
   std::vector<int> children;

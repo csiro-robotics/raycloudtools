@@ -37,20 +37,18 @@ void usage(int exit_code = 1)
   std::cout << "                            --drop_ratio 0.1- here a drop of 10% in canopy height is classed as separate trees" << std::endl;
   std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file" << std::endl;
   std::cout << "                            --max_diameter 0.9   - (-m) maximum trunk diameter in segmenting trees" << std::endl;
-  std::cout << "                            --min_diameter 0.02  - (-n) minimum branch diameter" << std::endl;
+  std::cout << "                            --crop_length 0.02  - (-p) crops small branches to this distance from end" << std::endl;
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
-  std::cout << "                            --length_per_radius 100- (-l) the tapering rate of branches" << std::endl;
+  std::cout << "                            --girth_height_ratio 0.04 - (-l) the amount up tree's height to estimate trunk girth" << std::endl;
   std::cout << "                            (for internal constants -e -c -g -s see source file rayextract)" << std::endl;
 // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
-//  std::cout << "                            --radius_exponent 1.0 - (-e) exponent of radius in estimating length" << std::endl;
 //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
 //  std::cout << "                            --gap_ratio 2.5      - (-g) will split for lateral gaps at this multiple of radius" << std::endl;
 //  std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
-  std::cout << "                            --global_taper 0     - (-b) the expected branch taper: diameter change per length (0 auto-estimates)" << std::endl;
   std::cout << "                            --global_taper_factor 0.2- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                            --linear_radius      - (-r) branch radii proportional to the branch length. Otherwise uses Leonardo's rule." << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
@@ -62,34 +60,75 @@ void usage(int exit_code = 1)
 /// extracts natural features from a scene
 int main(int argc, char *argv[])
 {
+  #if 0
+  for (double sep = 0.0; sep < 2.0; sep += 0.1)
+  {
+    std::vector<Eigen::Vector2d> pos;
+    double theta = sep < 1.0 ? std::acos(sep) : 0.0;
+    for (double ang = -ray::kPi + theta; ang < ray::kPi - theta; ang+= 0.01)
+    {
+      Eigen::Vector2d p(std::cos(ang), std::sin(ang));
+      p[0] += sep;
+
+      pos.push_back(p);
+      p[0] *= -1;
+      pos.push_back(p);
+    }
+
+    // 1. get mean rad:
+    double mean_rad = 0.0;
+    double mean_sqrt_rad = 0.0;
+    for (auto &p: pos)
+    {
+      mean_rad += p.norm();
+      mean_sqrt_rad += std::sqrt(p.norm());
+    }
+    mean_rad /= (double)pos.size();
+    mean_sqrt_rad /= (double)pos.size();
+
+    double e = 0.0;
+    for (auto &p: pos)
+    {
+      e += std::abs(p.norm() - mean_rad);
+    }
+    e /= (double)pos.size();
+    double real_area = ray::kPi * (ray::kPi - theta)/ray::kPi;
+    double x = std::min(sep, 1.0);
+    real_area += x * std::sqrt(1.0 - x*x);
+    real_area *= 2.0;
+
+    std::cout << "real rad: " << std::sqrt(real_area / ray::kPi) << " estimated rad: " << mean_rad << ", max: " << 2.0*(sep + 1.0) << ", accuracy: " << (mean_rad - 2.0*e)/mean_rad << ", separation: " << std::max(2.0*(sep-1.0), 0.0) << std::endl;
+  }
+
+  return 1;
+  #endif
+
   ray::FileArgument cloud_file, mesh_file, trunks_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
-  ray::DoubleArgument gradient(0.001, 1000.0), global_taper(0.0, 0.5), global_taper_factor(0.0, 1.0);
+  ray::DoubleArgument gradient(0.001, 1000.0), global_taper_factor(0.0, 1.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
 
   ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
-    min_diameter(0.01, 100.0);
-  ray::DoubleArgument length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
+    crop_length(0.01, 100.0);
+  ray::DoubleArgument girth_height_ratio(0.001, 0.5), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
     span_ratio(0.01, 10.0);
-  ray::DoubleArgument gravity_factor(0.0, 100.0), radius_exponent(0.0, 100.0), grid_width(1.0, 100000.0),
+  ray::DoubleArgument gravity_factor(0.0, 100.0), grid_width(1.0, 100000.0),
     grid_overlap(0.0, 0.9);
   ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
-  ray::OptionalKeyValueArgument min_diameter_option("min_diameter", 'n', &min_diameter);
+  ray::OptionalKeyValueArgument crop_length_option("crop_length", 'n', &crop_length);
   ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
   ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
-  ray::OptionalKeyValueArgument length_to_radius_option("length_per_radius", 'l', &length_to_radius);
-  ray::OptionalKeyValueArgument radius_exponent_option("radius_exponent", 'e', &radius_exponent);
+  ray::OptionalKeyValueArgument girth_height_ratio_option("girth_height_ratio", 'i', &girth_height_ratio);
   ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c',
                                                                 &cylinder_length_to_width);
   ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
   ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
-  ray::OptionalKeyValueArgument global_taper_option("global_taper", 'b', &global_taper);
   ray::OptionalKeyValueArgument global_taper_factor_option("global_taper_factor", 'o', &global_taper_factor);
 
   ray::IntArgument smooth(0, 50);
@@ -105,9 +144,9 @@ int main(int argc, char *argv[])
     { &groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose });
   bool extract_trees = ray::parseCommandLine(
     argc, argv, { &trees, &cloud_file, &mesh_file },
-    { &max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option,
+    { &max_diameter_option, &distance_limit_option, &height_min_option, &crop_length_option, &girth_height_ratio_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
-      &radius_exponent_option, &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &linear_radius_option, &verbose });
+      &segment_branches, &grid_width_option, &global_taper_factor_option, &linear_radius_option, &verbose });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
   {
     usage();
@@ -158,17 +197,13 @@ int main(int argc, char *argv[])
     {
       params.height_min = height_min.value();
     }
-    if (min_diameter_option.isSet())
+    if (crop_length_option.isSet())
     {
-      params.min_diameter = min_diameter.value();
+      params.crop_length = crop_length.value();
     }
-    if (length_to_radius_option.isSet())
+    if (girth_height_ratio_option.isSet())
     {
-      params.length_to_radius = length_to_radius.value();
-    }
-    if (radius_exponent_option.isSet())
-    {
-      params.radius_exponent = radius_exponent.value();
+      params.girth_height_ratio = girth_height_ratio.value();
     }
     if (cylinder_length_to_width_option.isSet())
     {
@@ -189,10 +224,6 @@ int main(int argc, char *argv[])
     if (grid_width_option.isSet())
     {
       params.grid_width = grid_width.value();
-    }
-    if (global_taper_option.isSet())
-    {
-      params.global_taper = 0.5 * global_taper.value(); // changing from diameter to radius
     }
     if (global_taper_factor_option.isSet())
     {

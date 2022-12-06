@@ -12,19 +12,17 @@ namespace ray
 {
 TreesParams::TreesParams()
   : max_diameter(0.9)
-  , min_diameter(0.02)
+  , crop_length(1.0)
   , distance_limit(1.0)
   , height_min(2.0)
-  , length_to_radius(100.0)
+  , girth_height_ratio(0.04)
   , cylinder_length_to_width(4.0)
   , gap_ratio(2.5)
   , span_ratio(4.5)
   , gravity_factor(0.3)
-  , radius_exponent(1.0)
   , linear_range(3.0)
   , grid_width(0.0)
   , segment_branches(false)
-  , global_taper(0.0)
   , global_taper_factor(0.2)
   , use_leonardos(true)
 {}
@@ -36,12 +34,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 {
   // firstly, get the full set of shortest paths from ground to tips, and the set of roots
   params_ = &params;
-
-  // cache an often used branch tapering value
-  const double radius_at_min = params_->linear_range / params_->length_to_radius;
-  const double unscaled_rad = std::pow(radius_at_min, params_->radius_exponent);
-  // length = scale_factor * rad^radius_exponent
-  radius_length_scale_ = unscaled_rad / params_->linear_range;
 
   std::vector<std::vector<int>> roots_list = getRootsAndSegment(
     points_, cloud, mesh, params_->max_diameter, params_->distance_limit, params_->height_min, params_->gravity_factor);
@@ -75,13 +67,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     }
     const int par = sections_[sec_].parent;
 
-    // any estimate of branch radius is bounded from above by an estimate from the branch's length
-    // estimates from length are more reliable on small branches, and less reliable on large, well
-    // observed trunks.
-    double estimated_radius = radius(sections_[sec_]);
-
     // this branch can come to an end as it is now too small
-    if (estimated_radius < 0.5 * params_->min_diameter)
+    if (sections_[sec_].max_distance_to_end < params_->crop_length)
     {
       setBranchTip();
       continue;
@@ -94,23 +81,37 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     // find end points and potentially branch (bifurcate)
     if (!extract_from_ends)
     {
-      double thickness = params_->cylinder_length_to_width * estimated_radius; // sections_[sec_].max_distance_to_end / params_->length_to_radius;
       Eigen::Vector3d base = getRootPosition();
       if (par == -1)
       {
-        double best_thickness = 0.0;
+        // Use a usr defined taper to control the height up the trunk to calculate the radius at
+        double girth_height = params_->girth_height_ratio * sections_[sec_].max_distance_to_end;
+        double estimated_radius = 0;
+        double best_dist = 0.0;
         for (int j = 1; j<=3; j++)
         {
-          double max_dist = thickness * (double)j / 2.0; // range from 0.5 to 1.5 times the expected thickness
+          double max_dist = girth_height * (double)j / 2.0; // range from 0.5 to 1.5 times the specified height
           nodes.clear();
+          sections_[sec_].ends.clear();
           extractNodesAndEndsFromRoots(nodes, base, children, max_dist * 2.0/3.0, max_dist);
-
+          if (nodes.size() < 2)
+          {
+            continue;
+          }
+          std::cout << " points above: " << max_dist * 2.0/3.0 << " from " << base[2] << std::endl;
+          for (auto &node: nodes)
+          {
+            std::cout << points_[node].pos.transpose() << std::endl;
+          }
+          std::cout << std::endl;
           sections_[sec_].tip = calculateTipFromVertices(nodes);
+          std::cout << " gives tip: " << sections_[sec_].tip.transpose() << std::endl;
+          Eigen::Vector3d up(0,0,1);
           // shift to cylinder's centre
-          sections_[sec_].tip += vectorToCylinderCentre(nodes, Eigen::Vector3d(0,0,1));
+          sections_[sec_].tip += vectorToCylinderCentre(nodes, up);
           // now find the segment radius
           double accuracy = 0.0;
-          double radius = estimateCylinderRadius(nodes, dir, accuracy);
+          double radius = estimateCylinderRadius(nodes, up, accuracy);
           if (accuracy > best_accuracy)
           {
             best_accuracy = accuracy;
@@ -118,16 +119,30 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
             best_dist = max_dist;
           }
         }
-
-        nodes.clear();
-        extractNodesAndEndsFromRoots(nodes, base, children, best_dist * 2.0/3.0, best_dist);
+        if (estimated_radius == 0.0)
+        {
+          std::cout << "warning: could not find any points on trunk " << sec_ << " at " << base.transpose() << std::endl;
+        }
+        else
+        {
+          nodes.clear();
+          sections_[sec_].ends.clear();
+          extractNodesAndEndsFromRoots(nodes, base, children, best_dist * 2.0/3.0, best_dist);
+          estimateCylinderTaper(estimated_radius, best_accuracy, extract_from_ends); // update the expected taper
+        }
       }
-      else
+      double span_rad = radius(sections_[sec_]); 
+      double gap_rad = mean_radius(sections_[sec_]); // use a mean value for the gap condition
+      double thickness = params_->cylinder_length_to_width * span_rad;
+      if (par > -1)
       {
+        gap_rad = span_rad; // if not the root then we have more confidence over rad, so can use this
         extractNodesAndEndsFromRoots(nodes, base, children, 0.0, thickness);
       }
       bool points_removed = false;
-      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness, estimated_radius);
+      double gap = params_->gap_ratio * gap_rad; // gap threshold for splitting
+      double span = params_->span_ratio * span_rad; // span thershold for splitting
+      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness, span, gap);
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
@@ -138,17 +153,12 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       }
     }
 
-    if (extract_from_ends) // we have split the ends, so we need to extract the set of nodes in a backwards manner
+    if (extract_from_ends || par > -1)
     {
-      extractNodesFromEnds(nodes);
-    }
-
-    if (!extract_from_ends && par == -1)
-    {
-      estimateCylinderTaper(estimated_radius, best_accuracy, extract_from_ends);
-    }
-    else
-    {
+      if (extract_from_ends) // we have split the ends, so we need to extract the set of nodes in a backwards manner
+      {
+        extractNodesFromEnds(nodes);
+      }
       // estimate the section's tip (the centre of the cylinder of points)
       sections_[sec_].tip = calculateTipFromVertices(nodes);
       // get section's direction
@@ -161,7 +171,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       double accuracy = 0.0;
       double rad = estimateCylinderRadius(nodes, dir, accuracy);
       // and estimate taper
-      estimateCylinderTaper(rad, accuracy, extract_from_ends);
+      estimateCylinderTaper(rad / sections_[sec_].radius_scale, accuracy, extract_from_ends);
     }
 
     // for the root segment we just look at the lowest point coming down from the ends
@@ -206,179 +216,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   {
     removeOutOfBoundRays(cloud, min_bound, max_bound, root_segs);
   }
-
-  if (params_->use_leonardos)
-  {
-    applyLeonardosRule();
-  }
-}
-
-void Trees::applyLeonardosRule()
-{
-  #define DISTANCE_BASED // otherwise it is based on the number of leaf segments
-  #if defined DISTANCE_BASED
-  // 1. from leaf to tip, calculate the expected segment radii based on branch segment radii being proportional to their distance to end
-  // we generate the list of children in a breadth first way, and iterate through it backwards, each segment using the previously processed data
-  for (size_t sec = 0; sec < sections_.size(); sec++)
-  {
-    auto &root = sections_[sec];
-    if (root.parent >= 0 || root.children.empty())  // not a root section, so move on
-    {
-      continue;
-    }
-    std::vector<int> children = {(int)sec}; // root.children;
-    // breadth first list of children of the tree root
-    for (unsigned int c = 0; c < children.size(); c++)
-    {
-      for (auto i : sections_[children[c]].children)
-      {
-        children.push_back(i);
-      }
-    }
-    // backwards breadth first
-    for (int c = (int)children.size()-1; c >= 0; c--)
-    {
-      int id = children[c];
-      auto &section = sections_[id];
-   /*   if (section.children.size() > 1) // junction calculation
-      { // this is a geoometric average
-        double k = 1.0;
-        for (auto &child_id: section.children)
-        {
-          auto &child = sections_[child_id];
-          k *= child.target_radius / child.max_distance_to_end;
-        }
-        k = std::pow(k, 1.0 / (double)section.children.size());
-        double sum_area = 0.0;
-        for (auto &child_id: section.children)
-        {
-          auto &child = sections_[child_id];
-          child.target_radius = k * child.max_distance_to_end;
-          sum_area += ray::sqr(child.target_radius);
-        }
-        section.target_radius = std::sqrt(sum_area); // Leonardo's rule
-      }
-      else */
-      if (section.children.size() > 1) // this one is an algebraic average, so doesn't under-estimate the larger radius like a geometric average does
-      {
-        double sum_radius = 0.0;
-        double sum_distance = 0.0;
-        for (auto &child_id: section.children)
-        {
-          auto &child = sections_[child_id];
-          sum_radius += child.target_radius;
-          sum_distance += child.max_distance_to_end;
-        }
-        double mean_gradient = sum_radius / sum_distance;
-        double sum_area = 0.0;
-        for (auto &child_id: section.children)
-        {
-          auto &child = sections_[child_id];
-          child.target_radius = mean_gradient * child.max_distance_to_end;
-          sum_area += ray::sqr(child.target_radius);
-        }
-        section.target_radius = std::sqrt(sum_area); // Leonardo's rule
-      }
-      else if (section.children.size() == 1)
-      {
-        section.target_radius = sections_[section.children[0]].target_radius;
-      }
-      else // a leaf
-      {
-        section.target_radius = radius(section); // entirely taper based
-      }
-      section.tip_distance_to_leaf = 0.0;
-      for (auto &child_id: section.children)
-      {
-        auto &child = sections_[child_id];
-        section.tip_distance_to_leaf = std::max(section.tip_distance_to_leaf, child.tip_distance_to_leaf + (section.tip - child.tip).norm());
-      }
-    }
-
-    // finally we have to iterate forward breadth first, in order to apply a correction taper
-    for (auto &id: children)
-    {
-      auto &section = sections_[id];
-      if (section.parent == -1)
-      {
-        section.error = radius(section) / section.target_radius;
-      }
-      else
-      {
-        auto &parent = sections_[section.parent];
-        double section_length = (section.tip - parent.tip).norm();
-        double blend = section.tip_distance_to_leaf / (section.tip_distance_to_leaf + section_length);
-        section.error = 1.0 + (parent.error-1.0) * blend;
-      }
-      section.radius = section.target_radius * section.error;
-    } 
-  }
-  #else
-  // we want the cross section of the child branches to sum to that of the parent branch at each branch point
-  // this is based on the idea of each leaf representing a tubule that runs to the base. The branch cross sectional areas are proportional to the
-  // sum of the cross sectional areas of all the tubules going to the branch's leaves.
-  // this idea has a complication if we assume the tubules are uniform width: 
-  // Non-reconstructed branches will mean that some trees are too fat at their leaves, likewise too many branches will be too thin at the leaves
-  // 
-  // To resolve, per-tree, we apply the same linear taper rate of each tubule's radius, such that it matches the trunk width at the base,
-  // and matches the specified minimum diameter at the leaves. 
-  int c = 0;
-  double mean_taper = 0;
-  double min_taper = 1e10;
-  double max_taper = -1e10;
-  double num = 0;
-  for (size_t sec = 0; sec < sections_.size(); sec++)
-  {
-    auto &section = sections_[sec];
-    if (section.parent >= 0 || section.children.empty())  // not a root section, so move on
-    {
-      continue;
-    }
-    std::vector<int> children = section.children;
-    double min_rad = 0.5 * params_->min_diameter;
-    double min_sqr = ray::sqr(min_rad);
-    for (unsigned int c = 0; c < children.size(); c++)
-    {
-      if (sections_[children[c]].children.empty())
-      {
-        // recurse down
-        int i = children[c];
-        double dist_from_leaf = sections_[i].max_distance_to_end;
-        sections_[i].tubule_linear_area = ray::sqr(dist_from_leaf);
-        sections_[i].tubule_constant_area = min_sqr;
-        while (sections_[i].parent != -1)
-        {
-          dist_from_leaf += (sections_[i].tip - sections_[sections_[i].parent].tip).norm();
-          sections_[sections_[i].parent].tubule_linear_area += ray::sqr(dist_from_leaf);
-          sections_[sections_[i].parent].tubule_constant_area += min_sqr;
-          i = sections_[i].parent;
-        }
-      }
-      for (auto i : sections_[children[c]].children)
-      {
-        children.push_back(i);
-      }
-    }
-    section.radius = radius(section);
-
-    // so taper*sqrt(tubule_linear_area) + j*sqrt(tubule_constant_area) = section.radius
-    // j = 1 right? as leaf tubule_linear_area will be 0, and sqrt(tubule_constant_area) will be the min diameter.
-
-    double taper = (section.radius - std::sqrt(section.tubule_constant_area)) / std::sqrt(section.tubule_linear_area);
-    min_taper = std::min(min_taper, taper);
-    max_taper = std::max(max_taper, taper);
-    mean_taper += taper;
-    num++;
-    for (auto &child_id: children)
-    {
-      auto &child = sections_[child_id];
-      auto &par = sections_[child.parent];
-      child.radius = taper * std::sqrt(child.tubule_linear_area) + std::sqrt(child.tubule_constant_area);
-    }
-  }
-  mean_taper /= num;
-  std::cout << "Applied Leonardo rule: to end at specified min diameter, trees have min taper: " << min_taper << ", mean taper: " << mean_taper << ", max_taper: " << max_taper << std::endl;
-  #endif
 }
 
 double Trees::meanTaper(const BranchSection &section) const
@@ -394,30 +231,28 @@ double Trees::meanTaper(const BranchSection &section) const
   mean_weight *= blend;
   weight *= 1.0 - blend;
 
-/*  if (params_->global_taper != 0.0) // user specified override
-  {
-    mean_taper = params_->global_taper;
-  }*/
-  if (mean_weight + weight == 0.0)
-  {
-    return params->global_taper;
-  }
-
   double result = (mean_taper * mean_weight + taper*weight) / (mean_weight + weight);
  // std::cout << "estimated taper: " << result << ", mt: " << mean_taper << ", mw: " << mean_weight << ", t: " << taper << ", w: " << weight << ", blend: " << blend << std::endl;
   return result;
 }
+
 double Trees::radius(const BranchSection &section) const 
 { 
+  if (params_->use_leonardos)
+  {
+    return sections_[section.root].max_distance_to_end * meanTaper(section) * section.radius_scale; // scaled down from root's estimated radius
+  }
   return section.max_distance_to_end * meanTaper(section);
 }
 
-/// calculate a branch radius from its length. We use allometric scaling based on a radius exponent and a
-/// linear range for the final taper of the branch
-/// See "Allometric patterns in Acer platanoides (Aceraceae) branches" for real world data
-double Trees::radFromLength(double length) const
-{
-  return length / params_->length_to_radius;
+double Trees::mean_radius(const BranchSection &section) const 
+{ 
+  double mean_taper = forest_taper_ / forest_weight_;
+  if (params_->use_leonardos)
+  {
+    return sections_[section.root].max_distance_to_end * mean_taper * section.radius_scale; // scaled down from root's estimated radius
+  }
+  return section.max_distance_to_end * mean_taper;
 }
 
 void Trees::calculatePointDistancesToEnd()
@@ -452,6 +287,7 @@ void Trees::generateRootSections(const std::vector<std::vector<int>> &roots_list
     BranchSection base;
     base.roots = roots_list[i];
     base.root = static_cast<int>(sections_.size());
+    base.radius_scale = 1.0;
     sections_.push_back(base);
   }
 
@@ -508,11 +344,9 @@ Eigen::Vector3d Trees::getRootPosition() const
 void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
                                          const std::vector<std::vector<int>> &children, double min_dist, double max_dist)
 {
-  const double min_dist_sqr = min_dist * min_dist;
-  const double max_dist_sqr = max_dist * max_dist;
   const int par = sections_[sec_].parent;
-
   nodes = sections_[sec_].roots;
+
   // 2. find all the points (and the end points) for this section:
   for (unsigned int index = 0; index < nodes.size(); index++)
   {
@@ -520,13 +354,12 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
     const int i = nodes[index];
     for (auto &child : children[i])
     {
-      const double dist_sqr =
-        par == -1 ? sqr(points_[child].pos[2] - base[2]) : (points_[child].pos - base).squaredNorm();
-      if (dist_sqr < min_dist_sqr)
+      const double dist = par == -1 ? points_[child].pos[2] - base[2] : (points_[child].pos - base).norm();
+      if (dist < min_dist)
       {
         continue;
       }
-      if (dist_sqr < max_dist_sqr)  // in same slot, so accumulate
+      if (dist < max_dist)  // in same slot, so accumulate
       {
         nodes.push_back(child);  // so we recurse on this child too
       }
@@ -536,11 +369,15 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
       }
     }
   }
+  if (min_dist > 0.0 && par == -1) // we don't want to include the root nodes, as these are basically at 0
+  {
+    nodes.erase(nodes.begin(), nodes.begin() + sections_[sec_].roots.size());
+  }
 }
 
 // find clusters of points from the root points up the shortest paths, up to the cylinder length
 std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
-                              double thickness, double radius)
+                              double thickness, double span, double gap)
 {
   const int par = sections_[sec_].parent;
 
@@ -568,7 +405,7 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
   }
   // cluster these end points based on two separation criteria (gap_ratio and span_ratio)
   std::vector<std::vector<int>> clusters;
-  generateClusters(clusters, ps, params_->gap_ratio * radius, params_->span_ratio * radius);
+  generateClusters(clusters, ps, gap, span);
   // adjust back to global ids
   for (auto &cluster : clusters)
   {
@@ -621,6 +458,12 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
       maxi = static_cast<int>(i);
     }
   }
+
+  double total_area = 0.0;
+  for (auto &dist: max_distances)
+  {
+    total_area += dist * dist;
+  }
   
   // set the current branch section to the cluster with the
   // maximum distance to tip (i.e. the longest branch).
@@ -636,8 +479,8 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
     }
     BranchSection new_node = sections_[sec_];
     new_node.max_distance_to_end = max_distances[i] + thickness;
-    const double maxrad = radFromLength(new_node.max_distance_to_end);
-    if (maxrad > 0.5 * params_->min_diameter)  // but only add if they are large enough
+    new_node.radius_scale *= max_distances[i] / std::sqrt(total_area);
+    if (new_node.max_distance_to_end > params_->crop_length)  // but only add if they are large enough
     {
       // we only specify the end points at this stage. They will therefore enter the
       // extract_from_ends block below when the sec_ for loop gets to their section
@@ -649,6 +492,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
       sections_.push_back(new_node);
     }
   }
+  sections_[sec_].radius_scale *= max_distances[maxi] / std::sqrt(total_area); // reduce branch radius due to the split
 }
 
 // find the nodes between the section end points and the section root points
@@ -800,6 +644,7 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   e /= n;
   double eps = 1e-5;
   accuracy = std::max(eps, rad - 2.0*e) / std::max(eps, rad); // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
+  accuracy *= std::min((double)nodes.size() / 4.0, 1.0);
   rad = std::max(rad, eps);
 
   return rad;
@@ -815,6 +660,7 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
   }
 
   double l = sections_[sec_].max_distance_to_end;
+  double L = sections_[root].max_distance_to_end;
   if (l <= 0.0)
   {
     std::cout << "bad l: " << l << std::endl;
@@ -839,7 +685,7 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
   {
     std::cout << "bad weight: " << weight << std::endl;
   }
-  double taper = (radius/l) * weight;
+  double taper = (radius/L) * weight;
 
   total_weight += weight;
   total_taper += taper;
@@ -867,12 +713,13 @@ void Trees::addChildSection()
   new_node.roots = sections_[sec_].ends;
   new_node.taper = sections_[sec_].taper;
   new_node.weight = sections_[sec_].weight;
+  new_node.radius_scale = sections_[sec_].radius_scale;
   
   for (auto &root : new_node.roots)
   {
     new_node.max_distance_to_end = std::max(new_node.max_distance_to_end, points_[root].distance_to_end);
   }
-  if (radius(new_node) > 0.5 * params_->min_diameter)  
+  if (new_node.max_distance_to_end > params_->crop_length)  
   {
     sections_[sec_].children.push_back(static_cast<int>(sections_.size()));
     new_node.tip = calculateTipFromVertices(new_node.roots);
@@ -1117,7 +964,7 @@ bool Trees::save(const std::string &filename) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << (params_->use_leonardos ? section.radius : radius(section)) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
     int root = section.root;
     std::vector<int> children = section.children;
     for (unsigned int c = 0; c < children.size(); c++)
@@ -1127,7 +974,7 @@ bool Trees::save(const std::string &filename) const
       {
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << (params_->use_leonardos ? node.radius : radius(node)) << "," << sections_[node.parent].id;
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id;
       ofs << "," << children[c] << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;
       for (auto i : sections_[children[c]].children)
       {
