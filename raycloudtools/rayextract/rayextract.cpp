@@ -40,7 +40,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --crop_length 0.02  - (-p) crops small branches to this distance from end" << std::endl;
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
-  std::cout << "                            --girth_height_ratio 0.04 - (-l) the amount up tree's height to estimate trunk girth" << std::endl;
+  std::cout << "                            --girth_height_ratio 0.06 - (-l) the amount up tree's height to estimate trunk girth" << std::endl;
   std::cout << "                            (for internal constants -e -c -g -s see source file rayextract)" << std::endl;
 // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
 //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
@@ -49,7 +49,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
-  std::cout << "                            --global_taper_factor 0.2- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
+  std::cout << "                            --global_taper_factor 0.5- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                            --linear_radius      - (-r) branch radii proportional to the branch length. Otherwise uses Leonardo's rule." << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on

@@ -27,7 +27,6 @@ struct RAYLIB_EXPORT TreesParams
   double gap_ratio;                 // points with a wider gap determine that a branch has become two
   double span_ratio;                // points that span a larger width determine that a branch has become two
   double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
-  double linear_range;     // number of metres that branch radius is linear
   double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
   bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
   double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
