@@ -24,7 +24,7 @@ struct RAYLIB_EXPORT TreesParams
   double height_min;                // minimum height for a tree. Lower values are considered undergrowth and excluded
   double girth_height_ratio;        // how far up tree to measure girth
   double cylinder_length_to_width;  // the slenderness of the branch segment cylinders
-  double gap_ratio;                 // points with a wider gap determine that a branch has become two
+  double gap_ratio;                 // max gap per branch length
   double span_ratio;                // points that span a larger width determine that a branch has become two
   double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
   double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
@@ -69,7 +69,7 @@ private:
   std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
                                                   double thickness, double span, double gap);
   /// split the branch section to one branch for each cluster
-  void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness);
+  void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness, std::vector<std::vector<int>> &children, bool clip_tree = false);
   /// find the points within the branch section from its end points
   void extractNodesFromEnds(std::vector<int> &nodes);
   /// set the branch section tip position from the supplied list of Vertex IDs
@@ -102,7 +102,7 @@ private:
   double mean_radius(const BranchSection &section) const;
 
   // cached data that is used throughout the processing method
-  size_t sec_;
+  int sec_;
   const TreesParams *params_;
   std::vector<Vertex> points_;
   double forest_taper_{0};

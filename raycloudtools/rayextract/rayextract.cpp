@@ -37,14 +37,14 @@ void usage(int exit_code = 1)
   std::cout << "                            --drop_ratio 0.1- here a drop of 10% in canopy height is classed as separate trees" << std::endl;
   std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file" << std::endl;
   std::cout << "                            --max_diameter 0.9   - (-m) maximum trunk diameter in segmenting trees" << std::endl;
-  std::cout << "                            --crop_length 0.02  - (-p) crops small branches to this distance from end" << std::endl;
+  std::cout << "                            --crop_length 1.0    - (-p) crops small branches to this distance from end" << std::endl;
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
-  std::cout << "                            --girth_height_ratio 0.06 - (-l) the amount up tree's height to estimate trunk girth" << std::endl;
+  std::cout << "                            --girth_height_ratio 0.08 - (-l) the amount up tree's height to estimate trunk girth" << std::endl;
   std::cout << "                            (for internal constants -e -c -g -s see source file rayextract)" << std::endl;
 // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
 //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
-//  std::cout << "                            --gap_ratio 2.5      - (-g) will split for lateral gaps at this multiple of radius" << std::endl;
+//  std::cout << "                            --gap_ratio 0.025    - (-g) will split for lateral gaps at this multiple of branch length" << std::endl;
 //  std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
