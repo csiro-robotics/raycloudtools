@@ -29,6 +29,7 @@ struct RAYLIB_EXPORT TreesParams
   double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
   double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
   bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
+  double global_taper;     // forced global taper, uses global_taper_factor to define how much it is applied
   double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
   bool use_leonardos;      // use Leonardo's rule at branch points. Results in less radius in the outer branches
 };

@@ -22,6 +22,7 @@ TreesParams::TreesParams()
   , gravity_factor(0.3)
   , grid_width(0.0)
   , segment_branches(false)
+  , global_taper(0)
   , global_taper_factor(0.5)
   , use_leonardos(true)
 {}
@@ -246,18 +247,17 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     removeOutOfBoundRays(cloud, min_bound, max_bound, root_segs);
   }
 
-  std::cout << "cloud's estimated mean taper ratio (radius / length): " << forest_taper_ / forest_weight_ << std::endl;
+  std::cout << "cloud's estimated mean taper ratio (diameter / length): " << 2.0 * forest_taper_ / forest_weight_ << std::endl;
 }
 
 double Trees::meanTaper(const BranchSection &section) const
 {
   int root = section.root;
-  double mean_taper = forest_taper_ / forest_weight_;
+  double mean_taper = params_->global_taper ? params_->global_taper : (forest_taper_ / forest_weight_);
   double mean_weight = forest_weight_squared_ / forest_weight_;
   double taper = sections_[root].total_taper / sections_[root].total_weight;
   double weight = sections_[root].total_weight;
   double blend = params_->global_taper_factor * params_->global_taper_factor;
-  blend = blend * blend; // compensate for the fact that weight is in metres (tree height) ^ 4
   mean_weight *= blend;
   weight *= 1.0 - blend;
 
@@ -277,7 +277,7 @@ double Trees::radius(const BranchSection &section) const
 
 double Trees::mean_radius(const BranchSection &section) const 
 { 
-  double mean_taper = forest_taper_ / forest_weight_;
+  double mean_taper = params_->global_taper ? params_->global_taper : (forest_taper_ / forest_weight_);
   if (params_->use_leonardos)
   {
     return sections_[section.root].max_distance_to_end * mean_taper * section.radius_scale; // scaled down from root's estimated radius
@@ -683,8 +683,14 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   }
   e /= n;
   double eps = 1e-5;
+#define NEW_ACCURACY
+#if defined NEW_ACCURACY
+  const double sensor_noise = 0.02; // this prevents cylinders with a small number of very accurate points from totally dominating
+  accuracy = rad / (e + sensor_noise);
+#else // this one goes down to 0, which could be bad if all cylinder points were low accuracy
   accuracy = std::max(eps, rad - 2.0*e) / std::max(eps, rad); // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
   accuracy *= std::min((double)nodes.size() / 3.0, 1.0);
+#endif
   rad = std::max(rad, eps);
 
   return rad;
@@ -698,28 +704,22 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
   double l = sections_[sec_].max_distance_to_end;
   double L = sections_[root].max_distance_to_end;
 
-  double total_taper = sections_[root].total_taper;
-  double total_weight = sections_[root].total_weight;
-
   double junction_weight = 0.01;
   if (par > -1)
   {
     junction_weight = extract_from_ends ? 0.25 : 1.0; // extracting from ends means we are less confident about the quality
   }
 
-  double weight = l*l * accuracy*accuracy * junction_weight;
+  double weight = l*l * accuracy * junction_weight;
   weight *= weight; // preference the strongest weight sections
   double taper = (radius/L) * weight;
-
-  total_weight += weight;
-  total_taper += taper;
 
   forest_taper_ += taper;
   forest_weight_ += weight;
   forest_weight_squared_ += weight*weight;
 
-  sections_[root].total_taper = total_taper;
-  sections_[root].total_weight = total_weight;
+  sections_[root].total_taper += taper;
+  sections_[root].total_weight += weight;
 
   sections_[sec_].taper = taper;
   sections_[sec_].weight = weight;

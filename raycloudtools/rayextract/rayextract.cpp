@@ -49,6 +49,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
+  std::cout << "                            --global_taper 0.01  - (-a) force a taper value (diameter per length) for trees under global_taper_factor of max tree height. Default 0 estimates global taper from the data" << std::endl;
   std::cout << "                            --global_taper_factor 0.5- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                            --linear_radius      - (-r) branch radii proportional to the branch length. Otherwise uses Leonardo's rule." << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
@@ -60,54 +61,11 @@ void usage(int exit_code = 1)
 /// extracts natural features from a scene
 int main(int argc, char *argv[])
 {
-  #if 0
-  for (double sep = 0.0; sep < 2.0; sep += 0.1)
-  {
-    std::vector<Eigen::Vector2d> pos;
-    double theta = sep < 1.0 ? std::acos(sep) : 0.0;
-    for (double ang = -ray::kPi + theta; ang < ray::kPi - theta; ang+= 0.01)
-    {
-      Eigen::Vector2d p(std::cos(ang), std::sin(ang));
-      p[0] += sep;
-
-      pos.push_back(p);
-      p[0] *= -1;
-      pos.push_back(p);
-    }
-
-    // 1. get mean rad:
-    double mean_rad = 0.0;
-    double mean_sqrt_rad = 0.0;
-    for (auto &p: pos)
-    {
-      mean_rad += p.norm();
-      mean_sqrt_rad += std::sqrt(p.norm());
-    }
-    mean_rad /= (double)pos.size();
-    mean_sqrt_rad /= (double)pos.size();
-
-    double e = 0.0;
-    for (auto &p: pos)
-    {
-      e += std::abs(p.norm() - mean_rad);
-    }
-    e /= (double)pos.size();
-    double real_area = ray::kPi * (ray::kPi - theta)/ray::kPi;
-    double x = std::min(sep, 1.0);
-    real_area += x * std::sqrt(1.0 - x*x);
-    real_area *= 2.0;
-
-    std::cout << "real rad: " << std::sqrt(real_area / ray::kPi) << " estimated rad: " << mean_rad << ", max: " << 2.0*(sep + 1.0) << ", accuracy: " << (mean_rad - 2.0*e)/mean_rad << ", separation: " << std::max(2.0*(sep-1.0), 0.0) << std::endl;
-  }
-
-  return 1;
-  #endif
-
   ray::FileArgument cloud_file, mesh_file, trunks_file;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
-  ray::DoubleArgument gradient(0.001, 1000.0), global_taper_factor(0.0, 1.0);
+  ray::DoubleArgument gradient(0.001, 1000.0), global_taper(0.0, 1.0), global_taper_factor(0.0, 1.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
@@ -129,6 +87,7 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
   ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
+  ray::OptionalKeyValueArgument global_taper_option("global_taper", 'a', &global_taper);
   ray::OptionalKeyValueArgument global_taper_factor_option("global_taper_factor", 'o', &global_taper_factor);
 
   ray::IntArgument smooth(0, 50);
@@ -146,7 +105,7 @@ int main(int argc, char *argv[])
     argc, argv, { &trees, &cloud_file, &mesh_file },
     { &max_diameter_option, &distance_limit_option, &height_min_option, &crop_length_option, &girth_height_ratio_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
-      &segment_branches, &grid_width_option, &global_taper_factor_option, &linear_radius_option, &verbose });
+      &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &linear_radius_option, &verbose });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
   {
     usage();
@@ -224,6 +183,10 @@ int main(int argc, char *argv[])
     if (grid_width_option.isSet())
     {
       params.grid_width = grid_width.value();
+    }
+    if (global_taper_option.isSet())
+    {
+      params.global_taper = 0.5 * global_taper.value();
     }
     if (global_taper_factor_option.isSet())
     {
