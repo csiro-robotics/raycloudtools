@@ -124,19 +124,13 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       }
     }
     sections_[sec_].tip = best_tip;
-    for (const auto &i: nodes)
-    {
-      sections_[sec_].tip[2] = std::min(sections_[sec_].tip[2], points_[i].pos[2]);
-    }
-
     nodes.clear();
     sections_[sec_].ends.clear();
+    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist);
 
     if (!already_split) // then try splitting
     {
       double thickness = girth_height; // params_->cylinder_length_to_width * estimated_radius;
-      extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist);
-      
       bool points_removed = false;
       double gap = params_->gap_ratio * sections_[sec_].max_distance_to_end; // gap threshold for splitting
       double span = params_->span_ratio * estimated_radius; // span threshold for splitting
@@ -181,7 +175,15 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       if (sections_[sec_].ends.size() > 0)
       {
         addChildSection();
+        for (const auto &i: sections_[sec_].roots)
+        {
+          sections_[sec_].tip[2] = std::min(sections_[sec_].tip[2], points_[i].pos[2]);
+        }
       }      
+      else
+      {
+        std::cout << "weird, a trunk without end points! " << sec_ << std::endl;
+      }
       continue;
     }
     if (!(sec_ % 10000))
@@ -867,7 +869,7 @@ void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list,
       section_ids[root] = static_cast<int>(i);
     }
   }
-  for (sec_ = 0; sec_ < sections_.size(); sec_++)
+  for (sec_ = 0; sec_ < (int)sections_.size(); sec_++)
   {
     std::vector<int> nodes;
     for (auto &end : sections_[sec_].ends)
