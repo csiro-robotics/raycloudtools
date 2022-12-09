@@ -50,7 +50,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
   std::cout << "                            --global_taper 0.01  - (-a) force a taper value (diameter per length) for trees under global_taper_factor of max tree height. Default 0 estimates global taper from the data" << std::endl;
-  std::cout << "                            --global_taper_factor 0.5- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
+  std::cout << "                            --global_taper_factor 0.1- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                            --linear_radius      - (-r) branch radii proportional to the branch length. Otherwise uses Leonardo's rule." << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on

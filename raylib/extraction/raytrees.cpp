@@ -23,7 +23,7 @@ TreesParams::TreesParams()
   , grid_width(0.0)
   , segment_branches(false)
   , global_taper(0)
-  , global_taper_factor(0.5)
+  , global_taper_factor(0.1)
   , use_leonardos(true)
 {}
 
