@@ -151,6 +151,9 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         debug_cloud.addRay(Eigen::Vector3d(0,0,0), best_tip + (estimated_radius + 0.01) * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, ray::RGBA(shade,shade,shade,255));
       }
     }
+    nodes.clear();
+    sections_[sec_].ends.clear();
+    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0); // make it lower
 
     if (estimated_radius >= 1e10)
     {
@@ -251,7 +254,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
   // Now calculate the section ids for all of the points, for the segmented cloud
   std::vector<int> section_ids(points_.size(), -1);
-  calculateSectionIds(roots_list, section_ids, children);
+  calculateSectionIds(section_ids, children);
 
   // debug draw to rviz the set of cylinders
   drawTrees(verbose);
@@ -617,6 +620,14 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
                   }
                 }
                 points_[node].parent = -1;
+
+                // we need to tell all of the children what the new root is
+                std::vector<int> child_list = {node};
+                for (size_t j = 0; j<child_list.size(); j++)
+                {
+                  points_[child_list[j]].root = node;
+                  child_list.insert(child_list.end(), children[child_list[j]].begin(), children[child_list[j]].end());
+                }
               }
               break;
             }
@@ -636,6 +647,10 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
       if (par != -1)
       {
         sections_[par].children.push_back(static_cast<int>(sections_.size()));
+      }
+      if (par == -1)
+      {
+        new_node.root = sections_.size();
       }
       sections_.push_back(new_node);
     }
@@ -810,7 +825,7 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
   double l = sections_[sec_].max_distance_to_end;
   double L = sections_[root].max_distance_to_end;
 
-  double junction_weight = 0.01;
+  double junction_weight = 0.1;
   if (par > -1)
   {
     junction_weight = extract_from_ends ? 0.25 : 1.0; // extracting from ends means we are less confident about the quality
@@ -857,16 +872,18 @@ void Trees::addChildSection()
   }
 }
 
-// calcualte what section every point belongs to
-void Trees::calculateSectionIds(const std::vector<std::vector<int>> &roots_list, std::vector<int> &section_ids,
-                                const std::vector<std::vector<int>> &children)
+// calculate what section every point belongs to
+void Trees::calculateSectionIds(std::vector<int> &section_ids, const std::vector<std::vector<int>> &children)
 {
   // first we initialise to one branch section per root
-  for (size_t i = 0; i < roots_list.size(); i++)
+  for (size_t i = 0; i < sections_.size(); i++)
   {
-    for (auto &root : roots_list[i])
+    if (sections_[i].parent == -1)
     {
-      section_ids[root] = static_cast<int>(i);
+      for (auto &root : sections_[i].roots)
+      {
+        section_ids[root] = static_cast<int>(i);
+      }
     }
   }
   for (sec_ = 0; sec_ < (int)sections_.size(); sec_++)

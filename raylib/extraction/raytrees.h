@@ -83,8 +83,7 @@ private:
   /// add a new section to continue reconstructing the branch
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
-  void calculateSectionIds(const std::vector<std::vector<int>> &roots_list, std::vector<int> &section_ids,
-                           const std::vector<std::vector<int>> &children);
+  void calculateSectionIds(std::vector<int> &section_ids, const std::vector<std::vector<int>> &children);
   /// debug draw
   void drawTrees(bool verbose);
   /// set ids that are locel (0-based) per tree
