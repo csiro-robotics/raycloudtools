@@ -41,16 +41,16 @@ void usage(int exit_code = 1)
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
   std::cout << "                            --girth_height_ratio 0.08 - (-l) the amount up tree's height to estimate trunk girth" << std::endl;
-  std::cout << "                            (for internal constants -e -c -g -s see source file rayextract)" << std::endl;
+  std::cout << "                            --global_taper 0.016 - (-a) force a taper value (diameter per length) for trees under global_taper_factor of max tree height. Use 0 to estimate global taper from the data" << std::endl;
+  std::cout << "                            --global_taper_factor 0.1- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
+  std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
+  std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
+  std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
+  std::cout << "                            (for internal constants -c -g -s see source file rayextract)" << std::endl;
 // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
 //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
 //  std::cout << "                            --gap_ratio 0.025    - (-g) will split for lateral gaps at this multiple of branch length" << std::endl;
 //  std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
-  std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
-  std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
-  std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
-  std::cout << "                            --global_taper 0.01  - (-a) force a taper value (diameter per length) for trees under global_taper_factor of max tree height. Default 0 estimates global taper from the data" << std::endl;
-  std::cout << "                            --global_taper_factor 0.1- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on
   exit(exit_code);
