@@ -123,6 +123,14 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         best_number = (int)nodes.size();
       }
     }
+    if (best_dist == 0.0)
+    {
+      std::cout << "warning: could not find any points on trunk " << sec_ << " at " << base.transpose() << " so removing the whole section" << std::endl;
+      sections_[sec_].tip = base + Eigen::Vector3d(0,0,0.01);
+      sections_[sec_].total_weight = 1e-10;
+      sections_[sec_].ends.clear(); // so this trunk is not ever used
+      continue; 
+    }    
     sections_[sec_].tip = best_tip;
     nodes.clear();
     sections_[sec_].ends.clear();
@@ -143,27 +151,17 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         continue;
       }
     }
-    if (estimated_radius < 1e9)
+
+    for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.05)
     {
-      for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.05)
-      {
-        uint8_t shade = 255; // (uint8_t)(best_accuracy * 255.0);
-        debug_cloud.addRay(Eigen::Vector3d(0,0,0), best_tip + (estimated_radius + 0.01) * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, ray::RGBA(shade,shade,shade,255));
-      }
+      uint8_t shade = 255; // (uint8_t)(best_accuracy * 255.0);
+      debug_cloud.addRay(Eigen::Vector3d(0,0,0), best_tip + (estimated_radius + 0.01) * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, ray::RGBA(shade,shade,shade,255));
     }
+
     nodes.clear();
     sections_[sec_].ends.clear();
     extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0); // make it lower
-
-    if (estimated_radius >= 1e10)
-    {
-      std::cout << "warning: could not find any points on trunk " << sec_ << " at " << base.transpose() << std::endl;
-      continue; // will this work??
-    }
-    else
-    {
-      estimateCylinderTaper(estimated_radius, best_accuracy, false); // update the expected taper
-    }
+    estimateCylinderTaper(estimated_radius, best_accuracy, false); // update the expected taper
   }
   debug_cloud.save("debug.ply");
 
@@ -292,7 +290,11 @@ double Trees::meanTaper(const BranchSection &section) const
   weight *= 1.0 - blend;
 
   double result = (mean_taper * mean_weight + taper*weight) / (mean_weight + weight);
- // std::cout << "estimated taper: " << result << ", mt: " << mean_taper << ", mw: " << mean_weight << ", t: " << taper << ", w: " << weight << ", blend: " << blend << std::endl;
+  if (!(result == result))
+  {
+    std::cout << "bad taper estimate" << std::endl;
+    std::cout << "root: " << root << " estimated taper: " << result << ", mt: " << mean_taper << ", mw: " << mean_weight << ", t: " << taper << ", w: " << weight << ", blend: " << blend << std::endl;
+  }
   return result;
 }
 
@@ -438,10 +440,6 @@ void Trees::extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::V
         sections_[sec_].ends.push_back(child);
       }
     }
-  }
-  if (nodes.size() < 2)
-  {
-    std::cout << "nodes size: " << nodes.size() << ", it.size: " << iteration_nodes.size() << ", num roots: " << sections_[sec_].roots.size() << std::endl;
   }
 }
 
@@ -841,6 +839,11 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
 
   sections_[root].total_taper += taper;
   sections_[root].total_weight += weight;
+  if (sections_[root].total_weight == 0.0)
+  {
+    std::cout << "bad section weight: " << l << "," << accuracy << "," << junction_weight << std::endl;
+    std::cout << "sec: " << sec_ << ", root: " << root << std::endl;
+  }
 
   sections_[sec_].taper = taper;
   sections_[sec_].weight = weight;
