@@ -24,7 +24,6 @@ TreesParams::TreesParams()
   , segment_branches(false)
   , global_taper(0)
   , global_taper_factor(0.1)
-  , use_leonardos(true)
 {}
 
 /// The main reconstruction algorithm
@@ -300,21 +299,7 @@ double Trees::meanTaper(const BranchSection &section) const
 
 double Trees::radius(const BranchSection &section) const 
 { 
-  if (params_->use_leonardos)
-  {
-    return sections_[section.root].max_distance_to_end * meanTaper(section) * section.radius_scale; // scaled down from root's estimated radius
-  }
-  return section.max_distance_to_end * meanTaper(section);
-}
-
-double Trees::mean_radius(const BranchSection &section) const 
-{ 
-  double mean_taper = params_->global_taper ? params_->global_taper : (forest_taper_ / forest_weight_);
-  if (params_->use_leonardos)
-  {
-    return sections_[section.root].max_distance_to_end * mean_taper * section.radius_scale; // scaled down from root's estimated radius
-  }
-  return section.max_distance_to_end * mean_taper;
+  return sections_[section.root].max_distance_to_end * meanTaper(section) * section.radius_scale; // scaled down from root's estimated radius
 }
 
 void Trees::calculatePointDistancesToEnd()

@@ -31,7 +31,6 @@ struct RAYLIB_EXPORT TreesParams
   bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
   double global_taper;     // forced global taper, uses global_taper_factor to define how much it is applied
   double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
-  bool use_leonardos;      // use Leonardo's rule at branch points. Results in less radius in the outer branches
 };
 
 struct BranchSection;  // forwards declaration
@@ -98,7 +97,6 @@ private:
 
   double meanTaper(const BranchSection &section) const;
   double radius(const BranchSection &section) const;
-  double mean_radius(const BranchSection &section) const;
 
   // cached data that is used throughout the processing method
   int sec_;
