@@ -483,7 +483,7 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
       {
         clusters[i] = clusters.back();
         clusters.pop_back();
-    //    points_removed = true;
+        points_removed = true;
       }
     }
   }
