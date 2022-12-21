@@ -89,7 +89,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       extractNodesAndEndsFromRoots(nodes, base, children, max_dist * 2.0/3.0, max_dist);
       for (auto &node: nodes)
       {
-  //      debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
+        debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
       }
       if (nodes.size() < 2)
       {
