@@ -769,10 +769,6 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
   }
   mean_p /= n;
   double approx_rad_sqr = 2.0 * mean_p[2];
-  if (has_found)
-  {
-    std::cout << "approx rad: " << std::sqrt(approx_rad_sqr) << ", " << mean_p.transpose() << ", n: " << n << std::endl;
-  }
   if (n > 5)  // assuming there are sufficient points for a resonable guess
   {
     // accumulation structure for plane least squares fitting
@@ -794,10 +790,6 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
     }
     const double eps = 1e-10;
     // is the plane is well-determined
-    if (has_found)
-    {
-      std::cout << "determined = " << std::abs(plane.x2 * plane.y2 - plane.xy * plane.xy) << ", " << std::abs(plane.y2) << std::endl;
-    }
     if (std::abs(plane.x2 * plane.y2 - plane.xy * plane.xy) > eps && std::abs(plane.y2) > eps)
     {
       // extract the local plane parameters
@@ -806,13 +798,9 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
 
       Eigen::Vector2d shift(A, B);
       const double shift2 = shift.squaredNorm();
-      if (has_found)
-        std::cout << "shift: " << std::sqrt(shift2) << std::endl;
       if (shift2 > approx_rad_sqr)  // don't shift more than one radius each iteration, for safety
       {
         shift *= std::sqrt(approx_rad_sqr / shift2);
-        if (has_found)
-          std::cout << "fixed shift: " << shift.transpose() << std::endl;
       }
 
       // apply the plane parameters as a world-space shift in the branch section tip position
