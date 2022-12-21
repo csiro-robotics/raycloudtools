@@ -73,8 +73,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     Eigen::Vector3d base = getRootPosition();
     double tree_height = std::max(0.01, max_height - base[2]);
 
-    bool already_split = sections_[sec_].ends.size() > 0;
-
     // Use a usr defined taper to control the height up the trunk to calculate the radius at
     double girth_height = params_->girth_height_ratio * tree_height; // sections_[sec_].max_distance_to_end;
     double estimated_radius = 1e10;
@@ -176,7 +174,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     sections_[sec_].ends = best_ends;
     nodes = best_nodes;
 
-  //  if (!already_split) // then try splitting
     if (sections_[sec_].split_count < 3)
     {
       double thickness = girth_height; // params_->cylinder_length_to_width * estimated_radius;
