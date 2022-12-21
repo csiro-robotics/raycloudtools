@@ -94,9 +94,12 @@ private:
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds
   void removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound,
                             const std::vector<int> &root_segs);
-
+  /// estimate the mean taper for the specified section
   double meanTaper(const BranchSection &section) const;
+  /// estimate the radius for the specified section
   double radius(const BranchSection &section) const;
+  /// remove elements of nodes that are too distant to the set of end points
+  bool removeDistantPoints(std::vector<int> &nodes);
 
   // cached data that is used throughout the processing method
   int sec_;

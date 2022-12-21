@@ -96,54 +96,21 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         continue;
       }
       sections_[sec_].tip = calculateTipFromVertices(nodes);
-      double accuracy = 0.0;
-      Eigen::Vector3d up(0,0,1);
-      if (1) // remove points too far from the end points... 
+      if (removeDistantPoints(nodes))
       {
-        double radius1 = estimateCylinderRadius(nodes, up, accuracy);
-        double max_rad = radius1 * 2.0;
-        double max_rad_sqr = max_rad * max_rad;
-        bool found = false;
-        for (int k = 0; k<(int)nodes.size(); k++)
+        sections_[sec_].tip = calculateTipFromVertices(nodes);
+        for (auto &node: nodes)
         {
-          if (nodes.size() <= 6)
-          {
-            break;
-          }
-          bool all_distant = true;
-          for (auto &end: sections_[sec_].ends)
-          {
-            Eigen::Vector3d dif = points_[nodes[k]].pos - points_[end].pos;
-            dif[2] = 0.0;
-            if (dif.squaredNorm() < max_rad_sqr)
-            {
-              all_distant = false;
-              break;
-            }
-          }
-          if (all_distant)
-          {
-            nodes[k] = nodes.back();
-            nodes.pop_back();
-            k--;
-            found = true;
-          }
-        }
-        if (found) // nodes have been removed, so recaulculate
-        {
-          sections_[sec_].tip = calculateTipFromVertices(nodes);
-          for (auto &node: nodes)
-          {
-            debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(127,255,255, 255));
-          }
+          debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(127,255,255, 255));
         }
       }
       debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip + Eigen::Vector3d(0,0,0.03), 0.0, ray::RGBA(255,255,0, 255));
 
       // shift to cylinder's centre
+      Eigen::Vector3d up(0,0,1);
       sections_[sec_].tip += vectorToCylinderCentre(nodes, up);
       // now find the segment radius
-      accuracy = 0.0;
+      double accuracy = 0.0;
       double radius = estimateCylinderRadius(nodes, up, accuracy);
 
       ray::RGBA col(j==1 ? 255 : 127, j==2 ? 255:127, j==3 ? 255:127, 255);
@@ -318,6 +285,46 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   }
 
   std::cout << "cloud's estimated mean taper ratio (diameter / length): " << 2.0 * forest_taper_ / forest_weight_ << std::endl;
+}
+
+// If 1 tree plus some low lying foliage is in the node, then it won't be split if the foliage doesn't reach to the 
+// top of the section (so doesn't have an end point), but it can create a very large radius estimate. 
+// here we remove points that are too far from any end position. 
+// this allows us to use most nodes to get an accurate radius estimate, but still uses only the end nodes to decide whether
+// to split
+bool Trees::removeDistantPoints(std::vector<int> &nodes)
+{
+  double accuracy = 0;
+  Eigen::Vector3d up(0,0,1);
+  double max_rad = 2.0 * estimateCylinderRadius(nodes, up, accuracy);
+  double max_rad_sqr = max_rad * max_rad;
+  bool found = false;
+  for (int k = 0; k<(int)nodes.size(); k++)
+  {
+    if (nodes.size() <= 6)
+    {
+      break;
+    }
+    bool all_distant = true;
+    for (auto &end: sections_[sec_].ends)
+    {
+      Eigen::Vector3d dif = points_[nodes[k]].pos - points_[end].pos;
+      dif[2] = 0.0;
+      if (dif.squaredNorm() < max_rad_sqr)
+      {
+        all_distant = false;
+        break;
+      }
+    }
+    if (all_distant)
+    {
+      nodes[k] = nodes.back();
+      nodes.pop_back();
+      k--;
+      found = true;
+    }
+  }
+  return found;
 }
 
 double Trees::meanTaper(const BranchSection &section) const
