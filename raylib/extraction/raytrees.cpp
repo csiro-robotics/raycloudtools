@@ -60,8 +60,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   ray::Cloud debug_cloud;
   for (sec_ = 0; sec_ < (int)sections_.size(); sec_++)
   {
-    const int par = sections_[sec_].parent;
-
     double best_accuracy = -1.0;
     std::vector<int> nodes;  // all the points in the section
 
@@ -82,7 +80,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     double girth_height = params_->girth_height_ratio * tree_height; // sections_[sec_].max_distance_to_end;
     double estimated_radius = 1e10;
     double best_dist = 0.0;
-    double best_number = 0.0;
     Eigen::Vector3d best_tip;
     for (int j = 1; j<=3; j++)
     {
@@ -119,7 +116,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         estimated_radius = radius;
         best_dist = max_dist;
         best_tip = sections_[sec_].tip;
-        best_number = (int)nodes.size();
       }
     }
     if (best_dist == 0.0)
@@ -198,7 +194,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       continue;
     }
 
-    double best_accuracy = -1.0;
     std::vector<int> nodes;  // all the points in the section
     bool extract_from_ends = sections_[sec_].ends.size() > 0;
     // if the branch section has no end points recorded, then we need to examine this branch to
@@ -633,7 +628,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
       }
       if (par == -1)
       {
-        new_node.root = sections_.size();
+        new_node.root = (int)sections_.size();
       }
       sections_.push_back(new_node);
     }
