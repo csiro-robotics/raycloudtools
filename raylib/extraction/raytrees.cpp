@@ -25,7 +25,6 @@ TreesParams::TreesParams()
   , global_taper(0.008)
   , global_taper_factor(0.1)
 {}
-
 /// The main reconstruction algorithm
 /// It is based on finding the shortest paths using Djikstra's algorithm, followed
 /// by an agglomeration of paths, with repeated splitting from root to tips
@@ -81,13 +80,15 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     double estimated_radius = 1e10;
     double best_dist = 0.0;
     Eigen::Vector3d best_tip;
+    
+    std::vector<int> best_nodes;
+    std::vector<int> best_ends;
     for (int j = 1; j<=3; j++)
     {
       double max_dist = girth_height * (double)j / 2.0; // range from 0.5 to 1.5 times the specified height
       nodes.clear();
       sections_[sec_].ends.clear();
       extractNodesAndEndsFromRoots(nodes, base, children, max_dist * 2.0/3.0, max_dist);
-
       for (auto &node: nodes)
       {
         debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
@@ -97,16 +98,59 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         continue;
       }
       sections_[sec_].tip = calculateTipFromVertices(nodes);
+      double accuracy = 0.0;
       Eigen::Vector3d up(0,0,1);
+      if (1) // remove points too far from the end points... 
+      {
+        double radius1 = estimateCylinderRadius(nodes, up, accuracy);
+        double max_rad = radius1 * 2.0;
+        double max_rad_sqr = max_rad * max_rad;
+        bool found = false;
+        for (int k = 0; k<(int)nodes.size(); k++)
+        {
+          if (nodes.size() <= 6)
+          {
+            break;
+          }
+          bool all_distant = true;
+          for (auto &end: sections_[sec_].ends)
+          {
+            Eigen::Vector3d dif = points_[nodes[k]].pos - points_[end].pos;
+            dif[2] = 0.0;
+            if (dif.squaredNorm() < max_rad_sqr)
+            {
+              all_distant = false;
+              break;
+            }
+          }
+          if (all_distant)
+          {
+            nodes[k] = nodes.back();
+            nodes.pop_back();
+            k--;
+            found = true;
+          }
+        }
+        if (found) // nodes have been removed, so recaulculate
+        {
+          sections_[sec_].tip = calculateTipFromVertices(nodes);
+          for (auto &node: nodes)
+          {
+            debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(127,255,255, 255));
+          }
+        }
+      }
+      debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip + Eigen::Vector3d(0,0,0.03), 0.0, ray::RGBA(255,255,0, 255));
+
       // shift to cylinder's centre
       sections_[sec_].tip += vectorToCylinderCentre(nodes, up);
       // now find the segment radius
-      double accuracy = 0.0;
+      accuracy = 0.0;
       double radius = estimateCylinderRadius(nodes, up, accuracy);
 
       ray::RGBA col(j==1 ? 255 : 127, j==2 ? 255:127, j==3 ? 255:127, 255);
       debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip, 0.0, col);
-      for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.05)
+      for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.1)
       {
         debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip + radius * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, col);
       }
@@ -116,6 +160,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         estimated_radius = radius;
         best_dist = max_dist;
         best_tip = sections_[sec_].tip;
+        best_nodes = nodes;
+        best_ends = sections_[sec_].ends;
       }
     }
     if (best_dist == 0.0)
@@ -127,11 +173,11 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       continue; 
     }    
     sections_[sec_].tip = best_tip;
-    nodes.clear();
-    sections_[sec_].ends.clear();
-    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist);
+    sections_[sec_].ends = best_ends;
+    nodes = best_nodes;
 
-    if (!already_split) // then try splitting
+  //  if (!already_split) // then try splitting
+    if (sections_[sec_].split_count < 3)
     {
       double thickness = girth_height; // params_->cylinder_length_to_width * estimated_radius;
       bool points_removed = false;
@@ -141,13 +187,18 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
+        sections_[sec_].split_count++;
         bifurcate(clusters, thickness, children, true);
         sec_--;
         continue;
       }
     }
+    for (auto &node: sections_[sec_].ends)
+    {
+      debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(255, 0, 255, 255));
+    }
 
-    for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.05)
+    for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.1)
     {
       uint8_t shade = 255; // (uint8_t)(best_accuracy * 255.0);
       debug_cloud.addRay(Eigen::Vector3d(0,0,0), best_tip + (estimated_radius + 0.01) * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, ray::RGBA(shade,shade,shade,255));
@@ -428,8 +479,8 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
                               double thickness, double span, double gap)
 {
   const int par = sections_[sec_].parent;
+  std::vector<int> &all_ends = sections_[sec_].ends;
 
-  std::vector<int> all_ends = sections_[sec_].ends;
   // 3. cluster end points to find if we have separate branches
   // first, get interpolated edge points_. i.e. interpolate between two connected points inside and outside
   // the branch section's cylinder, so that the set edge_pos are right on the top boundary of the section
@@ -574,6 +625,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
         for (auto &end : new_node.ends)
         {
           int node = points_[end].parent;
+          int child = end;
           while (node != -1)
           {
             if (std::find(my_nodes.begin(), my_nodes.end(), node) != my_nodes.end()) 
@@ -583,29 +635,29 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
             if (std::find(all_nodes.begin(), all_nodes.end(), node) != all_nodes.end())
             {
               // hit another tree, so make a root here
-              my_roots.push_back(node);
+              my_roots.push_back(child);
               // more than this, we need to unlink the children bit.
-              int parent = points_[node].parent;
-              auto &list = children[parent];
-              if (parent != -1)
-              {
-                for (size_t j = 0; j<list.size(); j++)
-                {
-                  if (list[j] == node)
-                  {
-                    list[j] = list.back();
-                    list.pop_back();
-                  }
-                }
-                points_[node].parent = -1;
+              auto &list = children[node];
 
-                // we need to tell all of the children what the new root is
-                std::vector<int> child_list = {node};
-                for (size_t j = 0; j<child_list.size(); j++)
+              int find_count = 0;
+              for (int j = 0; j<(int)list.size(); j++)
+              {
+                if (list[j] == child)
                 {
-                  points_[child_list[j]].root = node;
-                  child_list.insert(child_list.end(), children[child_list[j]].begin(), children[child_list[j]].end());
+                  find_count++;
+                  list[j] = list.back();
+                  list.pop_back();
+                  j--;
                 }
+              }
+              points_[child].parent = -1;
+
+              // we need to tell all of the children what the new root is
+              std::vector<int> child_list = {child};
+              for (size_t j = 0; j<child_list.size(); j++)
+              {
+                points_[child_list[j]].root = child;
+                child_list.insert(child_list.end(), children[child_list[j]].begin(), children[child_list[j]].end());
               }
               break;
             }
@@ -615,6 +667,7 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
               my_roots.push_back(node);
               break;
             }
+            child = node;
             node = points_[node].parent;
           }
         }
@@ -716,6 +769,10 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
   }
   mean_p /= n;
   double approx_rad_sqr = 2.0 * mean_p[2];
+  if (has_found)
+  {
+    std::cout << "approx rad: " << std::sqrt(approx_rad_sqr) << ", " << mean_p.transpose() << ", n: " << n << std::endl;
+  }
   if (n > 5)  // assuming there are sufficient points for a resonable guess
   {
     // accumulation structure for plane least squares fitting
@@ -737,6 +794,10 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
     }
     const double eps = 1e-10;
     // is the plane is well-determined
+    if (has_found)
+    {
+      std::cout << "determined = " << std::abs(plane.x2 * plane.y2 - plane.xy * plane.xy) << ", " << std::abs(plane.y2) << std::endl;
+    }
     if (std::abs(plane.x2 * plane.y2 - plane.xy * plane.xy) > eps && std::abs(plane.y2) > eps)
     {
       // extract the local plane parameters
@@ -745,9 +806,13 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
 
       Eigen::Vector2d shift(A, B);
       const double shift2 = shift.squaredNorm();
+      if (has_found)
+        std::cout << "shift: " << std::sqrt(shift2) << std::endl;
       if (shift2 > approx_rad_sqr)  // don't shift more than one radius each iteration, for safety
       {
         shift *= std::sqrt(approx_rad_sqr / shift2);
+        if (has_found)
+          std::cout << "fixed shift: " << shift.transpose() << std::endl;
       }
 
       // apply the plane parameters as a world-space shift in the branch section tip position
