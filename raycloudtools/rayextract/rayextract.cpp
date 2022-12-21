@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
     ray::Trees trees(cloud, mesh, params, verbose.isSet());
 
     // output the picewise cylindrical description of the trees
-    trees.save(cloud_file.nameStub() + "_trees.txt");
+    trees.save(cloud_file.nameStub() + "_trees.txt", verbose.isSet());
     // we also save a segmented (one colour per tree) file, as this is a useful output
     cloud.save(cloud_file.nameStub() + "_segmented.ply");
   }

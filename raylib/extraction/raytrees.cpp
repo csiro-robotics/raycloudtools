@@ -1082,7 +1082,7 @@ void Trees::removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound,
 }
 
 // save the structure to a text file
-bool Trees::save(const std::string &filename) const
+bool Trees::save(const std::string &filename, bool verbose) const
 {
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
@@ -1091,7 +1091,12 @@ bool Trees::save(const std::string &filename) const
     return false;
   }
   ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
-  ofs << "x,y,z,radius,parent_id,section_id,weight,len,accuracy,junction_weight" << std::endl;  // simple format
+  ofs << "x,y,z,radius,parent_id,section_id"; // simple format
+  if (verbose)
+  {
+    ofs << ",weight,len,accuracy,junction_weight";
+  }
+  ofs << std::endl;  
   for (size_t sec = 0; sec < sections_.size(); sec++)
   {
     const auto &section = sections_[sec];
@@ -1099,7 +1104,11 @@ bool Trees::save(const std::string &filename) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
+    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec;
+    if (verbose)
+    {
+      ofs << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
+    }
     int root = section.root;
     std::vector<int> children = section.children;
     for (unsigned int c = 0; c < children.size(); c++)
@@ -1109,8 +1118,11 @@ bool Trees::save(const std::string &filename) const
       {
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id;
-      ofs << "," << children[c] << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id << "," << children[c];
+      if (verbose)
+      {
+        ofs << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;
+      }
       for (auto i : sections_[children[c]].children)
       {
         children.push_back(i);
