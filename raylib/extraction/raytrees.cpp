@@ -93,20 +93,28 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         continue;
       }
       sections_[sec_].tip = calculateTipFromVertices(nodes);
-      for (auto &node: nodes)
+      if (verbose)
       {
-        debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
+        for (auto &node: nodes)
+        {
+          debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
+        }
       }      
       if (removeDistantPoints(nodes))
       {
         sections_[sec_].tip = calculateTipFromVertices(nodes);
-        for (auto &node: nodes)
+        if (verbose)
         {
-          debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(127,255,255, 255));
+          for (auto &node: nodes)
+          {
+            debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(127,255,255, 255));
+          }
         }
       }
-      debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip + Eigen::Vector3d(0,0,0.03), 0.0, ray::RGBA(255,255,0, 255));
-
+      if (verbose)
+      {
+        debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip + Eigen::Vector3d(0,0,0.03), 0.0, ray::RGBA(255,255,0, 255));
+      }
       // shift to cylinder's centre
       Eigen::Vector3d up(0,0,1);
       sections_[sec_].tip += vectorToCylinderCentre(nodes, up);
@@ -115,10 +123,13 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       double radius = estimateCylinderRadius(nodes, up, accuracy);
 
       ray::RGBA col(j==1 ? 255 : 127, j==2 ? 255:127, j==3 ? 255:127, 255);
-      debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip, 0.0, col);
-      for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.1)
+      if (verbose)
       {
-        debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip + radius * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, col);
+        debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip, 0.0, col);
+        for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.1)
+        {
+          debug_cloud.addRay(Eigen::Vector3d(0,0,0), sections_[sec_].tip + radius * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, col);
+        }
       }
       if (radius < estimated_radius)
       {
@@ -158,15 +169,17 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         continue;
       }
     }
-    for (auto &node: sections_[sec_].ends)
+    if (verbose)
     {
-      debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(255, 0, 255, 255));
-    }
-
-    for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.1)
-    {
-      uint8_t shade = 255; // (uint8_t)(best_accuracy * 255.0);
-      debug_cloud.addRay(Eigen::Vector3d(0,0,0), best_tip + (estimated_radius + 0.01) * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, ray::RGBA(shade,shade,shade,255));
+      for (auto &node: sections_[sec_].ends)
+      {
+        debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(255, 0, 255, 255));
+      }
+      for (double ang = 0; ang < 2.0*ray::kPi; ang += 0.1)
+      {
+        uint8_t shade = 255; // (uint8_t)(best_accuracy * 255.0);
+        debug_cloud.addRay(Eigen::Vector3d(0,0,0), best_tip + (estimated_radius + 0.01) * Eigen::Vector3d(std::sin(ang), std::cos(ang),0), 0.0, ray::RGBA(shade,shade,shade,255));
+      }
     }
 
     nodes.clear();
@@ -178,7 +191,10 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     }
     estimateCylinderTaper(estimated_radius, best_accuracy, false); // update the expected taper
   }
-  debug_cloud.save("debug.ply");
+  if (verbose)
+  {
+    debug_cloud.save("debug.ply");
+  }
 
   // now trace from root tree nodes upwards, getting node centroids
   // create new BranchSections as we go
@@ -829,7 +845,7 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   double n = 1e-10;
   double rad = 0.0;
   // get the mean radius
-  double power = 0.25;
+  double power = 0.25; // when 1 this is usual radius, but lower powers reduce outliers due to foliage
   for (auto &node : nodes)
   {
     const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
