@@ -128,6 +128,7 @@ struct RAYLIB_EXPORT BranchSection
     , junction_weight(0)
     , radius_scale(1)
     , split_count(0)
+    , tree_height(0)
   {}
   Eigen::Vector3d tip;
 
@@ -142,6 +143,7 @@ struct RAYLIB_EXPORT BranchSection
   double len, accuracy, junction_weight;
   double radius_scale;
   int split_count;
+  double tree_height;
   std::vector<int> roots;  // root points
   std::vector<int> ends;
   std::vector<int> children;

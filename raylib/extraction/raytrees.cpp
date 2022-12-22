@@ -72,6 +72,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     }
     Eigen::Vector3d base = getRootPosition();
     double tree_height = std::max(0.01, max_height - base[2]);
+    sections_[sec_].tree_height = tree_height;
 
     // Use a usr defined taper to control the height up the trunk to calculate the radius at
     double girth_height = params_->girth_height_ratio * tree_height; // sections_[sec_].max_distance_to_end;
@@ -87,15 +88,15 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       nodes.clear();
       sections_[sec_].ends.clear();
       extractNodesAndEndsFromRoots(nodes, base, children, max_dist * 2.0/3.0, max_dist);
-      for (auto &node: nodes)
-      {
-        debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
-      }
       if (nodes.size() < 2)
       {
         continue;
       }
       sections_[sec_].tip = calculateTipFromVertices(nodes);
+      for (auto &node: nodes)
+      {
+        debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
+      }      
       if (removeDistantPoints(nodes))
       {
         sections_[sec_].tip = calculateTipFromVertices(nodes);
@@ -143,7 +144,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 
     if (sections_[sec_].split_count < 1) // 3
     {
-      double thickness = girth_height; // params_->cylinder_length_to_width * estimated_radius;
+      double thickness = best_dist; 
       bool points_removed = false;
       double gap = params_->gap_ratio * sections_[sec_].max_distance_to_end; // gap threshold for splitting
       double span = params_->span_ratio * estimated_radius; // span threshold for splitting
@@ -171,6 +172,10 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     nodes.clear();
     sections_[sec_].ends.clear();
     extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0); // make it lower
+    if (sec_ == 114)
+    {
+      sections_[sec_].tip[2] += 0.000001;
+    }
     estimateCylinderTaper(estimated_radius, best_accuracy, false); // update the expected taper
   }
   debug_cloud.save("debug.ply");
@@ -349,7 +354,7 @@ double Trees::meanTaper(const BranchSection &section) const
 
 double Trees::radius(const BranchSection &section) const 
 { 
-  return sections_[section.root].max_distance_to_end * meanTaper(section) * section.radius_scale; // scaled down from root's estimated radius
+  return sections_[section.root].tree_height * meanTaper(section) * section.radius_scale; // scaled down from root's estimated radius
 }
 
 void Trees::calculatePointDistancesToEnd()
@@ -824,13 +829,15 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   double n = 1e-10;
   double rad = 0.0;
   // get the mean radius
+  double power = 0.25;
   for (auto &node : nodes)
   {
     const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
-    rad += (offset - dir * offset.dot(dir)).norm();
+    rad += std::pow((offset - dir * offset.dot(dir)).squaredNorm(), power/2.0);
     n++;
   }
   rad /= n;
+  rad = std::pow(rad, 1.0/power);
   double e = 0.0;
   for (auto &node : nodes)
   {
@@ -847,6 +854,7 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   accuracy = std::max(eps, rad - 2.0*e) / std::max(eps, rad); // so even distribution is accuracy 0, and cylinder shell is accuracy 1 
   accuracy *= std::min((double)nodes.size() / 3.0, 1.0);
 #endif
+  accuracy = std::max(accuracy, eps);
   rad = std::max(rad, eps);
 
   return rad;
@@ -857,10 +865,10 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
   int par = sections_[sec_].parent;
   int root = sections_[sec_].root;
 
-  double l = sections_[sec_].max_distance_to_end;
-  double L = sections_[root].max_distance_to_end;
+  double l = sections_[sec_].max_distance_to_end * sections_[root].tree_height / sections_[root].max_distance_to_end;
+  double L = sections_[root].tree_height;
 
-  double junction_weight = 0.1;
+  double junction_weight = 1.0;
   if (par > -1)
   {
     junction_weight = extract_from_ends ? 0.25 : 1.0; // extracting from ends means we are less confident about the quality
