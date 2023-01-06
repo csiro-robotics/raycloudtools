@@ -8,6 +8,7 @@
 #include "raylib/rayprogressthread.h"
 #include "raymesh.h"
 
+#include <fstream>
 #include <iostream>
 // #define OUTPUT_MOMENTS // useful when setting up unit test expected ray clouds
 
@@ -325,7 +326,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
              double max_intensity, size_t chunk_size)
 {
   std::cout << "reading: " << file_name << std::endl;
-  std::ifstream input(file_name.c_str());
+  std::ifstream input(file_name.c_str(), std::ios::in | std::ios::binary);
   if (input.fail())
   {
     std::cerr << "Couldn't open file: " << file_name << std::endl;
@@ -699,7 +700,7 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
 
 bool readPlyMesh(const std::string &file, Mesh &mesh)
 {
-  std::ifstream input(file.c_str());
+  std::ifstream input(file.c_str(), std::ios::in | std::ios::binary);
   if (input.fail())
   {
     std::cerr << "Couldn't open file: " << file << std::endl;
