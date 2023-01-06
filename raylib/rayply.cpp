@@ -354,7 +354,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       data_type = kDTfloat;
     else if (line.find("property double") != std::string::npos)
       data_type = kDTdouble;
-    else if (line.find("property uchar") != std::string::npos)
+    else if (line.find("property uchar") != std::string::npos || line.find("property uint8") != std::string::npos)
       data_type = kDTuchar;
     else if (line.find("property ushort") != std::string::npos)
       data_type = kDTushort;
@@ -382,7 +382,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       intensity_offset = row_size;
       intensity_type = data_type;
     }
-    if (line.find("property uchar red") != std::string::npos)
+    if (line.find("property uchar red") != std::string::npos || line.find("property uint8 red") != std::string::npos)
       colour_offset = row_size;
 
     row_size += rowsteps[data_type];
@@ -720,7 +720,7 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
     {
       row_size += 4;
     }
-    if (line.find("property uchar") != std::string::npos)
+    if (line.find("property uchar") != std::string::npos || line.find("property uint8") != std::string::npos)
     {
       row_size++;
     }
