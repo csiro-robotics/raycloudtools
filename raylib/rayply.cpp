@@ -348,6 +348,13 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     {
       break;
     }
+
+    if (line.find("format ascii 1.0") != std::string::npos)
+    {
+      std::cerr << "ASCII PLY not supported " << file_name << std::endl;
+      return false;
+    }
+
     // support multiple data types
     DataType data_type = kDTnone;
     if (line.find("property float") != std::string::npos)
