@@ -97,7 +97,7 @@ void Mesh::reduce()
 
 // convert the mesh to a height field
 void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max,
-                         double width) const
+                         double width, bool fill_gaps) const
 {
   double top = box_max[2];
   box_max[2] = box_min[2] + 0.5 * width;  // ensure that the grid is only 1 voxel high
@@ -158,35 +158,38 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
   }
   // lastly, we repeatedly fill in the gaps
   bool gaps_remain = true;
-  while (gaps_remain)
+  if (fill_gaps)
   {
-    gaps_remain = false;
-    for (int x = 0; x < grid.dims[0]; x++)
+    while (gaps_remain)
     {
-      for (int y = 0; y < grid.dims[1]; y++)
+      gaps_remain = false;
+      for (int x = 0; x < grid.dims[0]; x++)
       {
-        if (field(x, y) == unset)
+        for (int y = 0; y < grid.dims[1]; y++)
         {
-          double count = 0;
-          double total_height = 0;
-          // look at the Moore neighbourhood to obtain a mean neighbour height
-          for (int i = std::max(0, x - 1); i <= std::min(x + 1, grid.dims[0] - 1); i++)
+          if (field(x, y) == unset)
           {
-            for (int j = std::max(0, y - 1); j <= std::min(y + 1, grid.dims[1] - 1); j++)
+            double count = 0;
+            double total_height = 0;
+            // look at the Moore neighbourhood to obtain a mean neighbour height
+            for (int i = std::max(0, x - 1); i <= std::min(x + 1, grid.dims[0] - 1); i++)
             {
-              if (field(i, j) != unset)
+              for (int j = std::max(0, y - 1); j <= std::min(y + 1, grid.dims[1] - 1); j++)
               {
-                total_height += field(i, j);
-                count++;
+                if (field(i, j) != unset)
+                {
+                  total_height += field(i, j);
+                  count++;
+                }
               }
             }
+            // Note that this immediate modifier is not order/direction independant,
+            // but it doesn't matter too much, as there should be very few gaps anyway
+            if (count > 0)
+              field(x, y) = total_height / count;
+            else
+              gaps_remain = true;
           }
-          // Note that this immediate modifier is not order/direction independant,
-          // but it doesn't matter too much, as there should be very few gaps anyway
-          if (count > 0)
-            field(x, y) = total_height / count;
-          else
-            gaps_remain = true;
         }
       }
     }

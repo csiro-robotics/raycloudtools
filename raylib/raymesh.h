@@ -23,7 +23,7 @@ public:
 
   /// Convert the mesh into a height field (2D array of heights) based on the supplied bounding box and cell width
   void toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min, Eigen::Vector3d box_max,
-                     double width) const;
+                     double width, bool fill_gaps = true) const;
 
   /// access the mesh's vertices
   inline std::vector<Eigen::Vector3d> &vertices() { return vertices_; }
