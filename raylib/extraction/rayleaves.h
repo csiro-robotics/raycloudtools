@@ -11,10 +11,6 @@
 
 namespace ray
 {
-/// Class for reconstruction of leaves from lidar data
-class RAYLIB_EXPORT Leaves
-{
-public:
-};
+bool generateLeaves(const std::string &cloud_stub, const std::string &leaf_file, double leaf_area);
 }  // namespace ray
 #endif  // RAYLIB_RAYLEAVES_H
