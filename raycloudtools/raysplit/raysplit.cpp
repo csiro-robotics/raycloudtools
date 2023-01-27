@@ -8,6 +8,7 @@
 #include "raylib/rayparse.h"
 #include "raylib/rayply.h"
 #include "raylib/raysplitter.h"
+#include "raylib/rayforeststructure.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,7 +26,7 @@ void usage(int exit_code = 1)
   std::cout << "                  colour 0.5,0,0         - splits by colour, around half red component" << std::endl;
   std::cout << "                  single_colour 255,0,0  - splits out a single colour, in 0-255 units" << std::endl;
   std::cout << "                  alpha 0.0              - splits out unbounded rays, which have zero intensity" << std::endl;
-  std::cout << "                  meshfile distance 0.2  - splits raycloud at 0.2m from the meshfile surface" << std::endl;
+  std::cout << "                  file distance 0.2      - splits raycloud at 0.2m from the (ply mesh or trees) file surface" << std::endl;
   std::cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
@@ -92,10 +93,18 @@ int main(int argc, char *argv[])
     {
       usage();
     }
-    ray::Mesh mesh;
-    ray::readPlyMesh(mesh_file.name(), mesh);
     ray::Cloud inside, outside;
-    mesh.splitCloud(cloud, mesh_offset.value(), inside, outside);
+    if (mesh_file.nameExt() == "ply") // assume a mesh file
+    {
+      ray::Mesh mesh;
+      ray::readPlyMesh(mesh_file.name(), mesh);
+      mesh.splitCloud(cloud, mesh_offset.value(), inside, outside);
+    }
+    else if (mesh_file.nameExt() == "txt") // assume a tree file
+    {
+      ray::ForestStructure forest;
+      forest.splitCloud(cloud, mesh_offset.value(), inside, outside);
+    }
     inside.save(in_name);
     outside.save(out_name);
   }

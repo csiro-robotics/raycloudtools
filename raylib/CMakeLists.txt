@@ -49,6 +49,7 @@ set(PUBLIC_HEADERS
   extraction/raytrunk.h
   extraction/raytrunks.h
   extraction/rayclusters.h
+  extraction/rayleaves.h
   extraction/rayterrain.h 
   extraction/raytrees.h
   extraction/rayforest.h
@@ -96,6 +97,7 @@ set(SOURCES
   extraction/raytrunk.cpp
   extraction/raytrunks.cpp
   extraction/rayclusters.cpp
+  extraction/rayleaves.cpp
   extraction/rayterrain.cpp
   extraction/raytrees.cpp
   extraction/rayforest.cpp

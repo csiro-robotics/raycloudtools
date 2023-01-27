@@ -7,6 +7,7 @@
 #define RAYLIB_RAYFORESTSTRUCTURE_H
 
 #include "raylib/raylibconfig.h"
+#include "raylib/raycloud.h"
 #include "raytreestructure.h"
 #include "rayutils.h"
 
@@ -21,6 +22,7 @@ struct RAYLIB_EXPORT ForestStructure
   bool save(const std::string &filename);
   bool trunksOnly() { return trees.size() > 0 && trees[0].segments().size() == 1; }
   Eigen::Array<double, 9, 1> getMoments() const;
+  void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);
 };
 }  // namespace ray
 #endif  // RAYLIB_RAYFORESTSTRUCTURE_H
