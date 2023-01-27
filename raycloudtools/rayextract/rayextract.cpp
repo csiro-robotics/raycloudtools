@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
   }
   else if (extract_leaves)
   {
-    ray::generateLeaves(cloud_file.nameStub(), leaf_mesh.name(), leaf_area_option.isSet() ? leaf_area.value() : 0.002);
+    ray::generateLeaves(cloud_file.nameStub(), trees_file.name(), leaf_mesh.name(), leaf_area_option.isSet() ? leaf_area.value() : 0.002);
   }
   else
   {

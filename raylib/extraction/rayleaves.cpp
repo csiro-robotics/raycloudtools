@@ -12,7 +12,7 @@
 namespace ray
 {
 
-bool generateLeaves(const std::string &cloud_stub, const std::string &leaf_file, double leaf_area)
+bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file, const std::string &leaf_file, double leaf_area)
 {
   // For now we assume that woody points have been set as unbounded (alpha=0). e.g. through raycolour foliage or raysplit file distance 0.2 as examples.
   // so firstly we must calculate the foliage density across the whole map. 
