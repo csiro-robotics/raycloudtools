@@ -98,6 +98,8 @@ struct RAYLIB_EXPORT DensityGrid
   inline int getIndexFromPos(const Eigen::Vector3d &pos) const;
   /// Return the vector of density voxels
   inline const std::vector<Voxel> &voxels() const { return voxels_; }
+  inline Eigen::Vector3i dimensions(){ return voxel_dims_; }
+  inline Cuboid bounds(){ return bounds_; }
 
 private:
   Cuboid bounds_;

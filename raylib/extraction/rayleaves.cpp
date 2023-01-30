@@ -8,6 +8,8 @@
 #include "../raycuboid.h"
 #include "../rayply.h"
 #include "../raymesh.h"
+#include "../rayforeststructure.h"
+#include <nabo/nabo.h>
 
 namespace ray
 {
@@ -31,6 +33,92 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   DensityGrid grid(grid_bounds, vox_width, dims);    
   grid.calculateDensities(cloud_name);
   grid.addNeighbourPriors();
+
+  // we want to find the few branches that are nearest to each voxel
+  // possibly we want there to be no maximum distance... which is weird, but more robust I guess.
+  // so the best option is to use knn, and match voxel centres to tree segment centres I guess. This has the advantage that
+  // it tends not to align leaves to really thick trunks.
+  std::vector<int> tree_ids;
+  std::vector<int> segment_ids;
+  std::vector<std::vector<int> > neighbour_segments; // this looks up into the above two structures
+  ForestStructure forest;
+ 
+  { // Tim: this block looks for the closest cylindrical branch segments to each voxel, in order to give the leaves a 'direction' value
+    // The reason I use knn (K-nearest neighbour search) is that there is no maximum distance to worry about, and it is fast
+    if (!forest.load(trees_file))
+    {
+      return false;
+    }
+
+    size_t num_segments = 0;
+    for (auto &tree: forest.trees)
+    {
+      num_segments += tree.segments().size() - 1;
+    }
+    size_t num_dense_voxels = 0;
+    for (auto &vox: grid.voxels())
+    {
+      if (vox.density() > 0.0)
+        num_dense_voxels++;
+    }
+
+    const int search_size = 4; // find the four nearest branch segments. For larger voxels a larger value here would be helpful
+    size_t p_size = num_segments;
+    size_t q_size = num_dense_voxels;
+    Eigen::MatrixXd points_p(3, p_size);
+    int i = 0;
+    // 1. get branch centre positions
+    for (int tree_id = 0; tree_id < (int)forest.trees.size(); tree_id++)
+    {
+      auto &tree = forest.trees[tree_id];
+      for (int segment_id = 0; segment_id < (int)tree.segments().size(); segment_id++)
+      {
+        auto &segment = tree.segments()[segment_id];
+        if (segment.parent_id == -1)
+        {
+          continue;
+        }
+        points_p.col(i++) = (segment.tip + tree.segments()[segment.parent_id].tip)/2.0;
+        tree_ids.push_back(tree_id);
+        segment_ids.push_back(segment_id);
+      }
+    }
+    // 2. get 
+    neighbour_segments.resize(q_size);
+    Eigen::MatrixXd points_q(3, q_size);
+    int c = 0;
+    for (int i = 0; i<dims[0]; i++)
+    {
+      for (int j = 0; j<dims[1]; j++)
+      {
+        for (int k = 0; k<dims[2]; k++)
+        {
+          int index = grid.getIndex(Eigen::Vector3i(i,j,k));
+          double density = grid.voxels()[index].density();
+          if (density > 0.0)
+          {
+            points_q.col(c++) = grid_bounds.min_bound_ + vox_width * Eigen::Vector3d((double)i+0.5, (double)j+0.5, (double)k+0.5);
+          }         
+        }
+      }
+    }
+    Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
+    Eigen::MatrixXi indices;
+    Eigen::MatrixXd dists2;
+    indices.resize(search_size, q_size);
+    dists2.resize(search_size, q_size);
+    nns->knn(points_q, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
+    delete nns;
+
+    // Convert these set of nearest neighbours into surfels
+    for (size_t i = 0; i < q_size; i++)
+    {
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++) 
+        neighbour_segments[i].push_back(indices(j, i));
+    }
+  }
+
+
   // the density is now stored in grid.voxels()[grid.getIndex(Eigen::Vector3i )].density().
   struct Leaf
   {
@@ -38,22 +126,26 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     Eigen::Vector3d direction; 
   };
   std::vector<Leaf> leaves;
+  int c = 0;
   for (auto &voxel: grid.voxels())
   {
     double leaf_area_per_voxel_volume = voxel.density();
+    if (leaf_area_per_voxel_volume <= 0.0)
+    {
+      continue;
+    }
     double desired_leaf_area = leaf_area_per_voxel_volume * vox_width * vox_width * vox_width;
     double num_leaves_d = desired_leaf_area / leaf_area;
-    // how do we distribute these leaves evenly through the voxel?
-    // do we *want* to disrtribute them evenly? Wouldn't it be better to distribute in proportion to the lidar points?
-    // what we could do is store the lidar points for this voxel, then place 1 leaf every n lidar points... 
-    // but this relies on the point ordering being random... 
-    // we could also subvoxel to get a set of point densities...
+    
+    // how do we distribute these leaves evenly through the voxel? 
+    // we could subvoxel to get a set of point densities...
     // or we could store a scatter matrix per voxel... or just a mean
     // how about we look at the # leaves... if it is more than 8 we randomly place in 2x2x2 subvoxels, if it is more than 27 we randomly place in 3x3x3 subvoxels etc
     int subvoxels = static_cast<int>(std::pow(num_leaves_d, 1.0/3.0));
     double leaves_per_subvoxel = (double)num_leaves_d / (double)(subvoxels * subvoxels * subvoxels);
     double leaves_added = 0;
     double count = 0;
+    std::vector<int> &inds = neighbour_segments[c];
     for (int i = 0; i<subvoxels; i++)
     {
       for (int j = 0; j<subvoxels; j++)
@@ -67,10 +159,21 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
             Eigen::Vector3d maxp = grid_bounds.min_bound_ + vox_width * Eigen::Vector3d((double)i+1, (double)j+1, (double)k+1) / (double)subvoxels;
             Leaf new_leaf;
             new_leaf.centre = Eigen::Vector3d(random(minp[0], maxp[0]), random(minp[1], maxp[1]), random(minp[2], maxp[2]));
-            // now... getting the direction will be fun....
-            // I now have to find the closest branch and use that to get the direction right.
-            // for now I'll just make the direction horizontal:
-            new_leaf.direction = Eigen::Vector3d(1,0,0);
+
+            double min_dist = 1e10;
+            Eigen::Vector3d closest_point_on_branch(0,0,0);
+            int min_ind = 0;
+            for (auto &ind: inds)
+            {
+              auto &tree =  forest.trees[tree_ids[ind]];
+              auto &segment = tree.segments()[segment_ids[ind]];
+              // get a more accurate distance to each branch segment....
+              // e.g. point to branch surface.
+
+              // ADD CODE HERE in order to estimate the closest_point_on_branch
+            }
+
+            new_leaf.direction = (new_leaf.centre - closest_point_on_branch).normalized();
             leaves.push_back(new_leaf);
             leaves_added++;
           }
@@ -78,6 +181,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
         }
       }
     }
+    c++;
   }
 
   // secondly, we place leaves in proportion to the foliage density and (where it is low) we place them to cover real lidar points perhaps
