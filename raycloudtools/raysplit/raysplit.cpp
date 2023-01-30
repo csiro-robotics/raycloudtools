@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
     else if (mesh_file.nameExt() == "txt") // assume a tree file
     {
       ray::ForestStructure forest;
+      forest.load(mesh_file.name());
       forest.splitCloud(cloud, mesh_offset.value(), inside, outside);
     }
     inside.save(in_name);
