@@ -621,13 +621,12 @@ bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts,
   // Note: this lambda function assumes that the passed in vectors are end-of-life, and can be moved
   // this is true for the readPly function, with maximum chunk size.
   auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points,
-                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) {
-    // Uses move syntax, so that the return references (starts, ends etc) just point to the allocated vector memory
-    // instead of allocating and copying what can be a large amount of data
-    starts = std::move(start_points);
-    ends = std::move(end_points);
-    times = std::move(time_points);
-    colours = std::move(colour_values);
+                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) 
+  {
+    starts.insert(starts.end(), start_points.begin(), start_points.end());
+    ends.insert(ends.end(), end_points.begin(), end_points.end());
+    times.insert(times.end(), time_points.begin(), time_points.end());
+    colours.insert(colours.end(), colour_values.begin(), colour_values.end());
   };
   return readPly(file_name, is_ray_cloud, apply, max_intensity, std::numeric_limits<size_t>::max());
 }

@@ -144,13 +144,12 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
 {
   std::vector<Eigen::Vector3d> starts;  // dummy as lax just reads in point clouds, not ray clouds
   auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points,
-                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) {
-    // Uses move syntax, so that the return references (starts, ends etc) just point to the allocated vector memory
-    // instead of allocating and copying what can be a large amount of data
-    starts = std::move(start_points);
-    positions = std::move(end_points);
-    times = std::move(time_points);
-    colours = std::move(colour_values);
+                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) 
+  {
+    starts.insert(starts.end(), start_points.begin(), start_points.end());
+    positions.insert(positions.end(), end_points.begin(), end_points.end());
+    times.insert(times.end(), time_points.begin(), time_points.end());
+    colours.insert(colours.end(), colour_values.begin(), colour_values.end());    
   };
   size_t num_bounded;
   bool success =
