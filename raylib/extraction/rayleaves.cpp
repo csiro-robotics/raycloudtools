@@ -282,6 +282,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     for (auto &vert: leaf_verts)
     {
       verts.push_back(mat * vert + leaf.centre);
+      mesh.colours().push_back(RGBA::leaves());
     }
     num_verts = (int)verts.size();
     if (stalks)
@@ -303,6 +304,8 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
         Eigen::Vector3d pos = (i==num_segs-1) ? leaf_start : start + Eigen::Vector3d(0,0,h) + flat*x;
         verts.push_back(pos - side);
         verts.push_back(pos + side);
+        mesh.colours().push_back(RGBA::tree());
+        mesh.colours().push_back(RGBA::tree());
         if (i != num_segs-1)
         {
           int j = 2*i;
