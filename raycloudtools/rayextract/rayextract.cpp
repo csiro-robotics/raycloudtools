@@ -52,7 +52,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
   std::cout << "rayextract leaves cloud.ply trees.txt            - reconstruct the leaf locations coming from the specified tree structures, and save to text file" << std::endl;
-  std::cout << "                            --leaf_mesh mesh.ply - mesh for each leaf. Should have its root at 0,0,0 and be along the y axis" << std::endl;
+  std::cout << "                            --leaf_mesh mesh.ply - mesh for each leaf. Should have its centre at 0,0,0, be along the y axis, with first vertex at the stalk connection" << std::endl;
   std::cout << "                            --leaf_area 0.002    - area for each leaf." << std::endl;
   std::cout << "                            --leaf_droop 0.1     - drop per square horizontal distance." << std::endl;
   std::cout << "                            --stalks             - include stalks to closest branch." << std::endl;
