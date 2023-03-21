@@ -51,10 +51,11 @@ void usage(int exit_code = 1)
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
-  std::cout << "rayextract leaves cloud.ply trees.txt         - reconstruct the leaf locations coming from the specified tree structures, and save to text file" << std::endl;
-  std::cout << "                            --leaf_mesh       - mesh for each leaf. Should have its root at 0,0,0 and be along the y axis" << std::endl;
-  std::cout << "                            --leaf_area 0.002 - area for each leaf." << std::endl;
-  std::cout << "                            --leaf_droop 0.1  - drop per square horizontal distance." << std::endl;
+  std::cout << "rayextract leaves cloud.ply trees.txt            - reconstruct the leaf locations coming from the specified tree structures, and save to text file" << std::endl;
+  std::cout << "                            --leaf_mesh mesh.ply - mesh for each leaf. Should have its root at 0,0,0 and be along the y axis" << std::endl;
+  std::cout << "                            --leaf_area 0.002    - area for each leaf." << std::endl;
+  std::cout << "                            --leaf_droop 0.1     - drop per square horizontal distance." << std::endl;
+  std::cout << "                            --stalks             - include stalks to closest branch." << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on
   exit(exit_code);
@@ -70,7 +71,7 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
   ray::DoubleArgument gradient(0.001, 1000.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
-  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b');
+  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b'), stalks("stalks", 's');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
 
   ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
@@ -111,7 +112,7 @@ int main(int argc, char *argv[])
     { &max_diameter_option, &distance_limit_option, &height_min_option, &min_diameter_option, &length_to_radius_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
       &radius_exponent_option, &segment_branches, &grid_width_option, &verbose });
-  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_mesh_option, &leaf_area_option, &leaf_droop_option });
+  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_mesh_option, &leaf_area_option, &leaf_droop_option, &stalks });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves)
   {
     usage();
@@ -262,7 +263,8 @@ int main(int argc, char *argv[])
   {
     ray::generateLeaves(cloud_file.nameStub(), trees_file.name(), leaf_mesh.name(), 
       leaf_area_option.isSet() ? leaf_area.value() : 0.002,
-      leaf_droop_option.isSet() ? leaf_droop.value() : 0.1);
+      leaf_droop_option.isSet() ? leaf_droop.value() : 0.1,
+      stalks.isSet());
   }
   else
   {

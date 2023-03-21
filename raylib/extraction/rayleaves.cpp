@@ -14,7 +14,7 @@
 namespace ray
 {
 
-bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file, const std::string &leaf_file, double leaf_area, double droop)
+bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file, const std::string &leaf_file, double leaf_area, double droop, bool stalks)
 {
   // For now we assume that woody points have been set as unbounded (alpha=0). e.g. through raycolour foliage or raysplit file distance 0.2 as examples.
   // so firstly we must calculate the foliage density across the whole map. 
@@ -139,6 +139,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     Eigen::Vector3d centre;
     Eigen::Vector3d direction; 
     Eigen::Vector3d origin;
+    double grad0;
   };
   std::vector<Leaf> leaves;
   std::vector<double> points_count(grid.voxels().size(), 0); // to distribute the leaves over the points
@@ -217,6 +218,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
         new_leaf.direction[2] = grad;
         new_leaf.direction.normalize();
         new_leaf.origin = closest_point_on_branch;
+        new_leaf.grad0 = grad0;
 
         leaves.push_back(new_leaf);
       }  
@@ -231,14 +233,14 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   auto &leaf_verts = leaf_mesh.vertices();
   auto &leaf_inds = leaf_mesh.indexList(); // one per triangle, gives the index into the vertices_ array for each corner
 
+  double leaf_width = std::sqrt(leaf_area/2.0);\
   if (leaf_file.empty())
   {
     // generate a 2-triangle leaf along y axis
-    double len = std::sqrt(leaf_area/2.0);
-    leaf_verts.push_back(Eigen::Vector3d(0,-len,-len*len*droop)); // should leaf droop just vertically?
-    leaf_verts.push_back(Eigen::Vector3d(-len/2.0,0,0));
-    leaf_verts.push_back(Eigen::Vector3d(len/2.0,0,0));
-    leaf_verts.push_back(Eigen::Vector3d(0,len,-len*len * droop));
+    leaf_verts.push_back(Eigen::Vector3d(0,-leaf_width,-leaf_width*leaf_width*droop)); // should leaf droop just vertically?
+    leaf_verts.push_back(Eigen::Vector3d(-leaf_width/2.0,0,0));
+    leaf_verts.push_back(Eigen::Vector3d(leaf_width/2.0,0,0));
+    leaf_verts.push_back(Eigen::Vector3d(0,leaf_width,-leaf_width*leaf_width * droop));
     leaf_inds.push_back(Eigen::Vector3i(0,1,2));
     leaf_inds.push_back(Eigen::Vector3i(2,1,3));
   }
@@ -258,8 +260,6 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       vert *= scale;
     }
   }
-      
-  
   Mesh mesh;
   auto &verts = mesh.vertices();
   auto &inds = mesh.indexList(); // one per triangle, gives the index into the vertices_ array for each corner   
@@ -268,28 +268,46 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   {
     // 1. convert direction into a transformation matrix...
     Eigen::Matrix3d mat;
-    mat.col(0) = leaf.direction;
-    mat.col(1) = leaf.direction.cross(Eigen::Vector3d(0,0,1)).normalized();
-    mat.col(2) = mat.col(0).cross(mat.col(1));
+    mat.col(1) = leaf.direction;
+    mat.col(0) = leaf.direction.cross(Eigen::Vector3d(0,0,1)).normalized();
+    mat.col(2) = mat.col(1).cross(mat.col(0));
 
     int num_verts = (int)verts.size();
     for (auto &tri: leaf_inds)
     {
       inds.push_back(tri + Eigen::Vector3i(num_verts, num_verts, num_verts));
     }
-    bool start = true;
     for (auto &vert: leaf_verts)
     {
-      // #define SHOW_CONNECTIONS
-      #if defined SHOW_CONNECTIONS
-      if (start)
+      verts.push_back(mat * vert + leaf.centre);
+    }
+    num_verts = (int)verts.size();
+    if (stalks)
+    {
+      Eigen::Vector3d start = leaf.origin;
+      Eigen::Vector3d leaf_start = mat * leaf_verts[0] + leaf.centre;
+      Eigen::Vector3d flat = (leaf_start - leaf.origin);
+      flat[2] = 0.0;
+      double length = flat.norm();
+      flat /= length;
+      Eigen::Vector3d side(-flat[1], flat[0], flat[2]);
+      side *= leaf_width / 10.0;
+      const int num_segs = 4;
+      for (int i = 0; i<num_segs; i++)
       {
-        verts.push_back(leaf.origin);
+        double x = (double)i / (double)(num_segs - 1);
+        x *= length;
+        double h = leaf.grad0*x - droop*x*x;
+        Eigen::Vector3d pos = start + Eigen::Vector3d(0,0,h) + flat*x;
+        verts.push_back(pos - side);
+        verts.push_back(pos + side);
+        if (i != num_segs-1)
+        {
+          int j = 2*i;
+          inds.push_back(Eigen::Vector3i(num_verts, num_verts, num_verts) + Eigen::Vector3i(j, j+1, j+2));
+          inds.push_back(Eigen::Vector3i(num_verts, num_verts, num_verts) + Eigen::Vector3i(j+3, j+2, j+1));
+        }
       }
-      else
-      #endif
-        verts.push_back(mat * vert + leaf.centre);
-      start = false;
     }
   }          
   writePlyMesh(cloud_stub + "_leaves.ply", mesh);
