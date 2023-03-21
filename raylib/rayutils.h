@@ -183,9 +183,9 @@ struct RGBA
   uint8_t blue;
   uint8_t alpha;
   static RGBA white(){ return RGBA(255, 255, 255, 255); }
-  static RGBA terrain(){ return RGBA(152, 118, 84, 255); }
-  static RGBA tree(){ return RGBA(176,144,126, 255); }
-  static RGBA leaves(){ return RGBA(56,98,40, 255); }
+  static RGBA terrain(){ return RGBA(149,105,72, 255); }
+  static RGBA treetrunk(){ return RGBA(192,166,141, 255); }
+  static RGBA leaves(){ return RGBA(60,102,44, 255); }
 };
 
 /// Converts a value from 0 to 1 into a RGBA structure

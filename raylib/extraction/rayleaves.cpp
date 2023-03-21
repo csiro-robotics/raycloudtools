@@ -196,7 +196,6 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
             min_dist = 1e10;
             break;
           }
-          dist -= radius;
           if (dist < min_dist)
           {
             min_dist = dist;
@@ -304,8 +303,8 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
         Eigen::Vector3d pos = (i==num_segs-1) ? leaf_start : start + Eigen::Vector3d(0,0,h) + flat*x;
         verts.push_back(pos - side);
         verts.push_back(pos + side);
-        mesh.colours().push_back(RGBA::tree());
-        mesh.colours().push_back(RGBA::tree());
+        mesh.colours().push_back(RGBA::treetrunk());
+        mesh.colours().push_back(RGBA::treetrunk());
         if (i != num_segs-1)
         {
           int j = 2*i;
