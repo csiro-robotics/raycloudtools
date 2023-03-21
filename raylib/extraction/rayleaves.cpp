@@ -26,7 +26,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   }
   const Cuboid bounds = info.ends_bound; 
   const Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
-  const double vox_width = 0.5;
+  const double vox_width = 0.3;
   Eigen::Vector3i dims = (extent / vox_width).cast<int>() + Eigen::Vector3i(2, 2, 2); // so that we have extra space to convolve
   Cuboid grid_bounds = bounds;
   grid_bounds.min_bound_ -= Eigen::Vector3d(vox_width, vox_width, vox_width);
@@ -67,7 +67,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       i++;
     }
 
-    const int search_size = 4; // find the four nearest branch segments. For larger voxels a larger value here would be helpful
+    const int search_size = 12; // find the twelve nearest branch segments. For larger voxels a larger value here would be helpful
     size_t p_size = num_segments;
     size_t q_size = num_dense_voxels;
     Eigen::MatrixXd points_p(3, p_size);
@@ -241,8 +241,8 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     leaf_verts.push_back(Eigen::Vector3d(-leaf_width/2.0,0,0));
     leaf_verts.push_back(Eigen::Vector3d(leaf_width/2.0,0,0));
     leaf_verts.push_back(Eigen::Vector3d(0,leaf_width,-leaf_width*leaf_width * droop));
-    leaf_inds.push_back(Eigen::Vector3i(0,1,2));
-    leaf_inds.push_back(Eigen::Vector3i(2,1,3));
+    leaf_inds.push_back(Eigen::Vector3i(0,2,1));
+    leaf_inds.push_back(Eigen::Vector3i(2,3,1));
   }
   else
   {
@@ -291,21 +291,21 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       double length = flat.norm();
       flat /= length;
       Eigen::Vector3d side(-flat[1], flat[0], flat[2]);
-      side *= leaf_width / 10.0;
+      side *= leaf_width / 16.0;
       const int num_segs = 4;
       for (int i = 0; i<num_segs; i++)
       {
         double x = (double)i / (double)(num_segs - 1);
         x *= length;
         double h = leaf.grad0*x - droop*x*x;
-        Eigen::Vector3d pos = start + Eigen::Vector3d(0,0,h) + flat*x;
+        Eigen::Vector3d pos = (i==num_segs-1) ? leaf_start : start + Eigen::Vector3d(0,0,h) + flat*x;
         verts.push_back(pos - side);
         verts.push_back(pos + side);
         if (i != num_segs-1)
         {
           int j = 2*i;
-          inds.push_back(Eigen::Vector3i(num_verts, num_verts, num_verts) + Eigen::Vector3i(j, j+1, j+2));
-          inds.push_back(Eigen::Vector3i(num_verts, num_verts, num_verts) + Eigen::Vector3i(j+3, j+2, j+1));
+          inds.push_back(Eigen::Vector3i(num_verts, num_verts, num_verts) + Eigen::Vector3i(j, j+2, j+1));
+          inds.push_back(Eigen::Vector3i(num_verts, num_verts, num_verts) + Eigen::Vector3i(j+3, j+1, j+2));
         }
       }
     }
