@@ -42,7 +42,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   std::vector<int> segment_ids;
   std::vector<std::vector<int> > neighbour_segments; // this looks up into the above two structures
   ForestStructure forest;
- 
+  std::vector<int> dense_voxel_indices(grid.voxels().size(), -1);
   { // Tim: this block looks for the closest cylindrical branch segments to each voxel, in order to give the leaves a 'direction' value
     // The reason I use knn (K-nearest neighbour search) is that there is no maximum distance to worry about, and it is fast
     if (!forest.load(trees_file))
@@ -56,17 +56,22 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       num_segments += tree.segments().size() - 1;
     }
     size_t num_dense_voxels = 0;
+    int i = 0;
     for (auto &vox: grid.voxels())
     {
       if (vox.density() > 0.0)
+      {
+        dense_voxel_indices[i] = (int)num_dense_voxels;
         num_dense_voxels++;
+      }
+      i++;
     }
 
     const int search_size = 4; // find the four nearest branch segments. For larger voxels a larger value here would be helpful
     size_t p_size = num_segments;
     size_t q_size = num_dense_voxels;
     Eigen::MatrixXd points_p(3, p_size);
-    int i = 0;
+    i = 0;
     // 1. get branch centre positions
     for (int tree_id = 0; tree_id < (int)forest.trees.size(); tree_id++)
     {
@@ -84,14 +89,14 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       }
     }
     // 2. get 
-    neighbour_segments.resize(q_size);
+    neighbour_segments.resize(grid.voxels().size());
     Eigen::MatrixXd points_q(3, q_size);
     int c = 0;
-    for (int i = 0; i<dims[0]; i++)
+    for (int k = 0; k<dims[2]; k++)
     {
       for (int j = 0; j<dims[1]; j++)
       {
-        for (int k = 0; k<dims[2]; k++)
+        for (int i = 0; i<dims[0]; i++)
         {
           int index = grid.getIndex(Eigen::Vector3i(i,j,k));
           double density = grid.voxels()[index].density();
@@ -111,10 +116,19 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     delete nns;
 
     // Convert these set of nearest neighbours into surfels
-    for (size_t i = 0; i < q_size; i++)
+    for (int i = 0; i < (int)grid.voxels().size(); i++)
     {
-      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++) 
-        neighbour_segments[i].push_back(indices(j, i));
+      int id = dense_voxel_indices[i];
+      if (id != -1)
+      {
+        for (int j = 0; j < search_size && indices(j, id) != Nabo::NNSearchD::InvalidIndex; j++) 
+        {
+          if (dists2(j, id) < 2.0*2.0)
+          {
+            neighbour_segments[i].push_back(indices(j, id));
+          }
+        }
+      }
     }
   }
 
@@ -124,6 +138,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   {
     Eigen::Vector3d centre;
     Eigen::Vector3d direction; 
+    Eigen::Vector3d origin;
   };
   std::vector<Leaf> leaves;
   std::vector<double> points_count(grid.voxels().size(), 0); // to distribute the leaves over the points
@@ -162,22 +177,32 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
         Leaf new_leaf;
         new_leaf.centre = ends[i];
 
-        double min_dist_sqr = 1e10;
+        double min_dist = 1e10;
         Eigen::Vector3d closest_point_on_branch(0,0,0);
-        int min_ind = 0;
         for (auto &ind: neighbour_segments[index])
         {
           auto &tree =  forest.trees[tree_ids[ind]];
           // get a more accurate distance to each branch segment....
           // e.g. point to branch surface.
-          Eigen::Vector3d closest = tree.closestPointOnSegment(segment_ids[ind], ends[i]);
-          double dist_sqr = (closest - ends[i]).squaredNorm();
-          if (dist_sqr < min_dist_sqr)
+          Eigen::Vector3d line_closest;
+          Eigen::Vector3d closest = tree.closestPointOnSegment(segment_ids[ind], ends[i], line_closest);
+          double dist = (closest - ends[i]).norm();
+          double radius = tree.segments()[segment_ids[ind]].radius;
+          if (dist <= radius) // if we're inside any branch then don't add a leaf for this point
           {
-            min_dist_sqr = dist_sqr;
-            min_ind = ind;
+            min_dist = 1e10;
+            break;
+          }
+          dist -= radius;
+          if (dist < min_dist)
+          {
+            min_dist = dist;
             closest_point_on_branch = closest;
           }
+        }
+        if (min_dist == 1e10)
+        {
+          continue;
         }
         // get leaf direction according to a droop factor. y=-droop * x^2
         new_leaf.direction = new_leaf.centre - closest_point_on_branch;
@@ -191,6 +216,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
         double grad = grad0 + 2.0*-droop*dist;
         new_leaf.direction[2] = grad;
         new_leaf.direction.normalize();
+        new_leaf.origin = closest_point_on_branch;
 
         leaves.push_back(new_leaf);
       }  
@@ -251,9 +277,19 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     {
       inds.push_back(tri + Eigen::Vector3i(num_verts, num_verts, num_verts));
     }
+    bool start = true;
     for (auto &vert: leaf_verts)
     {
-      verts.push_back(mat * vert + leaf.centre);
+      // #define SHOW_CONNECTIONS
+      #if defined SHOW_CONNECTIONS
+      if (start)
+      {
+        verts.push_back(leaf.origin);
+      }
+      else
+      #endif
+        verts.push_back(mat * vert + leaf.centre);
+      start = false;
     }
   }          
   writePlyMesh(cloud_stub + "_leaves.ply", mesh);
