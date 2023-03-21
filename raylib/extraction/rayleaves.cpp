@@ -270,7 +270,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     Eigen::Matrix3d mat;
     mat.col(1) = leaf.direction;
     mat.col(0) = leaf.direction.cross(Eigen::Vector3d(0,0,1)).normalized();
-    mat.col(2) = mat.col(1).cross(mat.col(0));
+    mat.col(2) = mat.col(0).cross(mat.col(1));
 
     int num_verts = (int)verts.size();
     for (auto &tri: leaf_inds)
