@@ -112,7 +112,8 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     Eigen::MatrixXd dists2;
     indices.resize(search_size, q_size);
     dists2.resize(search_size, q_size);
-    nns->knn(points_q, indices, dists2, search_size, kNearestNeighbourEpsilon, 0);
+    const double max_distance = 2.0; 
+    nns->knn(points_q, indices, dists2, search_size, kNearestNeighbourEpsilon, 0, max_distance);
     delete nns;
 
     // Convert these set of nearest neighbours into surfels
@@ -123,10 +124,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       {
         for (int j = 0; j < search_size && indices(j, id) != Nabo::NNSearchD::InvalidIndex; j++) 
         {
-          if (dists2(j, id) < 2.0*2.0)
-          {
-            neighbour_segments[i].push_back(indices(j, id));
-          }
+          neighbour_segments[i].push_back(indices(j, id));
         }
       }
     }
@@ -142,7 +140,12 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     double grad0;
   };
   std::vector<Leaf> leaves;
-  std::vector<double> points_count(grid.voxels().size(), 0); // to distribute the leaves over the points
+  std::vector<double> leaf_counter(grid.voxels().size());
+  std::srand(1);
+  for (size_t i = 0; i<grid.voxels().size(); i++)
+  {
+    leaf_counter[i] = (double)(std::rand()%10000) / 10000.0; // a random start stops regions of low density have 0 leaves
+  }
 
 
   // for each point in the cloud, possible add leaves...
@@ -163,15 +166,14 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       double desired_leaf_area = leaf_area_per_voxel_volume * vox_width * vox_width * vox_width;
       double num_leaves_d = desired_leaf_area / leaf_area;
       double num_points = (double)voxel.numHits();
-      double points_per_leaf = num_points / num_leaves_d;
-      double &count = points_count[index];
-      bool add_leaf = count == 0.0;
-      if (count >= points_per_leaf)
+      double &count = leaf_counter[index];
+      count += num_leaves_d / num_points;
+      bool add_leaf = false;
+      if (count >= 1.0)
       {
         add_leaf = true;
-        count -= points_per_leaf;
+        count--;
       }
-      count++;
 
       if (add_leaf)
       {
