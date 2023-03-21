@@ -69,9 +69,9 @@ inline void Ellipsoid::setExtents(const Eigen::Matrix3d &vecs, const Eigen::Vect
   const Eigen::Vector3d &x = vecs.col(0);
   const Eigen::Vector3d &y = vecs.col(1);
   const Eigen::Vector3d &z = vecs.col(2);
-  extents[0] = std::min(max_rr, abs(x[0]) * vals[0] + abs(y[0]) * vals[1] + abs(z[0]) * vals[2]);
-  extents[1] = std::min(max_rr, abs(x[1]) * vals[0] + abs(y[1]) * vals[1] + abs(z[1]) * vals[2]);
-  extents[2] = std::min(max_rr, abs(x[2]) * vals[0] + abs(y[2]) * vals[1] + abs(z[2]) * vals[2]);
+  extents[0] = std::min(max_rr, std::abs(x[0]) * vals[0] + std::abs(y[0]) * vals[1] + std::abs(z[0]) * vals[2]);
+  extents[1] = std::min(max_rr, std::abs(x[1]) * vals[0] + std::abs(y[1]) * vals[1] + std::abs(z[1]) * vals[2]);
+  extents[2] = std::min(max_rr, std::abs(x[2]) * vals[0] + std::abs(y[2]) * vals[1] + std::abs(z[2]) * vals[2]);
 }
 
 inline IntersectResult Ellipsoid::intersect(const Eigen::Vector3d &start, const Eigen::Vector3d &end) const

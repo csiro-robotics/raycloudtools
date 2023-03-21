@@ -14,7 +14,7 @@
 namespace ray
 {
 
-bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file, const std::string &leaf_file, double leaf_area)
+bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file, const std::string &leaf_file, double leaf_area, double droop)
 {
   // For now we assume that woody points have been set as unbounded (alpha=0). e.g. through raycolour foliage or raysplit file distance 0.2 as examples.
   // so firstly we must calculate the foliage density across the whole map. 
@@ -126,73 +126,80 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     Eigen::Vector3d direction; 
   };
   std::vector<Leaf> leaves;
-  int c = 0;
-  for (auto &voxel: grid.voxels())
+  std::vector<double> points_count(grid.voxels().size(), 0); // to distribute the leaves over the points
+
+
+  // for each point in the cloud, possible add leaves...
+  auto add_leaves = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &times, std::vector<ray::RGBA> &colours) 
   {
-    double leaf_area_per_voxel_volume = voxel.density();
-    if (leaf_area_per_voxel_volume <= 0.0)
+    for (size_t i = 0; i<ends.size(); i++)
     {
-      continue;
-    }
-    double desired_leaf_area = leaf_area_per_voxel_volume * vox_width * vox_width * vox_width;
-    double num_leaves_d = desired_leaf_area / leaf_area;
-    
-    // how do we distribute these leaves evenly through the voxel? 
-    // we could subvoxel to get a set of point densities...
-    // or we could store a scatter matrix per voxel... or just a mean
-    // how about we look at the # leaves... if it is more than 8 we randomly place in 2x2x2 subvoxels, if it is more than 27 we randomly place in 3x3x3 subvoxels etc
-    int subvoxels = static_cast<int>(std::pow(num_leaves_d, 1.0/3.0));
-    double leaves_per_subvoxel = (double)num_leaves_d / (double)(subvoxels * subvoxels * subvoxels);
-    double leaves_added = 0;
-    double count = 0;
-    std::vector<int> &inds = neighbour_segments[c];
-    for (int i = 0; i<subvoxels; i++)
-    {
-      for (int j = 0; j<subvoxels; j++)
+      if (colours[i].alpha == 0)
+        continue;
+      int index = grid.getIndexFromPos(ends[i]);
+      auto &voxel = grid.voxels()[index];
+      double leaf_area_per_voxel_volume = voxel.density();
+      if (leaf_area_per_voxel_volume <= 0.0)
       {
-        for (int k = 0; k<subvoxels; k++)
-        {
-          while (leaves_added < leaves_per_subvoxel*count)
-          {
-            // add leaf
-            Eigen::Vector3d minp = grid_bounds.min_bound_ + vox_width * Eigen::Vector3d((double)i, (double)j, (double)k) / (double)subvoxels;
-            Eigen::Vector3d maxp = grid_bounds.min_bound_ + vox_width * Eigen::Vector3d((double)i+1, (double)j+1, (double)k+1) / (double)subvoxels;
-            Leaf new_leaf;
-            new_leaf.centre = Eigen::Vector3d(random(minp[0], maxp[0]), random(minp[1], maxp[1]), random(minp[2], maxp[2]));
-
-            double min_dist = 1e10;
-            Eigen::Vector3d closest_point_on_branch(0,0,0);
-            int min_ind = 0;
-            for (auto &ind: inds)
-            {
-              auto &tree =  forest.trees[tree_ids[ind]];
-              auto &segment = tree.segments()[segment_ids[ind]];
-              // get a more accurate distance to each branch segment....
-              // e.g. point to branch surface.
-
-              // ADD CODE HERE in order to estimate the closest_point_on_branch
-            }
-
-            new_leaf.direction = (new_leaf.centre - closest_point_on_branch).normalized();
-            leaves.push_back(new_leaf);
-            leaves_added++;
-          }
-          count++;
-        }
+        continue;
       }
+      double desired_leaf_area = leaf_area_per_voxel_volume * vox_width * vox_width * vox_width;
+      double num_leaves_d = desired_leaf_area / leaf_area;
+      double num_points = (double)voxel.numHits();
+      double points_per_leaf = num_points / num_leaves_d;
+      double &count = points_count[index];
+      bool add_leaf = count == 0.0;
+      if (count >= points_per_leaf)
+      {
+        add_leaf = true;
+        count -= points_per_leaf;
+      }
+      count++;
+
+      if (add_leaf)
+      {
+        Leaf new_leaf;
+        new_leaf.centre = ends[i];
+
+        double min_dist_sqr = 1e10;
+        Eigen::Vector3d closest_point_on_branch(0,0,0);
+        int min_ind = 0;
+        for (auto &ind: neighbour_segments[index])
+        {
+          auto &tree =  forest.trees[tree_ids[ind]];
+          // get a more accurate distance to each branch segment....
+          // e.g. point to branch surface.
+          Eigen::Vector3d closest = tree.closestPointOnSegment(segment_ids[ind], ends[i]);
+          double dist_sqr = (closest - ends[i]).squaredNorm();
+          if (dist_sqr < min_dist_sqr)
+          {
+            min_dist_sqr = dist_sqr;
+            min_ind = ind;
+            closest_point_on_branch = closest;
+          }
+        }
+        // get leaf direction according to a droop factor. y=-droop * x^2
+        new_leaf.direction = new_leaf.centre - closest_point_on_branch;
+        Eigen::Vector3d flat = new_leaf.direction;
+        flat[2] = 0.0;
+        double dist_sqr = flat.squaredNorm();
+        double dist = std::sqrt(dist_sqr);
+        double h = new_leaf.direction[2];
+        new_leaf.direction /= dist;
+        double grad0 = (h+droop*dist_sqr)/dist;
+        double grad = grad0 + 2.0*-droop*dist;
+        new_leaf.direction[2] = grad;
+        new_leaf.direction.normalize();
+
+        leaves.push_back(new_leaf);
+      }  
     }
-    c++;
-  }
+  };
 
-  // secondly, we place leaves in proportion to the foliage density and (where it is low) we place them to cover real lidar points perhaps
-  // better would be to estimate foliage density as a function of direction... in order to distribute the leaf directions
-  // perhaps for now we assume that leaves bend downwards, and give them a random range of pitch values...
+  if (!ray::Cloud::read(cloud_name, add_leaves))
+    return false;
 
-  // thirdly, we need to save the leaves out.. either as an extension of the tree.txt file, or as an accompanying file. 
-  // I wonder if leaf data is enough that a binary format is better?
-  // probably we store it as an accompanying data structure for now. It is too early for full integration
-  // but we need a function to convert the data to mesh. 
-  // maybe we go directly to mesh for the moment.
   Mesh leaf_mesh;
   // could read it from file at this point
   auto &leaf_verts = leaf_mesh.vertices();
@@ -200,13 +207,12 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
 
   if (leaf_file.empty())
   {
-    double droop = 1.0;
     // generate a 2-triangle leaf along y axis
     double len = std::sqrt(leaf_area/2.0);
-    leaf_verts.push_back(Eigen::Vector3d(0,0,0));
-    leaf_verts.push_back(Eigen::Vector3d(-len/2.0,len,0));
-    leaf_verts.push_back(Eigen::Vector3d(len/2.0,len,0));
-    leaf_verts.push_back(Eigen::Vector3d(0,2.0*len,-0.5*len * droop));
+    leaf_verts.push_back(Eigen::Vector3d(0,-len,-len*len*droop)); // should leaf droop just vertically?
+    leaf_verts.push_back(Eigen::Vector3d(-len/2.0,0,0));
+    leaf_verts.push_back(Eigen::Vector3d(len/2.0,0,0));
+    leaf_verts.push_back(Eigen::Vector3d(0,len,-len*len * droop));
     leaf_inds.push_back(Eigen::Vector3i(0,1,2));
     leaf_inds.push_back(Eigen::Vector3i(2,1,3));
   }
