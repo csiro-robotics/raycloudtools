@@ -881,7 +881,7 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
   int par = sections_[sec_].parent;
   int root = sections_[sec_].root;
 
-  double l = sections_[sec_].max_distance_to_end * sections_[root].tree_height / sections_[root].max_distance_to_end;
+  double l = sections_[sec_].radius_scale * sections_[root].tree_height;
   double L = sections_[root].tree_height;
 
   double junction_weight = 1.0;
