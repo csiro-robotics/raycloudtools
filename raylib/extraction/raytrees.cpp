@@ -23,8 +23,9 @@ TreesParams::TreesParams()
   , grid_width(0.0)
   , segment_branches(false)
   , global_taper(0.012)
-  , global_taper_factor(0.1)
+  , global_taper_factor(0.3)
 {}
+
 /// The main reconstruction algorithm
 /// It is based on finding the shortest paths using Djikstra's algorithm, followed
 /// by an agglomeration of paths, with repeated splitting from root to tips
@@ -99,7 +100,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
         {
           debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos, 0.0, ray::RGBA(j==1 ? 255 : 0, j==2 ? 255:0, j==3 ? 255:0, 255));
         }
-      }      
+      }         
       if (removeDistantPoints(nodes))
       {
         sections_[sec_].tip = calculateTipFromVertices(nodes);
@@ -152,8 +153,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     sections_[sec_].tip = best_tip;
     sections_[sec_].ends = best_ends;
     nodes = best_nodes;
-
-    if (sections_[sec_].split_count < 1) // 3
+    if (sections_[sec_].split_count < 2)
     {
       double thickness = best_dist; 
       bool points_removed = false;
@@ -317,7 +317,7 @@ bool Trees::removeDistantPoints(std::vector<int> &nodes)
 {
   double accuracy = 0;
   Eigen::Vector3d up(0,0,1);
-  double max_rad = 2.0 * estimateCylinderRadius(nodes, up, accuracy);
+  double max_rad = params_->gap_ratio * sections_[sec_].max_distance_to_end; // gap threshold for splitting
   double max_rad_sqr = max_rad * max_rad;
   bool found = false;
   for (int k = 0; k<(int)nodes.size(); k++)
@@ -355,7 +355,7 @@ double Trees::meanTaper(const BranchSection &section) const
   double mean_weight = forest_weight_squared_ / forest_weight_;
   double taper = sections_[root].total_taper / sections_[root].total_weight;
   double weight = sections_[root].total_weight;
-  double blend = params_->global_taper_factor * params_->global_taper_factor;
+  double blend = params_->global_taper_factor * params_->global_taper_factor * params_->global_taper_factor;
   mean_weight *= blend;
   weight *= 1.0 - blend;
 
@@ -890,8 +890,8 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
     junction_weight = extract_from_ends ? 0.25 : 1.0; // extracting from ends means we are less confident about the quality
   }
 
-  double weight = l*l * accuracy * junction_weight;
-  weight *= weight; // preference the strongest weight sections
+  double weight = l*l*l * accuracy * junction_weight;
+ // weight *= weight; // preference the strongest weight sections
   double taper = (radius/L) * weight;
 
   forest_taper_ += taper;
@@ -908,7 +908,7 @@ void Trees::estimateCylinderTaper(double radius, double accuracy, bool extract_f
 
   sections_[sec_].taper = taper;
   sections_[sec_].weight = weight;
-  sections_[sec_].len = l*l;
+  sections_[sec_].len = l*l*l;
   sections_[sec_].accuracy = accuracy;
   sections_[sec_].junction_weight = junction_weight;
 }
