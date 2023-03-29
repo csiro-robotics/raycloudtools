@@ -8,6 +8,7 @@
 #include "raylib/extraction/rayterrain.h"
 #include "raylib/extraction/raytrees.h"
 #include "raylib/extraction/raytrunks.h"
+#include "raylib/extraction/rayleaves.h"
 #include "raylib/raycloud.h"
 #include "raylib/raydebugdraw.h"
 #include "raylib/rayforestgen.h"
@@ -51,6 +52,11 @@ void usage(int exit_code = 1)
 //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
 //  std::cout << "                            --gap_ratio 0.016    - (-g) will split for lateral gaps at this multiple of branch length" << std::endl;
 //  std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
+  std::cout << "rayextract leaves cloud.ply trees.txt            - reconstruct the leaf locations coming from the specified tree structures, and save to text file" << std::endl;
+  std::cout << "                            --leaf_mesh mesh.ply - mesh for each leaf. Should have its centre at 0,0,0, be along the y axis, with first vertex at the stalk connection" << std::endl;
+  std::cout << "                            --leaf_area 0.002    - area for each leaf." << std::endl;
+  std::cout << "                            --leaf_droop 0.1     - drop per square horizontal distance." << std::endl;
+  std::cout << "                            --stalks             - include stalks to closest branch." << std::endl;
   std::cout << "                                 --verbose  - extra debug output." << std::endl;
   // clang-format on
   exit(exit_code);
@@ -60,18 +66,18 @@ void usage(int exit_code = 1)
 /// extracts natural features from a scene
 int main(int argc, char *argv[])
 {
-  ray::FileArgument cloud_file, mesh_file, trunks_file;
-  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain");
+  ray::FileArgument cloud_file, mesh_file, trunks_file, trees_file, leaf_mesh;
+  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain"), leaves("leaves");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
   ray::DoubleArgument gradient(0.001, 1000.0), global_taper(0.0, 1.0), global_taper_factor(0.0, 1.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
-  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b');
+  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b'), stalks("stalks", 's');
   ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
 
   ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
-    crop_length(0.01, 100.0);
-  ray::DoubleArgument girth_height_ratio(0.001, 0.5), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
+    min_diameter(0.01, 100.0), leaf_area(0.00001, 1.0), leaf_droop(0.0, 10.0), crop_length(0.01, 100.0);;
+  ray::DoubleArgument girth_height_ratio(0.001, 0.5), length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
     span_ratio(0.01, 10.0);
   ray::DoubleArgument gravity_factor(0.0, 100.0), grid_width(1.0, 100000.0),
     grid_overlap(0.0, 0.9);
@@ -88,6 +94,9 @@ int main(int argc, char *argv[])
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
   ray::OptionalKeyValueArgument global_taper_option("global_taper", 'a', &global_taper);
   ray::OptionalKeyValueArgument global_taper_factor_option("global_taper_factor", 'o', &global_taper_factor);
+  ray::OptionalKeyValueArgument leaf_mesh_option("leaf_mesh", 'm', &leaf_mesh);
+  ray::OptionalKeyValueArgument leaf_area_option("leaf_area", 'a', &leaf_area);
+  ray::OptionalKeyValueArgument leaf_droop_option("leaf_droop", 'd', &leaf_droop);
 
   ray::IntArgument smooth(0, 50);
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth),
@@ -105,7 +114,8 @@ int main(int argc, char *argv[])
     { &max_diameter_option, &distance_limit_option, &height_min_option, &crop_length_option, &girth_height_ratio_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
       &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option,&verbose });
-  if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees)
+  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_mesh_option, &leaf_area_option, &leaf_droop_option, &stalks });
+  if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves)
   {
     usage();
   }
@@ -254,6 +264,13 @@ int main(int argc, char *argv[])
     ray::Terrain terrain;
     const double grad = gradient_option.isSet() ? gradient.value() : 1.0;
     terrain.extract(cloud, cloud_file.nameStub(), grad, verbose.isSet());
+  }
+  else if (extract_leaves)
+  {
+    ray::generateLeaves(cloud_file.nameStub(), trees_file.name(), leaf_mesh.name(), 
+      leaf_area_option.isSet() ? leaf_area.value() : 0.002,
+      leaf_droop_option.isSet() ? leaf_droop.value() : 0.1,
+      stalks.isSet());
   }
   else
   {

@@ -24,11 +24,25 @@ public:
       , radius(0)
       , parent_id(-1)
     {}
+
     Eigen::Vector3d tip;
     double radius;
     int parent_id;
     std::vector<double> attributes;
   };
+  Eigen::Vector3d closestPointOnSegment(int index, const Eigen::Vector3d &pos, Eigen::Vector3d &line_closest)
+  {
+    auto &segment = segments_[index];
+    if (segment.parent_id == -1) // then treat as spherical
+    {
+      return segment.tip + (pos - segment.tip).normalized() * segment.radius;
+    }
+    Eigen::Vector3d dif = segment.tip - segments_[segment.parent_id].tip;
+    double d = (pos - segments_[segment.parent_id].tip).dot(dif)/dif.squaredNorm();
+    d = std::max(0.0, std::min(d, 1.0));
+    line_closest = segments_[segment.parent_id].tip + dif * d;
+    return line_closest + (pos - line_closest).normalized() * segment.radius;
+  }
 
   /// access the geometry of the tree as a list of branches
   const std::vector<Segment> &segments() const { return segments_; }

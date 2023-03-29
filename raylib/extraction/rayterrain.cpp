@@ -370,17 +370,16 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   }
   growUpwardsFast(ends, pixel_width, min_bound, max_bound, gradient);
   mesh_.reduce();  // remove disconnected vertices in the mesh
+  mesh_.colours() = std::vector<RGBA>(mesh_.vertices().size(), RGBA::terrain());
 
   writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);
   if (verbose)  // debugging output
   {
-    RGBA white;
-    white.red = white.green = white.blue = white.alpha = 255;
     Cloud local_cloud;
     double t = 0.0;
     for (auto &p : mesh_.vertices())
     {
-      local_cloud.addRay(p, p, t++, white);
+      local_cloud.addRay(p, p, t++, RGBA::white());
     }
     local_cloud.save(file_prefix + "_terrain.ply");
   }

@@ -360,4 +360,79 @@ bool ForestStructure::save(const std::string &filename)
   }
   return true;
 }
+
+void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside)
+{
+  // first implementation is gonna be slow I guess... 
+  // I could either grid up the cylinder indices, or I could grid up the point indices.... I wonder what is better...
+  // points are easier in that they have no width... 
+  double voxel_width = 0.2; // TODO: where to get grid cell size from
+  Eigen::Vector3d minbound = cloud.calcMinBound();
+  ray::Grid<int> grid(minbound, cloud.calcMaxBound(), voxel_width); 
+  // fill the acceleration structure
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+  {
+    if (!cloud.rayBounded(i))
+    {
+      continue;
+    }
+    grid.insert(grid.index(cloud.ends[i]), (int)i);
+  }
+
+  // now find all ends that we can remove on a per-segment basis:
+  std::vector<bool> remove(cloud.ends.size(), false);
+  for (auto &tree: trees)
+  {
+    for (auto &segment: tree.segments())
+    {
+      if (segment.parent_id != -1)
+      {
+        Eigen::Vector3d pos1 = tree.segments()[segment.parent_id].tip;
+        Eigen::Vector3d pos2 = segment.tip;
+        double r = segment.radius;
+        Eigen::Vector3d dir = (pos2 - pos1).normalized();
+        pos1 -= dir*offset;
+        pos2 += dir*offset;
+        r += offset;
+        double len = (pos2 - pos1).norm();
+        Eigen::Vector3d one(1,1,1);
+        Eigen::Vector3i minindex = grid.index(ray::minVector(pos1, pos2) - r*one);
+        Eigen::Vector3i maxindex = grid.index(ray::maxVector(pos1, pos2) + r*one);
+        for (int i = minindex[0]; i<=maxindex[0]; i++)
+        {
+          for (int j = minindex[1]; j<=maxindex[1]; j++)
+          {
+            for (int k = minindex[2]; k<=maxindex[2]; k++)
+            {
+              auto &cell = grid.cell(i,j,k);
+              for (auto id: cell.data)
+              {
+                // intersect the point cloud.ends[id] with segment:
+                const Eigen::Vector3d &p = cloud.ends[id];
+                double d = (p - pos1).dot(dir);
+                if (d < 0 || d > len)
+                {
+                  continue;
+                }
+                Eigen::Vector3d closest = pos1 + dir*d;
+                double r2 = (p - closest).squaredNorm();
+                if (r2 < r*r) // inside the cylinder
+                {
+                  remove[id] = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  for (size_t i = 0; i<cloud.ends.size(); i++)
+  {
+    Cloud &dest = remove[i] ? inside : outside;
+    dest.addRay(cloud.starts[i], cloud.ends[i], cloud.times[i], cloud.colours[i]);
+  }
+}
+
 }  // namespace ray
