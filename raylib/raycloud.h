@@ -131,6 +131,7 @@ public:
     double min_time;
     double max_time;
     Eigen::Vector3d centroid;
+    Eigen::Vector3d start_pos, end_pos;
   };
   static bool RAYLIB_EXPORT getInfo(const std::string &file_name, Info &info);
 

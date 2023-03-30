@@ -167,10 +167,12 @@ int main(int argc, char *argv[])
       const double non_rigid_threshold = 0.01;
       full_ps[i] -= full_ps[0];
       dec_ps[i] -= dec_ps[0];
-      if (abs(full_ps[i].norm() - dec_ps[i].norm()) > non_rigid_threshold)
+      if (std::abs(full_ps[i].norm() - dec_ps[i].norm()) > non_rigid_threshold)
+      {
         std::cout << "warning, matched points aren't a similar distance apart: " << full_ps[i].norm() << ", "
                   << dec_ps[i].norm() << " a non-rigid transform may have been applied. Results will be approximate."
                   << std::endl;
+      }
     }
 
     // how to get rotation from two triangles? do it in two stages:
