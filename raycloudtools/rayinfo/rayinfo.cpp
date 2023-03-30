@@ -3,7 +3,6 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-
 #include "raylib/raycloud.h"
 #include "raylib/rayparse.h"
 #include "raylib/raycuboid.h"
@@ -25,6 +24,8 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
+/// @brief  Convert the Unix time into a string date and time
+/// @return the string including the day and the time zone
 std::string getTime(double unix_time)
 {
   time_t unix_timestamp = static_cast<time_t>(unix_time);
@@ -36,6 +37,19 @@ std::string getTime(double unix_time)
   return std::string(time_buf);
 }
 
+/// @brief class to provide an ordering of 2D voxels
+class RAYLIB_EXPORT Vector2iLess
+{
+public:
+  bool operator()(const Eigen::Vector2i &a, const Eigen::Vector2i &b) const
+  {
+    if (a[0] != b[0])
+    {
+      return a[0] < b[0];
+    }
+    return a[1] < b[1];
+  }
+};
 
 int main(int argc, char *argv[])
 {
@@ -48,8 +62,8 @@ int main(int argc, char *argv[])
   ray::Cloud::Info info;
   ray::Cloud::getInfo(cloud.name(), info);
 
-  // path length
-  // num jumps
+  std::set<Eigen::Vector2i, Vector2iLess> vox_set; 
+
   int out_of_order = 0;
   int time_jumps = 0;
   int space_jumps = 0;
@@ -61,10 +75,25 @@ int main(int argc, char *argv[])
   double max_ray_length = std::numeric_limits<double>::lowest();
   double max_bounded_ray_length = std::numeric_limits<double>::lowest();
   ray::RGBA min_col(255, 255, 255, 255), max_col(0, 0, 0, 0);
+  int num_pixels_covered = 0;
+  const double voxel_width = 0.5;
+  /// This lambda function does most of the work in acquiring general information on the ray cloud
   auto get_info = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                          std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     for (size_t i = 0; i < ends.size(); i++)
     {
+      // estimate the area of land covered by points
+      if (colours[i].alpha > 0)
+      {
+        Eigen::Vector2i voxel(int(std::floor(ends[i][0] / voxel_width)), int(std::floor(ends[i][1] / voxel_width)));
+        if (vox_set.find(voxel) == vox_set.end())
+        {
+          vox_set.insert(voxel);
+          num_pixels_covered++;
+        }
+      }
+
+      // identify discontinuities in the sensor location and time stamp
       if (last_time != std::numeric_limits<double>::lowest())
       {
         if (times[i] < last_time)
@@ -93,6 +122,7 @@ int main(int argc, char *argv[])
       double ray_length = (ends[i] - starts[i]).norm();
       min_ray_length = std::min(min_ray_length, ray_length);
       max_ray_length = std::max(max_ray_length, ray_length);
+      // colour statistics
       if (colours[i].alpha > 0)
       {
         max_bounded_ray_length = std::max(max_bounded_ray_length, ray_length);
@@ -117,10 +147,20 @@ int main(int argc, char *argv[])
     usage();
   }
 
+  // print the results to screen
   std::cout << std::endl;
   std::cout << "Ray cloud information for " << cloud.name() << ":" << std::endl;
   std::cout << std::endl;
   std::cout << "  number of rays: \t" << info.num_bounded + info.num_unbounded << " of which " << info.num_bounded << " have end points." << std::endl;
+  double area_covered = (double)num_pixels_covered * (voxel_width * voxel_width);
+  int num_hect = (int)(area_covered / 10000.0);
+  area_covered -= (double)num_hect * 10000.0;
+  std::cout << "  area covered: \t";
+  if (num_hect > 0)
+  {
+    std::cout << num_hect << " ha ";
+  }
+  std::cout << area_covered << " m^2  (at >= 4 points per m^2)" << std::endl;
   int min_ms = (int)info.min_time/1e6;
   info.min_time -= 1e6 * (double)min_ms;
   int max_ms = (int)info.max_time/1e6;
