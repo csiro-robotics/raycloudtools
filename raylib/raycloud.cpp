@@ -303,7 +303,7 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Info &info)
   Eigen::Vector3d max_v(max_s, max_s, max_s);
   Cuboid unbounded(min_v, max_v);
   info.ends_bound = info.starts_bound = info.rays_bound = unbounded;
-  info.num_unbounded = info.num_bounded = 0;
+  info.num_rays = info.num_bounded = 0;
   info.min_time = min_s;
   info.max_time = max_s;
   info.centroid.setZero();
@@ -320,7 +320,7 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Info &info)
         info.num_bounded++;
         info.centroid += ends[i];
       }
-      info.num_unbounded++;
+      info.num_rays++;
       info.starts_bound.min_bound_ = minVector(info.starts_bound.min_bound_, starts[i]);
       info.starts_bound.max_bound_ = maxVector(info.starts_bound.max_bound_, starts[i]);
       info.rays_bound.min_bound_ = minVector(info.rays_bound.min_bound_, ends[i]);

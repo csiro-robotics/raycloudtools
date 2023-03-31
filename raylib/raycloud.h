@@ -127,7 +127,7 @@ public:
     Cuboid rays_bound;    // all ray extents
 
     int num_bounded;
-    int num_unbounded;
+    int num_rays;
     double min_time;
     double max_time;
     Eigen::Vector3d centroid;

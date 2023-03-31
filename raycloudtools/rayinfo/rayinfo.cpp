@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
   std::cout << std::endl;
   std::cout << "Ray cloud information for " << cloud.name() << ":" << std::endl;
   std::cout << std::endl;
-  std::cout << "  number of rays: \t" << info.num_bounded + info.num_unbounded << " of which " << info.num_bounded << " have end points." << std::endl;
+  std::cout << "  number of rays: \t" << info.num_rays << " of which " << info.num_bounded << " have end points." << std::endl;
   double area_covered = (double)num_pixels_covered * (voxel_width * voxel_width);
   int num_hect = (int)(area_covered / 10000.0);
   area_covered -= (double)num_hect * 10000.0;
@@ -171,11 +171,11 @@ int main(int argc, char *argv[])
   std::cout << "  bounds of end points:\t" << info.ends_bound.min_bound_.transpose() << " to " << info.ends_bound.max_bound_.transpose() << std::endl;
   std::cout << "  first location: \t" << info.start_pos.transpose() << ", last location: " << info.end_pos.transpose() << std::endl;
   std::cout << std::endl;
-  if (out_of_order > (info.num_bounded + info.num_unbounded)/16)
+  if (out_of_order > info.num_rays/16)
   {
     std::cout << "  times are unordered." << std::endl;
   }
-  else if (num_jumps > (info.num_bounded + info.num_unbounded)/16)
+  else if (num_jumps > info.num_rays/16)
   {
     std::cout << "  ray starts are discontinuous." << std::endl;
   }
@@ -184,10 +184,18 @@ int main(int argc, char *argv[])
     std::cout << "  contiguous blocks: \t" << num_jumps+1;
     if (num_jumps > 0)
     {
-      std::cout << " (discontinuities: " << time_jumps << " > 1s, " << space_jumps << " > 1m)";
+      std::cout << " \t(discontinuities: " << time_jumps << " > 1s, " << space_jumps << " > 1m)";
     }
     std::cout << std::endl;
-    std::cout << "  path length: \t\t" << path_length << " m and period: " << path_period << " s" << std::endl;
+    int num_minutes = static_cast<int>(path_period / 60.0);
+    int num_hours = static_cast<int>(path_period / 3600.0);
+    double seconds = path_period - (double)num_hours * 3600.0 - (double)num_minutes * 60.0;
+    std::cout << "  path length: \t\t" << path_length << " m and period: ";
+    if (num_hours > 0)
+      std::cout << num_hours << " hrs ";
+    if (num_minutes > 0)
+      std::cout << num_minutes << " mins ";
+    std::cout << seconds << " s \t(in seconds: " << path_period << ")" << std::endl;
   }
   std::cout << "  ray length: \t\t" << min_ray_length << " to " << max_ray_length << " m, max end point ray length: " << max_bounded_ray_length << " m" << std::endl;
   std::cout << "  colour range (RGBA): \t" << (int)min_col.red << "," << (int)min_col.green << "," << (int)min_col.blue << "," << (int)min_col.alpha << " to " << 
