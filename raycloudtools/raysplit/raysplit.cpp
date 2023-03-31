@@ -34,7 +34,6 @@ void usage(int exit_code = 1)
   std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
   std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
-  std::cout << "                  trees cloud_forest.txt - splits trees into one file each, allowing a buffer around each tree" << std::endl;
   std::cout << "                  capsule 1,2,3 10,11,12 5  - splits within a capsule using start, end and radius" << std::endl;
   // clang-format on
   exit(exit_code);
@@ -53,7 +52,7 @@ int main(int argc, char *argv[])
   ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range" },
                              { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range });
   ray::FileArgument mesh_file, tree_file;
-  ray::TextArgument distance_text("distance"), time_text("time"), tree_text("trees"), percent_text("%");
+  ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
   ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), capsule_text("capsule");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice });
