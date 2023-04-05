@@ -411,8 +411,6 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   progress.begin("read and process", num_chunks);
 
   std::vector<unsigned char> vertices(row_size);
-  size_t num_bounded = 0;
-  size_t num_unbounded = 0;
   bool warning_set = false;
   if (size == 0)
   {
@@ -532,10 +530,6 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     {
       RGBA colour = (RGBA &)vertices[colour_offset];
       colours.push_back(colour);
-      if (colour.alpha > 0)
-        num_bounded++;
-      else
-        num_unbounded++;
     }
     if (!is_ray_cloud)
     {
@@ -585,7 +579,6 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       if (colour_offset == -1)
       {
         colourByTime(times, colours);
-        num_bounded = ends.size();
       }
       if (!is_ray_cloud && intensity_offset != -1)
       {

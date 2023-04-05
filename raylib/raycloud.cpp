@@ -303,10 +303,12 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Info &info)
   Eigen::Vector3d max_v(max_s, max_s, max_s);
   Cuboid unbounded(min_v, max_v);
   info.ends_bound = info.starts_bound = info.rays_bound = unbounded;
-  info.num_unbounded = info.num_bounded = 0;
+  info.num_rays = info.num_bounded = 0;
   info.min_time = min_s;
   info.max_time = max_s;
   info.centroid.setZero();
+  info.start_pos.setZero();
+  info.end_pos.setZero();
   auto find_bounds = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                          std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     for (size_t i = 0; i < ends.size(); i++)
@@ -318,12 +320,20 @@ bool RAYLIB_EXPORT Cloud::getInfo(const std::string &file_name, Info &info)
         info.num_bounded++;
         info.centroid += ends[i];
       }
-      info.num_unbounded++;
+      info.num_rays++;
       info.starts_bound.min_bound_ = minVector(info.starts_bound.min_bound_, starts[i]);
       info.starts_bound.max_bound_ = maxVector(info.starts_bound.max_bound_, starts[i]);
       info.rays_bound.min_bound_ = minVector(info.rays_bound.min_bound_, ends[i]);
       info.rays_bound.max_bound_ = maxVector(info.rays_bound.max_bound_, ends[i]);
+      if (times[i] < info.min_time)
+      {
+        info.start_pos = starts[i];
+      }
       info.min_time = std::min(info.min_time, times[i]);
+      if (times[i] > info.max_time)
+      {
+        info.end_pos = starts[i];
+      }
       info.max_time = std::max(info.max_time, times[i]);
     }
     info.rays_bound.min_bound_ = minVector(info.rays_bound.min_bound_, info.starts_bound.min_bound_);
