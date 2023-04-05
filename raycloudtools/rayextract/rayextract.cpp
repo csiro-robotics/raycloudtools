@@ -43,7 +43,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
   std::cout << "                            --girth_height_ratio 0.08 - (-l) the amount up tree's height to estimate trunk girth" << std::endl;
   std::cout << "                            --global_taper 0.024 - (-a) force a taper value (diameter per length) for trees under global_taper_factor of max tree height. Use 0 to estimate global taper from the data" << std::endl;
-  std::cout << "                            --global_taper_factor 0.1- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
+  std::cout << "                            --global_taper_factor 0.3- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
   std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
   std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     argc, argv, { &trees, &cloud_file, &mesh_file },
     { &max_diameter_option, &distance_limit_option, &height_min_option, &crop_length_option, &girth_height_ratio_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
-      &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option,&verbose });
+      &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &verbose });
   bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_mesh_option, &leaf_area_option, &leaf_droop_option, &stalks });
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves)
   {
