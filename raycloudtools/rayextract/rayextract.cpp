@@ -37,7 +37,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --width 0.25    - grid cell width" << std::endl;
   std::cout << "                            --smooth 15     - canopy smooth iterations, higher for rough canopies" << std::endl;
   std::cout << "                            --drop_ratio 0.1- here a drop of 10% in canopy height is classed as separate trees" << std::endl;
-  std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file" << std::endl;
+  std::cout << "rayextract trees cloud.ply ground_mesh.ply  - estimate trees, and save to text file, mesh file, and segmented (coloured per-tree) cloud" << std::endl;
   std::cout << "                            --max_diameter 0.9   - (-m) maximum trunk diameter in segmenting trees" << std::endl;
   std::cout << "                            --crop_length 1.0    - (-p) crops small branches to this distance from end" << std::endl;
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
