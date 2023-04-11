@@ -8,6 +8,7 @@
 
 #include "raylib/raylibconfig.h"
 #include "raylib/raycloud.h"
+#include "raylib/raymesh.h"
 #include "raytreestructure.h"
 #include "rayutils.h"
 
@@ -23,6 +24,8 @@ struct RAYLIB_EXPORT ForestStructure
   bool trunksOnly() { return trees.size() > 0 && trees[0].segments().size() == 1; }
   Eigen::Array<double, 9, 1> getMoments() const;
   void splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside);
+  void generateSmoothMesh(Mesh &mesh, int red_id, double red_scale,
+                          double green_scale, double blue_scale);
 };
 }  // namespace ray
 #endif  // RAYLIB_RAYFORESTSTRUCTURE_H

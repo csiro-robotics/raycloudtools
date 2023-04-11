@@ -12,6 +12,7 @@
 #include "raylib/raycloud.h"
 #include "raylib/raydebugdraw.h"
 #include "raylib/rayforestgen.h"
+#include "raylib/rayforeststructure.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayparse.h"
 #include "raylib/rayply.h"
@@ -209,6 +210,17 @@ int main(int argc, char *argv[])
     trees.save(cloud_file.nameStub() + "_trees.txt", verbose.isSet());
     // we also save a segmented (one colour per tree) file, as this is a useful output
     cloud.save(cloud_file.nameStub() + "_segmented.ply");
+    // let's also save the trees out as a mesh
+    // it is a bit inefficient to load from file just to convert it into the forest structure, but
+    // it works OK for now. Better would be for ray::Trees so store the result as a ray::ForestStructure
+    ray::ForestStructure forest;
+    if (!forest.load(cloud_file.nameStub() + "_trees.txt"))
+    {
+      usage();
+    }
+    ray::Mesh tree_mesh;
+    forest.generateSmoothMesh(tree_mesh, -1, 1, 1, 1);
+    ray::writePlyMesh(cloud_file.nameStub() + "_trees_mesh.ply", tree_mesh, true);    
   }
   // extract the tree locations from a larger, aerial view of a forest
   else if (extract_forest)
