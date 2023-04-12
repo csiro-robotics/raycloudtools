@@ -57,7 +57,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
   const double eps = 1e-9;
   bounds_.min_bound_ = min_bound_ + Eigen::Vector3d(eps, eps, eps);
   bounds_.max_bound_ = min_bound_ + dims_.cast<double>() * pixel_width_ - Eigen::Vector3d(eps, eps, eps);
-  const double scale = static_cast<double>(subpixels);
+  const double scale = static_cast<double>(GRID2D_SUBPIXELS);
 
   // filling in the free space per chunk of ray cloud
   auto addFreeSpace = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
@@ -74,7 +74,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
       const Eigen::Vector3d target = scale * (end - min_bound_) / pixel_width_;
       const double length = dir.norm();
       const double eps = 1e-9;  // to stay away from edge cases
-      // remove 2 subpixels to give a small buffer around the object
+      // remove 2 GRID2D_SUBPIXELS to give a small buffer around the object
       const double maxDist = (target - source).norm() - 2.0;
 
       // cached values to speed up the loop below
@@ -106,7 +106,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
         int axis = (ls[0] < ls[1]) ? 0 : 1;
         // update the index to the new cell
         inds[axis] += adds[axis];
-        if (inds[axis] < 0 || inds[axis] >= subpixels * dims_[axis])
+        if (inds[axis] < 0 || inds[axis] >= GRID2D_SUBPIXELS * dims_[axis])
         {
           break;
         }
@@ -117,7 +117,7 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
         p = source + dir * (depth / length);
 
         // get the index of the pixel
-        Eigen::Vector3i index = inds / subpixels;
+        Eigen::Vector3i index = inds / GRID2D_SUBPIXELS;
 
         // find the world space location
         Eigen::Vector3d world_point = start + (end - start) * (depth / length);
@@ -126,8 +126,8 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
         if (height > clip_min && height < clip_max)  // only update occupancy within height window
         {
           // some bit trickery to fill in part of the 4x4 grid per pixel
-          const Eigen::Vector3i rem = inds - subpixels * index;
-          const uint16_t bit = uint16_t(subpixels * rem[0] + rem[1]);
+          const Eigen::Vector3i rem = inds - GRID2D_SUBPIXELS * index;
+          const uint16_t bit = uint16_t(GRID2D_SUBPIXELS * rem[0] + rem[1]);
           pixel(index).bits |= uint16_t(1 << bit);
         }
       } while (depth <= maxDist);
@@ -156,9 +156,9 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
       // find the subpixel that this point is in
       const Eigen::Vector3d p = scale * (ends[i] - min_bound_) / pixel_width_;
       const Eigen::Vector3i inds = p.cast<int>();
-      const Eigen::Vector3i index = inds / subpixels;
-      const Eigen::Vector3i rem = inds - subpixels * index;
-      uint16_t bit = uint16_t(subpixels * rem[0] + rem[1]);
+      const Eigen::Vector3i index = inds / GRID2D_SUBPIXELS;
+      const Eigen::Vector3i rem = inds - GRID2D_SUBPIXELS * index;
+      uint16_t bit = uint16_t(GRID2D_SUBPIXELS * rem[0] + rem[1]);
 
       double height = ends[i][2] - lows(index[0], index[1]);
       if (height > clip_min && height < clip_max)               // if within the height window

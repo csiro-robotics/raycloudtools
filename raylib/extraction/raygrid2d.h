@@ -9,7 +9,7 @@
 #include "../rayutils.h"
 #include "raylib/raylibconfig.h"
 #include "raytrunks.h"
-
+#define GRID2D_SUBPIXELS 4
 namespace ray
 {
 // 2D occupancy grid structure that stores occupancy (density of pixel overlapping rays)
@@ -28,14 +28,13 @@ public:
   /// load the grid
   bool load(const std::string &filename);
 
-  static constexpr int subpixels = 4;
   /// pixel structure that is used to estimate the density of free space
   struct Pixel
   {
     uint16_t bits;
     inline double density() const
     {
-      return 1.0 - (static_cast<double>(bits) / static_cast<double>(subpixels * subpixels));
+      return 1.0 - (static_cast<double>(bits) / static_cast<double>(GRID2D_SUBPIXELS * GRID2D_SUBPIXELS));
     }
   };
 

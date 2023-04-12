@@ -161,9 +161,9 @@ int main(int argc, char *argv[])
     std::cout << num_hect << " ha ";
   }
   std::cout << area_covered << " m^2  (at >= 4 points per m^2)" << std::endl;
-  int min_ms = (int)info.min_time/1e6;
+  int min_ms = (int)(info.min_time/1e6);
   info.min_time -= 1e6 * (double)min_ms;
-  int max_ms = (int)info.max_time/1e6;
+  int max_ms = (int)(info.max_time/1e6);
   info.max_time -= 1e6 * (double)max_ms;
   std::cout << "  date from: \t\t" << getTime(info.min_time) << "\t(" << min_ms << " Ms \t" << info.min_time << " s)" << std::endl;
   std::cout << "         to: \t\t" << getTime(info.max_time) << "\t(" << max_ms << " Ms \t" << info.max_time << " s)" << std::endl;

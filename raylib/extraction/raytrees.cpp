@@ -120,7 +120,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       Eigen::Vector3d up(0,0,1);
       sections_[sec_].tip += vectorToCylinderCentre(nodes, up);
       // now find the segment radius
-      double accuracy = 0.0;
+      double accuracy;
       double radius = estimateCylinderRadius(nodes, up, accuracy);
 
       ray::RGBA col(j==1 ? 255 : 127, j==2 ? 255:127, j==3 ? 255:127, 255);
@@ -164,7 +164,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
         sections_[sec_].split_count++;
-        bifurcate(clusters, thickness, children, true);
+        bifurcate(clusters, thickness, children, true, true);
         sec_--;
         continue;
       }
@@ -185,10 +185,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
     nodes.clear();
     sections_[sec_].ends.clear();
     extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0); // make it lower
-    if (sec_ == 114)
-    {
-      sections_[sec_].tip[2] += 0.000001;
-    }
     estimateCylinderTaper(estimated_radius, best_accuracy, false); // update the expected taper
   }
   if (verbose)
@@ -249,9 +245,11 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
         extract_from_ends = true; // don't trust the found nodes as it is now two separate tree nodes
+        // if parent is the root then don't add offshoots as we've already dealt with this better in the iteration block above
+        bool add_offshoots = par != -1 && sections_[par].parent != -1; 
         // if points have been removed then this only resets the current section's points
         // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
-        bifurcate(clusters, thickness, children);
+        bifurcate(clusters, thickness, children, false, add_offshoots);
       }
     }
 
@@ -315,7 +313,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
 // to split
 bool Trees::removeDistantPoints(std::vector<int> &nodes)
 {
-  double accuracy = 0;
   Eigen::Vector3d up(0,0,1);
   double max_rad = params_->gap_ratio * sections_[sec_].max_distance_to_end; // gap threshold for splitting
   double max_rad_sqr = max_rad * max_rad;
@@ -563,7 +560,7 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
 
 // split into multiple branches and add as new branch sections to the end of the sections_ list
 // that is being iterated through.
-void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thickness, std::vector<std::vector<int>> &children, bool clip_tree)
+void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thickness, std::vector<std::vector<int>> &children, bool clip_tree, bool add_offshoots)
 {
   const int par = sections_[sec_].parent;
   // find the maximum distance (to tip) for each cluster
@@ -623,92 +620,95 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
 
   sections_[sec_].max_distance_to_end = max_distances[maxi];
 
-  // for all other clusters, add new sections to the list...
-  for (size_t i = 0; i < clusters.size(); i++)
+  if (add_offshoots)
   {
-    if (static_cast<int>(i) == maxi)
+    // for all other clusters, add new sections to the list...
+    for (size_t i = 0; i < clusters.size(); i++)
     {
-      continue;
-    }
-    BranchSection new_node = sections_[sec_];
-    new_node.max_distance_to_end = max_distances[i];
-    new_node.radius_scale *= max_distances[i] / std::sqrt(total_area);
-    if (par == -1)
-    {
-      new_node.radius_scale = 1.0;
-    }
-    if (new_node.max_distance_to_end > params_->crop_length)  // but only add if they are large enough
-    {
-      // we only specify the end points at this stage. They will therefore enter the
-      // extract_from_ends block below when the sec_ for loop gets to their section
-      new_node.ends = clusters[i];
-
-      if (clip_tree)
+      if (static_cast<int>(i) == maxi)
       {
-        std::vector<int> my_nodes;
-        std::vector<int> my_roots;
-        for (auto &end : new_node.ends)
-        {
-          int node = points_[end].parent;
-          int child = end;
-          while (node != -1)
-          {
-            if (std::find(my_nodes.begin(), my_nodes.end(), node) != my_nodes.end()) 
-            {
-              break; // just hit my own tree
-            }
-            if (std::find(all_nodes.begin(), all_nodes.end(), node) != all_nodes.end())
-            {
-              // hit another tree, so make a root here
-              my_roots.push_back(child);
-              // more than this, we need to unlink the children bit.
-              auto &list = children[node];
-
-              int find_count = 0;
-              for (int j = 0; j<(int)list.size(); j++)
-              {
-                if (list[j] == child)
-                {
-                  find_count++;
-                  list[j] = list.back();
-                  list.pop_back();
-                  j--;
-                }
-              }
-              points_[child].parent = -1;
-
-              // we need to tell all of the children what the new root is
-              std::vector<int> child_list = {child};
-              for (size_t j = 0; j<child_list.size(); j++)
-              {
-                points_[child_list[j]].root = child;
-                child_list.insert(child_list.end(), children[child_list[j]].begin(), children[child_list[j]].end());
-              }
-              break;
-            }
-            my_nodes.push_back(node);  // fill in the nodes in this branch section
-            if (std::find(sections_[sec_].roots.begin(), sections_[sec_].roots.end(), node) != sections_[sec_].roots.end())
-            {
-              my_roots.push_back(node);
-              break;
-            }
-            child = node;
-            node = points_[node].parent;
-          }
-        }
-        all_nodes.insert(all_nodes.end(), my_nodes.begin(), my_nodes.end());
-        new_node.roots = my_roots;
+        continue;
       }
-
-      if (par != -1)
-      {
-        sections_[par].children.push_back(static_cast<int>(sections_.size()));
-      }
+      BranchSection new_node = sections_[sec_];
+      new_node.max_distance_to_end = max_distances[i];
+      new_node.radius_scale *= max_distances[i] / std::sqrt(total_area);
       if (par == -1)
       {
-        new_node.root = (int)sections_.size();
+        new_node.radius_scale = 1.0;
       }
-      sections_.push_back(new_node);
+      if (new_node.max_distance_to_end > params_->crop_length)  // but only add if they are large enough
+      {
+        // we only specify the end points at this stage. They will therefore enter the
+        // extract_from_ends block below when the sec_ for loop gets to their section
+        new_node.ends = clusters[i];
+
+        if (clip_tree)
+        {
+          std::vector<int> my_nodes;
+          std::vector<int> my_roots;
+          for (auto &end : new_node.ends)
+          {
+            int node = points_[end].parent;
+            int child = end;
+            while (node != -1)
+            {
+              if (std::find(my_nodes.begin(), my_nodes.end(), node) != my_nodes.end()) 
+              {
+                break; // just hit my own tree
+              }
+              if (std::find(all_nodes.begin(), all_nodes.end(), node) != all_nodes.end())
+              {
+                // hit another tree, so make a root here
+                my_roots.push_back(child);
+                // more than this, we need to unlink the children bit.
+                auto &list = children[node];
+
+                int find_count = 0;
+                for (int j = 0; j<(int)list.size(); j++)
+                {
+                  if (list[j] == child)
+                  {
+                    find_count++;
+                    list[j] = list.back();
+                    list.pop_back();
+                    j--;
+                  }
+                }
+                points_[child].parent = -1;
+
+                // we need to tell all of the children what the new root is
+                std::vector<int> child_list = {child};
+                for (size_t j = 0; j<child_list.size(); j++)
+                {
+                  points_[child_list[j]].root = child;
+                  child_list.insert(child_list.end(), children[child_list[j]].begin(), children[child_list[j]].end());
+                }
+                break;
+              }
+              my_nodes.push_back(node);  // fill in the nodes in this branch section
+              if (std::find(sections_[sec_].roots.begin(), sections_[sec_].roots.end(), node) != sections_[sec_].roots.end())
+              {
+                my_roots.push_back(node);
+                break;
+              }
+              child = node;
+              node = points_[node].parent;
+            }
+          }
+          all_nodes.insert(all_nodes.end(), my_nodes.begin(), my_nodes.end());
+          new_node.roots = my_roots;
+        }
+
+        if (par != -1)
+        {
+          sections_[par].children.push_back(static_cast<int>(sections_.size()));
+        }
+        if (par == -1)
+        {
+          new_node.root = (int)sections_.size();
+        }
+        sections_.push_back(new_node);
+      }
     }
   }
   if (clip_tree)

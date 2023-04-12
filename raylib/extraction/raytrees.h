@@ -68,7 +68,7 @@ private:
   std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
                                                   double thickness, double span, double gap);
   /// split the branch section to one branch for each cluster
-  void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness, std::vector<std::vector<int>> &children, bool clip_tree = false);
+  void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness, std::vector<std::vector<int>> &children, bool clip_tree, bool add_offshoots);
   /// find the points within the branch section from its end points
   void extractNodesFromEnds(std::vector<int> &nodes);
   /// set the branch section tip position from the supplied list of Vertex IDs
