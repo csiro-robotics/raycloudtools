@@ -177,6 +177,7 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
 #if RAYLIB_WITH_TBB
   tbb::parallel_for<size_t>(0, nodes.size(), process_rays);
 #else
+  #pragma omp parallel for
   for (size_t n = 0; n < nodes.size(); n++)
   {
     process_rays(n);
