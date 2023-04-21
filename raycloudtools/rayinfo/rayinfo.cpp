@@ -162,11 +162,11 @@ int main(int argc, char *argv[])
   }
   std::cout << area_covered << " m^2  (at >= 4 points per m^2)" << std::endl;
   int min_ms = (int)(info.min_time/1e6);
-  info.min_time -= 1e6 * (double)min_ms;
+  double min_s = info.min_time - 1e6 * (double)min_ms;
   int max_ms = (int)(info.max_time/1e6);
-  info.max_time -= 1e6 * (double)max_ms;
-  std::cout << "  date from: \t\t" << getTime(info.min_time) << "\t(" << min_ms << " Ms \t" << info.min_time << " s)" << std::endl;
-  std::cout << "         to: \t\t" << getTime(info.max_time) << "\t(" << max_ms << " Ms \t" << info.max_time << " s)" << std::endl;
+  double max_s = info.max_time - 1e6 * (double)max_ms;
+  std::cout << "  date from: \t\t" << getTime(info.min_time) << "\t(" << min_ms << " Ms \t" << min_s << " s)" << std::endl;
+  std::cout << "         to: \t\t" << getTime(info.max_time) << "\t(" << max_ms << " Ms \t" << max_s << " s)" << std::endl;
   std::cout << "  full bounds: \t\t" << info.rays_bound.min_bound_.transpose() << " to " << info.rays_bound.max_bound_.transpose() << std::endl;
   std::cout << "  bounds of end points:\t" << info.ends_bound.min_bound_.transpose() << " to " << info.ends_bound.max_bound_.transpose() << std::endl;
   std::cout << "  first location: \t" << info.start_pos.transpose() << ", last location: " << info.end_pos.transpose() << std::endl;
