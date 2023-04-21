@@ -76,14 +76,18 @@ int main(int argc, char *argv[])
     Nabo::Parameters params("bucketSize", 8);
     std::vector<Eigen::Vector3d> &points = cloud.ends;
     Eigen::MatrixXd points_p(3, points.size());
-    for (unsigned int i = 0; i < points.size(); i++) points_p.col(i) = points[i];
+    for (unsigned int i = 0; i < points.size(); i++) 
+    {
+      points_p.col(i) = points[i];
+    }
     nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
     // Run the search
-    const int search_size = std::min(10, (int)points.size() - 1);
+    const int search_size = 1;
     indices.resize(search_size, points.size());
     dists2.resize(search_size, points.size());
     nns->knn(points_p, indices, dists2, search_size, ray::kNearestNeighbourEpsilon, 0);
+    indices.resize(0, 0);
     delete nns;
 
     new_cloud.starts.reserve(cloud.starts.size());
