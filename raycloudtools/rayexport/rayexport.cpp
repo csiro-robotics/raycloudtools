@@ -26,7 +26,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayExport(int argc, char *argv[])
 {
   ray::FileArgument raycloud_file, pointcloud_file, trajectory_file;
   ray::DoubleArgument traj_delta(0.0, 10000);
@@ -151,4 +151,9 @@ int main(int argc, char *argv[])
   }
   else
     usage();
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayExport, argc, argv);
 }

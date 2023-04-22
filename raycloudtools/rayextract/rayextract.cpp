@@ -65,7 +65,7 @@ void usage(int exit_code = 1)
 
 
 /// extracts natural features from a scene
-int main(int argc, char *argv[])
+int rayExtract(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, mesh_file, trunks_file, trees_file, leaf_mesh;
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain"), leaves("leaves");
@@ -289,4 +289,9 @@ int main(int argc, char *argv[])
     usage(true);
   }
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayExtract, argc, argv);
 }

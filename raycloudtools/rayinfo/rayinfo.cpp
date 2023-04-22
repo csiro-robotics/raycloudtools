@@ -51,7 +51,7 @@ public:
   }
 };
 
-int main(int argc, char *argv[])
+int rayInfo(int argc, char *argv[])
 {
   ray::FileArgument cloud;
   if (!ray::parseCommandLine(argc, argv, { &cloud }, {}))
@@ -202,4 +202,9 @@ int main(int argc, char *argv[])
                                             (int)max_col.red << "," << (int)max_col.green << "," << (int)max_col.blue << "," << (int)max_col.alpha << std::endl;
  
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayInfo, argc, argv);
 }

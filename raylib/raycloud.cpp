@@ -229,7 +229,16 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
   delete nns;
 
   if (neighbour_indices)
+  {
     neighbour_indices->resize(search_size, ends.size());
+    for (int i = 0; i<neighbour_indices->rows(); i++)
+    {
+      for (int j = 0; j < neighbour_indices->cols(); j++)
+      {
+        (*neighbour_indices)(i, j) = -1;
+      }
+    }
+  }
   for (int i = 0; i < (int)ray_ids.size(); i++)
   {
     int ray_id = ray_ids[i];
@@ -265,7 +274,10 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
     if (neighbour_indices)
     {
       int j;
-      for (j = 0; j < num_neighbours; j++) (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
+      for (j = 0; j < num_neighbours; j++) 
+      {
+        (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
+      }
     }
     if (centroids)
       (*centroids)[ray_id] = centroid;

@@ -23,7 +23,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayRotate(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::Vector3dArgument rotation_arg(-360, 360);
@@ -46,4 +46,9 @@ int main(int argc, char *argv[])
 
   std::rename(temp_name.c_str(), cloud_file.name().c_str());
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayRotate, argc, argv);
 }

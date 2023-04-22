@@ -31,7 +31,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayImport(int argc, char *argv[])
 {
   ray::DoubleArgument max_intensity(0.0, 10000);
   ray::Vector3dArgument position, ray_vec;
@@ -196,4 +196,9 @@ int main(int argc, char *argv[])
     std::cout << "start position: " << start_pos.transpose() << " removed from all points" << std::endl;
   }
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayImport, argc, argv);
 }

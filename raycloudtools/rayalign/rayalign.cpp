@@ -35,7 +35,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayAlign(int argc, char *argv[])
 {
   ray::FileArgument cloud_a, cloud_b;
   ray::OptionalFlagArgument nonrigid("nonrigid", 'n'), is_verbose("verbose", 'v'), local("local", 'l');
@@ -108,4 +108,9 @@ int main(int argc, char *argv[])
     clouds[0].save(aligned_name);
   }
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayAlign, argc, argv);
 }

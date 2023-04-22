@@ -33,7 +33,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayCreate(int argc, char *argv[])
 {
   ray::KeyChoice cloud_type({ "room", "building", "tree", "forest", "terrain" });
   ray::IntArgument seed(1, 1000000);
@@ -199,4 +199,9 @@ int main(int argc, char *argv[])
   cloud.save(type + ".ply");
 
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayCreate, argc, argv);
 }

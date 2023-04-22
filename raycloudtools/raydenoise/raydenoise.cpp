@@ -24,7 +24,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayDenoise(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::DoubleArgument sigmas(0.0, 100.0);
@@ -151,4 +151,9 @@ int main(int argc, char *argv[])
 
   new_cloud.save(cloud_file.nameStub() + "_denoised.ply");
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayDenoise, argc, argv);
 }

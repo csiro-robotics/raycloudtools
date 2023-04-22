@@ -44,7 +44,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayRender(int argc, char *argv[])
 {
   ray::KeyChoice viewpoint({ "top", "left", "right", "front", "back" });
   ray::KeyChoice style({ "ends", "mean", "sum", "starts", "rays", "height", "density", "density_rgb" });
@@ -121,4 +121,9 @@ int main(int argc, char *argv[])
   }
 
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayRender, argc, argv);
 }

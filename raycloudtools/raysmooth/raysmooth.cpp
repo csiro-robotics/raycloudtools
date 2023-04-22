@@ -23,7 +23,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int raySmooth(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   if (!ray::parseCommandLine(argc, argv, { &cloud_file }))
@@ -68,4 +68,9 @@ int main(int argc, char *argv[])
   cloud.save(cloud_file.nameStub() + "_smooth.ply");
 
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(raySmooth, argc, argv);
 }

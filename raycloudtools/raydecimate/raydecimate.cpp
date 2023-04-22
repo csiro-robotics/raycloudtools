@@ -25,7 +25,7 @@ void usage(int exit_code = 1)
 }
 
 // Decimates the ray cloud, spatially or in time
-int main(int argc, char *argv[])
+int rayDecimate(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::IntArgument num_rays(1, 100);
@@ -84,4 +84,9 @@ int main(int argc, char *argv[])
   writer.end();
 
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayDecimate, argc, argv);
 }

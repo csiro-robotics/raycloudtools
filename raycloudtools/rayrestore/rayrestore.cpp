@@ -24,7 +24,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayRestore(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, full_cloud_file;
   ray::DoubleArgument vox_width(0.1, 100.0);
@@ -247,4 +247,9 @@ int main(int argc, char *argv[])
   writer.end();
 
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayRestore, argc, argv);
 }

@@ -38,7 +38,7 @@ void usage(int exit_code = 1)
 }
 
 // Combines multiple clouds together
-int main(int argc, char *argv[])
+int rayCombine(int argc, char *argv[])
 {
   ray::KeyChoice merge_type({ "min", "max", "oldest", "newest", "order" });
   ray::FileArgumentList cloud_files(2);
@@ -157,4 +157,9 @@ int main(int argc, char *argv[])
   else
     fixed_cloud->save(file_stub + "_combined.ply");
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayCombine, argc, argv);
 }

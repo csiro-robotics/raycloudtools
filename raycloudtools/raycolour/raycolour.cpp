@@ -96,7 +96,7 @@ void colourFromImage(const std::string &cloud_file, const std::string &image_fil
 }
 
 // Colours the ray cloud based on the specified arguments
-int main(int argc, char *argv[])
+int rayColour(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, image_file;
   ray::KeyChoice colour_type({ "time", "height", "shape", "normal", "alpha", "branches" });
@@ -366,4 +366,9 @@ int main(int argc, char *argv[])
   cloud.save(out_file);
 
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayColour, argc, argv);
 }

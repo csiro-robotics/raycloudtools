@@ -31,6 +31,27 @@ const double kPi = M_PI;
 const double kNearestNeighbourEpsilon = 0.001;
 #define ASSERT(X) assert(X);
 
+inline int runWithMemoryCheck(std::function<bool(int argc, char *argv[])> main_function, int argc, char *argv[])
+{
+  try
+  {
+    int result = main_function(argc, argv);
+    return result;
+  }
+  catch (std::bad_alloc const &)  // catch any memory allocation problems in generating large images
+  {
+    std::cerr << "Error: Not enough memory to process the input file," << std::endl;
+    std::cerr << "consider using raydecimate or raysplit grid to operate on a smaller file." << std::endl;
+    return 1;
+  }  
+  catch (std::length_error const &)  // catch any memory allocation problems in generating large images
+  {
+    std::cerr << "Error: Not enough memory to process the input file," << std::endl;
+    std::cerr << "consider using raydecimate or raysplit grid to operate on a smaller file." << std::endl;
+    return 1;
+  }    
+}
+
 inline std::vector<std::string> split(const std::string &s, char delim)
 {
   std::vector<std::string> result;

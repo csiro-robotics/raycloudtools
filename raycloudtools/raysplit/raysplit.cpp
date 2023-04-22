@@ -40,7 +40,7 @@ void usage(int exit_code = 1)
 }
 
 // Decimates the ray cloud, spatially or in time
-int main(int argc, char *argv[])
+int raySplit(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
@@ -206,4 +206,9 @@ int main(int argc, char *argv[])
   if (!res)
     usage();
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(raySplit, argc, argv);
 }

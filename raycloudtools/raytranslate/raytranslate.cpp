@@ -23,8 +23,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-
-int main(int argc, char *argv[])
+int rayTranslate(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::Vector3dArgument translation3;
@@ -58,4 +57,9 @@ int main(int argc, char *argv[])
   std::rename(temp_name.c_str(), cloud_file.name().c_str());
 
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayTranslate, argc, argv);
 }

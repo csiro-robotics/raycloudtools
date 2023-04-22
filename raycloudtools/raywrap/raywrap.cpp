@@ -29,7 +29,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayWrap(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::KeyChoice direction({ "upwards", "downwards", "inwards", "outwards" });
@@ -79,4 +79,9 @@ int main(int argc, char *argv[])
 
   std::cout << "Completed, output: " << cloud_file.nameStub() << "_mesh.ply" << std::endl;
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayWrap, argc, argv);
 }

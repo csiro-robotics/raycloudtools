@@ -35,7 +35,7 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-int main(int argc, char *argv[])
+int rayTransients(int argc, char *argv[])
 {
   ray::KeyChoice merge_type({ "min", "max", "oldest", "newest" });
   ray::FileArgument cloud_file;
@@ -89,4 +89,9 @@ int main(int argc, char *argv[])
   transient.save(cloud_file.nameStub() + "_transient.ply");
   fixed.save(cloud_file.nameStub() + "_fixed.ply");
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  return ray::runWithMemoryCheck(rayTransients, argc, argv);
 }
