@@ -96,7 +96,7 @@ bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::v
         has_warned = true;
       }
 #if !RAYLIB_DOUBLE_RAYS
-      if (abs(ends[i][0]) > 100000.0)
+      if (std::abs(ends[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << ends[i].transpose() << ", suspicious"
                   << std::endl;
@@ -242,7 +242,7 @@ bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const st
         has_warned = true;
       }
 #if !RAYLIB_DOUBLE_RAYS
-      if (abs(points[i][0]) > 100000.0)
+      if (std::abs(points[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << points[i].transpose() << ", suspicious"
                   << std::endl;
@@ -318,12 +318,22 @@ bool writePlyPointCloud(const std::string &file_name, const std::vector<Eigen::V
   return true;
 }
 
+// just calls the more general function
 bool readPly(const std::string &file_name, bool is_ray_cloud,
              std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                                std::vector<double> &times, std::vector<RGBA> &colours)>
-               apply, 
+                                std::vector<double> &times, std::vector<RGBA> &colours)> apply, 
              double max_intensity, bool times_optional, size_t chunk_size)
 {
+  return readGeneralPly(file_name, "", is_ray_cloud, apply, nullptr, max_intensity, times_optional, chunk_size);
+}
+
+// this is a more general routine, that includes an option for reading and writing directly
+bool readGeneralPly(const std::string &file_name, const std::string &convert_file_name, bool is_ray_cloud, 
+             std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                                std::vector<double> &times, std::vector<RGBA> &colours)> chunk_function, 
+             std::function<int(size_t index, Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, RGBA &colour)> convert_function, 
+             double max_intensity, bool times_optional, size_t chunk_size)
+{  
   std::cout << "reading: " << file_name << std::endl;
   std::ifstream input(file_name.c_str());
   if (input.fail())
@@ -338,9 +348,18 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   bool time_is_float = false;
   bool pos_is_float = false;
   bool normal_is_float = false;
-  DataType intensity_type = kDTnone;
-  int rowsteps[] = { int(sizeof(float)), int(sizeof(double)), int(sizeof(unsigned short)), int(sizeof(unsigned char)),
-                     0 };  // to match each DataType enum
+  int intensity_step = 0;
+  std::ofstream ofs;
+  size_t num_vertices_location = 0;
+  if (convert_function)
+  {
+    ofs.open(convert_file_name, std::ios::binary | std::ios::out);
+    if (ofs.fail())
+    {
+      std::cerr << "Error: cannot open " << convert_file_name << " for writing." << std::endl;
+      return false;
+    }
+  }
 
   while (line != "end_header\r" && line != "end_header")
   {
@@ -348,17 +367,20 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     {
       break;
     }
+    std::string types[16] = {"char", "uchar", "short", "ushort", "int", "uint", "float", "double", 
+                             "int8", "uint8", "int16", "uint16", "int32", "uint32", "float32", "float64"};
+    int type_sizes[16] = {int(sizeof(char)), int(sizeof(unsigned char)), int(sizeof(short)), int(sizeof(ushort)), int(sizeof(int)), int(sizeof(uint)), int(sizeof(float)), int(sizeof(double)), 
+      int(sizeof(int8_t)), int(sizeof(uint8_t)), int(sizeof(int16_t)), int(sizeof(uint16_t)), int(sizeof(int32_t)), int(sizeof(uint32_t)), int(sizeof(float)), int(sizeof(double))};
     // support multiple data types
-    DataType data_type = kDTnone;
-    if (line.find("property float") != std::string::npos)
-      data_type = kDTfloat;
-    else if (line.find("property double") != std::string::npos)
-      data_type = kDTdouble;
-    else if (line.find("property uchar") != std::string::npos)
-      data_type = kDTuchar;
-    else if (line.find("property ushort") != std::string::npos)
-      data_type = kDTushort;
-
+    int row_step = 0;
+    for (int t = 0; t<16; t++)
+    {
+      if (line.find("property " + types[t] + " ") != std::string::npos)
+      {
+        row_step = type_sizes[t];
+        break;
+      }
+    }
     if (line.find("property float x") != std::string::npos || line.find("property double x") != std::string::npos)
     {
       offset = row_size;
@@ -380,12 +402,28 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     if (line.find("intensity") != std::string::npos)
     {
       intensity_offset = row_size;
-      intensity_type = data_type;
+      intensity_step = row_step;
     }
     if (line.find("property uchar red") != std::string::npos)
       colour_offset = row_size;
 
-    row_size += rowsteps[data_type];
+    row_size += row_step;
+    if (convert_function)
+    {
+      if (line.find("element vertex") != std::string::npos)
+      {
+        int num_zeros = std::numeric_limits<unsigned long>::digits10;
+        ofs << "element vertex ";
+        for (int i = 0; i < num_zeros; i++)
+          ofs << "0";  // fill in with zeros. I will replace rightmost characters later, to give actual number
+        num_vertices_location = ofs.tellp();
+        ofs << std::endl;
+      }
+      else
+      {
+        ofs << line << std::endl;
+      }
+    }
   }
   if (offset == -1)
   {
@@ -457,6 +495,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     colours.reserve(reserve_size);
   if (intensity_offset != -1)
     intensities.reserve(reserve_size);
+  int num_output_rays = 0;
   for (size_t i = 0; i < size; i++)
   {
     input.read((char *)&vertices[0], row_size);
@@ -476,7 +515,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         std::cout << "warning, NANs in point " << i << ", removing all NANs." << std::endl;
         warning_set = true;
       }
-      if (abs(end[0]) > 100000.0)
+      if (std::abs(end[0]) > 100000.0)
       {
         std::cout << "warning: very large data in point " << i << ", suspicious: " << end.transpose() << std::endl;
         warning_set = true;
@@ -503,7 +542,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           std::cout << "warning, NANs in raystart stored in normal " << i << ", removing all such rays." << std::endl;
           warning_set = true;
         }
-        if (abs(normal[0]) > 100000.0)
+        if (std::abs(normal[0]) > 100000.0)
         {
           std::cout << "warning: very large data in normal " << i << ", suspicious: " << normal.transpose()
                     << std::endl;
@@ -515,9 +554,9 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     }
 
     ends.push_back(end);
+    double time;
     if (time_offset != -1)
     {
-      double time;
       if (time_is_float)
         time = (double)((float &)vertices[time_offset]);
       else
@@ -526,9 +565,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     }
     starts.push_back(end + normal);
 
+    RGBA colour;
     if (colour_offset != -1)
     {
-      RGBA colour = (RGBA &)vertices[colour_offset];
+      colour = (RGBA &)vertices[colour_offset];
       colours.push_back(colour);
     }
     if (!is_ray_cloud)
@@ -536,11 +576,11 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       if (intensity_offset != -1)
       {
         double intensity;
-        if (intensity_type == kDTfloat)
+        if (intensity_step == (int)sizeof(float))
           intensity = (double)((float &)vertices[intensity_offset]);
-        else if (intensity_type == kDTdouble)
+        else if (intensity_step == (int)sizeof(double))
           intensity = (double &)vertices[intensity_offset];
-        else  // (intensity_type == kDTushort)
+        else  // (intensity_step == (int)sizeof(short))
           intensity = (double)((unsigned short &)vertices[intensity_offset]);
         if (intensity >= 0.0)
         {
@@ -562,14 +602,67 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         intensities.push_back(static_cast<uint8_t>(intensity));
       }
     }
+    // we need an option here to 
+    if (convert_function)
+    {
+      // does this part have a destination file name?
+      Eigen::Vector3d start = end + normal;
+      std::vector<unsigned char> old_vertices = vertices;
+      int result;
+      while ((result = convert_function(i, start, end, time, colour)) > 0)
+      {
+        if (result == 2) // repeat
+        {
+          for (auto &element: vertices)
+            element = 0;
+        }
+        if (offset != -1)
+        {
+          if (pos_is_float)
+          {
+            ((Eigen::Vector3f &)vertices[offset]) = end.cast<float>();
+          }
+          else
+          {
+            ((Eigen::Vector3d &)vertices[offset]) = end;
+          }
+        }
+        if (time_offset != -1)
+        {
+          if (time_is_float)
+            ((float &)vertices[time_offset]) = (float)time;
+          else
+            (double &)vertices[time_offset] = time;
+        }
+        if (colour_offset != -1)
+        {
+          ((RGBA &)vertices[colour_offset]) = colour;
+        }
+        if (is_ray_cloud)
+        {
+          normal = start - end;
+          if (normal_is_float)
+            ((Eigen::Vector3f &)vertices[normal_offset]) = normal.cast<float>();
+          else
+            ((Eigen::Vector3d &)vertices[normal_offset]) = normal;
+        }
+        // now write the whole vertices
+        ofs.write((const char *)&vertices[0], sizeof(char) * vertices.size());
+        if (!ofs.good())
+        {
+          std::cerr << "error writing to file" << std::endl;
+          return false;
+        }
+        num_output_rays++;
+        if (result == 1) // normal case
+          break;
+        vertices = old_vertices;
+      }
+    }
     if (ends.size() == chunk_size || i == size - 1)
     {
       if (time_offset == -1)
       {
-        if (!warning_set)
-        {
-
-        }
         times.resize(ends.size());
         for (size_t j = 0; j < times.size(); j++) 
         {
@@ -592,7 +685,11 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           }
         }
       }
-      apply(starts, ends, times, colours);
+      if (!convert_function)
+      {
+        chunk_function(starts, ends, times, colours);
+      }
+
       starts.clear();
       ends.clear();
       times.clear();
@@ -601,10 +698,17 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       progress.increment();
     }
   }
+  if (convert_function)
+  {
+    std::string number = std::to_string(num_output_rays);
+    ofs.seekp(num_vertices_location - number.length());
+    ofs << number;
+    std::cout << "... saved out " << size << " points." << std::endl;
+  }
+
   progress.end();
   progress_thread.requestQuit();
   progress_thread.join();
-
   return true;
 }
 

@@ -19,6 +19,7 @@ void usage(int exit_code = 1)
   std::cout << "usage:" << std::endl;
   std::cout << " rayrestore decimated_cloud 10 cm full_cloud   - decimated_cloud is a 10 cm decimation of full_cloud" << std::endl;
   std::cout << " rayrestore decimated_cloud 10 rays full_cloud - decimated_cloud is an 'every tenth ray' decimation of full_cloud" << std::endl;
+  std::cout << "                         --restore_point_cloud - full_cloud is the original point cloud prior to rayimport. All ply fields retained" << std::endl;
   std::cout << "Note: this tool does not work with raysmooth or temporal translations." << std::endl;
   // clang-format on
   exit(exit_code);
@@ -29,8 +30,9 @@ int rayRestore(int argc, char *argv[])
   ray::FileArgument cloud_file, full_cloud_file;
   ray::DoubleArgument vox_width(0.1, 100.0);
   ray::IntArgument num_rays(1, 100);
+  ray::OptionalFlagArgument restore_point_cloud("restore_point_cloud", 'r');
   ray::ValueKeyChoice quantity({ &vox_width, &num_rays }, { "cm", "rays" });
-  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &quantity, &full_cloud_file }))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &quantity, &full_cloud_file }, {&restore_point_cloud}))
     usage();
   const bool spatial_decimation = quantity.selectedKey() == "cm";
   const double voxel_width = 0.01 * vox_width.value();
@@ -55,7 +57,11 @@ int rayRestore(int argc, char *argv[])
     {
       subsample.clear();
       voxelSubsample(ends, voxel_width, subsample, voxel_set);
-      for (auto &id : subsample) full_decimated.addRay(starts[id], ends[id], times[id], colours[id]);
+      
+      for (auto &id : subsample) 
+      {
+        full_decimated.addRay(starts[id], ends[id], times[id], colours[id]);
+      }
     }
     else
     {
@@ -64,11 +70,32 @@ int rayRestore(int argc, char *argv[])
         full_decimated.addRay(starts[i], ends[i], times[i], colours[i]);
     }
   };
-  if (!ray::Cloud::read(full_cloud_file.name(), decimate))
+  if (!ray::readPly(full_cloud_file.name(), !restore_point_cloud.isSet(), decimate, 0))
     usage();
 
   std::cout << "full cloud decimated size: " << full_decimated.ends.size()
             << " modified cloud size: " << decimated_cloud.ends.size() << std::endl;
+
+/*  double maxdif = 0.0;
+  size_t maxI = 0;
+  bool done = false;
+  for (size_t i = 0; i<full_decimated.times.size(); i++)
+  {
+    double dif = std::abs(full_decimated.times[i] - decimated_cloud.times[i]);
+    if (i<10)
+      std::cout << "dif: " << dif << std::endl;
+    if (dif > 0 && !done)
+    {
+      std::cout << "first diff: " << dif << " at " << i << std::endl;
+      done = true;
+    }
+    if (dif > maxdif)
+    {
+      maxdif = dif;
+      maxI = i;
+    }
+  }
+  std::cout << "biggest time dif: " << maxdif << " at " << maxI << std::endl;*/
 
   // Next we need to order the rays by time. Rather than shifting large data, we sort the indices:
   struct Node
@@ -202,50 +229,51 @@ int rayRestore(int argc, char *argv[])
     }
   }
 
-  // now apply the estimated transformation. We need to chunk save the _restored file, using the
-  // re-chunkloaded full_cloud_file
-  ray::CloudWriter writer;
-  if (!writer.begin(full_cloud_file.nameStub() + "_restored.ply"))
-    usage();
-  ray::Cloud chunk;
-
-  auto transfer = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                      std::vector<double> &times, std::vector<ray::RGBA> &colours) {
-    chunk.clear();
+  int pair_index = 0;
+  int extra_rays = 0;
+  auto convert = [&](int index, Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &colour) -> int
+  {
+    if (extra_rays < added_ray_indices.size())
+    {
+      int id = added_ray_indices[extra_rays++];
+      start = decimated_cloud.starts[id];
+      end = decimated_cloud.ends[id];
+      time = decimated_cloud.times[id];
+      colour = decimated_cloud.colours[id];
+      return 2;
+    }
     if (spatial_decimation)
     {
-      for (size_t i = 0; i < ends.size(); i++)
+      Eigen::Vector3i place(int(std::floor(end[0] / voxel_width)), int(std::floor(end[1] / voxel_width)),
+                            int(std::floor(end[2] / voxel_width)));
+      if (voxel_set.find(place) != voxel_set.end())
       {
-        Eigen::Vector3i place(int(std::floor(ends[i][0] / voxel_width)), int(std::floor(ends[i][1] / voxel_width)),
-                              int(std::floor(ends[i][2] / voxel_width)));
-        if (voxel_set.find(place) != voxel_set.end())
-          chunk.addRay(transform * starts[i], transform * ends[i], times[i], colours[i]);
+        start = transform * start;
+        end = transform * end;
+        return 1;
       }
     }
     else
     {
-      int pair_index = 0;
-      int num_points = static_cast<int>(ends.size());
-      for (int i = 0; i < num_points; i++)
+      int closest_index = (index + ray_step / 2) / ray_step;
+      while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size() - 1) 
       {
-        int closest_index = (i + ray_step / 2) / ray_step;
-        while (pairs[pair_index][0] < closest_index && pair_index < (int)pairs.size() - 1) pair_index++;
-        if (pairs[pair_index][0] == closest_index)
-          chunk.addRay(transform * starts[i], transform * ends[i], times[i], colours[i]);
+        pair_index++;
+      }
+      if (pairs[pair_index][0] == closest_index)
+      {
+        start = transform * start;
+        end = transform * end;
+        return 1;
       }
     }
-    writer.writeChunk(chunk);
+    return 0;
   };
-  if (!ray::Cloud::read(full_cloud_file.name(), transfer))
+  if (!ray::readGeneralPly(full_cloud_file.name(), full_cloud_file.nameStub() + "_restored.ply", !restore_point_cloud.isSet(), nullptr, convert, 0))
+  {
     usage();
-
+  }
   std::cout << "added " << added_ray_indices.size() << " extra points that are in the modified cloud" << std::endl;
-  chunk.clear();
-  chunk.reserve(added_ray_indices.size());
-  for (auto &ray_index : added_ray_indices) chunk.addRay(decimated_cloud, static_cast<int>(ray_index));
-  writer.writeChunk(chunk);
-  writer.end();
-
   return 0;
 }
 

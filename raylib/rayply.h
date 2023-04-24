@@ -72,6 +72,15 @@ void RAYLIB_EXPORT writePointCloudChunkEnd(std::ofstream &out);
 /// Simple function for converting a ray cloud according to the per-ray function @c apply
 bool convertCloud(const std::string &in_name, const std::string &out_name,
                   std::function<void(Eigen::Vector3d &start, Eigen::Vector3d &ends, double &time, RGBA &colour)> apply);
+
+/// General but complex interface to either read a PLY and run a function per-chunk or
+/// read a ply and convert to an output ply, applying a convertion routine per-ray
+bool readGeneralPly(const std::string &file_name, const std::string &convert_file_name, bool is_ray_cloud, 
+             std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                                std::vector<double> &times, std::vector<RGBA> &colours)> chunk_function, 
+             std::function<int(size_t index, Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, RGBA &colour)> convert_function, 
+             double max_intensity, bool times_optional = true, size_t chunk_size = 1000000);
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYPLY_H
