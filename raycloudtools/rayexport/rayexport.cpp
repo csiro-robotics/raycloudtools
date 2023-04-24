@@ -151,6 +151,7 @@ int rayExport(int argc, char *argv[])
   }
   else
     usage();
+  return 0;
 }
 
 int main(int argc, char *argv[])
