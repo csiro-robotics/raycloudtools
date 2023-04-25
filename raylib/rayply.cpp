@@ -393,15 +393,25 @@ bool readGeneralPly(const std::string &file_name, const std::string &convert_fil
       if (line.find("float") != std::string::npos)
         pos_is_float = true;
     }
-#if RAYLIB_WITH_NORMAL_FIELD
-    if (line.find("property float nx") != std::string::npos || line.find("property double nx") != std::string::npos)
-#else
     if (line.find("property float rayx") != std::string::npos || line.find("property double rayx") != std::string::npos)
-#endif
     {
-      normal_offset = row_size;
-      if (line.find("float") != std::string::npos)
-        normal_is_float = true;
+#if RAYLIB_WITH_NORMAL_FIELD
+      if (normal_offset == -1)
+#endif
+      {
+        normal_offset = row_size;
+        normal_is_float = line.find("float") != std::string::npos;
+      }
+    }
+    if (line.find("property float nx") != std::string::npos || line.find("property double nx") != std::string::npos)
+    {
+#if !RAYLIB_WITH_NORMAL_FIELD
+      if (normal_offset == -1)
+#endif
+      {
+        normal_offset = row_size;
+        normal_is_float = line.find("float") != std::string::npos;
+      }
     }
     if (line.find("time") != std::string::npos)
     {
