@@ -102,7 +102,7 @@ bool writeRayCloudChunk(std::ofstream &out, RayPlyBuffer &vertices, const std::v
         has_warned = true;
       }
 #if !RAYLIB_DOUBLE_RAYS
-      if (abs(ends[i][0]) > 100000.0)
+      if (std::abs(ends[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << ends[i].transpose() << ", suspicious"
                   << std::endl;
@@ -248,7 +248,7 @@ bool writePointCloudChunk(std::ofstream &out, PointPlyBuffer &vertices, const st
         has_warned = true;
       }
 #if !RAYLIB_DOUBLE_RAYS
-      if (abs(points[i][0]) > 100000.0)
+      if (std::abs(points[i][0]) > 100000.0)
       {
         std::cout << "WARNING: very large point location at: " << i << ": " << points[i].transpose() << ", suspicious"
                   << std::endl;
@@ -371,15 +371,25 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       if (line.find("float") != std::string::npos)
         pos_is_float = true;
     }
-#if RAYLIB_WITH_NORMAL_FIELD
-    if (line.find("property float nx") != std::string::npos || line.find("property double nx") != std::string::npos)
-#else
     if (line.find("property float rayx") != std::string::npos || line.find("property double rayx") != std::string::npos)
-#endif
     {
-      normal_offset = row_size;
-      if (line.find("float") != std::string::npos)
-        normal_is_float = true;
+#if RAYLIB_WITH_NORMAL_FIELD
+      if (normal_offset == -1)
+#endif
+      {
+        normal_offset = row_size;
+        normal_is_float = line.find("float") != std::string::npos;
+      }
+    }
+    if (line.find("property float nx") != std::string::npos || line.find("property double nx") != std::string::npos)
+    {
+#if !RAYLIB_WITH_NORMAL_FIELD
+      if (normal_offset == -1)
+#endif
+      {
+        normal_offset = row_size;
+        normal_is_float = line.find("float") != std::string::npos;
+      }
     }
     if (line.find("time") != std::string::npos)
     {
@@ -486,7 +496,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         std::cout << "warning, NANs in point " << i << ", removing all NANs." << std::endl;
         warning_set = true;
       }
-      if (abs(end[0]) > 100000.0)
+      if (std::abs(end[0]) > 100000.0)
       {
         std::cout << "warning: very large data in point " << i << ", suspicious: " << end.transpose() << std::endl;
         warning_set = true;
@@ -513,7 +523,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           std::cout << "warning, NANs in raystart stored in normal " << i << ", removing all such rays." << std::endl;
           warning_set = true;
         }
-        if (abs(normal[0]) > 100000.0)
+        if (std::abs(normal[0]) > 100000.0)
         {
           std::cout << "warning: very large data in normal " << i << ", suspicious: " << normal.transpose()
                     << std::endl;
