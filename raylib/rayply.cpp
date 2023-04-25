@@ -58,9 +58,15 @@ bool writeRayCloudChunkStart(const std::string &file_name, std::ofstream &out)
   out << "property float z" << std::endl;
 #endif
   out << "property double time" << std::endl;
+#if RAYLIB_WITH_NORMAL_FIELD
   out << "property float nx" << std::endl;
   out << "property float ny" << std::endl;
   out << "property float nz" << std::endl;
+#else
+  out << "property float rayx" << std::endl;
+  out << "property float rayy" << std::endl;
+  out << "property float rayz" << std::endl;
+#endif
   out << "property uchar red" << std::endl;
   out << "property uchar green" << std::endl;
   out << "property uchar blue" << std::endl;
@@ -365,7 +371,11 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       if (line.find("float") != std::string::npos)
         pos_is_float = true;
     }
+#if RAYLIB_WITH_NORMAL_FIELD
     if (line.find("property float nx") != std::string::npos || line.find("property double nx") != std::string::npos)
+#else
+    if (line.find("property float rayx") != std::string::npos || line.find("property double rayx") != std::string::npos)
+#endif
     {
       normal_offset = row_size;
       if (line.find("float") != std::string::npos)
