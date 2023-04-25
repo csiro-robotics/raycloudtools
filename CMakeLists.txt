@@ -38,6 +38,7 @@ if(UNIX)
   option(WITH_ROS "With ROS rviz support for debug visualisation?" OFF)
 endif(UNIX)
 option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
+option(WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
 
 # Convert WITH_ options to 1/0 so we can use them in configuration headers.
 ras_bool_to_int(WITH_3ES)
@@ -46,6 +47,7 @@ ras_bool_to_int(WITH_QHULL)
 ras_bool_to_int(WITH_TIFF)
 ras_bool_to_int(WITH_ROS)
 ras_bool_to_int(WITH_TBB)
+ras_bool_to_int(WITH_NORMAL_FIELD)
 
 # other build-time options
 option(DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
