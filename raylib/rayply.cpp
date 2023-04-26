@@ -723,7 +723,7 @@ bool readGeneralPly(const std::string &file_name, const std::string &convert_fil
     std::string number = std::to_string(num_output_rays);
     ofs.seekp(num_vertices_location - number.length());
     ofs << number;
-    std::cout << "... saved out " << size << " points." << std::endl;
+    std::cout << "... saved out " << num_output_rays << " points." << std::endl;
   }
 
   progress.end();
