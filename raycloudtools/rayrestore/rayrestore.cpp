@@ -19,7 +19,8 @@ void usage(int exit_code = 1)
   std::cout << "usage:" << std::endl;
   std::cout << " rayrestore decimated_cloud 10 cm full_cloud   - decimated_cloud is a 10 cm decimation of full_cloud" << std::endl;
   std::cout << " rayrestore decimated_cloud 10 rays full_cloud - decimated_cloud is an 'every tenth ray' decimation of full_cloud" << std::endl;
-  std::cout << "                         --restore_point_cloud - full_cloud is the original point cloud prior to rayimport. All ply fields retained" << std::endl;
+  std::cout << "                         --restore_point_cloud - (-r) full_cloud is the original point cloud prior to rayimport. All ply fields retained" << std::endl;
+  std::cout << "                         --point_cloud_start_removed - if using -r, was --remove_start_pos used in rayimport" << std::endl;
   std::cout << "Note: this tool does not work with raysmooth or temporal translations." << std::endl;
   // clang-format on
   exit(exit_code);
@@ -31,8 +32,9 @@ int rayRestore(int argc, char *argv[])
   ray::DoubleArgument vox_width(0.1, 100.0);
   ray::IntArgument num_rays(1, 100);
   ray::OptionalFlagArgument restore_point_cloud("restore_point_cloud", 'r');
+  ray::OptionalFlagArgument start_removed("point_cloud_start_removed", 'p');
   ray::ValueKeyChoice quantity({ &vox_width, &num_rays }, { "cm", "rays" });
-  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &quantity, &full_cloud_file }, {&restore_point_cloud}))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &quantity, &full_cloud_file }, {&restore_point_cloud, &start_removed}))
     usage();
   const bool spatial_decimation = quantity.selectedKey() == "cm";
   const double voxel_width = 0.01 * vox_width.value();
@@ -51,8 +53,24 @@ int rayRestore(int argc, char *argv[])
   full_decimated.reserve(decimated_cloud.ends.size());  // good guess at memory required
 
   // decimation functions
+  bool start_found = false;
+  Eigen::Vector3d start_pos(0,0,0);
   auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                       std::vector<double> &times, std::vector<ray::RGBA> &colours) {
+    if (start_removed.isSet())
+    {
+      if (!start_found)
+      {
+        start_pos = ends[0];
+        start_found = true;
+        std::cout << "start position that was removed " << start_pos.transpose() << " has been restored." << std::endl; 
+      }
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        ends[i] -= start_pos; // remove start pos again so that we can pair up with the decimated cloud
+        starts[i] -= start_pos;
+      }
+    }
     if (spatial_decimation)
     {
       subsample.clear();
@@ -75,27 +93,6 @@ int rayRestore(int argc, char *argv[])
 
   std::cout << "full cloud decimated size: " << full_decimated.ends.size()
             << " modified cloud size: " << decimated_cloud.ends.size() << std::endl;
-
-/*  double maxdif = 0.0;
-  size_t maxI = 0;
-  bool done = false;
-  for (size_t i = 0; i<full_decimated.times.size(); i++)
-  {
-    double dif = std::abs(full_decimated.times[i] - decimated_cloud.times[i]);
-    if (i<10)
-      std::cout << "dif: " << dif << std::endl;
-    if (dif > 0 && !done)
-    {
-      std::cout << "first diff: " << dif << " at " << i << std::endl;
-      done = true;
-    }
-    if (dif > maxdif)
-    {
-      maxdif = dif;
-      maxI = i;
-    }
-  }
-  std::cout << "biggest time dif: " << maxdif << " at " << maxI << std::endl;*/
 
   // Next we need to order the rays by time. Rather than shifting large data, we sort the indices:
   struct Node
@@ -236,20 +233,22 @@ int rayRestore(int argc, char *argv[])
     if (extra_rays < added_ray_indices.size())
     {
       size_t id = added_ray_indices[extra_rays++];
-      start = decimated_cloud.starts[id];
-      end = decimated_cloud.ends[id];
+      start = decimated_cloud.starts[id] + start_pos;
+      end = decimated_cloud.ends[id] + start_pos;
       time = decimated_cloud.times[id];
       colour = decimated_cloud.colours[id];
       return 2;
     }
     if (spatial_decimation)
     {
+      start -= start_pos;
+      end -= start_pos;
       Eigen::Vector3i place(int(std::floor(end[0] / voxel_width)), int(std::floor(end[1] / voxel_width)),
                             int(std::floor(end[2] / voxel_width)));
       if (voxel_set.find(place) != voxel_set.end())
       {
-        start = transform * start;
-        end = transform * end;
+        start = start_pos + transform * start;
+        end = start_pos + transform * end;
         return 1;
       }
     }
@@ -262,8 +261,8 @@ int rayRestore(int argc, char *argv[])
       }
       if (pairs[pair_index][0] == closest_index)
       {
-        start = transform * start;
-        end = transform * end;
+        start = start_pos + transform * (start - start_pos);
+        end = start_pos + transform * (end - start_pos);
         return 1;
       }
     }
