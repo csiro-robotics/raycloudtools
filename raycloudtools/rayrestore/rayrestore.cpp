@@ -230,12 +230,12 @@ int rayRestore(int argc, char *argv[])
   }
 
   int pair_index = 0;
-  int extra_rays = 0;
+  size_t extra_rays = 0;
   auto convert = [&](int index, Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &colour) -> int
   {
     if (extra_rays < added_ray_indices.size())
     {
-      int id = added_ray_indices[extra_rays++];
+      size_t id = added_ray_indices[extra_rays++];
       start = decimated_cloud.starts[id];
       end = decimated_cloud.ends[id];
       time = decimated_cloud.times[id];

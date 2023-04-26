@@ -35,6 +35,7 @@ void usage(int exit_code = 1)
   std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
   std::cout << "                  capsule 1,2,3 10,11,12 5  - splits within a capsule using start, end and radius" << std::endl;
+  std::cout << "                  nonreturn_angle 0      - splits out non-return rays that are below this angle from horizontal" << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -48,9 +49,9 @@ int raySplit(int argc, char *argv[])
     box_radius(0.0001, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument overlap(0.0, 10000.0);
-  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), capsule_radius(0.001, 1000.0);
-  ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range" },
-                             { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range });
+  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), capsule_radius(0.001, 1000.0), nonreturn_angle(-90.0, 90.0);
+  ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range", "nonreturn_angle" },
+                             { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range, &nonreturn_angle });
   ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
   ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), capsule_text("capsule");
@@ -202,6 +203,17 @@ int raySplit(int argc, char *argv[])
         return (cloud.starts[i] - cloud.ends[i]).norm() > range.value();
       });
     }
+    else if (parameter == "nonreturn_angle")
+    {
+      res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
+        if (cloud.colours[i].alpha > 0)
+          return false;
+        Eigen::Vector3d dif = cloud.ends[i] - cloud.starts[i];
+        double z = dif[2];
+        dif[2] = 0.0;
+        return 180.0*std::atan2(z, dif.norm())/ray::kPi < nonreturn_angle.value();
+      });
+    }    
   }
   if (!res)
     usage();

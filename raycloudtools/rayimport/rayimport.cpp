@@ -125,15 +125,6 @@ int rayImport(int argc, char *argv[])
     {
       // find the corresponding sensor locations for each point in the cloud
       trajectory.calculateStartPoints(times, starts);
-      for (size_t i = 0; i < colours.size(); i++)
-      {
-        if (colours[i].alpha == 0 && ends[i][2] < starts[i][2])  // a nonreturn, we need to remove downward ones
-        {
-          Eigen::Vector3d dir = (ends[i] - starts[i]).normalized();
-          const double minimal_distance_for_nonreturns = 0.1;
-          ends[i] = starts[i] + dir * minimal_distance_for_nonreturns;
-        }
-      }
     }
     // option to remove the start position, for data that is in a global frame
     // this is particularly useful if we are storing the ray cloud positions using floats
