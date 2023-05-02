@@ -159,8 +159,9 @@ This gives an example of how the command line tools could be sequenced to analys
 
 For rayconvert to work from .laz files:
 * git clone https://github.com/LASzip/LASzip.git, then git checkout tags/2.0.1, then mkdir build, cd build, cmake .., make, sudo make install. 
-* git clone https://github.com/libLAS/libLAS.git, then mkdir build, cd build, cmake .. -DWITH_LASZIP=ON, make, sudo make install
+* git clone https://github.com/libLAS/libLAS.git, then mkdir build, cd build, cmake .. -DWITH_LASZIP=ON, make, sudo make install (you'll need GEOTIFF to be off in libLAS, and to have installed boost)
 * in raycloudtools/build: cmake .. -DWITH_LAS=ON  (or ccmake .. to turn on/off WITH_LAS)
+* note that you may need to add the liblas path into LD_LIBRARY path, normally this can be done with the following line in your ~/.bashrc: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
 For raywrap:
 
