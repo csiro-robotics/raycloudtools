@@ -33,7 +33,7 @@ void usage(int exit_code = 1)
 
 int rayImport(int argc, char *argv[])
 {
-  ray::DoubleArgument max_intensity(0.0, 10000);
+  ray::DoubleArgument max_intensity(0.0, 10000, 100.0);
   ray::Vector3dArgument position, ray_vec;
   ray::TextArgument ray_text("ray");
   ray::OptionalKeyValueArgument max_intensity_option("max_intensity", 'm', &max_intensity);
@@ -51,7 +51,7 @@ int rayImport(int argc, char *argv[])
   ray::Cloud cloud;
   const std::string &traj_file = trajectory_file.name();
   // Sensors we use have 0 to 100 for normal output, and to 255 for special reflective surfaces
-  double maximum_intensity = max_intensity_option.isSet() ? max_intensity.value() : 100.0;
+  double maximum_intensity = max_intensity.value();
 
   // load the trajectory first, it should fit into main memory
   ray::Trajectory trajectory;

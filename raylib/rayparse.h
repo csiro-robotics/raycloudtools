@@ -109,16 +109,17 @@ class RAYLIB_EXPORT DoubleArgument : public ValueArgument
 {
 public:
   DoubleArgument();
-  DoubleArgument(double min_value, double max_value)
+  DoubleArgument(double min_value, double max_value, double default_value = 0.0)
     : min_value_(min_value)
     , max_value_(max_value)
+    , value_(default_value)
   {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline double value() const { return value_; }
 
 private:
-  double value_;
   double min_value_, max_value_;
+  double value_;
 };
 
 /// For integer values, example: "10"
@@ -126,16 +127,17 @@ class RAYLIB_EXPORT IntArgument : public ValueArgument
 {
 public:
   IntArgument();
-  IntArgument(int min_value, int max_value)
+  IntArgument(int min_value, int max_value, int default_value = 0)
     : min_value_(min_value)
     , max_value_(max_value)
+    , value_(default_value)
   {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline int value() const { return value_; }
 
 private:
-  int value_;
   int min_value_, max_value_;
+  int value_;
 };
 
 /// For 3-component vector values, example: "1.0,2,3.26"
@@ -143,16 +145,18 @@ class RAYLIB_EXPORT Vector3dArgument : public ValueArgument
 {
 public:
   Vector3dArgument();
-  Vector3dArgument(double min_element_value, double max_element_value)
+  Vector3dArgument(double min_element_value, double max_element_value, 
+    const Eigen::Vector3d &default_value = Eigen::Vector3d(0,0,0))
     : min_value_(min_element_value)
     , max_value_(max_element_value)
+    , value_(default_value)
   {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const Eigen::Vector3d &value() const { return value_; }
 
 private:
-  Eigen::Vector3d value_;
   double min_value_, max_value_;
+  Eigen::Vector3d value_;
 };
 
 /// For 4-component vector values, example: "1.0,2.4,4,-6"
@@ -160,16 +164,18 @@ class RAYLIB_EXPORT Vector4dArgument : public ValueArgument
 {
 public:
   Vector4dArgument();
-  Vector4dArgument(double min_element_value, double max_element_value)
+  Vector4dArgument(double min_element_value, double max_element_value,
+    const Eigen::Vector4d &default_value = Eigen::Vector4d(0,0,0,0))
     : min_value_(min_element_value)
     , max_value_(max_element_value)
+    , value_(default_value)
   {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const Eigen::Vector4d &value() const { return value_; }
 
 private:
-  Eigen::Vector4d value_;
   double min_value_, max_value_;
+  Eigen::Vector4d value_;
 };
 
 /// Parses a list of file names, e.g. "cloud1.ply cloudB.ply cloud_x.ply"

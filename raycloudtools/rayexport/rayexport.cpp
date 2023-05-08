@@ -29,7 +29,7 @@ void usage(int exit_code = 1)
 int rayExport(int argc, char *argv[])
 {
   ray::FileArgument raycloud_file, pointcloud_file, trajectory_file;
-  ray::DoubleArgument traj_delta(0.0, 10000);
+  ray::DoubleArgument traj_delta(0.0, 10000, 0.1);
   ray::OptionalKeyValueArgument delta_option("traj_delta", 't', &traj_delta);
   if (!ray::parseCommandLine(argc, argv, { &raycloud_file, &pointcloud_file, &trajectory_file }, { &delta_option }))
     usage();
@@ -66,7 +66,7 @@ int rayExport(int argc, char *argv[])
 
   // saving the trajectory is more difficult. Firstly because we need to temporally decimate,
   // secondly because we need to sort the times, when saving to the txt file
-  const double time_step = delta_option.isSet() ? traj_delta.value() : 0.1;
+  const double time_step = traj_delta.value();
   std::set<int64_t> time_slots;
   int64_t last_time_slot = std::numeric_limits<int64_t>::min();
 

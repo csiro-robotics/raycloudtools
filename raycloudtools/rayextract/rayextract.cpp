@@ -71,13 +71,13 @@ int rayExtract(int argc, char *argv[])
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain"), leaves("leaves");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
-  ray::DoubleArgument gradient(0.001, 1000.0), global_taper(0.0, 1.0), global_taper_factor(0.0, 1.0);
+  ray::DoubleArgument gradient(0.001, 1000.0, 1.0), global_taper(0.0, 1.0), global_taper_factor(0.0, 1.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b'), stalks("stalks", 's');
-  ray::DoubleArgument width(0.01, 10.0), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
+  ray::DoubleArgument width(0.01, 10.0, 0.25), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
 
   ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
-    min_diameter(0.01, 100.0), leaf_area(0.00001, 1.0), leaf_droop(0.0, 10.0), crop_length(0.01, 100.0);;
+    min_diameter(0.01, 100.0), leaf_area(0.00001, 1.0, 0.002), leaf_droop(0.0, 10.0, 0.1), crop_length(0.01, 100.0);;
   ray::DoubleArgument girth_height_ratio(0.001, 0.5), length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
     span_ratio(0.01, 10.0);
   ray::DoubleArgument gravity_factor(0.0, 100.0), grid_width(1.0, 100000.0),
@@ -226,7 +226,6 @@ int rayExtract(int argc, char *argv[])
   else if (extract_forest)
   {
     ray::Forest forest;
-    double cell_width = width_option.isSet() ? width.value() : 0.25;
     forest.verbose = verbose.isSet();
     if (smooth_option.isSet())
     {
@@ -258,7 +257,7 @@ int rayExtract(int argc, char *argv[])
         trunks.push_back(std::pair<Eigen::Vector3d, double>(tree.segments()[0].tip, tree.segments()[0].radius));
       }
     }
-    ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, cell_width);
+    ray::ForestStructure results = forest.extract(cloud_file.nameStub(), mesh, trunks, width.value());
     // save the results, which is a location, radius and height per tree
     results.save(cloud_file.nameStub() + "_forest.txt");
   }
@@ -274,15 +273,12 @@ int rayExtract(int argc, char *argv[])
     }
 
     ray::Terrain terrain;
-    const double grad = gradient_option.isSet() ? gradient.value() : 1.0;
-    terrain.extract(cloud, cloud_file.nameStub(), grad, verbose.isSet());
+    terrain.extract(cloud, cloud_file.nameStub(), gradient.value(), verbose.isSet());
   }
   else if (extract_leaves)
   {
     ray::generateLeaves(cloud_file.nameStub(), trees_file.name(), leaf_mesh.name(), 
-      leaf_area_option.isSet() ? leaf_area.value() : 0.002,
-      leaf_droop_option.isSet() ? leaf_droop.value() : 0.1,
-      stalks.isSet());
+      leaf_area.value(), leaf_droop.value(), stalks.isSet());
   }
   else
   {
