@@ -597,5 +597,13 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
   }
 }
 
+void ForestStructure::reindex()
+{
+  for (auto &tree: trees)
+  {
+    tree.reindex();
+  }
+}
+
 
 }  // namespace ray

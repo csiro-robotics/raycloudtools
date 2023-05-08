@@ -149,8 +149,8 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
 
 
   // for each point in the cloud, possible add leaves...
-  auto add_leaves = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                      std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+  auto add_leaves = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &, std::vector<ray::RGBA> &colours) 
   {
     for (size_t i = 0; i<ends.size(); i++)
     {

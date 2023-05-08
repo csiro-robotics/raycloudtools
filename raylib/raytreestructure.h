@@ -66,6 +66,8 @@ public:
   /// return the root radius of the tree
   double &radius() { return segments_[0].radius; }
   const double &radius() const { return segments_[0].radius; }
+  /// reindex the segments to remove any disconnected segments, and order from root to tips
+  void reindex();
 
 protected:
   std::vector<double> tree_attributes_;
