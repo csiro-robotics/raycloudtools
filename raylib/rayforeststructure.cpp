@@ -97,11 +97,16 @@ bool ForestStructure::load(const std::string &filename)
     return false;
   }
   std::string line;
+  comments.clear();
   do  // skip initial comment lines
   {
     if (!std::getline(ifs, line))
     {
       break;
+    }
+    if (line[0] == '#')
+    {
+      comments.push_back(line);
     }
   } while (line[0] == '#');
   if (!ifs) 
@@ -300,7 +305,17 @@ bool ForestStructure::save(const std::string &filename)
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }
-  ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
+  if (comments.empty())
+  {
+    ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
+  }
+  else
+  {
+    for (auto &line: comments)
+    {  
+      ofs << line << std::endl;
+    }
+  }
   for (auto &att : trees[0].treeAttributeNames())
   {
     ofs << att << ",";
@@ -506,7 +521,7 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
       int parent = segment.parent_id;
       if (parent != -1)
       {
-        children[parent].push_back(i);
+        children[parent].push_back(static_cast<int>(i));
       }
     }
     // now generate the set of root segments

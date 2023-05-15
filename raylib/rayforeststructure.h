@@ -28,6 +28,7 @@ struct RAYLIB_EXPORT ForestStructure
                           double green_scale, double blue_scale);
   /// reindex the segments to remove any disconnected segments, and order from root to tips
   void reindex();
+  std::vector<std::string> comments; // just header comments
 };
 }  // namespace ray
 #endif  // RAYLIB_RAYFORESTSTRUCTURE_H
