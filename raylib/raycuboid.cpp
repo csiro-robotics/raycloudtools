@@ -31,11 +31,11 @@ bool Cuboid::clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const
       min_far_d = std::min(min_far_d, far_d);
     }
   }
+  start += dir * max_near_d;
+  end -= dir * (1.0 - min_far_d);
   if (min_far_d <= max_near_d)
     return false;  // ray is fully outside cuboid
 
-  start += dir * max_near_d;
-  end -= dir * (1.0 - min_far_d);
   return true;
 }
 

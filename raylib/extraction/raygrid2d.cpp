@@ -66,7 +66,10 @@ void OccupancyGrid2D::fillDensities(const std::string &cloudname, const Eigen::A
     {
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end = ends[i];
-      bounds_.clipRay(start, end);  // clip the ray within the bounds
+      if (!bounds_.clipRay(start, end)) // clip the ray within the bounds
+      {
+        continue;
+      }  
 
       // now walk the pixels
       const Eigen::Vector3d dir = scale * (end - start);
@@ -214,7 +217,10 @@ void RayIndexGrid2D::fillRays(const Cloud &cloud)
   {
     Eigen::Vector3d start = cloud.starts[i];
     Eigen::Vector3d end = cloud.ends[i];
-    bounds_.clipRay(start, end);
+    if (!bounds_.clipRay(start, end))
+    {
+      continue;
+    }
 
     // now walk the pixels
     const Eigen::Vector3d dir = end - start;

@@ -242,13 +242,23 @@ void DensityGrid::calculateDensities(const std::string &file_name)
     {
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end = ends[i];
-      bounds_.clipRay(start, end);
+      if (!bounds_.clipRay(start, end))
+      {
+        continue; // ray is outside of bounds
+      }
 
       // now walk the voxels
-      const Eigen::Vector3d dir = end - start;
+      Eigen::Vector3d dir = end - start;
       const Eigen::Vector3d source = (start - bounds_.min_bound_) / voxel_width_;
       const Eigen::Vector3d target = (end - bounds_.min_bound_) / voxel_width_;
       const double length = dir.norm();
+      for (int a = 0; a<3; a++)
+      {
+        if (dir[a] == 0.0)
+        {
+          dir[a] = 1e-10; // prevent division by 0
+        }
+      }
       const double eps = 1e-9;  // to stay away from edge cases
       const double maxDist = (target - source).norm();
 
@@ -271,6 +281,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 
       Eigen::Vector3d p = source;  // our moving variable as we walk over the grid
       Eigen::Vector3i inds = p.cast<int>();
+
       double depth = 0;
       // walk over the grid, one voxel at a time.
       do
@@ -512,7 +523,10 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             Eigen::Vector3d cloud_start = starts[i];
             Eigen::Vector3d cloud_end = ends[i];
             // clip to within the image (since we exclude unbounded rays from the image bounds)
-            bounds.clipRay(cloud_start, cloud_end);
+            if (!bounds.clipRay(cloud_start, cloud_end))
+            {
+              continue;
+            }
             Eigen::Vector3d start = (cloud_start - bounds.min_bound_) / pix_width;
             Eigen::Vector3d end = (cloud_end - bounds.min_bound_) / pix_width;
             const Eigen::Vector3d dir = cloud_end - cloud_start;
