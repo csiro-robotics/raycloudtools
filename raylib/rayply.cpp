@@ -594,10 +594,6 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     {
       if (time_offset == -1)
       {
-        if (!warning_set)
-        {
-
-        }
         times.resize(ends.size());
         for (size_t j = 0; j < times.size(); j++) 
         {
