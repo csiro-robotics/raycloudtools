@@ -118,7 +118,7 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<Merger::Bo
   }
 
   // unbounded rays cannot be a transient object
-  if (ellipsoid->extents == Eigen::Vector3d::Zero())
+  if (ellipsoid->extents == Eigen::Vector3f::Zero())
   {
     return;
   }
@@ -132,9 +132,9 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<Merger::Bo
 
   // get all the rays that overlap this ellipsoid
   const Eigen::Vector3d ellipsoid_bounds_min =
-    (ellipsoid->pos - ellipsoid->extents - ray_grid.box_min) / ray_grid.voxel_width;
+    (ellipsoid->pos - ellipsoid->extents.cast<double>() - ray_grid.box_min) / ray_grid.voxel_width;
   const Eigen::Vector3d ellipsoid_bounds_max =
-    (ellipsoid->pos + ellipsoid->extents - ray_grid.box_min) / ray_grid.voxel_width;
+    (ellipsoid->pos + ellipsoid->extents.cast<double>() - ray_grid.box_min) / ray_grid.voxel_width;
 
   if (ellipsoid_bounds_max[0] < 0.0 || ellipsoid_bounds_max[1] < 0.0 || ellipsoid_bounds_max[2] < 0.0)
   {
@@ -200,7 +200,7 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<Merger::Bo
   ellipsoid->num_rays = hits + pass_through_ids.size();
   if (num_rays == 0 || self_transient)
   {
-    ellipsoid->opacity = (double)hits / ((double)hits + (double)pass_through_ids.size());
+    ellipsoid->opacity = (float)hits / ((float)hits + (float)pass_through_ids.size());
   }
   if (ellipsoid->num_rays == 0 || ellipsoid->opacity == 0 || num_rays == 0)
   {
@@ -227,7 +227,7 @@ void EllipsoidTransientMarker::mark(Ellipsoid *ellipsoid, std::vector<Merger::Bo
       }
     }
     double h = hits + 1e-8 - 1.0;  // subtracting 1 gives an unbiased opacity estimate
-    ellipsoid->opacity = h / (h + misses);
+    ellipsoid->opacity = static_cast<float>(h / (h + misses));
     ellipsoid->num_gone = num_before + num_after;
   }
   else  // compare to other cloud
@@ -343,7 +343,7 @@ bool Merger::filter(const Cloud &cloud, Progress *progress)
   }
 
   Grid<unsigned> ray_grid(bounds_min, bounds_max, voxel_size);
-  fillRayGrid(&ray_grid, cloud, progress);
+  fillRayGrid(&ray_grid, cloud, progress, true);
 
   // Atomic do not support assignment and construction so we can't really retain the vector memory.
   std::vector<Bool> transient_ray_marks(cloud.rayCount() MARKER_BOOL_INIT);
@@ -580,14 +580,35 @@ void Merger::clear()
   ellipsoids_.clear();
 }
 
-void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress)
+void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress, bool store_only_occupied_voxels)
 {
+  if (store_only_occupied_voxels)
+  {
+    const auto add_voxels = [grid, &cloud](unsigned i)
+    {
+      Eigen::Vector3d end = (cloud.ends[i] - grid->box_min) / grid->voxel_width;
+      Eigen::Vector3i index((int)floor(end[0]), (int)floor(end[1]), (int)floor(end[2]));
+      grid->addCell(index);
+    };
+  #if RAYLIB_PARALLEL_GRID
+    tbb::parallel_for<unsigned>(0u, unsigned(cloud.rayCount()), add_voxels);
+  #else   // RAYLIB_PARALLEL_GRID
+    const unsigned int count = static_cast<unsigned int>(cloud.rayCount());
+  //  #pragma omp parallel for schedule(static)
+    for (unsigned int i = 0; i < count; ++i)
+    {
+      add_voxels(i);
+    }
+  #endif  // RAYLIB_PARALLEL_GRID
+  }
+
   if (progress)
   {
     progress->begin("fillRayGrid", cloud.rayCount());
   }
 
-  const auto add_ray = [grid, &cloud, progress](unsigned i)  //
+
+  const auto add_ray = [grid, &cloud, progress, store_only_occupied_voxels](unsigned i)  //
   {
     Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
     Eigen::Vector3d dir_sign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
@@ -599,7 +620,10 @@ void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *pro
     Eigen::Vector3i index = start_index;
     for (;;)
     {
-      grid->insert(index[0], index[1], index[2], i);
+      if (store_only_occupied_voxels)
+        grid->insertIfCellExists(index, i);
+      else 
+        grid->insert(index, i);
 
       if (index == end_index || (index - start_index).squaredNorm() > length_sqr)
       {
@@ -633,7 +657,9 @@ void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *pro
 #if RAYLIB_PARALLEL_GRID
   tbb::parallel_for<unsigned>(0u, unsigned(cloud.rayCount()), add_ray);
 #else   // RAYLIB_PARALLEL_GRID
-  for (unsigned i = 0; i < unsigned(cloud.rayCount()); i++)
+  const unsigned int count = static_cast<unsigned int>(cloud.rayCount());
+//  #pragma omp parallel for schedule(static)
+  for (unsigned int i = 0; i < count; ++i)
   {
     add_ray(i);
   }
@@ -684,6 +710,7 @@ void Merger::markIntersectedEllipsoids(const Cloud &cloud, const Grid<unsigned> 
   std::vector<bool> ray_tested;
   ray_tested.resize(cloud.rayCount(), false);
   EllipsoidTransientMarker ellipsoid_maker(cloud.rayCount());
+ // #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < ellipsoids_.size(); ++i)
   {
     ellipsoid_maker.mark(&ellipsoids_[i], transient_ray_marks, cloud, ray_grid, num_rays, config_.merge_type,
@@ -702,7 +729,7 @@ void Merger::finaliseFilter(const Cloud &cloud, const std::vector<Bool> &transie
     RGBA col = cloud.colours[i];
     if (config_.colour_cloud)
     {
-      col.red = (uint8_t)((1.0 - ellipsoids_[i].planarity) * 255.0);
+      col.red = (uint8_t)0;
       col.blue = (uint8_t)(ellipsoids_[i].opacity * 255.0);
       col.green = (uint8_t)((double)ellipsoids_[i].num_gone / ((double)ellipsoids_[i].num_gone + 10.0) * 255.0);
     }

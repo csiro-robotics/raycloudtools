@@ -29,19 +29,16 @@ class RAYLIB_EXPORT Ellipsoid
 {
 public:
   Eigen::Vector3d pos;
-  Eigen::Matrix3d eigen_mat;  // each row is a scaled eigenvector
-  Eigen::Vector3d extents;
+  Eigen::Matrix3f eigen_mat;  // each row is a scaled eigenvector
+  Eigen::Vector3f extents;
   double time;
-  double opacity;  ///< A representation of certainty of this ellipsoid.
-  double planarity;
+  float opacity;  ///< A representation of certainty of this ellipsoid.
   size_t num_rays;
   size_t num_gone;
   bool transient;
 
   void clear();
   void setExtents(const Eigen::Matrix3d &vecs, const Eigen::Vector3d &vals);
-
-  void setPlanarity(const Eigen::Vector3d &vals) { planarity = (vals[1] - vals[0]) / vals[1]; }
 
   IntersectResult intersect(const Eigen::Vector3d &start, const Eigen::Vector3d &end) const;
 };
@@ -54,9 +51,10 @@ void RAYLIB_EXPORT generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen:
 inline void Ellipsoid::clear()
 {
   pos = Eigen::Vector3d::Zero();
-  eigen_mat = Eigen::Matrix3d::Identity();
-  extents = Eigen::Vector3d::Zero();
-  time = opacity = planarity = 0.0;
+  eigen_mat = Eigen::Matrix3f::Identity();
+  extents = Eigen::Vector3f::Zero();
+  time = 0.0;
+  opacity = 0.0f;
   num_rays = num_gone = 0;
   transient = false;
 }
@@ -69,19 +67,20 @@ inline void Ellipsoid::setExtents(const Eigen::Matrix3d &vecs, const Eigen::Vect
   const Eigen::Vector3d &x = vecs.col(0);
   const Eigen::Vector3d &y = vecs.col(1);
   const Eigen::Vector3d &z = vecs.col(2);
-  extents[0] = std::min(max_rr, std::abs(x[0]) * vals[0] + std::abs(y[0]) * vals[1] + std::abs(z[0]) * vals[2]);
-  extents[1] = std::min(max_rr, std::abs(x[1]) * vals[0] + std::abs(y[1]) * vals[1] + std::abs(z[1]) * vals[2]);
-  extents[2] = std::min(max_rr, std::abs(x[2]) * vals[0] + std::abs(y[2]) * vals[1] + std::abs(z[2]) * vals[2]);
+  extents[0] = static_cast<float>(std::min(max_rr, std::abs(x[0]) * vals[0] + std::abs(y[0]) * vals[1] + std::abs(z[0]) * vals[2]));
+  extents[1] = static_cast<float>(std::min(max_rr, std::abs(x[1]) * vals[0] + std::abs(y[1]) * vals[1] + std::abs(z[1]) * vals[2]));
+  extents[2] = static_cast<float>(std::min(max_rr, std::abs(x[2]) * vals[0] + std::abs(y[2]) * vals[1] + std::abs(z[2]) * vals[2]));
 }
 
 inline IntersectResult Ellipsoid::intersect(const Eigen::Vector3d &start, const Eigen::Vector3d &end) const
 {
+  Eigen::Matrix3d eigen_matd = eigen_mat.cast<double>();
   const Eigen::Vector3d dir = end - start;
   // ray-ellipsoid intersection
   const Eigen::Vector3d to_sphere = pos - start;
-  const Eigen::Vector3d ray = eigen_mat * dir;
+  const Eigen::Vector3d ray = eigen_matd * dir;
   const double ray_length_sqr = ray.squaredNorm();
-  const Eigen::Vector3d to = eigen_mat * to_sphere;
+  const Eigen::Vector3d to = eigen_matd * to_sphere;
 
   double d = to.dot(ray) / ray_length_sqr;
   const double dist2 = (to - ray * d).squaredNorm();

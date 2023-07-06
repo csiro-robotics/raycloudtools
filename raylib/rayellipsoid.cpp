@@ -118,12 +118,11 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     eigen_value[0] = scale * sqrt(std::max(1e-10, eigen_value[0]));
     eigen_value[1] = scale * sqrt(std::max(1e-10, eigen_value[1]));
     eigen_value[2] = scale * sqrt(std::max(1e-10, eigen_value[2]));
-    ellipsoid.eigen_mat.row(0) = eigen_vector.col(0) / eigen_value[0];
-    ellipsoid.eigen_mat.row(1) = eigen_vector.col(1) / eigen_value[1];
-    ellipsoid.eigen_mat.row(2) = eigen_vector.col(2) / eigen_value[2];
+    ellipsoid.eigen_mat.row(0) = (eigen_vector.col(0) / eigen_value[0]).cast<float>();
+    ellipsoid.eigen_mat.row(1) = (eigen_vector.col(1) / eigen_value[1]).cast<float>();
+    ellipsoid.eigen_mat.row(2) = (eigen_vector.col(2) / eigen_value[2]).cast<float>();
     ellipsoid.time = cloud.times[i];
     ellipsoid.setExtents(eigen_vector, eigen_value);
-    ellipsoid.setPlanarity(eigen_value);
   };
 
 #if RAYLIB_WITH_TBB
@@ -132,8 +131,8 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
   for (size_t i = 0; i < ellipsoids->size(); ++i)
   {
     Ellipsoid &ellipsoid = (*ellipsoids)[i];
-    const auto ellipsoid_min = ellipsoid.pos - ellipsoid.extents;
-    const auto ellipsoid_max = ellipsoid.pos + ellipsoid.extents;
+    const auto ellipsoid_min = ellipsoid.pos - ellipsoid.extents.cast<double>();
+    const auto ellipsoid_max = ellipsoid.pos + ellipsoid.extents.cast<double>();
 
     ellipsoids_min.x() = std::min(ellipsoids_min.x(), ellipsoid_min.x());
     ellipsoids_min.y() = std::min(ellipsoids_min.y(), ellipsoid_min.y());
@@ -143,13 +142,17 @@ void generateEllipsoids(std::vector<Ellipsoid> *ellipsoids, Eigen::Vector3d *bou
     ellipsoids_max.z() = std::max(ellipsoids_max.z(), ellipsoid_max.z());
   }
 #else   // RAYLIB_WITH_TBB
-  for (size_t i = 0; i < cloud.rayCount(); ++i)
+  const size_t count = cloud.rayCount();
+  #pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < count; ++i)
   {
     generate_ellipsoid(i);
-
+  }
+  for (size_t i = 0; i < ellipsoids->size(); ++i)
+  {
     Ellipsoid &ellipsoid = (*ellipsoids)[i];
-    const auto ellipsoid_min = ellipsoid.pos - ellipsoid.extents;
-    const auto ellipsoid_max = ellipsoid.pos + ellipsoid.extents;
+    const auto ellipsoid_min = ellipsoid.pos - ellipsoid.extents.cast<double>();
+    const auto ellipsoid_max = ellipsoid.pos + ellipsoid.extents.cast<double>();
 
     ellipsoids_min.x() = std::min(ellipsoids_min.x(), ellipsoid_min.x());
     ellipsoids_min.y() = std::min(ellipsoids_min.y(), ellipsoid_min.y());

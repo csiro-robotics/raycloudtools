@@ -85,7 +85,7 @@ public:
   /// @param cloud The cloud which grid indices reference rays in.
   /// @param progress Optional progress tracker.
   /// @todo This needs a more global home
-  static void fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress = nullptr);
+  static void fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress, bool store_only_occupied_voxels = false);
 
 private:
   double voxelSizeForCloud(const Cloud &cloud) const;
