@@ -343,7 +343,8 @@ bool Merger::filter(const Cloud &cloud, Progress *progress)
   }
 
   Grid<unsigned> ray_grid(bounds_min, bounds_max, voxel_size);
-  fillRayGrid(&ray_grid, cloud, progress, true);
+  seedRayGrid(&ray_grid, cloud);
+  fillRayGrid(&ray_grid, cloud, progress);
 
   // Atomic do not support assignment and construction so we can't really retain the vector memory.
   std::vector<Bool> transient_ray_marks(cloud.rayCount() MARKER_BOOL_INIT);
@@ -375,10 +376,17 @@ bool Merger::mergeMultiple(std::vector<Cloud> &clouds, Progress *progress)
     {
       std::cout << "estimated required voxel size for cloud " << c << ": " << voxel_size << std::endl;
     }
-
     grids[c].init(clouds[c].calcMinBound(), clouds[c].calcMaxBound(), voxel_size);
-    fillRayGrid(&grids[c], clouds[c], progress);
+    for (size_t d = 0; d < clouds.size(); d++)
+    {
+      seedRayGrid(&grids[c], clouds[d]);
+    }
   }
+
+  for (size_t c = 0; c < clouds.size(); c++)
+  {
+    fillRayGrid(&grids[c], clouds[c], progress);
+  }  
 
   std::vector<std::vector<Bool>> transient_ray_marks;
   transient_ray_marks.reserve(clouds.size());
@@ -521,6 +529,8 @@ bool Merger::mergeThreeWay(const Cloud &base_cloud, Cloud &cloud1, Cloud &cloud2
   for (int c = 0; c < 2; c++)
   {
     grids[c].init(clouds[c]->calcMinBound(), clouds[c]->calcMaxBound(), voxelSizeForCloud(*clouds[c]));
+    seedRayGrid(&grids[c], *clouds[0]); // to only fill rays in voxels occupied by cloud 0 or 1
+    seedRayGrid(&grids[c], *clouds[1]);
     fillRayGrid(&grids[c], *clouds[c], progress);
   }
 
@@ -580,35 +590,34 @@ void Merger::clear()
   ellipsoids_.clear();
 }
 
-void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress, bool store_only_occupied_voxels)
+void Merger::seedRayGrid(Grid<unsigned> *grid, const Cloud &cloud)
 {
-  if (store_only_occupied_voxels)
+  const auto seed_voxels = [grid, &cloud](unsigned i)
   {
-    const auto add_voxels = [grid, &cloud](unsigned i)
-    {
-      Eigen::Vector3d end = (cloud.ends[i] - grid->box_min) / grid->voxel_width;
-      Eigen::Vector3i index((int)floor(end[0]), (int)floor(end[1]), (int)floor(end[2]));
-      grid->addCell(index);
-    };
-  #if RAYLIB_PARALLEL_GRID
-    tbb::parallel_for<unsigned>(0u, unsigned(cloud.rayCount()), add_voxels);
-  #else   // RAYLIB_PARALLEL_GRID
-    const unsigned int count = static_cast<unsigned int>(cloud.rayCount());
-  //  #pragma omp parallel for schedule(static)
-    for (unsigned int i = 0; i < count; ++i)
-    {
-      add_voxels(i);
-    }
-  #endif  // RAYLIB_PARALLEL_GRID
+    Eigen::Vector3d end = (cloud.ends[i] - grid->box_min) / grid->voxel_width;
+    Eigen::Vector3i index((int)floor(end[0]), (int)floor(end[1]), (int)floor(end[2]));
+    grid->addCell(index);
+  };
+#if RAYLIB_PARALLEL_GRID
+  tbb::parallel_for<unsigned>(0u, unsigned(cloud.rayCount()), seed_voxels);
+#else   // RAYLIB_PARALLEL_GRID
+  const unsigned int count = static_cast<unsigned int>(cloud.rayCount());
+//  #pragma omp parallel for schedule(static)
+  for (unsigned int i = 0; i < count; ++i)
+  {
+    seed_voxels(i);
   }
+#endif  // RAYLIB_PARALLEL_GRID
+}
 
+void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *progress)
+{
   if (progress)
   {
     progress->begin("fillRayGrid", cloud.rayCount());
   }
 
-
-  const auto add_ray = [grid, &cloud, progress, store_only_occupied_voxels](unsigned i)  //
+  const auto add_ray = [grid, &cloud, progress](unsigned i)  //
   {
     Eigen::Vector3d dir = cloud.ends[i] - cloud.starts[i];
     Eigen::Vector3d dir_sign(sgn(dir[0]), sgn(dir[1]), sgn(dir[2]));
@@ -620,11 +629,7 @@ void Merger::fillRayGrid(Grid<unsigned> *grid, const Cloud &cloud, Progress *pro
     Eigen::Vector3i index = start_index;
     for (;;)
     {
-      if (store_only_occupied_voxels)
-        grid->insertIfCellExists(index, i);
-      else 
-        grid->insert(index, i);
-
+      grid->insertIfCellExists(index, i);
       if (index == end_index || (index - start_index).squaredNorm() > length_sqr)
       {
         break;
