@@ -15,7 +15,7 @@
 void usage(int exit_code = 1)
 {
   // clang-format off
-  std::cout << "Reapply changes to a decimated cloud back onto the full resolution cloud." << std::endl;
+  std::cout << "Reapply changes to a decimated cloud back onto the full resolution cloud. For clouds with unique timestamps" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << " rayrestore decimated_cloud 10 cm full_cloud   - decimated_cloud is a 10 cm decimation of full_cloud" << std::endl;
   std::cout << " rayrestore decimated_cloud 10 rays full_cloud - decimated_cloud is an 'every tenth ray' decimation of full_cloud" << std::endl;
@@ -85,6 +85,21 @@ int rayRestore(int argc, char *argv[])
   }
   std::sort(decimated_nodes.begin(), decimated_nodes.end(),
             [](const Node &n1, const Node &n2) { return n1.time < n2.time; });
+  bool unique_times = false;
+  size_t num_coincident = 0;
+  for (size_t i = 1; i < decimated_nodes.size(); i++)
+  {
+    if (decimated_nodes[i].time <= decimated_nodes[i-1].time)
+    {
+      num_coincident++;
+    }
+  }
+  if (num_coincident > 0)
+  {
+    std::cout << "WARNING: " << num_coincident << "/" << decimated_nodes.size() << " times are coincident in decimated cloud. Rayrestore requires unique time stamps" << std::endl;
+    std::cout << "results are unlikely to be valid" << std::endl;
+  }
+
   for (size_t i = 0; i < full_decimated.times.size(); i++)
   {
     full_decimated_nodes[i].index = i;
@@ -92,6 +107,19 @@ int rayRestore(int argc, char *argv[])
   }
   std::sort(full_decimated_nodes.begin(), full_decimated_nodes.end(),
             [](const Node &n1, const Node &n2) { return n1.time < n2.time; });
+  num_coincident = 0;
+  for (size_t i = 1; i < full_decimated_nodes.size(); i++)
+  {
+    if (full_decimated_nodes[i].time <= full_decimated_nodes[i-1].time)
+    {
+      num_coincident++;
+    }
+  }
+  if (num_coincident > 0)
+  {
+    std::cout << "WARNING: " << num_coincident << "/" << full_decimated_nodes.size() << " times are coincident in full cloud. Rayrestore requires unique time stamps" << std::endl;
+    std::cout << "results are unlikely to be valid" << std::endl;
+  }
 
   // Now find matching points by time. We assume that accurate time is a unique identifier per point
   std::cout << "finding matching points" << std::endl;
