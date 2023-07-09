@@ -168,6 +168,25 @@ public:
     insert(index, value);
   }
 
+  void addCell(const Eigen::Vector3i &index)
+  {
+    int hash = hashFunc(index[0], index[1], index[2]);
+    Bucket &bucket = buckets_.at(hash);
+#if RAYLIB_PARALLEL_GRID
+    Mutex::scoped_lock bucket_lock(bucket.mutex);
+#endif  // RAYLIB_PARALLEL_GRID
+    for (auto &c : bucket.cells)
+    {
+      if (c.index == index)
+      {
+        return;
+      }
+    }
+    Cell new_cell;
+    new_cell.index = index;
+    bucket.cells.emplace_back(new_cell); // fill with empty cell
+  }
+
   void insert(const Eigen::Vector3i &index, const T &value)
   {
     int hash = hashFunc(index[0], index[1], index[2]);
@@ -190,6 +209,30 @@ public:
       }
     }
     bucket.cells.emplace_back(Cell(index, value));
+  }
+
+  // only inserts into a cell that exists
+  void insertIfCellExists(const Eigen::Vector3i &index, const T &value)
+  {
+    int hash = hashFunc(index[0], index[1], index[2]);
+    Bucket &bucket = buckets_.at(hash);
+#if RAYLIB_PARALLEL_GRID
+    Mutex::scoped_lock bucket_lock(bucket.mutex);
+#endif  // RAYLIB_PARALLEL_GRID
+    for (auto &c : bucket.cells)
+    {
+      if (c.index == index)
+      {
+#if RAYLIB_PARALLEL_GRID
+        Mutex::scoped_lock cell_lock(c.mutex);
+#endif  // RAYLIB_PARALLEL_GRID
+        if (c.index == index)
+        {
+          c.data.emplace_back(value);
+          return;
+        }
+      }
+    }
   }
 
   /// debugging statistics on the grid structure. This can be used to assess how efficient this grid

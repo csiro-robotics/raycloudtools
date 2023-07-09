@@ -30,7 +30,7 @@ void usage(int exit_code = 1)
   std::cout << "              max    - finds negative transients, such as a hallway exposed when a door opens." << std::endl;
   std::cout << "              oldest - keeps the oldest geometry when there is a difference over time." << std::endl;
   std::cout << "              newest - uses the newest geometry when there is a difference over time." << std::endl;
-  std::cout << " --colour     - also colours the clouds, to help tweak numRays. red: opacity, green: pass throughs, blue: planarity." << std::endl;
+  std::cout << " --colour     - also colours the clouds, to help tweak numRays. blue: opacity, green: pass throughs." << std::endl;
   // clang-format on
   exit(exit_code);
 }
