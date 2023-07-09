@@ -85,7 +85,6 @@ int rayRestore(int argc, char *argv[])
   }
   std::sort(decimated_nodes.begin(), decimated_nodes.end(),
             [](const Node &n1, const Node &n2) { return n1.time < n2.time; });
-  bool unique_times = false;
   size_t num_coincident = 0;
   for (size_t i = 1; i < decimated_nodes.size(); i++)
   {
