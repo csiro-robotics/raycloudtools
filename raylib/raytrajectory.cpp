@@ -61,7 +61,7 @@ bool Trajectory::load(const std::string &file_name)
 {
   std::cout << "loading trajectory " << file_name << std::endl;
   std::string line;
-  int size = -1;
+  int size = 0;
   {
     std::ifstream ifs(file_name.c_str(), std::ios::in);
     if (!ifs)
@@ -88,7 +88,7 @@ bool Trajectory::load(const std::string &file_name)
   times_.resize(size);
   bool ordered = true;
   int i = 0; // index along trajectory
-  for (int ln = 0; ln < size; ln++)
+  while (i < size)
   {
     if (ifs.fail())
     {

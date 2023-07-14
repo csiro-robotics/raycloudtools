@@ -570,17 +570,20 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       {  
         time = (double &)vertices[time_offset];
       }
-      if (time==last_unique_time)
+      if (!is_ray_cloud)
       {
-        const double time_delta = 1e-6; // this is a sufficient difference for rayrestore (see time_eps in rayrestore.cpp)
-        time = last_time + time_delta;
-        identical_times++;
+        if (time==last_unique_time)
+        {
+          const double time_delta = 1e-6; // this is a sufficient difference for rayrestore (see time_eps in rayrestore.cpp)
+          time = last_time + time_delta;
+          identical_times++;
+        }
+        else
+        {
+          last_unique_time = time;
+        }
+        last_time = time;
       }
-      else
-      {
-        last_unique_time = time;
-      }
-      last_time = time;
       times.push_back(time);
     }
 
@@ -634,19 +637,37 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       {
         colourByTime(times, colours);
       }
-      if (!is_ray_cloud && intensity_offset != -1)
+      if (!is_ray_cloud)
       {
-        for (size_t j = 0; j < intensities.size(); j++)
+        if (intensity_offset != -1)
         {
-          colours[j].alpha = intensities[j];
-          // colour zero-intensity rays black. This is a helpful debug tool.
-          if (intensities[j] == 0)
+          for (size_t j = 0; j < intensities.size(); j++)
           {
-            colours[j].red = colours[j].green = colours[j].blue = 0;
+            colours[j].alpha = intensities[j];
+            // colour zero-intensity rays black. This is a helpful debug tool.
+            if (intensities[j] == 0)
+            {
+              colours[j].red = colours[j].green = colours[j].blue = 0;
+            }
+            else
+            {
+              any_returns = true;
+            }
           }
-          else
+        }
+        else
+        {
+          for (size_t j = 0; j < colours.size(); j++)
           {
-            any_returns = true;
+            if (colours[j].alpha == 0)
+            {
+              // colour zero-intensity rays black. This is a helpful debug tool.
+              colours[j].red = colours[j].green = colours[j].blue = 0;
+            }
+            else
+            {
+              any_returns = true;
+            }
           }
         }
       }
@@ -658,9 +679,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       intensities.clear();
       progress.increment();
 
-      if (i==size-1 && identical_times > 0)
+      if (!is_ray_cloud && i==size-1 && identical_times > 0)
       {
-        std::cout << "warning: " << identical_times << "/" << size << "rays have identical times," << std::endl;
+        std::cout << std::endl;
+        std::cout << "warning: " << identical_times << "/" << size << " rays have identical times," << std::endl;
         std::cout << "since rayrestore relies on unique time stamps, a 1 microsecond increment has been applied for these times." << std::endl;
       }
     }
@@ -669,12 +691,12 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   progress_thread.requestQuit();
   progress_thread.join();
 
-  if (any_returns == false)
+  if (!is_ray_cloud && any_returns == false) // no return rays
   {
     std::cerr << "Error: ray cloud has no identified points; all rays are zero-intensity non-returns," << std::endl;
     std::cerr << "many functions will not operate on this degerenate case." << std::endl;
     std::cerr << "Use raycolour cloud.ply alpha 1 to force all rays to have end points and full intensity." << std::endl;
-    std::cerr << "Use re-import using rayimport points.ply --max_intensity 0." << std::endl;
+    std::cerr << "Or re-import using rayimport points.ply --max_intensity 0." << std::endl;
   }
 
   return true;

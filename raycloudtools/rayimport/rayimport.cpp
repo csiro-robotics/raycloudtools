@@ -92,6 +92,8 @@ int rayImport(int argc, char *argv[])
     usage();
   Eigen::Vector3d start_pos(0, 0, 0);
   bool has_warned = false;
+  double min_time = std::numeric_limits<double>::max();
+  double max_time = std::numeric_limits<double>::lowest();
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                        std::vector<double> &times, std::vector<ray::RGBA> &colours) 
   {
@@ -127,6 +129,8 @@ int rayImport(int argc, char *argv[])
       trajectory.calculateStartPoints(times, starts);
       for (size_t i = 0; i < colours.size(); i++)
       {
+        min_time = std::min(min_time, times[i]);
+        max_time = std::max(max_time, times[i]);
         if (colours[i].alpha == 0 && ends[i][2] < starts[i][2])  // a nonreturn, we need to remove downward ones
         {
           Eigen::Vector3d dir = (ends[i] - starts[i]).normalized();
@@ -181,6 +185,26 @@ int rayImport(int argc, char *argv[])
   {
     std::cout << "Error converting unknown type: " << cloud_file.name() << std::endl;
     usage();
+  }
+  if (standard_format)
+  {
+    const float grace_period = 30.0;
+    if (trajectory.times()[0] < min_time - grace_period)
+    {
+      std::cout << "trajectory begins " << min_time - trajectory.times()[0] << " s before first point cloud time" << std::endl;
+    }
+    if (trajectory.times().back() > max_time + grace_period)
+    {
+      std::cout << "trajectory ends " << trajectory.times().back() - max_time << " s after last point cloud time" << std::endl;
+    }
+    if (min_time < trajectory.times()[0]-grace_period || max_time > trajectory.times().back()+grace_period
+     || min_time > trajectory.times().back() || max_time < trajectory.times()[0])
+    {
+      std::cerr.precision(10);
+      std::cerr << "Error: trajectory times " << trajectory.times()[0] << "-" << trajectory.times().back() << 
+        " do not span the point cloud times " << min_time << "-" << max_time << std::endl;
+      usage();
+    }
   }
   if (num_bounded == 0 && maximum_intensity > 0)
   {
