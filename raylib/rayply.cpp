@@ -458,16 +458,22 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     }
   }
   if (colour_offset == -1)
+  {
     std::cout << "warning: no colour information found in " << file_name
               << ", setting colours red->green->blue based on time" << std::endl;
+  }
   if (!is_ray_cloud && intensity_offset != -1)
   {
     if (colour_offset != -1)
+    {
       std::cout << "warning: intensity and colour information both found in file. Replacing alpha with intensity value."
                 << std::endl;
+    }
     else
+    {
       std::cout << "intensity information found in file, storing this in the ray cloud 8-bit alpha channel."
                 << std::endl;
+    }
   }
 
   // pre-reserving avoids memory fragmentation
@@ -485,6 +491,11 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     colours.reserve(reserve_size);
   if (intensity_offset != -1)
     intensities.reserve(reserve_size);
+  bool any_returns = false;
+  int identical_times = 0;
+  double last_time = std::numeric_limits<double>::lowest();
+  double last_unique_time = std::numeric_limits<double>::lowest();
+  
   for (size_t i = 0; i < size; i++)
   {
     input.read((char *)&vertices[0], row_size);
@@ -495,7 +506,9 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       end = Eigen::Vector3d(e[0], e[1], e[2]);
     }
     else
+    {
       end = (Eigen::Vector3d &)vertices[offset];
+    }
     bool end_valid = end == end;
     if (!warning_set)
     {
@@ -522,7 +535,9 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         normal = Eigen::Vector3d(n[0], n[1], n[2]);
       }
       else
+      {
         normal = (Eigen::Vector3d &)vertices[normal_offset];
+      }
       bool norm_valid = normal == normal;
       if (!warning_set)
       {
@@ -531,28 +546,43 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           std::cout << "warning, NANs in raystart stored in normal " << i << ", removing all such rays." << std::endl;
           warning_set = true;
         }
-        if (std::abs(normal[0]) > 100000.0)
-        {
-          std::cout << "warning: very large data in normal " << i << ", suspicious: " << normal.transpose()
-                    << std::endl;
-          warning_set = true;
-        }
       }
       if (!norm_valid)
         continue;
+      if (std::abs(normal[0]) > 100000.0)
+      {
+        std::cerr << "Error: very large ray length in ray index " << i << " " << normal.transpose() << ", bad input." << std::endl;
+        std::cerr << "Use rayexport then rayimport the exported point cloud with a fixed trajectory file" << std::endl;
+        warning_set = true;
+      }        
     }
 
+    starts.push_back(end + normal);
     ends.push_back(end);
     if (time_offset != -1)
     {
       double time;
       if (time_is_float)
+      {
         time = (double)((float &)vertices[time_offset]);
+      }
       else
+      {  
         time = (double &)vertices[time_offset];
+      }
+      if (time==last_unique_time)
+      {
+        const double time_delta = 1e-6; // this is a sufficient difference for rayrestore (see time_eps in rayrestore.cpp)
+        time = last_time + time_delta;
+        identical_times++;
+      }
+      else
+      {
+        last_unique_time = time;
+      }
+      last_time = time;
       times.push_back(time);
     }
-    starts.push_back(end + normal);
 
     if (colour_offset != -1)
     {
@@ -614,6 +644,10 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
           {
             colours[j].red = colours[j].green = colours[j].blue = 0;
           }
+          else
+          {
+            any_returns = true;
+          }
         }
       }
       apply(starts, ends, times, colours);
@@ -623,11 +657,25 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       colours.clear();
       intensities.clear();
       progress.increment();
+
+      if (i==size-1 && identical_times > 0)
+      {
+        std::cout << "warning: " << identical_times << "/" << size << "rays have identical times," << std::endl;
+        std::cout << "since rayrestore relies on unique time stamps, a 1 microsecond increment has been applied for these times." << std::endl;
+      }
     }
   }
   progress.end();
   progress_thread.requestQuit();
   progress_thread.join();
+
+  if (any_returns == false)
+  {
+    std::cerr << "Error: ray cloud has no identified points; all rays are zero-intensity non-returns," << std::endl;
+    std::cerr << "many functions will not operate on this degerenate case." << std::endl;
+    std::cerr << "Use raycolour cloud.ply alpha 1 to force all rays to have end points and full intensity." << std::endl;
+    std::cerr << "Use re-import using rayimport points.ply --max_intensity 0." << std::endl;
+  }
 
   return true;
 }
