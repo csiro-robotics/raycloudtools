@@ -286,8 +286,6 @@ bool Mesh::splitCloud(const std::string &cloud_name, double offset, const std::s
     }
   }
   // Fourthly, drop each end point downwards to decide whether it is inside or outside..
-  std::vector<Triangle *> tris_tested;
-  tris_tested.reserve(100.0);
   CloudWriter in_cloud, out_cloud;
   in_cloud.begin(inside_name);
   out_cloud.begin(outside_name);
@@ -298,35 +296,29 @@ bool Mesh::splitCloud(const std::string &cloud_name, double offset, const std::s
                     std::vector<double> &times, std::vector<RGBA> &colours) 
   {
     Cloud in_chunk, out_chunk;
+    #pragma omp parallel for
     for (int i = 0; i < (int)ends.size(); i++)
     {
       int intersections = 0;
-      int dir = -1;
       Eigen::Vector3d start = (ends[i] - box_min) / voxel_width;
       Eigen::Vector3i index(start.cast<int>());
-      int end_i = dir < 0 ? 0 : grid.dims[2] - 1;
-      tris_tested.clear();
-      for (int z = clamped(index[2], 0, grid.dims[2] - 1); (z * dir) <= end_i; z += dir)
+      std::set<Triangle *> tri_set;
+      for (int z = clamped(index[2], 0, grid.dims[2] - 1); z >= 0; --z)
       {
         auto &tris = grid.cell(index[0], index[1], z).data;
         for (auto &tri : tris)
         {
-          if (tri->tested)
+          const auto &ret = tri_set.insert(tri);
+          if (ret.second == false) // already exists
           {
-            continue;
+            continue; // already exists
           }
-          tri->tested = true;
-          tris_tested.push_back(tri);
           double depth;
-          if (tri->intersectsRay(ends[i], ends[i] + (double)dir * Eigen::Vector3d(0.0, 0.0, 1e3), depth))
+          if (tri->intersectsRay(ends[i], ends[i] - Eigen::Vector3d(0.0, 0.0, 1e3), depth))
           {
             intersections++;
           }
         }
-      }
-      for (auto &tri : tris_tested) 
-      {
-        tri->tested = false;
       }
       bool inside_val = offset >= 0.0;
       bool is_inside = !inside_val; // start off not inside
@@ -353,7 +345,10 @@ bool Mesh::splitCloud(const std::string &cloud_name, double offset, const std::s
         }
       }
       Cloud &out = is_inside ? in_chunk : out_chunk;
-      out.addRay(starts[i], ends[i], times[i], colours[i]);
+      #pragma omp critical
+      {
+        out.addRay(starts[i], ends[i], times[i], colours[i]);
+      }      
     }
     in_cloud.writeChunk(in_chunk);
     out_cloud.writeChunk(out_chunk);
