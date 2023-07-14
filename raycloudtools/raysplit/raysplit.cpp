@@ -91,7 +91,10 @@ int raySplit(int argc, char *argv[])
     {
       ray::Mesh mesh;
       ray::readPlyMesh(mesh_file.name(), mesh);
-      mesh.splitCloud(rc_name, mesh_offset.value(), in_name, out_name);
+      if (!mesh.splitCloud(rc_name, mesh_offset.value(), in_name, out_name))
+      {
+        usage();
+      }
     }
     else if (mesh_file.nameExt() == "txt") // assume a tree file
     {
