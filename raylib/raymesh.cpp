@@ -291,7 +291,8 @@ bool Mesh::splitCloud(const std::string &cloud_name, double offset, const std::s
   out_cloud.begin(outside_name);
 
   // splitting performed per chunk
-  auto write_chunk = [&](//in_cloud, &out_cloud, tris_tested, &grid, &expanded_triangle_grid, &box_min, &voxel_width, &cloud_size](
+  auto write_chunk = [&in_cloud, &out_cloud, &grid, &expanded_triangle_grid, &box_min, 
+                      &voxel_width, &offset](
                     std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                     std::vector<double> &times, std::vector<RGBA> &colours) 
   {
@@ -308,7 +309,7 @@ bool Mesh::splitCloud(const std::string &cloud_name, double offset, const std::s
         auto &tris = grid.cell(index[0], index[1], z).data;
         for (auto &tri : tris)
         {
-          const auto &ret = tri_set.insert(tri);
+          const auto &ret = tri_set.insert(tri); // downside: log n lookup, upside: allows parallelisation
           if (ret.second == false) // already exists
           {
             continue; // already exists
