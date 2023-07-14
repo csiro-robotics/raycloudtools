@@ -312,7 +312,7 @@ bool Mesh::splitCloud(const std::string &cloud_name, double offset, const std::s
           const auto &ret = tri_set.insert(tri); // downside: log n lookup, upside: allows parallelisation
           if (ret.second == false) // already exists
           {
-            continue; // already exists
+            continue;
           }
           double depth;
           if (tri->intersectsRay(ends[i], ends[i] - Eigen::Vector3d(0.0, 0.0, 1e3), depth))
