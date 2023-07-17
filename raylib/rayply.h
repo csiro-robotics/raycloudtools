@@ -42,7 +42,7 @@ bool RAYLIB_EXPORT readPly(const std::string &file_name, bool is_ray_cloud,
                            std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                                               std::vector<double> &times, std::vector<RGBA> &colours)>
                              apply, 
-                           double max_intensity, bool times_optional = true, size_t chunk_size = 1000000);
+                           double max_intensity, bool times_optional = false, size_t chunk_size = 1000000);
 
 
 /// write a .ply file representing a point cloud
