@@ -474,60 +474,73 @@ bool splitColour(const std::string &file_name, const std::string &cloud_name_stu
   if (!ray::Cloud::read(file_name, count_colours))
     return false;
 
-  const int max_allowable_cells = 1024;  // operating systems will fail with too many open file pointers.
+  const int max_total_files = 5000; // raysplit colour more likely to be a mistake in this case
+  if (num_colours > max_total_files)
+  {
+    std::cerr << "Error: " << num_colours << " colours generates more than the maximum number of files: " << max_total_files << std::endl;
+    return false;
+  }
+  const int max_files_at_once = 512;  // operating systems will fail with too many open file pointers.
   std::cout << "splitting into: " << num_colours << " files" << std::endl;
-  if (num_colours > max_allowable_cells)
+  if (num_colours > max_files_at_once)
   {
-    std::cout << "Error: cloud has more unique colours than the maximum of " << max_allowable_cells << "." << std::endl;
-    return false;
+    std::cout << "Warning: cloud has more unique colours than allowed for simultaneous files " << max_files_at_once << " so batching." << std::endl;
   }
-  if (num_colours > 256)
+  
+  int chunk_size = std::min(num_colours, max_files_at_once);
+
+  for (int batch = 0; batch < num_colours; batch+=max_files_at_once)
   {
-    std::cout << "Warning: nominally more than 256 file pointers will be open at once." << std::endl;
-    std::cout << "If simultaneous open files exceeds your operating system maximum, some output data may be lost."
-              << std::endl;
-  }
+    std::vector<CloudWriter> cells(chunk_size);
+    std::vector<Cloud> chunks(chunk_size);
 
-  std::vector<CloudWriter> cells(num_colours);
-  std::vector<Cloud> chunks(num_colours);
-
-  // splitting performed per chunk
-  auto per_chunk = [&vox_map, &cells, &chunks, &cloud_name_stub, &num_colours](
-                     std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                     std::vector<double> &times, std::vector<RGBA> &colours) {
-    for (size_t i = 0; i < ends.size(); i++)
+    int batch_max = std::min(num_colours, batch + max_files_at_once);
+    if (num_colours > max_files_at_once)
     {
-      RGBA colour = colours[i];
-      const auto &vox = vox_map.find(colour);
-      if (vox != vox_map.end())
+      std::cout << "batch processing colours " << batch << ", to " << batch_max << std::endl;
+    }
+    // splitting performed per chunk
+    auto per_chunk = [&vox_map, &batch, &max_files_at_once, &chunk_size, &cells, &chunks, &cloud_name_stub, &num_colours](
+                      std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &times, std::vector<RGBA> &colours) {
+      for (size_t i = 0; i < ends.size(); i++)
       {
-        int index = vox->second;
-
-        if (cells[index].fileName().empty())  // first time in this cell, so start writing to a new file
+        RGBA colour = colours[i];
+        const auto &vox = vox_map.find(colour);
+        if (vox != vox_map.end())
         {
-          std::stringstream name;
-          name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue
-               << ".ply";
-          cells[index].begin(name.str());
-        }
-        chunks[index].addRay(starts[i], ends[i], times[i], colours[i]);
-      }
-    }
-    for (int i = 0; i < num_colours; i++)
-    {
-      if (chunks[i].ends.size() > 0)
-      {
-        cells[i].writeChunk(chunks[i]);
-        chunks[i].clear();
-      }
-    }
-  };
-  if (!Cloud::read(file_name, per_chunk))
-    return false;
+          int index = vox->second - batch;
+          if (index < 0 || index >= max_files_at_once)
+          {
+            continue; // ignores as this ray will not go into this batch
+          }
 
-  for (int i = 0; i < num_colours; i++)
-  {
-    cells[i].end();  // has no effect on writers where begin has not been called
+          if (cells[index].fileName().empty())  // first time in this cell, so start writing to a new file
+          {
+            std::stringstream name;
+            name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue
+                << ".ply";
+            cells[index].begin(name.str());
+          }
+          chunks[index].addRay(starts[i], ends[i], times[i], colours[i]);
+        }
+      }
+      for (int i = 0; i < chunk_size; i++)
+      {
+        if (chunks[i].ends.size() > 0)
+        {
+          cells[i].writeChunk(chunks[i]);
+          chunks[i].clear();
+        }
+      }
+    };
+    if (!Cloud::read(file_name, per_chunk))
+      return false;
+
+    for (int i = 0; i < chunk_size; i++)
+    {
+      cells[i].end();  // has no effect on writers where begin has not been called
+    }
   }
   return true;
 }
