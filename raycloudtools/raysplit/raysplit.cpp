@@ -85,28 +85,31 @@ int raySplit(int argc, char *argv[])
   {
     res = ray::splitColour(cloud_file.name(), cloud_file.nameStub());
   }
-  else if (mesh_split)  // I can't chunk load this one, so it will need to fit in RAM
+  else if (mesh_split) 
   {
-    ray::Cloud cloud;  // used as a buffer when chunk loading
-    if (!cloud.load(rc_name))
-    {
-      usage();
-    }
-    ray::Cloud inside, outside;
     if (mesh_file.nameExt() == "ply") // assume a mesh file
     {
       ray::Mesh mesh;
       ray::readPlyMesh(mesh_file.name(), mesh);
-      mesh.splitCloud(cloud, mesh_offset.value(), inside, outside);
+      if (!mesh.splitCloud(rc_name, mesh_offset.value(), in_name, out_name))
+      {
+        usage();
+      }
     }
     else if (mesh_file.nameExt() == "txt") // assume a tree file
     {
       ray::ForestStructure forest;
       forest.load(mesh_file.name());
+      ray::Cloud cloud;  // because forest splitCloud currently not chunk loaded
+      if (!cloud.load(rc_name))
+      {
+        usage();
+      }
+      ray::Cloud inside, outside;
       forest.splitCloud(cloud, mesh_offset.value(), inside, outside);
+      inside.save(in_name);
+      outside.save(out_name);
     }
-    inside.save(in_name);
-    outside.save(out_name);
   }
   else if (time_percent)
   {

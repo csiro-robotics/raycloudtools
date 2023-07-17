@@ -7,6 +7,7 @@
 
 #include "raylaz.h"
 #include "rayply.h"
+#include "raycloudwriter.h"
 #include "rayunused.h"
 
 #include <set>
@@ -196,7 +197,7 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
   }
 }
 
-void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside)
+bool Mesh::splitCloud(const std::string &cloud_name, double offset, const std::string &inside_name, const std::string &outside_name)
 {
   // Firstly, find the average vertex normals
   std::vector<Eigen::Vector3d> normals(vertices_.size());
@@ -207,7 +208,10 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
       (vertices_[index[1]] - vertices_[index[0]]).cross(vertices_[index[2]] - vertices_[index[0]]);
     for (int i = 0; i < 3; i++) normals[index[i]] += normal;
   }
-  for (auto &normal : normals) normal.normalize();
+  for (auto &normal : normals) 
+  {
+    normal.normalize();
+  }
 
   // convert to separate triangles for convenience
   std::vector<Triangle> triangles(index_list_.size());
@@ -229,125 +233,132 @@ void Mesh::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &o
 
   // Thirdly, put the triangles into a grid
   double voxel_width = 1.0;
-  std::vector<int> inside_indices;
-  {
-    int inside_val = offset >= 0.0 ? 1 : 0;
-    Grid<Triangle *> grid(box_min, box_max, voxel_width);
-    for (auto &tri : triangles)
-    {
-      Eigen::Vector3d tri_min =
-        (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min) / voxel_width;
-      Eigen::Vector3d tri_max =
-        (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min) / voxel_width;
-      for (int x = (int)tri_min[0]; x <= (int)tri_max[0]; x++)
-      {
-        for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++)
-        {
-          for (int z = (int)tri_min[2]; z <= (int)tri_max[2]; z++)
-          {
-            grid.insert(x, y, z, &tri);
-          }
-        }
-      }
-    }
+  Grid<Triangle *> grid(box_min, box_max, voxel_width);
+  Grid<Triangle *> expanded_triangle_grid;
 
-    // Fourthly, drop each end point downwards to decide whether it is inside or outside..
-    std::vector<Triangle *> tris_tested;
-    tris_tested.reserve(100.0);
-    for (int r = 0; r < (int)cloud.ends.size(); r++)
+  for (auto &tri : triangles)
+  {
+    Eigen::Vector3d tri_min =
+      (minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2])) - box_min) / voxel_width;
+    Eigen::Vector3d tri_max =
+      (maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2])) - box_min) / voxel_width;
+    for (int x = (int)tri_min[0]; x <= (int)tri_max[0]; x++)
     {
-      int intersections = 0;
-      // for (int dir = -1; dir<=1; dir += 2)
-      int dir = -1;
+      for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++)
       {
-        Eigen::Vector3d start = (cloud.ends[r] - box_min) / voxel_width;
-        Eigen::Vector3i index(start.cast<int>());
-        int end_i = dir < 0 ? 0 : grid.dims[2] - 1;
-        tris_tested.clear();
-        for (int z = clamped(index[2], 0, grid.dims[2] - 1); (z * dir) <= end_i; z += dir)
+        for (int z = (int)tri_min[2]; z <= (int)tri_max[2]; z++)
         {
-          auto &tris = grid.cell(index[0], index[1], z).data;
-          for (auto &tri : tris)
-          {
-            if (tri->tested)
-              continue;
-            tri->tested = true;
-            tris_tested.push_back(tri);
-            double depth;
-            if (tri->intersectsRay(cloud.ends[r], cloud.ends[r] + (double)dir * Eigen::Vector3d(0.0, 0.0, 1e3), depth))
-              intersections++;
-          }
+          grid.insert(x, y, z, &tri);
         }
-        for (auto &tri : tris_tested) tri->tested = false;
       }
-      if ((intersections % 2) == inside_val)  // inside
-        inside_indices.push_back(r);
     }
   }
-  std::cout << inside_indices.size() << "/" << cloud.ends.size() << " inside mesh" << std::endl;
-
-  // what if offset is negative?
-  // we have to ...
   if (offset != 0.0)
   {
     // Thirdly, put the triangles into a grid
-    double voxel_width = 1.0;
-    Grid<Triangle *> grid2(box_min, box_max, voxel_width);
+    expanded_triangle_grid.init(box_min, box_max, voxel_width);
     for (int i = 0; i < (int)index_list_.size(); i++)
     {
       if (!(i % 100000))
         std::cout << "filling volumes " << i << "/" << index_list_.size() << std::endl;
       Triangle &tri = triangles[i];
       Eigen::Vector3d extruded_corners[3];
-      for (int j = 0; j < 3; j++) extruded_corners[j] = tri.corners[j] + normals[index_list_[i][j]] * offset;
-
+      for (int j = 0; j < 3; j++) 
+      {
+        extruded_corners[j] = tri.corners[j] + normals[index_list_[i][j]] * offset;
+      }
       Eigen::Vector3d tri_min = minVector(tri.corners[0], minVector(tri.corners[1], tri.corners[2]));
       Eigen::Vector3d tri_max = maxVector(tri.corners[0], maxVector(tri.corners[1], tri.corners[2]));
       Eigen::Vector3d tri_min2 = minVector(extruded_corners[0], minVector(extruded_corners[1], extruded_corners[2]));
       Eigen::Vector3d tri_max2 = maxVector(extruded_corners[0], maxVector(extruded_corners[1], extruded_corners[2]));
-
       tri_min = (minVector(tri_min, tri_min2) - box_min) / voxel_width;
       tri_max = (maxVector(tri_max, tri_max2) - box_min) / voxel_width;
       for (int x = (int)tri_min[0]; x <= (int)tri_max[0]; x++)
-        for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++)
-          for (int z = (int)tri_min[2]; z <= (int)tri_max[2]; z++) grid2.insert(x, y, z, &tri);
-    }
-    // now go through the remaining inside points
-    std::vector<int> new_insides;
-    double offset_sqr = sqr(offset);
-    int p = 0;
-    for (auto &r : inside_indices)
-    {
-      if (!(p++ % 1000000))
-        std::cout << "checking points " << p - 1 << "/" << inside_indices.size() << std::endl;
-      Eigen::Vector3d pos = (cloud.ends[r] - box_min) / voxel_width;
-      Eigen::Vector3i index(pos.cast<int>());
-      auto &tris = grid2.cell(index[0], index[1], index[2]).data;
-      bool in_tri = false;
-      for (auto &tri : tris)
       {
-        if (tri->distSqrToPoint(cloud.ends[r]) < offset_sqr)
+        for (int y = (int)tri_min[1]; y <= (int)tri_max[1]; y++)
         {
-          in_tri = true;
-          break;
-        };
+          for (int z = (int)tri_min[2]; z <= (int)tri_max[2]; z++) 
+          {
+            expanded_triangle_grid.insert(x, y, z, &tri);
+          }
+        }
       }
-      if (!in_tri)
-        new_insides.push_back(r);
     }
-    std::cout << "new inside count: " << new_insides.size() << "/" << cloud.ends.size() << std::endl;
-    inside_indices = new_insides;
   }
+  // Fourthly, drop each end point downwards to decide whether it is inside or outside..
+  CloudWriter in_cloud, out_cloud;
+  in_cloud.begin(inside_name);
+  out_cloud.begin(outside_name);
 
-  std::vector<bool> inside_i(cloud.ends.size());
-  int ins = offset >= 0.0;
-  for (int i = 0; i < (int)cloud.ends.size(); i++) inside_i[i] = !ins;
-  for (auto &ind : inside_indices) inside_i[ind] = ins;
-  for (int i = 0; i < (int)cloud.ends.size(); i++)
+  // splitting performed per chunk
+  auto write_chunk = [&in_cloud, &out_cloud, &grid, &expanded_triangle_grid, &box_min, 
+                      &voxel_width, &offset](
+                    std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                    std::vector<double> &times, std::vector<RGBA> &colours) 
   {
-    Cloud &out = inside_i[i] ? inside : outside;
-    out.addRay(cloud, i);
-  }
+    Cloud in_chunk, out_chunk;
+    #pragma omp parallel for
+    for (int i = 0; i < (int)ends.size(); i++)
+    {
+      int intersections = 0;
+      Eigen::Vector3d start = (ends[i] - box_min) / voxel_width;
+      Eigen::Vector3i index(start.cast<int>());
+      std::set<Triangle *> tri_set;
+      for (int z = clamped(index[2], 0, grid.dims[2] - 1); z >= 0; --z)
+      {
+        auto &tris = grid.cell(index[0], index[1], z).data;
+        for (auto &tri : tris)
+        {
+          const auto &ret = tri_set.insert(tri); // downside: log n lookup, upside: allows parallelisation
+          if (ret.second == false) // already exists
+          {
+            continue;
+          }
+          double depth;
+          if (tri->intersectsRay(ends[i], ends[i] - Eigen::Vector3d(0.0, 0.0, 1e3), depth))
+          {
+            intersections++;
+          }
+        }
+      }
+      bool inside_val = offset >= 0.0;
+      bool is_inside = !inside_val; // start off not inside
+      if ((intersections % 2) == (int)inside_val)  // inside
+      {
+        bool in_tri = false;
+        if (offset != 0.0) // check if it is really inside...
+        {
+          Eigen::Vector3d pos = (ends[i] - box_min) / voxel_width;
+          Eigen::Vector3i index(pos.cast<int>());
+          auto &tris = expanded_triangle_grid.cell(index[0], index[1], index[2]).data;
+          for (auto &tri : tris)
+          {
+            if (tri->distSqrToPoint(ends[i]) < offset*offset)
+            {
+              in_tri = true;
+              break;
+            };
+          }
+        }
+        if (offset == 0.0 || !in_tri)
+        {
+          is_inside = inside_val;
+        }
+      }
+      Cloud &out = is_inside ? in_chunk : out_chunk;
+      #pragma omp critical
+      {
+        out.addRay(starts[i], ends[i], times[i], colours[i]);
+      }      
+    }
+    in_cloud.writeChunk(in_chunk);
+    out_cloud.writeChunk(out_chunk);
+  };
+  if (!Cloud::read(cloud_name, write_chunk))
+    return false;
+  in_cloud.end();
+  out_cloud.end();
+  return true;
 }
 
 Eigen::Array<double, 6, 1> Mesh::getMoments() const
