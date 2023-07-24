@@ -45,7 +45,7 @@ int raySplit(int argc, char *argv[])
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
   ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0),
-    box_radius(0.0001, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
+    box_radius(0.0, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument overlap(0.0, 10000.0);
   ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), capsule_radius(0.001, 1000.0);
@@ -136,10 +136,16 @@ int raySplit(int argc, char *argv[])
   }
   else if (box_format)
   {
-    // Can't use cloud::split as sets are not mutually exclusive here.
-    // we need to include rays that pass through the box. The intensity of these rays needs to be set to 0
-    // so that they are treated as unbounded.
-    res = ray::splitBox(rc_name, in_name, out_name, Eigen::Vector3d(0, 0, 0), box_radius.value());
+    Eigen::Vector3d extents = box_radius.value();
+    for (int i = 0; i<3; i++) // use 0 for unbounded on an axis, for useability purposes, and to match the grid method
+    {
+      const double big_dimension = 1e7; // not too high just incase it causes precision issues inside clipRay
+      if (extents[i] == 0.0)
+      {
+        extents[i] = big_dimension;
+      }
+    }
+    res = ray::splitBox(rc_name, in_name, out_name, Eigen::Vector3d(0, 0, 0), extents);
   }
   else if (grid_format)  // standard 3D grid of cuboids
   {
