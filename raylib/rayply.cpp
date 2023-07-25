@@ -793,7 +793,6 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   return true;
 }
 
-
 bool readPlyMesh(const std::string &file, Mesh &mesh)
 {
   std::ifstream input(file.c_str(), std::ios::in | std::ios::binary);
@@ -806,21 +805,40 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
   unsigned row_size = 0;
   unsigned number_of_faces = 0;
   unsigned number_of_vertices = 0;
-  char char1[100], char2[100];
+  char char1[100], char2[100], char3[100], char4[100], char5[100];
+  int pos_offset = -1;
+  bool pos_is_float = false;
+  int order_size = 0;
+  int vertex_index_size = 0;
   while (line != "end_header\r" && line != "end_header")
   {
     if (!getline(input, line))
     {
       break;
     }
-    if (line.find("float") != std::string::npos)
+    if (line.find("format ascii") != std::string::npos)
     {
-      row_size += 4;
+      std::cerr << "error: can only read in binary ply mesh files" << std::endl;
+      return false;
     }
-    if (line.find("property uchar") != std::string::npos || line.find("property uint8") != std::string::npos)
+    if (line.find("property float x") != std::string::npos)
     {
-      row_size++;
+      pos_offset = row_size;
+      pos_is_float = true;
     }
+    if (line.find("property double x") != std::string::npos)
+    {
+      pos_offset = row_size;
+    }
+    if (line.find("property float") != std::string::npos)
+      row_size += int(sizeof(float));
+    else if (line.find("property double") != std::string::npos)
+      row_size += int(sizeof(double));
+    else if (line.find("property uchar") != std::string::npos || line.find("property uint8") != std::string::npos)
+      row_size += int(sizeof(unsigned char));
+    else if (line.find("property ushort") != std::string::npos)
+      row_size += int(sizeof(unsigned short));
+
     if (line.find("element vertex") != std::string::npos)
     {
       sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_vertices);
@@ -829,24 +847,60 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
     {
       sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_faces);
     }
+    if (line.find("property list") != std::string::npos)
+    {
+      sscanf(line.c_str(), "%s %s %s %s %s", char1, char2, char3, char4, char5);
+      std::string type1(char3);
+      std::string type2(char4);
+      order_size        = type1 == "uchar" ? int(sizeof(unsigned char)) : (type1 == "ushort" ? int(sizeof(unsigned short)) : int(sizeof(int)));
+      vertex_index_size = type2 == "uchar" ? int(sizeof(unsigned char)) : (type2 == "ushort" ? int(sizeof(unsigned short)) : int(sizeof(int)));
+    }
+  }
+  if (pos_offset == -1)
+  {
+    std::cerr << "error, mesh file does not contain x, y, z data" << std::endl;
+    return false;
   }
 
-  std::vector<Eigen::Vector4f> vertices(number_of_vertices);
-  // read data as a block:
-  input.read((char *)&vertices[0], sizeof(Eigen::Vector4f) * vertices.size());
-  std::vector<Eigen::Vector4i> triangles(number_of_faces);
-  input.read((char *)&triangles[0], sizeof(Eigen::Vector4i) * triangles.size());
-
-  mesh.vertices().resize(vertices.size());
-  for (int i = 0; i < (int)vertices.size(); i++)
+  mesh.vertices().resize(number_of_vertices);
+  std::vector<unsigned char> vertices(row_size);
+  for (unsigned int i = 0; i<number_of_vertices; i++)
   {
-    mesh.vertices()[i] = Eigen::Vector3d(vertices[i][0], vertices[i][1], vertices[i][2]);
+    input.read((char *)&vertices[0], row_size);
+    if (pos_is_float)
+    {
+      Eigen::Vector3f e = (Eigen::Vector3f &)vertices[pos_offset];
+      mesh.vertices()[i] = Eigen::Vector3d(e[0], e[1], e[2]);
+    }
+    else
+    {
+      mesh.vertices()[i] = (Eigen::Vector3d &)vertices[pos_offset];
+    }
   }
+  row_size = order_size + 3*vertex_index_size;
+  std::vector<unsigned char> triangles(number_of_faces * row_size);
+  input.read((char *)&triangles[0], triangles.size());
 
-  mesh.indexList().resize(triangles.size());
-  for (int i = 0; i < (int)triangles.size(); i++)
+  mesh.indexList().resize(number_of_faces);
+  for (unsigned int i = 0; i < number_of_faces; i++)
   {
-    mesh.indexList()[i] = Eigen::Vector3i(triangles[i][1], triangles[i][2], triangles[i][3]);
+    for (int j = 0; j<3; j++)
+    {
+      if (vertex_index_size == int(sizeof(unsigned char))) 
+      {
+        unsigned char index = (unsigned char &)triangles[row_size*i + order_size + j*vertex_index_size];
+        mesh.indexList()[i][j] = int(index);
+      }
+      else if (vertex_index_size == int(sizeof(unsigned short))) 
+      {
+        unsigned short index = (unsigned short &)triangles[row_size*i + order_size + j*vertex_index_size];
+        mesh.indexList()[i][j] = int(index);
+      }
+      else if (vertex_index_size == int(sizeof(int))) 
+      {
+        mesh.indexList()[i][j] = (int &)triangles[row_size*i + order_size + j*vertex_index_size];
+      }
+    }
   }
   std::cout << "reading from " << file << ", " << mesh.indexList().size() << " triangles." << std::endl;
   return true;
