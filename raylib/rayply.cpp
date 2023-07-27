@@ -373,13 +373,13 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     else if (line.find("property ushort") != std::string::npos)
       data_type = kDTushort;
 
-    if (line.find("property float x") != std::string::npos || line.find("property double x") != std::string::npos)
+    if (line == "property float x" || line == "property double x")
     {
       offset = row_size;
       if (line.find("float") != std::string::npos)
         pos_is_float = true;
     }
-    if (line.find("property float rayx") != std::string::npos || line.find("property double rayx") != std::string::npos)
+    if (line == "property float rayx" || line == "property double rayx")
     {
 #if RAYLIB_WITH_NORMAL_FIELD
       if (normal_offset == -1)
@@ -389,7 +389,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         normal_is_float = line.find("float") != std::string::npos;
       }
     }
-    if (line.find("property float nx") != std::string::npos || line.find("property double nx") != std::string::npos)
+    if (line == "property float nx" || line == "property double nx")
     {
 #if !RAYLIB_WITH_NORMAL_FIELD
       if (normal_offset == -1)
@@ -410,7 +410,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       intensity_offset = row_size;
       intensity_type = data_type;
     }
-    if (line.find("property uchar red") != std::string::npos || line.find("property uint8 red") != std::string::npos)
+    if (line == "property uchar red" || line == "property uint8 red")
       colour_offset = row_size;
 
     row_size += rowsteps[data_type];
