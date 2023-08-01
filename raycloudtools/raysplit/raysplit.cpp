@@ -30,8 +30,7 @@ void usage(int exit_code = 1)
   std::cout << "                  raydir 0,0,0.8         - splits based on ray direction, here around nearly vertical rays" << std::endl;
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
-  std::cout << "                  box rx,ry,rz           - splits around a centred axis-aligned box of the given radii" << std::endl;
-  std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
+  std::cout << "                  box x,y,z rx,ry,rz     - splits around a given XYZ centred axis-aligned box of the given radii" << std::endl;  std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
   std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
   std::cout << "                  capsule 1,2,3 10,11,12 5  - splits within a capsule using start, end and radius" << std::endl;
@@ -45,7 +44,7 @@ int raySplit(int argc, char *argv[])
   ray::FileArgument cloud_file;
   double max_val = std::numeric_limits<double>::max();
   ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0),
-    box_radius(0.0, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
+    box_centre, box_radius(0.0, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument overlap(0.0, 10000.0);
   ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), capsule_radius(0.001, 1000.0);
@@ -58,7 +57,7 @@ int raySplit(int argc, char *argv[])
   bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice });
   bool colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_text });
   bool time_percent = ray::parseCommandLine(argc, argv, { &cloud_file, &time_text, &time, &percent_text });
-  bool box_format = ray::parseCommandLine(argc, argv, { &cloud_file, &box_text, &box_radius });
+  bool box_format = ray::parseCommandLine(argc, argv, { &cloud_file, &box_text, &box_centre, &box_radius });
   bool grid_format = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width });
   bool grid_format2 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width2 });
   bool grid_format3 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width, &overlap });
@@ -145,7 +144,7 @@ int raySplit(int argc, char *argv[])
         extents[i] = big_dimension;
       }
     }
-    res = ray::splitBox(rc_name, in_name, out_name, Eigen::Vector3d(0, 0, 0), extents);
+    res = ray::splitBox(rc_name, in_name, out_name, box_centre.value(), extents);
   }
   else if (grid_format)  // standard 3D grid of cuboids
   {
