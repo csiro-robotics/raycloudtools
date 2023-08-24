@@ -182,8 +182,8 @@ private:
 class RAYLIB_EXPORT FileArgumentList : public FixedArgument
 {
 public:
-  FileArgumentList(int min_number)
-    : min_number_(min_number)
+  FileArgumentList(int min_number, bool check_extension = true)
+    : min_number_(min_number), check_extension_(check_extension)
   {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<FileArgument> &files() const { return files_; }
@@ -191,6 +191,7 @@ public:
 private:
   std::vector<FileArgument> files_;
   int min_number_;
+  bool check_extension_;
 };
 
 /// A choice of different keys (strings), e.g. "min"/"max"/"newest"/"oldest"

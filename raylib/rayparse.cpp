@@ -251,7 +251,7 @@ bool Vector4dArgument::parse(int argc, char *argv[], int &index, bool set_value)
 
 bool FileArgumentList::parse(int argc, char *argv[], int &index, bool set_value)
 {
-  FileArgument arg;
+  FileArgument arg(check_extension_);
   int count = 0;
   while (arg.parse(argc, argv, index, set_value))
   {
