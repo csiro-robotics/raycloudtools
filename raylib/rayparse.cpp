@@ -169,6 +169,46 @@ bool IntArgument::parse(int argc, char *argv[], int &index, bool set_value)
   return in_range;
 }
 
+Vector2dArgument::Vector2dArgument()
+{
+  max_value_ = std::numeric_limits<double>::max();
+  min_value_ = std::numeric_limits<double>::lowest();
+}
+
+bool Vector2dArgument::parse(int argc, char *argv[], int &index, bool set_value)
+{
+  if (index >= argc)
+    return false;
+  std::stringstream ss(argv[index]);
+  std::string field;
+  int i = 0;
+  while (std::getline(ss, field, ','))
+  {
+    if (i == 2)
+      return false;
+    char *endptr;
+    const char *str = field.c_str();
+    double val = std::strtod(str, &endptr);
+    if (endptr != str + std::strlen(str))  // if the double is badly formed
+      return false;
+    if (set_value)
+    {
+      if (val < min_value_ || val > max_value_)
+      {
+        std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
+                  << std::endl;
+        return false;
+      }
+      value_[i] = val;
+    }
+    i++;
+  }
+  if (i != 2)
+    return false;
+  index++;
+  return true;
+}
+
 Vector3dArgument::Vector3dArgument()
 {
   max_value_ = std::numeric_limits<double>::max();

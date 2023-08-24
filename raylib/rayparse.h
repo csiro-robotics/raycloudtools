@@ -140,6 +140,25 @@ private:
   int value_;
 };
 
+/// For 2-component vector values, example: "1.0,2"
+class RAYLIB_EXPORT Vector2dArgument : public ValueArgument
+{
+public:
+  Vector2dArgument();
+  Vector2dArgument(double min_element_value, double max_element_value, 
+    const Eigen::Vector2d &default_value = Eigen::Vector2d(0,0))
+    : min_value_(min_element_value)
+    , max_value_(max_element_value)
+    , value_(default_value)
+  {}
+  virtual bool parse(int argc, char *argv[], int &index, bool set_value);
+  inline const Eigen::Vector2d &value() const { return value_; }
+
+private:
+  double min_value_, max_value_;
+  Eigen::Vector2d value_;
+};
+
 /// For 3-component vector values, example: "1.0,2,3.26"
 class RAYLIB_EXPORT Vector3dArgument : public ValueArgument
 {
