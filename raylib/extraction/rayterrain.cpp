@@ -384,6 +384,8 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
     }
     local_cloud.save(file_prefix + "_terrain.ply");
   }
+#else
+  std::cerr << "Error: extracting terrain requires QHull, see README instructions for installation" << std::endl;
 #endif
 }
 }  // namespace ray
