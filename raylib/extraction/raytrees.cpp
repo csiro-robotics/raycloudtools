@@ -5,7 +5,6 @@
 // Author: Thomas Lowe
 #include "raytrees.h"
 #include <nabo/nabo.h>
-#include "../raydebugdraw.h"
 #include "rayclusters.h"
 
 namespace ray
@@ -281,9 +280,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   // Now calculate the section ids for all of the points, for the segmented cloud
   std::vector<int> section_ids(points_.size(), -1);
   calculateSectionIds(section_ids, children);
-
-  // debug draw to rviz the set of cylinders
-  drawTrees(verbose);
 
   generateLocalSectionIds();
 
@@ -1008,34 +1004,6 @@ void Trees::calculateSectionIds(std::vector<int> &section_ids, const std::vector
         section_ids[i] = section_ids[j];
       }
     }
-  }
-}
-
-void Trees::drawTrees(bool verbose)
-{
-  if (verbose)
-  {
-    std::vector<Eigen::Vector3d> starts;
-    std::vector<Eigen::Vector3d> ends;
-    std::vector<double> radii;
-    for (auto &tree_node : sections_)
-    {
-      if (tree_node.tip == Eigen::Vector3d(0, 0, 0))
-      {
-        continue;
-      }
-      if (tree_node.parent >= 0)
-      {
-        if ((sections_[tree_node.parent].tip - tree_node.tip).norm() < 0.001)
-        {
-          continue;
-        }
-        starts.push_back(sections_[tree_node.parent].tip);
-        ends.push_back(tree_node.tip);
-        radii.push_back(radius(tree_node));
-      }
-    }
-    DebugDraw::instance()->drawCylinders(starts, ends, radii, 0);
   }
 }
 

@@ -30,22 +30,16 @@ option(RAYCLOUD_BUILD_TESTS "Build unit tests?" OFF)
 option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
 
 # WITH_ build options.
-option(WITH_3ES "With 3rd Eye Scene support for debug visualisation? Disables WITH_ROS." OFF)
 option(WITH_LAS "With liblas for las file support?" OFF)
 option(WITH_QHULL "With libqhull support?" OFF)
 option(WITH_TIFF "With libgeotiff support?" OFF)
-if(UNIX)
-  option(WITH_ROS "With ROS rviz support for debug visualisation?" OFF)
-endif(UNIX)
 option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
 option(WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
 
 # Convert WITH_ options to 1/0 so we can use them in configuration headers.
-ras_bool_to_int(WITH_3ES)
 ras_bool_to_int(WITH_LAS)
 ras_bool_to_int(WITH_QHULL)
 ras_bool_to_int(WITH_TIFF)
-ras_bool_to_int(WITH_ROS)
 ras_bool_to_int(WITH_TBB)
 ras_bool_to_int(WITH_NORMAL_FIELD)
 
@@ -63,12 +57,6 @@ set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
 set(RAYTOOLS_LINK ${libnabo_LIBRARIES} Threads::Threads)
 
 # Optionally configured packages.
-if(WITH_3ES)
-  find_package(3es REQUIRED)
-  list(APPEND RAYTOOLS_LINK 3es::3es-core)
-  # Not compatible with WITH_ROS
-  set(WITH_ROS 0)
-endif(WITH_3ES)
 if(WITH_LAS)
   find_package(libLAS REQUIRED)
   list(APPEND RAYTOOLS_INCLUDE ${libLAS_INCLUDE_DIRS})
@@ -97,15 +85,6 @@ if(WITH_TIFF)
   list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
 endif(WITH_TIFF)
 
-if(WITH_ROS)
-  find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    message_generation
-    std_msgs
-  )
-  list(APPEND RAYTOOLS_INCLUDE ${catkin_INCLUDE_DIRS})
-  list(APPEND RAYTOOLS_LINK ${catkin_LIBRARIES})
-endif(WITH_ROS)
 if(WITH_TBB)
 # Helper macro to Find TBB prefering TBBConfig, falling back to FindTBB. TBB_LIBRARIES will be defined in both cases.
 # TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.

@@ -5,24 +5,9 @@
 // Author: Thomas Lowe
 #include "rayfinealignment.h"
 #include <nabo/nabo.h>
-#include "raydebugdraw.h"
 
 namespace ray
 {
-// Simple conversion of surfels for rendering as ellipsoids
-void FineAlignment::Surfel::draw(const std::vector<Surfel> &surfels, const Eigen::Vector3d &colour)
-{
-  std::vector<Eigen::Matrix3d> matrices(surfels.size());
-  std::vector<Eigen::Vector3d> centroids(surfels.size());
-  std::vector<Eigen::Vector3d> widths(surfels.size());
-  for (size_t i = 0; i < surfels.size(); i++)
-  {
-    matrices[i] = surfels[i].matrix;
-    centroids[i] = surfels[i].centroid;
-    widths[i] = surfels[i].width;
-  }
-  DebugDraw::instance()->drawEllipsoids(centroids, matrices, widths, colour, 1);
-}
 
 // Convert the set of points into a covariance matrix, and from that into surfel information, using an
 // eigendecomposition
@@ -175,12 +160,8 @@ void FineAlignment::generateSurfels()
         surfels_[c].push_back(Surfel(centroid, mat, width, normal, true));
       }
     }
-    if (verbose_)
-      DebugDraw::instance()->drawCloud(decimated_points, 0.5 + 0.4 * (double)c, c);
   }
   translation_weight_ = 0.4 / avg_max_spacing;  // smaller finds matches further away
-  if (verbose_)
-    Surfel::draw(surfels_[1], Eigen::Vector3d(0, 1, 0));
 }
 
 // Match surfels_[0] to surfels_[1] based on proximity, normal difference and whether it is a plane or cylinder
@@ -247,11 +228,6 @@ void FineAlignment::generateSurfelMatches(std::vector<Match> &matches)
       line_starts.push_back(s0.centroid);
       line_ends.push_back(s1.centroid);
     }
-  }
-  if (verbose_)
-  {
-    DebugDraw::instance()->drawLines(line_starts, line_ends);
-    Surfel::draw(surfels_[0], Eigen::Vector3d(1, 0, 0));
   }
 }
 

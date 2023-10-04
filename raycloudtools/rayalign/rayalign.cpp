@@ -7,7 +7,6 @@
 #include "raylib/rayalignment.h"
 #include "raylib/rayaxisalign.h"
 #include "raylib/raycloud.h"
-#include "raylib/raydebugdraw.h"
 #include "raylib/rayfinealignment.h"
 #include "raylib/rayparse.h"
 #include "raylib/raypose.h"
@@ -76,9 +75,6 @@ int rayAlign(int argc, char *argv[])
     bool local_only = local.isSet();
     bool non_rigid = nonrigid.isSet();
     bool verbose = is_verbose.isSet();
-    if (verbose)
-      ray::DebugDraw::init(argc, argv, "rayalign");
-
     if (!local_only)
     {
       alignCloud0ToCloud1(clouds, 0.5, verbose);

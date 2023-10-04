@@ -5,7 +5,6 @@
 // Author: Thomas Lowe
 #include "rayclusters.h"
 #include <nabo/nabo.h>
-#include "raylib/raydebugdraw.h"
 
 namespace ray
 {
@@ -107,7 +106,7 @@ void clustersAgglomerate(const std::vector<Eigen::Vector3d> &points, double min_
 
 /// generate clusters from the set of points, with optional debug rending of the output
 void generateClusters(std::vector<std::vector<int>> &point_clusters, const std::vector<Eigen::Vector3d> &points,
-                      double min_diameter, double max_diameter, bool verbose)
+                      double min_diameter, double max_diameter)
 {
   // corner cases
   if (points.size() == 1)
@@ -120,23 +119,6 @@ void generateClusters(std::vector<std::vector<int>> &point_clusters, const std::
   }
 
   clustersAgglomerate(points, min_diameter, max_diameter, point_clusters);
-
-  if (verbose)
-  {
-    // now render the points by cluster id
-    std::vector<double> shades;
-    std::vector<Eigen::Vector3d> ps;
-    for (size_t i = 0; i < point_clusters.size(); i++)
-    {
-      const double shade = static_cast<double>(i) / static_cast<double>(point_clusters.size() - 1);
-      for (auto &id : point_clusters[i])
-      {
-        shades.push_back(shade);
-        ps.push_back(points[id]);
-      }
-    }
-    DebugDraw::instance()->drawCloud(ps, shades, 0);
-  }
 }
 
 

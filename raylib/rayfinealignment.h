@@ -23,7 +23,7 @@ class RAYLIB_EXPORT FineAlignment
 public:
   /// Constructor takes two clouds as input @c clouds, also:
   /// @c non_rigid denotes whether the alignment transformation is quadratic or linear (Euclidean)
-  /// @c verbose outputs debug text and debug draw messages
+  /// @c verbose outputs debug text
   FineAlignment(Cloud *clouds, bool non_rigid, bool verbose)
     : clouds_(clouds)
     , non_rigid_(non_rigid)
@@ -54,7 +54,6 @@ private:
     Eigen::Vector3d width;
     Eigen::Vector3d normal;
     bool is_plane;
-    static void draw(const std::vector<Surfel> &surfels, const Eigen::Vector3d &colour);
   };
 
   /// Identify matches between surfels by ID

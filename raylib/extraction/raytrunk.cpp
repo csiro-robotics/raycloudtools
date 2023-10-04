@@ -8,7 +8,6 @@
 #include <map>
 #include <queue>
 #include "../raycuboid.h"
-#include "../raydebugdraw.h"
 #include "../raygrid.h"
 
 namespace ray

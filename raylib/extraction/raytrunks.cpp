@@ -7,7 +7,6 @@
 #include <nabo/nabo.h>
 #include <queue>
 #include "../raycuboid.h"
-#include "../raydebugdraw.h"
 #include "../raygrid.h"
 #include "../rayply.h"
 #include "raygrid2d.h"
@@ -344,7 +343,6 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
   {
     std::cout << "av radius: " << midRadius << ", estimated point spacing: " << spacing
               << ", minimum score: " << minimum_score << std::endl;
-    DebugDraw::instance()->drawCloud(cloud.ends, 0.5, 1);
   }
   const Eigen::Vector3d min_bound = cloud.calcMinBound();
   const Eigen::Vector3d max_bound = cloud.calcMaxBound();

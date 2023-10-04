@@ -10,7 +10,6 @@
 #include "raylib/extraction/raytrunks.h"
 #include "raylib/extraction/rayleaves.h"
 #include "raylib/raycloud.h"
-#include "raylib/raydebugdraw.h"
 #include "raylib/rayforestgen.h"
 #include "raylib/rayforeststructure.h"
 #include "raylib/raymesh.h"
@@ -119,10 +118,6 @@ int rayExtract(int argc, char *argv[])
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves)
   {
     usage();
-  }
-  if (verbose.isSet() && (extract_trunks || extract_trees))
-  {
-    ray::DebugDraw::init(argc, argv, "rayextract");
   }
 
   // finds cylindrical trunks in the data and saves them to an _trunks.txt file

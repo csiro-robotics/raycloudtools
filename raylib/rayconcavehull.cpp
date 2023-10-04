@@ -5,8 +5,6 @@
 // Author: Thomas Lowe
 #include "rayconcavehull.h"
 
-#include "raydebugdraw.h"
-
 #if RAYLIB_WITH_QHULL
 #include <libqhullcpp/Qhull.h>
 #include <libqhullcpp/QhullFacet.h>
@@ -334,10 +332,6 @@ void ConcaveHull::growSurface(double maxCurvature)
         for (int i = 0; i < 3; i++) corners[i] = vertices_[triangles_[tri.triangle].vertices[i]];
         tris.push_back(corners);
       }
-      // if (DebugDraw *debug = DebugDraw::instance())
-      // {
-      //   debug->drawTriangles(tris, 0.5);
-      // }
     }
   } while (growFront(maxCurvature));
 }

@@ -83,8 +83,6 @@ private:
   void addChildSection();
   /// calculate the ownership, what branch section does each point belong to
   void calculateSectionIds(std::vector<int> &section_ids, const std::vector<std::vector<int>> &children);
-  /// debug draw
-  void drawTrees(bool verbose);
   /// set ids that are locel (0-based) per tree
   void generateLocalSectionIds();
   /// if using an overlapping grid, then remove trees with base outside the non-overlapping cell bounds
