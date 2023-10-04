@@ -108,6 +108,8 @@ private:
   double forest_taper_{0};
   double forest_weight_{0};
   double forest_weight_squared_{0};
+  std::vector<int> contiguous_section_ids_; // converts section ids to contiguous (empty trees removed) sectino ids for output
+
 };
 
 /// The structure for a single (cylindrical) branch section

@@ -1096,6 +1096,25 @@ void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bo
 // colour the cloud by tree id, or by branch segment id
 void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids)
 {
+  contiguous_section_ids_.resize(sections_.size(), -1); // these are different to the root section IDs as they exclude empty trees
+  int num_trees = 0;
+  bool first_non_root = false;
+  for (size_t sec = 0; sec < sections_.size(); sec++)
+  {
+    const auto &section = sections_[sec];
+    if (section.parent < 0 && first_non_root)
+    {
+      std::cout << "Error: root sections after some non-roots. ID: " << sec << std::endl;
+    }
+    if (section.parent >= 0)
+      first_non_root = true;
+    if (section.children.empty())  // not a root section, so move on
+    {
+      continue;
+    }
+    contiguous_section_ids_[sec] = num_trees++;
+  }
+
   int j = -1;
   for (size_t i = 0; i < cloud.ends.size(); i++)
   {
@@ -1114,14 +1133,14 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
           colour.red = colour.green = colour.blue = 0;
           continue;
         }
-        seg = section_ids[root_id];
+        seg = root_segs[i];
       }
       if (seg == -1)
       {
         colour.red = colour.green = colour.blue = 0;
         continue;
       }
-      convertIntToColour(seg, colour);
+      convertIntToColour(contiguous_section_ids_[seg], colour);
     }
     else
     {
@@ -1194,7 +1213,7 @@ bool Trees::save(const std::string &filename, bool verbose) const
       {
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id << "," << children[c];
+      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id << "," << contiguous_section_ids_[children[c]];
       if (verbose)
       {
         ofs << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;
