@@ -211,17 +211,3 @@ Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analys
 Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
 ```
 
-## Notes
-
-### Additional Dependencies
-
-> To be converted into instructions.
-
-* liblas apt packages `liblas-dev liblas-c-dev`
-* qhull: apt packages do not include cpp libraries (Ubuntu 18.04)
-* ros: requires `source /opt/ros/<distro>/setup.bash` before configuring cmake
-
-### Algorithmic
-
-* Need to support different reference frames in debug visualisation.
-  * Check current assumptions: assuming Z up, right handed?
