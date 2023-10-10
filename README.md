@@ -7,7 +7,10 @@ Ray clouds represent free space as well as surfaces. This allows processing that
 
 This is an open-source research library, a place to release new techniques in ray cloud analysis and manipulation. So if you would like to contribute with a new or improved method, do suggest it in our discussions page: https://github.com/csiro-robotics/raycloudtools/discussions.
 
-## Build:
+## Build on any platform with Docker:
+Follow instructions in the docker folder
+
+## Build directly (tested on Linux-based systems):
 ```console
 sudo apt-get install libeigen3-dev
 git clone https://github.com/ethz-asl/libnabo.git
