@@ -52,10 +52,11 @@ int raySplit(int argc, char *argv[])
                              { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range });
   ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
-  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), capsule_text("capsule");
+  ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), seg_colour_text("seg_colour"), capsule_text("capsule");
   ray::DoubleArgument mesh_offset;
   bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice });
   bool colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_text });
+  bool seg_colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &seg_colour_text });
   bool time_percent = ray::parseCommandLine(argc, argv, { &cloud_file, &time_text, &time, &percent_text });
   bool box_format = ray::parseCommandLine(argc, argv, { &cloud_file, &box_text, &box_centre, &box_radius });
   bool grid_format = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width });
@@ -64,7 +65,7 @@ int raySplit(int argc, char *argv[])
   bool mesh_split = ray::parseCommandLine(argc, argv, { &cloud_file, &mesh_file, &distance_text, &mesh_offset });
   bool capsule_split =
     ray::parseCommandLine(argc, argv, { &cloud_file, &capsule_text, &capsule_start, &capsule_end, &capsule_radius });
-  if (!standard_format && !colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 &&
+  if (!standard_format && !colour_format && !seg_colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 &&
       !mesh_split && !time_percent && !capsule_split)
   {
     usage();
@@ -82,7 +83,11 @@ int raySplit(int argc, char *argv[])
   }
   else if (colour_format)
   {
-    res = ray::splitColour(cloud_file.name(), cloud_file.nameStub());
+    res = ray::splitColour(cloud_file.name(), cloud_file.nameStub(), false);
+  } 
+  else if (seg_colour_format)
+  {
+    res = ray::splitColour(cloud_file.name(), cloud_file.nameStub(), true);
   }
   else if (mesh_split) 
   {

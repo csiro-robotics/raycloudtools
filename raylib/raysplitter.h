@@ -41,8 +41,9 @@ bool RAYLIB_EXPORT splitGrid(const std::string &file_name, const std::string &cl
                              const Eigen::Vector4d &cell_width, double overlap = 0.0);
 
 /// Split a ray cloud into one cloud per colour, ignoring differences in alpha. For example, when identified objects in
-/// the cloud are given a unique colour
-bool RAYLIB_EXPORT splitColour(const std::string &file_name, const std::string &cloud_name_stub);
+/// the cloud are given a unique colour. 
+/// @p seg_colour is true if the output filename suffix is converted from colour to a unique ID, to match segmentation colours
+bool RAYLIB_EXPORT splitColour(const std::string &file_name, const std::string &cloud_name_stub, bool seg_colour);
 
 /// Split the ray cloud around a capsule shape, defined by two end points @c end1 and @c end2
 /// and a @c radius. This function also splits the rays, rather than just splitting on end position.

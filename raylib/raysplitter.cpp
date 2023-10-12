@@ -10,6 +10,7 @@
 #include "extraction/rayforest.h"
 #include "raycloudwriter.h"
 #include "raycuboid.h"
+#include "extraction/raytrees.h"
 
 namespace ray
 {
@@ -463,7 +464,7 @@ public:
 };
 
 /// Special case for splitting based on a colour
-bool splitColour(const std::string &file_name, const std::string &cloud_name_stub)
+bool splitColour(const std::string &file_name, const std::string &cloud_name_stub, bool seg_colour)
 {
   std::map<RGBA, int, RGBALess> vox_map;
   // firstly, find out how many different colours there are
@@ -511,7 +512,7 @@ bool splitColour(const std::string &file_name, const std::string &cloud_name_stu
       std::cout << "batch processing colours " << batch << ", to " << batch_max << std::endl;
     }
     // splitting performed per chunk
-    auto per_chunk = [&vox_map, &batch, &max_files_at_once, &chunk_size, &cells, &chunks, &cloud_name_stub, &num_colours](
+    auto per_chunk = [&vox_map, &batch, &max_files_at_once, &chunk_size, &cells, &chunks, &cloud_name_stub, &num_colours, seg_colour](
                       std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                       std::vector<double> &times, std::vector<RGBA> &colours) {
       for (size_t i = 0; i < ends.size(); i++)
@@ -529,8 +530,14 @@ bool splitColour(const std::string &file_name, const std::string &cloud_name_stu
           if (cells[index].fileName().empty())  // first time in this cell, so start writing to a new file
           {
             std::stringstream name;
-            name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue
-                << ".ply";
+            if (seg_colour)
+            {
+              name << cloud_name_stub << "_" << convertColourToInt(colour) << ".ply";
+            }
+            else
+            {
+              name << cloud_name_stub << "_" << (int)colour.red << "_" << (int)colour.green << "_" << (int)colour.blue << ".ply";
+            }
             cells[index].begin(name.str());
           }
           chunks[index].addRay(starts[i], ends[i], times[i], colours[i]);
