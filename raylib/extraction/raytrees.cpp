@@ -1094,6 +1094,27 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
       const int root_id = points_[j].root;
       root_segs[i] = root_id == -1 ? -1 : section_ids[root_id];
 
+      // This block places a cone of gradient 2 around the trunk direction, to remove the square of initial ground points
+      if (seg != -1 && sections_[seg].parent == -1)
+      {
+        Eigen::Vector3d dir(0,0,1e-10);
+        for (auto &child : sections_[seg].children)
+        {
+          dir += sections_[child].tip - sections_[seg].tip;
+        }
+        dir.normalize();
+        const double grad = 2.0; // larger cuts out a steeper (narrower) cone
+        Eigen::Vector3d base = sections_[seg].tip - grad*dir*radius(sections_[seg]);
+        Eigen::Vector3d dif = cloud.ends[i] - base;
+        double h = dif.dot(dir);
+        double w = (dif - dir*h).norm();
+        if (grad*w > h)
+        {
+          colour.red = colour.green = colour.blue = 0;
+          continue;
+        }
+      }
+
       if (!params_->segment_branches)
       {
         if (root_id == -1)
