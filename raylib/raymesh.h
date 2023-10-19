@@ -31,6 +31,9 @@ public:
   /// access the mesh's index list
   inline std::vector<Eigen::Vector3i> &indexList() { return index_list_; }
   inline const std::vector<Eigen::Vector3i> &indexList() const { return index_list_; }
+  /// access the mesh's uv (texture coordinate) list
+  inline std::vector<Eigen::Vector3cf> &uvList() { return uv_list_; }
+  inline const std::vector<Eigen::Vector3cf> &uvList() const { return uv_list_; }
   /// access the mesh's colours
   inline std::vector<RGBA> &colours() { return colours_; }
   inline const std::vector<RGBA> &colours() const { return colours_; }
@@ -45,8 +48,10 @@ public:
 
 private:
   std::vector<Eigen::Vector3d> vertices_;
-  std::vector<Eigen::Vector3i>
-    index_list_;               // one per triangle, gives the index into the vertices_ array for each corner
+  std::vector<Eigen::Vector3i> index_list_; // one per triangle, gives the index into the vertices_ array for each corner
+
+  // Optional attributes
+  std::vector<Eigen::Vector3cf> uv_list_; // one complex value per face vertex. This is optional
   std::vector<RGBA> colours_;  // optional, if empty then not used
 };
 

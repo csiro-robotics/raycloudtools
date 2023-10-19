@@ -6,9 +6,12 @@
 #include "rayforeststructure.h"
 // #define OUTPUT_MOMENTS  // used in unit tests
 #include <unordered_map>
+#include <complex>
 
 namespace ray
 {
+typedef std::complex<double> Comp;
+
 Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
 {
   Eigen::Array<double, 9, 1> moments;
@@ -450,14 +453,14 @@ void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &insid
   }
 }
 
-
 // add a single section of a capsule. Each one is like a node in the polyline with a radius.
 void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eigen::Vector3d &side1,
-                     const Eigen::Vector3d &side2, double radius, const RGBA &rgba, bool cap_start, bool cap_end)
+                     const Eigen::Vector3d &side2, double radius, const RGBA &rgba, bool cap_start, bool cap_end, bool add_uvs)
 {
   const int start_index = static_cast<int>(mesh.vertices().size());
   const Eigen::Vector3i start_indices(start_index, start_index, start_index);  // start indices
   std::vector<Eigen::Vector3i> &indices = mesh.indexList();
+  std::vector<Eigen::Vector3cf> &uvs = mesh.uvList();
   std::vector<Eigen::Vector3d> vertices;
   vertices.reserve(7);
   Eigen::Vector3d dir = side2.cross(side1);
@@ -465,6 +468,7 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
     vertices.push_back(pos - radius * dir);
 
   // add the six vertices in the circumferential ring for this point along the branch
+  Eigen::Vector3cf uv;
   for (int i = 0; i < 6; i++)
   {
     const double pi = 3.14156;
@@ -475,9 +479,26 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
     if (cap_start)
     {
       indices.push_back(start_indices + Eigen::Vector3i(0, 1 + i, 1 + ((i + 1) % 6)));
+      if (add_uvs)
+      {
+        uv[0] = uv[1] = uv[2] = Comp(0.0f,0.0f);
+        uvs.push_back(uv);
+      }
     }
     else
     {
+      if (add_uvs)
+      {
+        double I = ((double)i + 0.5*(double)wind) / 6.0;
+        uv[2] = Comp(I + 0.0/6.0, 0.0);
+        uv[1] = Comp(I + 0.5/6.0, 1.0);
+        uv[0] = Comp(I + 1.0/6.0, 0.0);
+        uvs.push_back(uv);
+        uv[2] = Comp(I + 1.5/6.0, 1.0);
+        uv[1] = Comp(I + 1.0/6.0, 0.0);
+        uv[0] = Comp(I + 0.5/6.0, 1.0);
+        uvs.push_back(uv);
+      }
       indices.push_back(start_indices + Eigen::Vector3i(i - 6, i, ((i + 1) % 6) - 6));
       indices.push_back(start_indices + Eigen::Vector3i((i + 1) % 6, ((i + 1) % 6) - 6, i));
     }
@@ -485,9 +506,14 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
   if (cap_end)
   {
     vertices.push_back(pos + radius * dir);
-    for (int i = 0; i < 6; i++)
+    if (add_uvs)
     {
-      indices.push_back(start_indices + Eigen::Vector3i(6, (i + 1) % 6, i));
+      for (int i = 0; i < 6; i++)
+      {
+        uv[0] = uv[1] = uv[2] = Comp(0.0f,1.0f);
+        uvs.push_back(uv);
+        indices.push_back(start_indices + Eigen::Vector3i(6, (i + 1) % 6, i));
+      }
     }
   }
   // add these vertices into the mesh
@@ -508,7 +534,7 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
 /// @param green_scale scale on the green channel
 /// @param blue_scale scale on the blue channel
 void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scale,
-                        double green_scale, double blue_scale)
+                        double green_scale, double blue_scale, bool add_uvs)
 {
   for (const auto &tree : trees)
   {
@@ -563,15 +589,14 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
 
         if (child_id == root_id)  // add the base cap of the cylinder if we are at the root of the branch
         {
-          addCapsulePiece(mesh, wind, segments[par_id].tip, axis1, axis2, segments[child_id].radius, rgba, true, false);
+          addCapsulePiece(mesh, wind, segments[par_id].tip, axis1, axis2, segments[child_id].radius, rgba, true, false, add_uvs);
         }
 
         wind++;
         std::vector<int> kids = children[child_id];
         if (kids.empty())  // add the end cap of the cylinder if we are at the end of the whole branch
         {
-          addCapsulePiece(mesh, wind, segments[child_id].tip, axis1, axis2, segments[child_id].radius, rgba, false,
-                          true);
+          addCapsulePiece(mesh, wind, segments[child_id].tip, axis1, axis2, segments[child_id].radius, rgba, false, true, add_uvs);
           break;
         }
         // now find the maximum radius subbranch
@@ -604,7 +629,7 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
         normal = -mid_axis2;
         // add the ring of points
         addCapsulePiece(mesh, wind, segments[child_id].tip, mid_axis1, mid_axis2, segments[child_id].radius, rgba,
-                        false, false);
+                        false, false, add_uvs);
         // add the biggest subbranch to the list, so we continue to build the branch
         childlist.push_back(kids[max_k]);
       }

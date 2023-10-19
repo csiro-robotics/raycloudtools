@@ -756,6 +756,10 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   fprintf(fid, "ply\n");
   fprintf(fid, "format binary_little_endian 1.0\n");
   fprintf(fid, "comment SDK generated\n");  // TODO: add version here
+  if (!mesh.uvList().empty())
+  {
+    fprintf(fid, "comment TextureFile wood_texture.png\n"); 
+  }
   fprintf(fid, "element vertex %u\n", unsigned(vertices.size()));
   fprintf(fid, "property float x\n");
   fprintf(fid, "property float y\n");
@@ -766,17 +770,55 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   fprintf(fid, "property uchar alpha\n");
   fprintf(fid, "element face %u\n", (unsigned)mesh.indexList().size());
   fprintf(fid, "property list int int vertex_indices\n");
+  if (!mesh.uvList().empty())
+  {
+    fprintf(fid, "property list int float vertex_uvs\n");
+  }
   fprintf(fid, "end_header\n");
 
   fwrite(&vertices[0], sizeof(Eigen::Vector4f), vertices.size(), fid);
 
-  std::vector<Eigen::Vector4i> triangles(mesh.indexList().size());
   auto &list = mesh.indexList();
-  if (flip_normals)
-    for (size_t i = 0; i < list.size(); i++) triangles[i] = Eigen::Vector4i(3, list[i][2], list[i][1], list[i][0]);
+  size_t written;
+  if (mesh.uvList().empty())
+  {
+    std::vector<Eigen::Vector4i> triangles(mesh.indexList().size());
+    if (flip_normals)
+      for (size_t i = 0; i < list.size(); i++) triangles[i] = Eigen::Vector4i(3, list[i][2], list[i][1], list[i][0]);
+    else
+      for (size_t i = 0; i < list.size(); i++) triangles[i] = Eigen::Vector4i(3, list[i][0], list[i][1], list[i][2]);
+    written = fwrite(&triangles[0], sizeof(Eigen::Vector4i), triangles.size(), fid);
+  }
   else
-    for (size_t i = 0; i < list.size(); i++) triangles[i] = Eigen::Vector4i(3, list[i][0], list[i][1], list[i][2]);
-  size_t written = fwrite(&triangles[0], sizeof(Eigen::Vector4i), triangles.size(), fid);
+  {
+    struct Face
+    {
+      int num_corners;
+      Eigen::Vector3i ids;
+      int num_coords;
+      float uvs[6];
+    };
+    auto &uvs = mesh.uvList();
+    std::vector<Face> faces(uvs.size());
+    for (size_t i = 0; i < list.size(); i++) 
+    {
+      faces[i].num_corners = 3;
+      if (flip_normals)
+        faces[i].ids = Eigen::Vector3i(list[i][2], list[i][1], list[i][0]);
+      else
+        faces[i].ids = Eigen::Vector3i(list[i][0], list[i][1], list[i][2]);
+
+      faces[i].num_coords = 6;
+      faces[i].uvs[0] = uvs[i][0].real();
+      faces[i].uvs[1] = uvs[i][0].imag();
+      faces[i].uvs[2] = uvs[i][1].real();
+      faces[i].uvs[3] = uvs[i][1].imag();
+      faces[i].uvs[4] = uvs[i][2].real();
+      faces[i].uvs[5] = uvs[i][2].imag();
+    }
+    written = fwrite(&faces[0], sizeof(Face), faces.size(), fid);
+  }
+
   fclose(fid);
   if (written == 0)
   {
