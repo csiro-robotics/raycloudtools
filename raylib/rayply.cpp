@@ -772,7 +772,8 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   fprintf(fid, "property list int int vertex_indices\n");
   if (!mesh.uvList().empty())
   {
-    fprintf(fid, "property list int float vertex_uvs\n");
+    fprintf(fid, "property list int float texcoord\n");
+    fprintf(fid, "property int texnumber\n");
   }
   fprintf(fid, "end_header\n");
 
@@ -797,6 +798,7 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
       Eigen::Vector3i ids;
       int num_coords;
       float uvs[6];
+      int texnumber;
     };
     auto &uvs = mesh.uvList();
     std::vector<Face> faces(uvs.size());
@@ -815,6 +817,7 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
       faces[i].uvs[3] = uvs[i][1].imag();
       faces[i].uvs[4] = uvs[i][2].real();
       faces[i].uvs[5] = uvs[i][2].imag();
+      faces[i].texnumber = 0;
     }
     written = fwrite(&faces[0], sizeof(Face), faces.size(), fid);
   }
@@ -855,6 +858,9 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
   bool pos_is_float = false;
   int order_size = 0;
   int vertex_index_size = 0;
+  int uv_order_size = 0;
+  int uv_size = 0;
+  int texnumber_size = 0;
   while (line != "end_header\r" && line != "end_header")
   {
     if (!getline(input, line))
@@ -892,13 +898,25 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
     {
       sscanf(line.c_str(), "%s %s %u", char1, char2, &number_of_faces);
     }
-    if (line.find("property list") != std::string::npos)
+    if (line.find("property list") != std::string::npos && line.find("vertex_indices") != std::string::npos)
     {
       sscanf(line.c_str(), "%s %s %s %s %s", char1, char2, char3, char4, char5);
       std::string type1(char3);
       std::string type2(char4);
       order_size        = type1 == "uchar" ? int(sizeof(unsigned char)) : (type1 == "ushort" ? int(sizeof(unsigned short)) : int(sizeof(int)));
       vertex_index_size = type2 == "uchar" ? int(sizeof(unsigned char)) : (type2 == "ushort" ? int(sizeof(unsigned short)) : int(sizeof(int)));
+    }
+    if (line.find("property list") != std::string::npos && line.find("texcoord") != std::string::npos)
+    {
+      sscanf(line.c_str(), "%s %s %s %s %s", char1, char2, char3, char4, char5);
+      std::string type1(char3);
+      std::string type2(char4);
+      uv_order_size     = type1 == "uchar" ? int(sizeof(unsigned char)) : (type1 == "ushort" ? int(sizeof(unsigned short)) : int(sizeof(int)));
+      uv_size = type2 == "float" ? int(sizeof(float)) : int(sizeof(double));
+    }
+    if (line.find("property int texnumber") != std::string::npos)
+    {
+      texnumber_size = 4;
     }
   }
   if (pos_offset == -1)
@@ -922,11 +940,15 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
       mesh.vertices()[i] = (Eigen::Vector3d &)vertices[pos_offset];
     }
   }
-  row_size = order_size + 3*vertex_index_size;
+  row_size = order_size + 3*vertex_index_size + uv_order_size + 6*uv_size + texnumber_size;
   std::vector<unsigned char> triangles(number_of_faces * row_size);
   input.read((char *)&triangles[0], triangles.size());
 
   mesh.indexList().resize(number_of_faces);
+  if (uv_size > 0)
+  {
+    mesh.uvList().resize(number_of_faces);
+  }
   for (unsigned int i = 0; i < number_of_faces; i++)
   {
     for (int j = 0; j<3; j++)
@@ -944,6 +966,24 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
       else if (vertex_index_size == int(sizeof(int))) 
       {
         mesh.indexList()[i][j] = (int &)triangles[row_size*i + order_size + j*vertex_index_size];
+      }
+    }
+    if (uv_size > 0)
+    {
+      for (int j = 0; j<3; j++)
+      {
+        if (uv_size == 4)
+        {
+          float u = (float &)triangles[row_size*i + order_size + 3*vertex_index_size + uv_order_size + 2*j*uv_size];
+          float v = (float &)triangles[row_size*i + order_size + 3*vertex_index_size + uv_order_size + (2*j + 1)*uv_size];
+          mesh.uvList()[i][j] = std::complex<float>(u, v);
+        }
+        else // uv_size == 8
+        {
+          double u = (double &)triangles[row_size*i + order_size + 3*vertex_index_size + uv_order_size + 2*j*uv_size];
+          double v = (double &)triangles[row_size*i + order_size + 3*vertex_index_size + uv_order_size + (2*j + 1)*uv_size];
+          mesh.uvList()[i][j] = std::complex<float>((float)u, (float)v);
+        }      
       }
     }
   }

@@ -233,6 +233,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   // could read it from file at this point
   auto &leaf_verts = leaf_mesh.vertices();
   auto &leaf_inds = leaf_mesh.indexList(); // one per triangle, gives the index into the vertices_ array for each corner
+  auto &leaf_uvs = leaf_mesh.uvList(); 
 
   double leaf_width = std::sqrt(leaf_area/2.0);\
   if (leaf_file.empty())
@@ -264,6 +265,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   Mesh mesh;
   auto &verts = mesh.vertices();
   auto &inds = mesh.indexList(); // one per triangle, gives the index into the vertices_ array for each corner   
+  auto &uvs = mesh.uvList();
   
   for (auto &leaf: leaves)
   {
@@ -277,6 +279,10 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     for (auto &tri: leaf_inds)
     {
       inds.push_back(tri + Eigen::Vector3i(num_verts, num_verts, num_verts));
+    }
+    for (auto &uv: leaf_uvs)
+    {
+      uvs.push_back(uv); // if UVs are present in the input, they are unchanged
     }
     for (auto &vert: leaf_verts)
     {
