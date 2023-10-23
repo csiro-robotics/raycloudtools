@@ -244,8 +244,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
         extract_from_ends = true; // don't trust the found nodes as it is now two separate tree nodes
-        // if parent is the root then don't add offshoots as we've already dealt with this better in the iteration block above
-        bool add_offshoots = par != -1 && sections_[par].parent != -1; 
+        bool add_offshoots = false; // par != -1 && sections_[par].parent != -1;  // when this is true it can lead to whole branches missing.
         // if points have been removed then this only resets the current section's points
         // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
         bifurcate(clusters, thickness, children, false, add_offshoots);
