@@ -758,7 +758,8 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   fprintf(fid, "comment SDK generated\n");  // TODO: add version here
   if (!mesh.uvList().empty())
   {
-    fprintf(fid, "comment TextureFile wood_texture.png\n"); 
+    std::string tex_name = mesh.textureName() == "" ? "wood_texture.png" : mesh.textureName();
+    fprintf(fid, "comment TextureFile %s\n", tex_name.c_str()); 
   }
   fprintf(fid, "element vertex %u\n", unsigned(vertices.size()));
   fprintf(fid, "property float x\n");
@@ -809,7 +810,7 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
         faces[i].ids = Eigen::Vector3i(list[i][2], list[i][1], list[i][0]);
       else
         faces[i].ids = Eigen::Vector3i(list[i][0], list[i][1], list[i][2]);
-
+      
       faces[i].num_coords = 6;
       faces[i].uvs[0] = uvs[i][0].real();
       faces[i].uvs[1] = uvs[i][0].imag();

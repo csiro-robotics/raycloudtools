@@ -37,6 +37,9 @@ public:
   /// access the mesh's colours
   inline std::vector<RGBA> &colours() { return colours_; }
   inline const std::vector<RGBA> &colours() const { return colours_; }
+  // access the mesh's optional texture name
+  inline std::string &textureName() { return texture_name_; }
+  inline const std::string &textureName() const { return texture_name_; }
 
   /// Get first and second order moments of mesh. This can be used as a simple way to compare meshes
   /// numerically. Note that different stats guarantee different meshes, but same stats do not guarantee same meshes
@@ -53,6 +56,7 @@ private:
   // Optional attributes
   std::vector<Eigen::Vector3cf> uv_list_; // one complex value per face vertex. This is optional
   std::vector<RGBA> colours_;  // optional, if empty then not used
+  std::string texture_name_; // optional texture to use if UVs are specifies
 };
 
 
