@@ -457,6 +457,9 @@ void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &insid
 void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eigen::Vector3d &side1,
                      const Eigen::Vector3d &side2, double radius, const RGBA &rgba, bool cap_start, bool cap_end, bool add_uvs)
 {
+  // this is the square root of the volume of a cylinder divided by the volume of the 14 sided polyhderon
+  // representing the cylinder (a kind of twisted hexagonal prism). This constant only works for this hexagonal polyhedron
+  const double radius_scale = 1.07234; // to keep the volume about equal to that of the cylinder
   const int start_index = static_cast<int>(mesh.vertices().size());
   const Eigen::Vector3i start_indices(start_index, start_index, start_index);  // start indices
   std::vector<Eigen::Vector3i> &indices = mesh.indexList();
@@ -465,7 +468,7 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
   vertices.reserve(7);
   Eigen::Vector3d dir = side2.cross(side1);
   if (cap_start)
-    vertices.push_back(pos - radius * dir);
+    vertices.push_back(pos - radius_scale * radius * dir);
 
   // add the six vertices in the circumferential ring for this point along the branch
   Eigen::Vector3cf uv;
@@ -474,7 +477,7 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
     const double pi = 3.14156;
     double angle = (static_cast<double>(i) * 2.0 + static_cast<double>(wind)) * pi / 6.0;
 
-    vertices.push_back(pos + radius * (side1 * std::sin(angle) + side2 * std::cos(angle)));
+    vertices.push_back(pos + radius_scale * radius * (side1 * std::sin(angle) + side2 * std::cos(angle)));
     // the indexing is a bit more complicated, to connect the vertices with triangles
     if (cap_start)
     {
@@ -505,7 +508,7 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
   }
   if (cap_end)
   {
-    vertices.push_back(pos + radius * dir);
+    vertices.push_back(pos + radius_scale * radius * dir);
     if (add_uvs)
     {
       for (int i = 0; i < 6; i++)
