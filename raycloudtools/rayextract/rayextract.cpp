@@ -41,7 +41,7 @@ void usage(int exit_code = 1)
   std::cout << "                            --crop_length 1.0    - (-p) crops small branches to this distance from end" << std::endl;
   std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
   std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
-  std::cout << "                            --girth_height_ratio 0.08 - (-i) the amount up tree's height to estimate trunk girth" << std::endl;
+  std::cout << "                            --girth_height_ratio 0.12 - (-i) the amount up tree's height to estimate trunk girth" << std::endl;
   std::cout << "                            --global_taper 0.024 - (-a) force a taper value (diameter per length) for trees under global_taper_factor of max tree height. Use 0 to estimate global taper from the data" << std::endl;
   std::cout << "                            --global_taper_factor 0.3- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
   std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;

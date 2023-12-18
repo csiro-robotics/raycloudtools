@@ -14,7 +14,7 @@ TreesParams::TreesParams()
   , crop_length(1.0)
   , distance_limit(1.0)
   , height_min(2.0)
-  , girth_height_ratio(0.08)
+  , girth_height_ratio(0.12)
   , cylinder_length_to_width(4.0)
   , gap_ratio(0.016)
   , span_ratio(4.5)
@@ -103,13 +103,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       if (removeDistantPoints(nodes))
       {
         sections_[sec_].tip = calculateTipFromVertices(nodes);
-        if (verbose)
-        {
-          for (auto &node: nodes)
-          {
-            debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(127,255,255, 255));
-          }
-        }
       }
       if (verbose)
       {
