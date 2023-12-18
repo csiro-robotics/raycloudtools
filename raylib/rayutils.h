@@ -162,7 +162,7 @@ inline T median(std::vector<T> list)
     return *middle;
   else
   {
-    typename std::vector<T>::iterator middle2 = middle + 1;
+    typename std::vector<T>::iterator middle2 = middle - 1;
     nth_element(first, middle2, last);
     return (*middle + *middle2) / static_cast<T>(2);
   }
