@@ -509,14 +509,14 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
   if (cap_end)
   {
     vertices.push_back(pos + radius_scale * radius * dir);
-    if (add_uvs)
+    for (int i = 0; i < 6; i++)
     {
-      for (int i = 0; i < 6; i++)
+      if (add_uvs)
       {
         uv[0] = uv[1] = uv[2] = Comp(0.0f,1.0f);
         uvs.push_back(uv);
-        indices.push_back(start_indices + Eigen::Vector3i(6, (i + 1) % 6, i));
       }
+      indices.push_back(start_indices + Eigen::Vector3i(6, (i + 1) % 6, i));
     }
   }
   // add these vertices into the mesh
