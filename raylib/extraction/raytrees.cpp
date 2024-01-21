@@ -1068,7 +1068,7 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
     }
     if (section.parent >= 0)
       first_non_root = true;
-    if (section.children.empty())  // not a root section, so move on
+    else if (section.children.empty())  // not a root section, so move on
     {
       continue;
     }
