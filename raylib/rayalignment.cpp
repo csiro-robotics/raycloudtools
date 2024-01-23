@@ -483,7 +483,7 @@ void alignCloud0ToCloud1(Cloud *clouds, double voxel_width, bool verbose)
     pos[axis] =
       ind[axis] + 0.5 * (y0 - y2) / (y0 + y2 - 2.0 * y1);  // just a quadratic maximum -b/2a for heights y0,y1,y2
     // but the FFT wraps around, so:
-    if (pos[axis] > dim / 2)
+    if (pos[axis] >= dim / 2)
       pos[axis] -= dim;
   }
   pos *= -array.voxelWidth();

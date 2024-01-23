@@ -3,6 +3,10 @@
 # ./rayextract_trees_large cloudname 50
 set -x
 raysplit $1.ply grid $2,$2,0 5  # 5 m overlap to avoid edge artefacts. This should be the width of the widest tree.
+rm -rf gridfiles_cloud
+rm -rf gridfiles_mesh
+rm -rf gridfiles_trees
+rm -rf gridfiles_segmented
 mkdir gridfiles_cloud   
 mkdir gridfiles_mesh      
 mkdir gridfiles_trees      

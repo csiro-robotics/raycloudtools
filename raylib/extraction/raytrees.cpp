@@ -14,7 +14,7 @@ TreesParams::TreesParams()
   , crop_length(1.0)
   , distance_limit(1.0)
   , height_min(2.0)
-  , girth_height_ratio(0.08)
+  , girth_height_ratio(0.12)
   , cylinder_length_to_width(4.0)
   , gap_ratio(0.016)
   , span_ratio(4.5)
@@ -103,13 +103,6 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       if (removeDistantPoints(nodes))
       {
         sections_[sec_].tip = calculateTipFromVertices(nodes);
-        if (verbose)
-        {
-          for (auto &node: nodes)
-          {
-            debug_cloud.addRay(Eigen::Vector3d(0,0,0), points_[node].pos + Eigen::Vector3d(0,0,0.02), 0.0, ray::RGBA(127,255,255, 255));
-          }
-        }
       }
       if (verbose)
       {
@@ -244,8 +237,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
         extract_from_ends = true; // don't trust the found nodes as it is now two separate tree nodes
-        // if parent is the root then don't add offshoots as we've already dealt with this better in the iteration block above
-        bool add_offshoots = par != -1 && sections_[par].parent != -1; 
+        bool add_offshoots = true; // par != -1 && sections_[par].parent != -1;  // when this is false it can lead to whole branches missing.
         // if points have been removed then this only resets the current section's points
         // otherwise it creates new branch sections_ for each cluster and adds to the end of the sections_ list
         bifurcate(clusters, thickness, children, false, add_offshoots);
@@ -1076,7 +1068,7 @@ void Trees::segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::v
     }
     if (section.parent >= 0)
       first_non_root = true;
-    if (section.children.empty())  // not a root section, so move on
+    else if (section.children.empty())  // not a root section, so move on
     {
       continue;
     }

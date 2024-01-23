@@ -3,16 +3,19 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
+#include <nabo/nabo.h>
 #include "rayleaves.h"
 #include "../rayrenderer.h"
 #include "../raycuboid.h"
 #include "../rayply.h"
 #include "../raymesh.h"
 #include "../rayforeststructure.h"
-#include <nabo/nabo.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "raylib/imageread.h"
 
 namespace ray
 {
+typedef std::complex<float> Cmp;
 
 bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file, const std::string &leaf_file, double leaf_area, double droop, bool stalks)
 {
@@ -233,9 +236,11 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   // could read it from file at this point
   auto &leaf_verts = leaf_mesh.vertices();
   auto &leaf_inds = leaf_mesh.indexList(); // one per triangle, gives the index into the vertices_ array for each corner
+  auto &leaf_uvs = leaf_mesh.uvList(); 
+  Eigen::Vector3d leaf_root(0,0,0);
 
-  double leaf_width = std::sqrt(leaf_area/2.0);\
-  if (leaf_file.empty())
+  double leaf_width = std::sqrt(leaf_area/2.0);
+  if (leaf_file.empty()) // generate diamond leaf
   {
     // generate a 2-triangle leaf along y axis
     leaf_verts.push_back(Eigen::Vector3d(0,-leaf_width,-leaf_width*leaf_width*droop)); // should leaf droop just vertically?
@@ -244,8 +249,9 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     leaf_verts.push_back(Eigen::Vector3d(0,leaf_width,-leaf_width*leaf_width * droop));
     leaf_inds.push_back(Eigen::Vector3i(0,2,1));
     leaf_inds.push_back(Eigen::Vector3i(2,3,1));
+    leaf_root = leaf_verts[0];
   }
-  else
+  else if (leaf_file.substr(leaf_file.length() - 4) == ".ply") // load leaf(s) from .ply mesh
   {
     readPlyMesh(leaf_file, leaf_mesh);
     // work out its total area:
@@ -260,10 +266,69 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     {
       vert *= scale;
     }
+    leaf_root = leaf_verts[0];
+  }
+  else if (leaf_file.substr(leaf_file.length() - 4) == ".png") // generate leaf(s) from image
+  {
+    stbi_set_flip_vertically_on_load(1);
+    int width, height, num_channels;
+    unsigned char *image_data = stbi_load(leaf_file.c_str(), &width, &height, &num_channels, 0);
+    if (!image_data)
+    {
+      std::cerr << "Error: cannot load file: " << leaf_file << std::endl;
+      return false;
+    }
+    if (num_channels != 4)
+    {
+      std::cerr << "Error: png file has no alpha channel and no leaves are rectangles: " << leaf_file << ", num channels: " << num_channels << std::endl;
+      return false;
+    }
+    double total_alpha = 0.0;
+    for (int x = 0; x<width; x++)
+    {
+      for (int y = 0; y<height; y++)
+      {
+        const int index = num_channels * (x + width * y);
+        total_alpha += ((double)image_data[index+3])/255.0;
+      }
+    }
+    stbi_image_free(image_data);    
+    double image_area = (double)width*(double)height;
+    total_alpha /= image_area;
+    std::cout << "image file: " << leaf_file << " is " << total_alpha*100.0 << "% opaque (leaf)" << std::endl;
+
+    // generate a 4-triangle rectangle along y axis...
+    // rescale the size so actual leaf coverage matches specified area
+    double scale = std::sqrt(leaf_area / image_area) / total_alpha; 
+    double w = 0.5*(double)width * scale;
+    double h = 0.5*(double)height * scale;
+    leaf_verts.push_back(Eigen::Vector3d(-h,-w,-w*w*droop)); 
+    leaf_verts.push_back(Eigen::Vector3d( h,-w,-w*w*droop));
+    leaf_verts.push_back(Eigen::Vector3d(-h, 0, 0));
+    leaf_verts.push_back(Eigen::Vector3d( h, 0, 0));
+    leaf_verts.push_back(Eigen::Vector3d(-h, w,-w*w*droop)); 
+    leaf_verts.push_back(Eigen::Vector3d( h, w,-w*w*droop));
+    leaf_inds.push_back(Eigen::Vector3i(0,1,2));
+    leaf_inds.push_back(Eigen::Vector3i(2,1,3));
+    leaf_inds.push_back(Eigen::Vector3i(2,3,4));
+    leaf_inds.push_back(Eigen::Vector3i(4,3,5));
+    leaf_uvs.push_back(Eigen::Vector3cf(Cmp(0,0),   Cmp(0,1),   Cmp(0.5,0)));
+    leaf_uvs.push_back(Eigen::Vector3cf(Cmp(0.5,0), Cmp(0,1),   Cmp(0.5,1)));
+    leaf_uvs.push_back(Eigen::Vector3cf(Cmp(0.5,0), Cmp(0.5,1), Cmp(1,0)));
+    leaf_uvs.push_back(Eigen::Vector3cf(Cmp(1,0),   Cmp(0.5,1), Cmp(1,1)));
+    leaf_mesh.textureName() = leaf_file;
+    leaf_root = Eigen::Vector3d(0,-w,-w*w*droop);
+  }
+  else
+  {
+    std::cerr << "Error: leaf file type unsupported: " << leaf_file << std::endl;
+    return false;
   }
   Mesh mesh;
   auto &verts = mesh.vertices();
   auto &inds = mesh.indexList(); // one per triangle, gives the index into the vertices_ array for each corner   
+  auto &uvs = mesh.uvList();
+  mesh.textureName() = leaf_mesh.textureName();
   
   for (auto &leaf: leaves)
   {
@@ -278,6 +343,10 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     {
       inds.push_back(tri + Eigen::Vector3i(num_verts, num_verts, num_verts));
     }
+    for (auto &uv: leaf_uvs)
+    {
+      uvs.push_back(uv); // if UVs are present in the input, they are unchanged
+    }
     for (auto &vert: leaf_verts)
     {
       verts.push_back(mat * vert + leaf.centre);
@@ -286,8 +355,13 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
     num_verts = (int)verts.size();
     if (stalks)
     {
+      if (!uvs.empty())
+      {
+        std::cerr << "Error: multiple textures in one mesh are unsupported, so either turn off stalks or remove uvs/texture from leaves" << std::endl;
+        return false;
+      }
       Eigen::Vector3d start = leaf.origin;
-      Eigen::Vector3d leaf_start = mat * leaf_verts[0] + leaf.centre;
+      Eigen::Vector3d leaf_start = mat * leaf_root + leaf.centre;
       Eigen::Vector3d flat = (leaf_start - leaf.origin);
       flat[2] = 0.0;
       double length = flat.norm();
