@@ -48,6 +48,11 @@ int rayImport(int argc, char *argv[])
   if (!standard_format && !position_format && !ray_format)
     usage();
 
+  if (ray_format && ray_vec.value().norm() == 0.0)
+  {
+    std::cerr << "Error: some ray cloud functions require rays to have a length. Please enter a non-zero vector for ray argument" << std::endl;
+    usage();
+  }
   ray::Cloud cloud;
   const std::string &traj_file = trajectory_file.name();
   // Sensors we use have 0 to 100 for normal output, and to 255 for special reflective surfaces
