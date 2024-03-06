@@ -552,7 +552,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       }
       if (!norm_valid)
         continue;
-      if (std::abs(normal[0]) > 100000.0)
+      if (std::abs(normal[0]) > 100000.0 && !warning_set)
       {
         std::cerr << "Error: very large ray length in ray index " << i << " " << normal.transpose() << ", bad input." << std::endl;
         std::cerr << "Use rayexport then rayimport the exported point cloud with a fixed trajectory file" << std::endl;
