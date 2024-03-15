@@ -499,7 +499,7 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
     const double dist1j = par == -1 ? points_[j].pos[2] - base[2] : (points_[j].pos - base).norm();
     const double dist0j =
       par == -1 ? points_[points_[j].parent].pos[2] - base[2] : (points_[points_[j].parent].pos - base).norm();
-    const double blendj = (thickness - dist0j) / (dist1j - dist0j);
+    const double blendj = dist1j == dist0j ? 0.0 : (thickness - dist0j) / (dist1j - dist0j);
     points_[j].edge_pos = points_[points_[j].parent].pos * (1.0 - blendj) + points_[j].pos * blendj;
   }
   // convert to a structure that is better for the cluster function
