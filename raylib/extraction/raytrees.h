@@ -47,7 +47,7 @@ public:
   Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
 
   /// save the trees representation to a text file
-  bool save(const std::string &filename, bool verbose) const;
+  bool save(const std::string &filename, const Eigen::Vector3d &offset, bool verbose) const;
 
 private:
   /// The piecewise cylindrical represenation of all of the trees

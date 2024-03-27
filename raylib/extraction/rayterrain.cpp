@@ -373,6 +373,7 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   mesh_.reduce();  // remove disconnected vertices in the mesh
   mesh_.colours() = std::vector<RGBA>(mesh_.vertices().size(), RGBA::terrain());
 
+  mesh_.addOffset(cloud.offset);
   writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);
   if (verbose)  // debugging output
   {

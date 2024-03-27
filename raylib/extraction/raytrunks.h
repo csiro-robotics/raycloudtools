@@ -27,14 +27,14 @@ public:
   Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_permeable_trunks);
 
   /// Save the trunks to a text file
-  bool save(const std::string &filename) const;
+  bool save(const std::string &filename, const Eigen::Vector3d &offset) const;
 
   /// Load the trunks from a text file
   static std::vector<std::pair<Eigen::Vector3d, double>> load(const std::string &filename);
 
   /// render trunk points to disk:
   void saveDebugTrunks(const std::string &filename, bool verbose, const std::vector<int> &lowest_trunk_ids, 
-    const std::vector<Trunk> &trunks) const;
+    const std::vector<Trunk> &trunks, const Eigen::Vector3d &offset) const;
 
   /// a forest nearest path search to find only the lowest trunks of any connected chain
   std::vector<int> findLowestTrunks(const std::vector<Trunk> &trunks) const;

@@ -38,6 +38,7 @@ public:
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;
   std::vector<RGBA> colours;
+  Eigen::Vector3d offset {Eigen::Vector3d(0,0,0)}; // optional offset if you call extractOffset()
 
   void clear();
   /// reserve the cloud's vectors
@@ -62,6 +63,31 @@ public:
   Eigen::Vector3d calcMinBound() const;
   /// maximum bounds of all bounded rays
   Eigen::Vector3d calcMaxBound() const;
+
+  Eigen::Vector3d extractOffset() // to aid in floating point accuracy 
+  {
+    if (!ends.empty())
+    {
+      offset = ends[0];
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        ends[i] -= offset;
+        starts[i] -= offset;
+      }
+    }
+  }
+  void applyOffset()
+  {
+    if (offset.squaredNorm() != 0.0)
+    {
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        ends[i] += offset;
+        starts[i] += offset;
+      }
+      offset.setZero();
+    }
+  }
 
   /// apply a Euclidean transform and time shift to the ray cloud
   void transform(const Pose &pose, double time_delta);

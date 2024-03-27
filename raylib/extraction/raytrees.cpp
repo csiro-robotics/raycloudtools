@@ -181,6 +181,8 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   }
   if (verbose)
   {
+    debug_cloud.offset = cloud.offset;
+    debug_cloud.applyOffset();
     debug_cloud.save("debug.ply");
   }
 
@@ -1158,7 +1160,7 @@ void Trees::removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound,
 }
 
 // save the structure to a text file
-bool Trees::save(const std::string &filename, bool verbose) const
+bool Trees::save(const std::string &filename, const Eigen::Vector3d &offset, bool verbose) const
 {
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
@@ -1180,7 +1182,7 @@ bool Trees::save(const std::string &filename, bool verbose) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec;
+    ofs << section.tip[0]+offset[0] << "," << section.tip[1]+offset[1] << "," << section.tip[2]+offset[2] << "," << radius(section) << ",-1," << sec;
     if (verbose)
     {
       ofs << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
@@ -1194,7 +1196,7 @@ bool Trees::save(const std::string &filename, bool verbose) const
       {
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id << "," << contiguous_section_ids_[children[c]];
+      ofs << ", " << node.tip[0]+offset[0] << "," << node.tip[1]+offset[1] << "," << node.tip[2]+offset[2] << "," << radius(node) << "," << sections_[node.parent].id << "," << contiguous_section_ids_[children[c]];
       if (verbose)
       {
         ofs << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;
