@@ -19,12 +19,14 @@ set(PUBLIC_HEADERS
   raycloudwriter.h
   rayconcavehull.h
   rayconvexhull.h
+  raydebugdraw.h
   rayellipsoid.h
   rayfinealignment.h
   rayforestgen.h
   rayforeststructure.h
   raygrid.h
   raylaz.h
+  rayriegl.h
   raymerger.h
   raymesh.h
   rayply.h
@@ -55,6 +57,7 @@ set(PUBLIC_HEADERS
   extraction/raysegment.h
   extraction/raytreenode.h
   extraction/raygrid2d.h
+  extraction/raydensegrid.h
 )
 
 set(PRIVATE_HEADERS
@@ -76,6 +79,7 @@ set(SOURCES
   rayforestgen.cpp
   rayforeststructure.cpp
   raylaz.cpp
+  rayriegl.cpp
   raymerger.cpp
   raymesh.cpp
   rayply.cpp
@@ -103,7 +107,20 @@ set(SOURCES
   extraction/rayforest_draw.cpp
   extraction/rayforest_watershed.cpp
   extraction/raysegment.cpp
+  extraction/raydensegrid.cpp
 )
+
+# Select the source file to use with raydebudraw.
+if(WITH_3ES)
+  # Using 3rd Eye Scene
+  list(APPEND SOURCES raydebugdraw_3es.cpp)
+elseif(WITH_ROS)
+  # Using ROS/rivz
+  list(APPEND SOURCES raydebugdraw_ros.cpp)
+else(WITH_3ES)
+  # Disabled.
+  list(APPEND SOURCES raydebugdraw_none.cpp)
+endif(WITH_3ES)
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
 add_compile_options("-fPIC")
