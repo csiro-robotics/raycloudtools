@@ -64,7 +64,7 @@ public:
   /// maximum bounds of all bounded rays
   Eigen::Vector3d calcMaxBound() const;
 
-  Eigen::Vector3d extractOffset() // to aid in floating point accuracy 
+  void extractOffset() // to aid in floating point accuracy 
   {
     if (!ends.empty())
     {

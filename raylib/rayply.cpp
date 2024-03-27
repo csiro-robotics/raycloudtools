@@ -730,21 +730,32 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
     return false;
   }
 
-  std::vector<Eigen::Vector4f> vertices(mesh.vertices().size());  // 4d to give space for colour
-  if (mesh.colours().size() > 0)                                  // support per-triangle colours on meshes
+#if RAYLIB_DOUBLE_RAYS
+  int row_size = 28;
+  struct Vert
   {
-    for (size_t i = 0; i < mesh.vertices().size(); i++)
-    {
-      vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2],
-        (float &)mesh.colours()[i];
-    }
-  }
-  else
+    Eigen::Vector3d pos;
+    ray::RGBA colour;
+  };
+#else 
+  int row_size = 16;
+  struct Vert
   {
-    for (size_t i = 0; i < mesh.vertices().size(); i++)
-    {
-      vertices[i] << (float)mesh.vertices()[i][0], (float)mesh.vertices()[i][1], (float)mesh.vertices()[i][2], 1.0;
-    }
+    Eigen::Vector3f pos;
+    ray::RGBA colour;
+  };
+#endif 
+  std::vector<unsigned char> vertices(row_size * mesh.vertices().size());  // 4d to give space for colour
+  for (size_t i = 0; i < mesh.vertices().size(); i++)
+  {
+    Vert vert;
+#if RAYLIB_DOUBLE_RAYS
+    vert.pos = mesh.vertices()[i];
+#else
+    vert.pos = mesh.vertices()[i].cast<float>();
+#endif
+    vert.colour = mesh.colours().empty() ? ray::RGBA(127,127,127,255) : mesh.colours()[i];
+    memcpy(&vertices[row_size * i], &vert, row_size);
   }
 
   FILE *fid = fopen(file_name.c_str(), "w+");
@@ -761,10 +772,16 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
     std::string tex_name = mesh.textureName() == "" ? "wood_texture.png" : mesh.textureName();
     fprintf(fid, "comment TextureFile %s\n", tex_name.c_str()); 
   }
-  fprintf(fid, "element vertex %u\n", unsigned(vertices.size()));
+  fprintf(fid, "element vertex %u\n", unsigned(mesh.vertices().size()));
+#if RAYLIB_DOUBLE_RAYS
+  fprintf(fid, "property double x\n");
+  fprintf(fid, "property double y\n");
+  fprintf(fid, "property double z\n");
+#else
   fprintf(fid, "property float x\n");
   fprintf(fid, "property float y\n");
   fprintf(fid, "property float z\n");
+#endif
   fprintf(fid, "property uchar red\n");
   fprintf(fid, "property uchar green\n");
   fprintf(fid, "property uchar blue\n");
@@ -778,7 +795,7 @@ bool writePlyMesh(const std::string &file_name, const Mesh &mesh, bool flip_norm
   }
   fprintf(fid, "end_header\n");
 
-  fwrite(&vertices[0], sizeof(Eigen::Vector4f), vertices.size(), fid);
+  fwrite(&vertices[0], sizeof(unsigned char), vertices.size(), fid);
 
   auto &list = mesh.indexList();
   size_t written;
@@ -928,6 +945,7 @@ bool readPlyMesh(const std::string &file, Mesh &mesh)
 
   mesh.vertices().resize(number_of_vertices);
   std::vector<unsigned char> vertices(row_size);
+  std::cout << "row size: " << row_size << std::endl;
   for (unsigned int i = 0; i<number_of_vertices; i++)
   {
     input.read((char *)&vertices[0], row_size);
