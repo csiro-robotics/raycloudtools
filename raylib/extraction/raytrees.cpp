@@ -1168,6 +1168,7 @@ bool Trees::save(const std::string &filename, const Eigen::Vector3d &offset, boo
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }
+  ofs << std::setprecision(4) << std::fixed;
   ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
   ofs << "x,y,z,radius,parent_id,section_id"; // simple format
   if (verbose)
