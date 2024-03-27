@@ -353,7 +353,7 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
 }
 
 // Convert the @c cloud input to the mesh_ member variable. 
-void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose)
+void Terrain::extract(const Cloud &cloud, const Eigen::Vector3d &offset, const std::string &file_prefix, double gradient, bool verbose)
 {
 #if RAYLIB_WITH_QHULL
   // preprocessing to make the cloud smaller.
@@ -373,7 +373,7 @@ void Terrain::extract(const Cloud &cloud, const std::string &file_prefix, double
   mesh_.reduce();  // remove disconnected vertices in the mesh
   mesh_.colours() = std::vector<RGBA>(mesh_.vertices().size(), RGBA::terrain());
 
-  mesh_.addOffset(cloud.offset);
+  mesh_.translate(offset);
   writePlyMesh(file_prefix + "_mesh.ply", mesh_, true);
   if (verbose)  // debugging output
   {

@@ -41,7 +41,7 @@ int rayWrap(int argc, char *argv[])
   if (!cloud.load(cloud_file.name()))
     usage();
   cloud.removeUnboundedRays();
-  cloud.extractOffset();
+  Eigen::Vector3d offset = cloud.removeStartPos();
 
   if (full.isSet())
   {
@@ -57,7 +57,7 @@ int rayWrap(int argc, char *argv[])
     else
       usage();
 
-    concave_hull.mesh().addOffset(cloud.offset);
+    concave_hull.mesh().translate(offset);
     writePlyMesh(cloud_file.nameStub() + "_mesh.ply", concave_hull.mesh(), true);
   }
   else
@@ -75,7 +75,7 @@ int rayWrap(int argc, char *argv[])
       usage();
 
     convex_hull.mesh().reduce();
-    convex_hull.mesh().addOffset(cloud.offset);
+    convex_hull.mesh().translate(offset);
     writePlyMesh(cloud_file.nameStub() + "_mesh.ply", convex_hull.mesh(), true);
   }
 

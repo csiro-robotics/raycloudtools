@@ -49,7 +49,7 @@ public:
   // remove surplus points that are not part of any triangles
   void reduce();
 
-  void addOffset(const Eigen::Vector3d &offset)
+  void translate(const Eigen::Vector3d &offset)
   {
     for (auto &vert: vertices_)
     {

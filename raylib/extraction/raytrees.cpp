@@ -28,7 +28,7 @@ TreesParams::TreesParams()
 /// The main reconstruction algorithm
 /// It is based on finding the shortest paths using Djikstra's algorithm, followed
 /// by an agglomeration of paths, with repeated splitting from root to tips
-Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose)
+Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose)
 {
   // firstly, get the full set of shortest paths from ground to tips, and the set of roots
   params_ = &params;
@@ -181,8 +181,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   }
   if (verbose)
   {
-    debug_cloud.offset = cloud.offset;
-    debug_cloud.applyOffset();
+    debug_cloud.translate(offset);
     debug_cloud.save("debug.ply");
   }
 

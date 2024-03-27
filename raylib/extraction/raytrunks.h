@@ -24,7 +24,7 @@ class RAYLIB_EXPORT Trunks
 public:
   /// Reconstruct the set of trunks from the input ray cloud @c cloud, given a mean
   /// trunk radius @c midRadius.
-  Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_permeable_trunks);
+  Trunks(const Cloud &cloud, const Eigen::Vector3d &offset, double midRadius, bool verbose, bool remove_permeable_trunks);
 
   /// Save the trunks to a text file
   bool save(const std::string &filename, const Eigen::Vector3d &offset) const;
@@ -44,7 +44,7 @@ public:
     const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound);
 
   /// remove trunk candidates with rays that pass right through them
-  void removePermeableTrunks(bool verbose, const Cloud &cloud, std::vector<Trunk> &trunks, 
+  void removePermeableTrunks(bool verbose, const Cloud &cloud, const Eigen::Vector3d &offset, std::vector<Trunk> &trunks, 
     const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound);
 
 private:

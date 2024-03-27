@@ -329,7 +329,7 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks_)
 }
 
 // trunk identification in ray cloud
-Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_permeable_trunks)
+Trunks::Trunks(const Cloud &cloud, const Eigen::Vector3d &offset, double midRadius, bool verbose, bool remove_permeable_trunks)
 {
   // The method is iterative, starting with a large set of trunk candidates, it
   // iteratively adjusts their pose and size to better approximate the neighbourhood of points,
@@ -430,7 +430,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
     std::cout << active_count << " active" << std::endl;
     if (verbose)
     {
-      drawTrunks(trunks, cloud.offset);
+      drawTrunks(trunks, offset);
     }
   }
   trunks.clear();
@@ -460,7 +460,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
   }
   if (verbose)
   {
-    drawTrunks(trunks, cloud.offset);
+    drawTrunks(trunks, offset);
     std::cout << "num non-overlapping trunks: " << trunks.size() << std::endl;
   }
 
@@ -468,14 +468,14 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
   // then it cannot be a trunk. We deal with that situation here
   if (remove_permeable_trunks)
   {
-    removePermeableTrunks(verbose, cloud, trunks, min_bound, max_bound);
+    removePermeableTrunks(verbose, cloud, offset, trunks, min_bound, max_bound);
   }
 
   setTrunkGroundHeights(cloud, trunks, min_bound, max_bound);
   // find only the lowest trunk to the ground in any near-vertical chain of candidates
   std::vector<int> lowest_trunk_ids = findLowestTrunks(trunks);
 
-  saveDebugTrunks("trunks_verbose.ply", verbose, lowest_trunk_ids, trunks, cloud.offset);
+  saveDebugTrunks("trunks_verbose.ply", verbose, lowest_trunk_ids, trunks, offset);
 
   best_trunks_.clear();
   for (auto &id : lowest_trunk_ids)
@@ -485,7 +485,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
 }
 
 /// remove trunk candidates with rays that pass right through them
-void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, std::vector<Trunk> &trunks, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound)
+void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, const Eigen::Vector3d &offset, std::vector<Trunk> &trunks, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound)
 {
   // first we make a 2D grid to store which horizontal cells (pixels) have rays passing through them
   RayIndexGrid2D grid2D;
@@ -559,7 +559,7 @@ void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, std::vector
   {
     // visualise the trunks and the removed ones, showing the closest point of passing rays
     std::cout << "num trunks removed: " << num_removed << std::endl;
-    drawTrunks(trunks, cloud.offset, &closest_approach_points, &pass_through_points);
+    drawTrunks(trunks, offset, &closest_approach_points, &pass_through_points);
   }
 
   best_trunks_ = trunks;

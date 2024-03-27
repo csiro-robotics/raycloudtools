@@ -38,7 +38,6 @@ public:
   std::vector<Eigen::Vector3d> ends;
   std::vector<double> times;
   std::vector<RGBA> colours;
-  Eigen::Vector3d offset {Eigen::Vector3d(0,0,0)}; // optional offset if you call extractOffset()
 
   void clear();
   /// reserve the cloud's vectors
@@ -64,8 +63,9 @@ public:
   /// maximum bounds of all bounded rays
   Eigen::Vector3d calcMaxBound() const;
 
-  void extractOffset() // to aid in floating point accuracy 
+  Eigen::Vector3d removeStartPos() // to aid in floating point accuracy 
   {
+    Eigen::Vector3d offset(0,0,0);
     if (!ends.empty())
     {
       offset = ends[0];
@@ -75,8 +75,9 @@ public:
         starts[i] -= offset;
       }
     }
+    return offset;
   }
-  void applyOffset()
+  void translate(const Eigen::Vector3d &offset)
   {
     if (offset.squaredNorm() != 0.0)
     {
@@ -85,7 +86,6 @@ public:
         ends[i] += offset;
         starts[i] += offset;
       }
-      offset.setZero();
     }
   }
 

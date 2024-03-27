@@ -44,7 +44,7 @@ class RAYLIB_EXPORT Trees
 public:
   /// Constructs the piecewise cylindrical tree structures from the input ray cloud @c cloud
   /// The ground @c mesh defines the ground and @params are used to control the reconstruction
-  Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
+  Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose);
 
   /// save the trees representation to a text file
   bool save(const std::string &filename, const Eigen::Vector3d &offset, bool verbose) const;
