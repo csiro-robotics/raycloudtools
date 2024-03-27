@@ -10,14 +10,14 @@
 #include "rayunused.h"
 
 
-// #if RAYLIB_WITH_RIEGL
+#if RAYLIB_WITH_RIEGL
 #include <cmath>
 #include <iostream>
 #include <riegl/rdb.hpp>
 #include <riegl/rdb/default.hpp>
 #include <riegl/scanlib.hpp>
 #include <tuple>
-// #endif  // RAYLIB_WITH_RIEGL
+#endif  // RAYLIB_WITH_RIEGL
 
 
 struct RieglPointData

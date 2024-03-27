@@ -127,11 +127,6 @@ int rayExtract(int argc, char *argv[])
   {
     usage();
   }
-  if (verbose.isSet() && (extract_trunks || extract_trees))
-  {
-    ray::DebugDraw::init(argc, argv, "rayextract");
-  }
-
   // finds cylindrical trunks in the data and saves them to an _trunks.txt file
   if (extract_trunks)
   {
