@@ -13,8 +13,8 @@
 #if RAYLIB_WITH_RIEGL
 #include <cmath>
 #include <iostream>
-#include <riegl/rdb.hpp>
-#include <riegl/rdb/default.hpp>
+// #include <riegl/rdb.hpp>
+// #include <riegl/rdb/default.hpp>
 #include <riegl/scanlib.hpp>
 #include <tuple>
 #endif  // RAYLIB_WITH_RIEGL
@@ -194,109 +194,109 @@ bool readRXP(const std::string &file_name,
 }
 
 
-bool readRDBX(const std::string &file_name,
-              std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                                 std::vector<double> &times, std::vector<RGBA> &colours)>
-                apply,
-              size_t &num_bounded, double max_intensity, size_t chunk_size)
-{
+// bool readRDBX(const std::string &file_name,
+//               std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+//                                  std::vector<double> &times, std::vector<RGBA> &colours)>
+//                 apply,
+//               size_t &num_bounded, double max_intensity, size_t chunk_size)
+// {
   
-  // New RDB library context
-  riegl::rdb::Context context;
+//   // New RDB library context
+//   riegl::rdb::Context context;
 
-  // Access existing database
-  riegl::rdb::Pointcloud rdb(context);
-  riegl::rdb::pointcloud::OpenSettings settings;
-  rdb.open(file_name, settings);
+//   // Access existing database
+//   riegl::rdb::Pointcloud rdb(context);
+//   riegl::rdb::pointcloud::OpenSettings settings;
+//   rdb.open(file_name, settings);
 
-  // Prepare point attribute buffers
-  static const uint32_t BUFFER_SIZE = 10000;
-  std::vector<uint64_t> bufferPointNumber(BUFFER_SIZE);
-  std::vector<std::array<double, 3>> bufferCoordinates(BUFFER_SIZE);
-  std::vector<float> bufferReflectance(BUFFER_SIZE);
-  std::vector<std::array<uint8_t, 4>> bufferTimestamp(BUFFER_SIZE);
-  std::vector<std::array<uint8_t, 4>> bufferTrueColor(BUFFER_SIZE);
+//   // Prepare point attribute buffers
+//   static const uint32_t BUFFER_SIZE = 10000;
+//   std::vector<uint64_t> bufferPointNumber(BUFFER_SIZE);
+//   std::vector<std::array<double, 3>> bufferCoordinates(BUFFER_SIZE);
+//   std::vector<float> bufferReflectance(BUFFER_SIZE);
+//   std::vector<std::array<uint8_t, 4>> bufferTimestamp(BUFFER_SIZE);
+//   std::vector<std::array<uint8_t, 4>> bufferTrueColor(BUFFER_SIZE);
 
-  // Start new select query to read...
-  riegl::rdb::pointcloud::QuerySelect select = rdb.select();
+//   // Start new select query to read...
+//   riegl::rdb::pointcloud::QuerySelect select = rdb.select();
 
-  // Tell select query where to store the data
-  using namespace riegl::rdb::pointcloud;
-  select.bindBuffer(RDB_RIEGL_ID, bufferPointNumber);
-  select.bindBuffer(RDB_RIEGL_XYZ, bufferCoordinates);
-  select.bindBuffer(RDB_RIEGL_REFLECTANCE, bufferReflectance);
-  // select.bindBuffer(RDB_RIEGL_TIMESTAMP, bufferTimestamp);
-  // select.bindBuffer(RDB_RIEGL_RGBA, bufferTrueColor);
+//   // Tell select query where to store the data
+//   using namespace riegl::rdb::pointcloud;
+//   select.bindBuffer(RDB_RIEGL_ID, bufferPointNumber);
+//   select.bindBuffer(RDB_RIEGL_XYZ, bufferCoordinates);
+//   select.bindBuffer(RDB_RIEGL_REFLECTANCE, bufferReflectance);
+//   // select.bindBuffer(RDB_RIEGL_TIMESTAMP, bufferTimestamp);
+//   // select.bindBuffer(RDB_RIEGL_RGBA, bufferTrueColor);
 
-  // ray::Progress progress;
-  // ray::ProgressThread progress_thread(progress);
-  // progress.begin("read and process", chunk_size);
+//   // ray::Progress progress;
+//   // ray::ProgressThread progress_thread(progress);
+//   // progress.begin("read and process", chunk_size);
 
-  std::vector<Eigen::Vector3d> starts;
-  std::vector<Eigen::Vector3d> ends;
-  std::vector<double> times;
-  std::vector<RGBA> colours;
-  std::vector<uint8_t> intensities;
-  starts.reserve(chunk_size);
-  ends.reserve(chunk_size);
-  times.reserve(chunk_size);
-  // intensities.reserve(chunk_size);
-  // colours.reserve(chunk_size);
+//   std::vector<Eigen::Vector3d> starts;
+//   std::vector<Eigen::Vector3d> ends;
+//   std::vector<double> times;
+//   std::vector<RGBA> colours;
+//   std::vector<uint8_t> intensities;
+//   starts.reserve(chunk_size);
+//   ends.reserve(chunk_size);
+//   times.reserve(chunk_size);
+//   // intensities.reserve(chunk_size);
+//   // colours.reserve(chunk_size);
 
-  num_bounded = 0;
-  unsigned int number_of_points = bufferPointNumber[-1];
+//   num_bounded = 0;
+//   unsigned int number_of_points = bufferPointNumber[-1];
 
-  // Read and process all points block-wise
-  while (const uint32_t count = select.next(BUFFER_SIZE))
-  {
-    // Print points to output stream
-    for (uint32_t i = 0; i < count; i++)
-    {
-      Eigen::Vector3d end;
-      end[0] = bufferCoordinates[i][0];
-      end[1] = bufferCoordinates[i][1];
-      end[2] = bufferCoordinates[i][2];
+//   // Read and process all points block-wise
+//   while (const uint32_t count = select.next(BUFFER_SIZE))
+//   {
+//     // Print points to output stream
+//     for (uint32_t i = 0; i < count; i++)
+//     {
+//       Eigen::Vector3d end;
+//       end[0] = bufferCoordinates[i][0];
+//       end[1] = bufferCoordinates[i][1];
+//       end[2] = bufferCoordinates[i][2];
 
-      // std::vector<RGBA> colour;
-      // colour << int(bufferTrueColor[i][0]), int(bufferTrueColor[i][0]), int(bufferTrueColor[i][0]);
-      // ends.push_back(end);
-      // times.push_back(bufferTimestamp[i]);
-      // colours.push_back(colour);
+//       // std::vector<RGBA> colour;
+//       // colour << int(bufferTrueColor[i][0]), int(bufferTrueColor[i][0]), int(bufferTrueColor[i][0]);
+//       // ends.push_back(end);
+//       // times.push_back(bufferTimestamp[i]);
+//       // colours.push_back(colour);
 
-      const double point_int = bufferReflectance[i];
-      const double normalised_intensity = (255.0 * point_int) / max_intensity;
-      const uint8_t intensity = static_cast<uint8_t>(std::min(normalised_intensity, 255.0));
-      if (point_int > 0)
-        num_bounded++;
-      intensities.push_back(point_int);
+//       const double point_int = bufferReflectance[i];
+//       const double normalised_intensity = (255.0 * point_int) / max_intensity;
+//       const uint8_t intensity = static_cast<uint8_t>(std::min(normalised_intensity, 255.0));
+//       if (point_int > 0)
+//         num_bounded++;
+//       intensities.push_back(point_int);
 
 
-      if (ends.size() == BUFFER_SIZE || i == number_of_points - 1)
-      {
-        if (colours.size() == 0)
-        {
-          colourByTime(times, colours);
-        }
-        for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
-          colours[i].alpha = intensities[i];
-        apply(starts, ends, times, colours);
-        starts.clear();
-        ends.clear();
-        times.clear();
-        colours.clear();
-        intensities.clear();
-        // progress.increment();
-      }
-    }
-  }
-  // progress.end();
-  // progress_thread.requestQuit();
-  // progress_thread.join();
+//       if (ends.size() == BUFFER_SIZE || i == number_of_points - 1)
+//       {
+//         if (colours.size() == 0)
+//         {
+//           colourByTime(times, colours);
+//         }
+//         for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
+//           colours[i].alpha = intensities[i];
+//         apply(starts, ends, times, colours);
+//         starts.clear();
+//         ends.clear();
+//         times.clear();
+//         colours.clear();
+//         intensities.clear();
+//         // progress.increment();
+//       }
+//     }
+//   }
+//   // progress.end();
+//   // progress_thread.requestQuit();
+//   // progress_thread.join();
 
-  std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
+//   std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
 
-  return true;
-}
+//   return true;
+// }
 
 
 }  // namespace ray

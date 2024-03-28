@@ -41,9 +41,9 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width)
       for (int i = 0; i < dims[0]; i++)
       {
         int index = grid.getIndex(Eigen::Vector3i(i, j, k));
-        double density = grid.voxels()[index].density();
-        if (density != 0)
+        if (grid.voxels()[index].numHits() > 0 && grid.voxels()[index].numRays() > 0)
         {
+          double density = grid.voxels()[index].density();
           // points_q.row(c++) = grid_bounds.min_bound_ + vox_width * Eigen::Vector3d((double)i+0.5, (double)j+0.5, (double)k+0.5);
           double x = grid_bounds.min_bound_[0] + vox_width * (double)i+0.5;
           double y = grid_bounds.min_bound_[1] + vox_width * (double)j+0.5;

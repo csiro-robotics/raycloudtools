@@ -21,9 +21,11 @@ void usage(int exit_code = 1)
   // clang-format off
   std::cout << "Import a point cloud and trajectory file into a ray cloud" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las, .ply, .rdbx or .rxp file" << std::endl;
+  // std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las, .ply, .rdbx or .rxp file" << std::endl;
+  std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las, .ply or .rxp file" << std::endl;
   std::cout << "                                           trajectoryfile is a text file using 'time x y z' format per line" << std::endl;
-  std::cout << "rayimport pointcloudfile transform transformfile  - pointcloudfile can be a .laz, .las, .ply, .rdbx or .rxp file" << std::endl;
+  // std::cout << "rayimport pointcloudfile transform transformfile  - pointcloudfile can be a .laz, .las, .ply, .rdbx or .rxp file" << std::endl;
+  std::cout << "rayimport pointcloudfile transform transformfile  - pointcloudfile can be a .laz, .las, .ply or .rxp file" << std::endl;
   std::cout << "                                               transformfile is a text file containing a 4x4 transformation matrix" << std::endl;
   std::cout << "rayimport pointcloudfile 0,0,0           - use 0,0,0 as the sensor location" << std::endl;
   std::cout << "rayimport pointcloudfile ray 0,0,-10     - use 0,0,-10 as the constant ray vector from start to point" << std::endl;
@@ -221,13 +223,13 @@ int rayImport(int argc, char *argv[])
       usage();
     }
   }
-  else if (cloud_file.nameExt() == "rdbx")
-  {
-    if (!ray::readRDBX(cloud_file.name(), add_chunk, num_bounded, maximum_intensity))
-    {
-      usage();
-    }
-  }
+  // else if (cloud_file.nameExt() == "rdbx")
+  // {
+  //   if (!ray::readRDBX(cloud_file.name(), add_chunk, num_bounded, maximum_intensity))
+  //   {
+  //     usage();
+  //   }
+  // }
   else
   {
     std::cout << "Error converting unknown type: " << cloud_file.name() << std::endl;
