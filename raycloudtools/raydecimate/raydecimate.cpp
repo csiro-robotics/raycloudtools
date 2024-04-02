@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <map>
 
 void usage(int exit_code = 1)
 {
@@ -46,7 +47,8 @@ int rayDecimate(int argc, char *argv[])
   ray::FileArgument cloud_file;
   ray::IntArgument num_rays(1, 100);
   ray::DoubleArgument vox_width(0.01, 100.0);
-  ray::ValueKeyChoice quantity({ &vox_width, &num_rays }, { "cm", "rays", "cm/m" });
+  ray::DoubleArgument radius_per_length(0.01, 100.0);
+  ray::ValueKeyChoice quantity({ &vox_width, &num_rays, &radius_per_length }, { "cm", "rays", "cm/m" });
   if (!ray::parseCommandLine(argc, argv, { &cloud_file, &quantity }))
     usage();
   const bool spatial_decimation = quantity.selectedKey() == "cm";
@@ -79,7 +81,7 @@ int rayDecimate(int argc, char *argv[])
   int min_index = -10; // about a millimetre
   int max_index = 100;
   std::vector<std::map<Eigen::Vector3i, int, ray::Vector3iLess>> voxel_maps(max_index + 1 - min_index);
-  std::vector<std::set<Eigen::Vector3i, ray::Vector3iLess> visiteds(max_index + 1 - min_index);
+  std::vector<std::set<Eigen::Vector3i, ray::Vector3iLess>> visiteds(max_index + 1 - min_index);
   std::vector<Ray> rays;
 
   auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
@@ -93,16 +95,16 @@ int rayDecimate(int argc, char *argv[])
         ray.end = ends[i];
         ray.colour = colours[i];
         ray.time = times[i];
-        ray.radius = (ray.start - ray.end).norm() * 0.01*quantity.value();
+        ray.radius = (ray.start - ray.end).norm() * 0.01*radius_per_length.value();
 
-        int map_index = std::max(min_index, std::min(std::(int)std::floor(std::log2(ray.radius)), max_index);
+        int map_index = std::max(min_index, std::min((int)std::round(std::log2(2.0*ray.radius)), max_index));
         Eigen::Vector3d coords = ray.end / std::pow(2.0, map_index);
-        Eigen::Vector3d coordsi = Eigen::Vector3d(std::floor(coords[0]), std::floor(coords[1]), std::floor(coords[2])).cast<int>();
-        if (visiteds[map_index - min_index].find() != visiteds[map_index - min_index].end()) // this level map has already been visited by a child (smaller ray length)
+        Eigen::Vector3i coordsi = Eigen::Vector3d(std::floor(coords[0]), std::floor(coords[1]), std::floor(coords[2])).cast<int>();
+        if (visiteds[map_index - min_index].find(coordsi) != visiteds[map_index - min_index].end()) // this level map has already been visited by a child (smaller ray length)
           continue;
 
         auto &voxel_map = voxel_maps[map_index - min_index];
-        auto &found = voxel_map.find(coordsi);
+        const auto &found = voxel_map.find(coordsi);
         if (found != voxel_map.end())
         {
           int ray_id = found->second;
@@ -122,7 +124,7 @@ int rayDecimate(int argc, char *argv[])
           pos = Eigen::Vector3d(std::floor((double)pos[0]/2.0), std::floor((double)pos[1]/2.0), std::floor((double)pos[2]/2.0)).cast<int>();
           ind++;
           
-          while (ind < (int)visiteds.size() && visiteds[ind].find(pos) != visiteds[ind].end())
+          while (ind < (int)visiteds.size() && visiteds[ind].find(pos) == visiteds[ind].end())
           {
             visiteds[ind].insert(pos);
             ind++;
@@ -168,16 +170,16 @@ int rayDecimate(int argc, char *argv[])
   { 
     for (auto &ray: rays)
     {
-      int map_index = std::max(min_index, std::min(std::(int)std::floor(std::log2(ray.radius)), max_index);
+      int map_index = std::max(min_index, std::min((int)std::round(std::log2(2.0*ray.radius)), max_index));
       Eigen::Vector3d coords = ray.end / std::pow(2.0, map_index);
-      Eigen::Vector3d coordsi = Eigen::Vector3d(std::floor(coords[0]), std::floor(coords[1]), std::floor(coords[2])).cast<int>();
-      if (visiteds[map_index - min_index].find() != visiteds[map_index - min_index].end()) // this level map has already been visited by a child (smaller ray length)
+      Eigen::Vector3i coordsi = Eigen::Vector3d(std::floor(coords[0]), std::floor(coords[1]), std::floor(coords[2])).cast<int>();
+      if (visiteds[map_index - min_index].find(coordsi) != visiteds[map_index - min_index].end()) // this level map has already been visited by a child (smaller ray length)
         continue;   
       // if not visited by a child then we are free to add this
       chunk.starts.push_back(ray.start);
-      chunk.ends.push_back(ray.ends);
-      chunk.colours.push_back(ray.colours);
-      chunk.times.push_back(ray.times);
+      chunk.ends.push_back(ray.end);
+      chunk.colours.push_back(ray.colour);
+      chunk.times.push_back(ray.time);
     }
     writer.writeChunk(chunk);
   }
