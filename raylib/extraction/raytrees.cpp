@@ -280,7 +280,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
   // remove all sections with a root out of bounds, if we have gridded the cloud with an overlap
   if (params_->grid_width)
   {
-    removeOutOfBoundSections(cloud, min_bound, max_bound);
+    removeOutOfBoundSections(cloud, min_bound, max_bound, offset);
   }
 
   std::vector<int> root_segs(cloud.ends.size(), -1);
@@ -1027,17 +1027,17 @@ void Trees::generateLocalSectionIds()
   std::cout << num << " trees saved" << std::endl;
 }
 
-void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound)
+void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound, const Eigen::Vector3d &offset)
 {
   const double width = params_->grid_width;
   cloud.calcBounds(&min_bound, &max_bound);
-  const Eigen::Vector3d mid = (min_bound + max_bound) / 2.0;
+  const Eigen::Vector3d mid = (min_bound + max_bound)/2.0 + offset;
   const Eigen::Vector2d inds(std::round(mid[0] / width), std::round(mid[1] / width));
-  min_bound[0] = width * (inds[0] - 0.5);
-  min_bound[1] = width * (inds[1] - 0.5);
-  max_bound[0] = width * (inds[0] + 0.5);
-  max_bound[1] = width * (inds[1] + 0.5);
-  std::cout << "min bound: " << min_bound.transpose() << ", max bound: " << max_bound.transpose() << std::endl;
+  min_bound[0] = width * (inds[0] - 0.5) - offset[0];
+  min_bound[1] = width * (inds[1] - 0.5) - offset[1];
+  max_bound[0] = width * (inds[0] + 0.5) - offset[0];
+  max_bound[1] = width * (inds[1] + 0.5) - offset[1];
+  std::cout << "min bound: " << (min_bound+offset).transpose() << ", max bound: " << (max_bound+offset).transpose() << std::endl;
 
   // disable trees out of bounds
   for (auto &section : sections_)

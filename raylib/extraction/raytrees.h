@@ -86,7 +86,7 @@ private:
   /// set ids that are locel (0-based) per tree
   void generateLocalSectionIds();
   /// if using an overlapping grid, then remove trees with base outside the non-overlapping cell bounds
-  void removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound);
+  void removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound, const Eigen::Vector3d &offset);
   /// colour the cloud based on the section id for each point
   void segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids);
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds
