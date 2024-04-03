@@ -72,6 +72,11 @@ int rayDecimate(int argc, char *argv[])
   std::vector<std::set<Eigen::Vector3i, ray::Vector3iLess>> visiteds(max_index + 1 - min_index);
   const double root2 = std::sqrt(2.0);
   const double logroot2 = std::log(root2);
+  std::vector<double> voxel_widths(voxel_sets.size()); 
+  for (int i = 0; i<(int)voxel_widths.size(); i++)
+  {
+    voxel_widths[i] = std::pow(root2, (double)(i+min_index));
+  }
 
   auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                       std::vector<double> &times, std::vector<ray::RGBA> &colours) {
@@ -81,23 +86,22 @@ int rayDecimate(int argc, char *argv[])
       {
         double radius = (starts[i] - ends[i]).norm() * 0.01*radius_per_length.value();
         int map_index = std::max(min_index, std::min((int)std::round(std::log(2.0*radius)/logroot2), max_index));
-        Eigen::Vector3d coords = ends[i] / std::pow(root2, map_index);
+        Eigen::Vector3d coords = ends[i] / voxel_widths[map_index - min_index];
         Eigen::Vector3i coordsi = Eigen::Vector3d(std::floor(coords[0]), std::floor(coords[1]), std::floor(coords[2])).cast<int>();
         int ind = map_index - min_index;
         if (visiteds[ind].find(coordsi) != visiteds[ind].end()) // this level map has already been visited by a child (smaller ray length)
           continue;
 
-        if (voxel_sets[ind].find(coordsi) == voxel_sets[ind].end())
+        if (voxel_sets[ind].insert(coordsi).second)
         {
-          voxel_sets[ind].insert(coordsi);
           // now insert visiteds to suppress longer rays
           Eigen::Vector3i pos = coordsi;
           double scale = root2;
           pos = Eigen::Vector3d(std::floor((double)coordsi[0]/scale), std::floor((double)coordsi[1]/scale), std::floor((double)coordsi[2]/scale)).cast<int>();
           ind++;
-          while (ind < (int)visiteds.size() && visiteds[ind].find(pos) == visiteds[ind].end())
+          while (ind < (int)visiteds.size() && visiteds[ind].insert(pos).second)
           {
-            visiteds[ind++].insert(pos);
+            ind++;
             scale *= root2;
             pos = Eigen::Vector3d(std::floor((double)coordsi[0]/scale), std::floor((double)coordsi[1]/scale), std::floor((double)coordsi[2]/scale)).cast<int>();
           }         
@@ -150,14 +154,13 @@ int rayDecimate(int argc, char *argv[])
       {
         double radius = (starts[i] - ends[i]).norm() * 0.01*radius_per_length.value();
         int map_index = std::max(min_index, std::min((int)std::round(std::log(2.0*radius)/logroot2), max_index));
-        Eigen::Vector3d coords = ends[i] / std::pow(root2, map_index);
+        Eigen::Vector3d coords = ends[i] / voxel_widths[map_index - min_index];
         Eigen::Vector3i coordsi = Eigen::Vector3d(std::floor(coords[0]), std::floor(coords[1]), std::floor(coords[2])).cast<int>();
         int ind = map_index - min_index;
         if (visiteds[ind].find(coordsi) == visiteds[ind].end()) 
         {
-          if (voxel_sets[ind].find(coordsi) == voxel_sets[ind].end()) // we only want one ray from this voxel
-          {
-            voxel_sets[ind].insert(coordsi);          
+          if (voxel_sets[ind].insert(coordsi).second)
+          {       
             chunk.starts.push_back(starts[i]);
             chunk.ends.push_back(ends[i]);
             chunk.colours.push_back(colours[i]);
