@@ -68,7 +68,7 @@ int rayDecimate(int argc, char *argv[])
   // for the length decimation case
   int min_index = -20; // about a millimetre
   int max_index = 50;
-  std::vector<std::set<Eigen::Vector3i, ray::Vector3iLess>> voxel_maps(max_index + 1 - min_index);
+  std::vector<std::set<Eigen::Vector3i, ray::Vector3iLess>> voxel_sets(max_index + 1 - min_index);
   std::vector<std::set<Eigen::Vector3i, ray::Vector3iLess>> visiteds(max_index + 1 - min_index);
   const double root2 = std::sqrt(2.0);
   const double logroot2 = std::log(root2);
@@ -87,9 +87,9 @@ int rayDecimate(int argc, char *argv[])
         if (visiteds[ind].find(coordsi) != visiteds[ind].end()) // this level map has already been visited by a child (smaller ray length)
           continue;
 
-        if (voxel_maps[ind].find(coordsi) == voxel_maps[ind].end())
+        if (voxel_sets[ind].find(coordsi) == voxel_sets[ind].end())
         {
-          voxel_maps[ind].insert(coordsi);
+          voxel_sets[ind].insert(coordsi);
           // now insert visiteds to suppress longer rays
           Eigen::Vector3i pos = coordsi;
           double scale = root2;
@@ -139,8 +139,9 @@ int rayDecimate(int argc, char *argv[])
     usage();
   if (length_decimation)
   { 
-    for (auto &map: voxel_maps)
+    for (auto &map: voxel_sets)
       map.clear(); // redo
+    // the finalise step uses the visiteds data to decide whether to include each ray
     auto finalise = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                         std::vector<double> &times, std::vector<ray::RGBA> &colours) 
     {
@@ -152,11 +153,11 @@ int rayDecimate(int argc, char *argv[])
         Eigen::Vector3d coords = ends[i] / std::pow(root2, map_index);
         Eigen::Vector3i coordsi = Eigen::Vector3d(std::floor(coords[0]), std::floor(coords[1]), std::floor(coords[2])).cast<int>();
         int ind = map_index - min_index;
-        if (visiteds[ind].find(coordsi) == visiteds[ind].end()) // this level map has already been visited by a child (smaller ray length)
+        if (visiteds[ind].find(coordsi) == visiteds[ind].end()) 
         {
-          if (voxel_maps[ind].find(coordsi) == voxel_maps[ind].end())
+          if (voxel_sets[ind].find(coordsi) == voxel_sets[ind].end()) // we only want one ray from this voxel
           {
-            voxel_maps[ind].insert(coordsi);          
+            voxel_sets[ind].insert(coordsi);          
             chunk.starts.push_back(starts[i]);
             chunk.ends.push_back(ends[i]);
             chunk.colours.push_back(colours[i]);
