@@ -59,7 +59,7 @@ int rayExport(int argc, char *argv[])
       usage();
     ray::writePointCloudChunkEnd(ofs);
   }
-  else if (pointcloud_file.nameExt() == "xyz")
+  else if (pointcloud_file.nameExt() == "xyz" || pointcloud_file.nameExt() == "txt")
   {
     ray::PointPlyBuffer buffer;
     std::ofstream ofs;
@@ -69,14 +69,24 @@ int rayExport(int argc, char *argv[])
       usage();
     }
     ofs << std::setprecision(4) << std::fixed;
-    // ofs << "# x y z text format. Space delimited" << std::endl;
-    auto add_chunk = [&ofs](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
-                            std::vector<double> &, std::vector<ray::RGBA> &) {
+    bool txt = pointcloud_file.nameExt() == "txt";
+    if (txt)
+    {
+      ofs << "# point cloud text format. Comma delimited x,y,z,time,red,green,blue,alpha" << std::endl;
+    }
+    auto add_chunk = [&ofs, txt](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+                            std::vector<double> &times, std::vector<ray::RGBA> &colours) {
       for (size_t i = 0; i < ends.size(); i++)
       {
-        ofs << ends[i][0] << " " << ends[i][1] << " " << ends[i][2] << " " << std::endl;
-        // Meshlab won't open a .xyz with extra attributes like these:
-        // times[i] << " " << (int)colours[i].red << " " << (int)colours[i].green << " " << (int)colours[i].blue << " " << (int)colours[i].alpha << std::endl;
+        if (txt)
+        {
+          ofs << ends[i][0] << "," << ends[i][1] << "," << ends[i][2] << "," << times[i] << "," << 
+            (int)colours[i].red << "," << (int)colours[i].green << "," << (int)colours[i].blue << "," << (int)colours[i].alpha << std::endl;
+        }
+        else
+        {
+          ofs << ends[i][0] << " " << ends[i][1] << " " << ends[i][2] << " " << std::endl;
+        }
       }    
     };
     if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0))
