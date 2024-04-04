@@ -86,9 +86,8 @@ int rayInfo(int argc, char *argv[])
       if (colours[i].alpha > 0)
       {
         Eigen::Vector2i voxel(int(std::floor(ends[i][0] / voxel_width)), int(std::floor(ends[i][1] / voxel_width)));
-        if (vox_set.find(voxel) == vox_set.end())
+        if (vox_set.insert(voxel).second)
         {
-          vox_set.insert(voxel);
           num_pixels_covered++;
         }
       }

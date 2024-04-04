@@ -381,9 +381,8 @@ double Cloud::estimatePointSpacing(const std::string &file_name, const Cuboid &b
       const Eigen::Vector3d &point = ends[i];
       Eigen::Vector3i place(int(std::floor(point[0] / voxel_width)), int(std::floor(point[1] / voxel_width)),
                             int(std::floor(point[2] / voxel_width)));
-      if (test_set.find(place) == test_set.end())
+      if (test_set.insert(place).second)
       {
-        test_set.insert(place);
         num_voxels++;
       }
     }
@@ -424,9 +423,8 @@ double Cloud::estimatePointSpacing() const
       const Eigen::Vector3d &point = ends[i];
       Eigen::Vector3i place(int(std::floor(point[0] / voxel_width)), int(std::floor(point[1] / voxel_width)),
                             int(std::floor(point[2] / voxel_width)));
-      if (test_set.find(place) == test_set.end())
+      if (test_set.insert(place).second)
       {
-        test_set.insert(place);
         num_voxels++;
       }
     }

@@ -90,9 +90,8 @@ int rayExport(int argc, char *argv[])
         const int64_t time_slot = static_cast<int64_t>(std::floor(times[i] / time_step));
         if (time_slot == last_time_slot)
           continue;
-        if (time_slots.find(time_slot) == time_slots.end())
+        if (time_slots.insert(time_slot).second)
         {
-          time_slots.insert(time_slot);
           chunk.starts.push_back(starts[i]);
           chunk.times.push_back(times[i]);
           chunk.colours.push_back(colours[i]);
@@ -121,9 +120,8 @@ int rayExport(int argc, char *argv[])
         {
           continue;
         }
-        if (time_slots.find(time_slot) == time_slots.end())
+        if (time_slots.insert(time_slot).second)
         {
-          time_slots.insert(time_slot);
           if (!traj_nodes.empty() && times[i] < traj_nodes.back().time)
           {
             sorted = false;
