@@ -59,6 +59,32 @@ int rayExport(int argc, char *argv[])
       usage();
     ray::writePointCloudChunkEnd(ofs);
   }
+  else if (pointcloud_file.nameExt() == "xyz")
+  {
+    ray::PointPlyBuffer buffer;
+    std::ofstream ofs;
+    ofs.open(pointcloud_file.name(), std::ios::out);
+    if (ofs.fail())
+    {
+      usage();
+    }
+    ofs << std::setprecision(4) << std::fixed;
+    // ofs << "# x y z text format. Space delimited" << std::endl;
+    auto add_chunk = [&ofs](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+                            std::vector<double> &, std::vector<ray::RGBA> &) {
+      for (size_t i = 0; i < ends.size(); i++)
+      {
+        ofs << ends[i][0] << " " << ends[i][1] << " " << ends[i][2] << " " << std::endl;
+        // Meshlab won't open a .xyz with extra attributes like these:
+        // times[i] << " " << (int)colours[i].red << " " << (int)colours[i].green << " " << (int)colours[i].blue << " " << (int)colours[i].alpha << std::endl;
+      }    
+    };
+    if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0))
+    {
+      usage();
+    }
+    ofs.close();
+  }
   else
   {
     usage();
