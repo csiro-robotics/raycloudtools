@@ -117,9 +117,8 @@ inline void voxelSubsample(const std::vector<Eigen::Vector3d> &points, double vo
   {
     Eigen::Vector3i voxel(int(std::floor(points[i][0] / voxel_width)), int(std::floor(points[i][1] / voxel_width)),
                           int(std::floor(points[i][2] / voxel_width)));
-    if (vox_set.find(voxel) == vox_set.end())
+    if (vox_set.insert(voxel).second)
     {
-      vox_set.insert(voxel);
       indices.push_back(i);
     }
   }
