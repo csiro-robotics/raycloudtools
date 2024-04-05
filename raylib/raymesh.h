@@ -49,6 +49,14 @@ public:
   // remove surplus points that are not part of any triangles
   void reduce();
 
+  void translate(const Eigen::Vector3d &offset)
+  {
+    for (auto &vert: vertices_)
+    {
+      vert += offset;
+    }
+  }
+
 private:
   std::vector<Eigen::Vector3d> vertices_;
   std::vector<Eigen::Vector3i> index_list_; // one per triangle, gives the index into the vertices_ array for each corner

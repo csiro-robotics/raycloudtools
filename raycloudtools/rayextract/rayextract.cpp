@@ -135,10 +135,11 @@ int rayExtract(int argc, char *argv[])
     {
       usage(true);
     }
+    Eigen::Vector3d offset = cloud.removeStartPos();
 
     const double radius = 0.1;  // ~ /2 up to *2. So tree diameters 10 cm up to 40 cm
-    ray::Trunks trunks(cloud, radius, verbose.isSet(), exclude_rays.isSet());
-    trunks.save(cloud_file.nameStub() + "_trunks.txt");
+    ray::Trunks trunks(cloud, offset, radius, verbose.isSet(), exclude_rays.isSet());
+    trunks.save(cloud_file.nameStub() + "_trunks.txt", offset);
   }
   // finds full tree structures (piecewise cylindrical representation) and saves to file
   else if (extract_trees)
@@ -149,12 +150,15 @@ int rayExtract(int argc, char *argv[])
     {
       usage(true);
     }
+    Eigen::Vector3d offset = cloud.removeStartPos();
 
     ray::Mesh mesh;
     if (!ray::readPlyMesh(mesh_file.name(), mesh))
     {
       usage(true);
     }
+    mesh.translate(-offset);
+
     ray::TreesParams params;
     if (max_diameter_option.isSet())
     {
@@ -206,11 +210,12 @@ int rayExtract(int argc, char *argv[])
     }    
     params.segment_branches = segment_branches.isSet();
 
-    ray::Trees trees(cloud, mesh, params, verbose.isSet());
+    ray::Trees trees(cloud, offset, mesh, params, verbose.isSet());
 
     // output the picewise cylindrical description of the trees
-    trees.save(cloud_file.nameStub() + "_trees.txt", verbose.isSet());
+    trees.save(cloud_file.nameStub() + "_trees.txt", offset, verbose.isSet());
     // we also save a segmented (one colour per tree) file, as this is a useful output
+    cloud.translate(offset);
     cloud.save(cloud_file.nameStub() + "_segmented.ply");
     // let's also save the trees out as a mesh
     // it is a bit inefficient to load from file just to convert it into the forest structure, but
@@ -273,9 +278,10 @@ int rayExtract(int argc, char *argv[])
     {
       usage(true);
     }
+    Eigen::Vector3d offset = cloud.removeStartPos();
 
     ray::Terrain terrain;
-    terrain.extract(cloud, cloud_file.nameStub(), gradient.value(), verbose.isSet());
+    terrain.extract(cloud, offset, cloud_file.nameStub(), gradient.value(), verbose.isSet());
   }
   else if (extract_leaves)
   {

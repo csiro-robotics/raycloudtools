@@ -28,7 +28,7 @@ TreesParams::TreesParams()
 /// The main reconstruction algorithm
 /// It is based on finding the shortest paths using Djikstra's algorithm, followed
 /// by an agglomeration of paths, with repeated splitting from root to tips
-Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose)
+Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose)
 {
   // firstly, get the full set of shortest paths from ground to tips, and the set of roots
   params_ = &params;
@@ -181,6 +181,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   }
   if (verbose)
   {
+    debug_cloud.translate(offset);
     debug_cloud.save("debug.ply");
   }
 
@@ -279,7 +280,7 @@ Trees::Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool ver
   // remove all sections with a root out of bounds, if we have gridded the cloud with an overlap
   if (params_->grid_width)
   {
-    removeOutOfBoundSections(cloud, min_bound, max_bound);
+    removeOutOfBoundSections(cloud, min_bound, max_bound, offset);
   }
 
   std::vector<int> root_segs(cloud.ends.size(), -1);
@@ -1026,17 +1027,17 @@ void Trees::generateLocalSectionIds()
   std::cout << num << " trees saved" << std::endl;
 }
 
-void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound)
+void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound, const Eigen::Vector3d &offset)
 {
   const double width = params_->grid_width;
   cloud.calcBounds(&min_bound, &max_bound);
-  const Eigen::Vector3d mid = (min_bound + max_bound) / 2.0;
+  const Eigen::Vector3d mid = (min_bound + max_bound)/2.0 + offset;
   const Eigen::Vector2d inds(std::round(mid[0] / width), std::round(mid[1] / width));
-  min_bound[0] = width * (inds[0] - 0.5);
-  min_bound[1] = width * (inds[1] - 0.5);
-  max_bound[0] = width * (inds[0] + 0.5);
-  max_bound[1] = width * (inds[1] + 0.5);
-  std::cout << "min bound: " << min_bound.transpose() << ", max bound: " << max_bound.transpose() << std::endl;
+  min_bound[0] = width * (inds[0] - 0.5) - offset[0];
+  min_bound[1] = width * (inds[1] - 0.5) - offset[1];
+  max_bound[0] = width * (inds[0] + 0.5) - offset[0];
+  max_bound[1] = width * (inds[1] + 0.5) - offset[1];
+  std::cout << "min bound: " << (min_bound+offset).transpose() << ", max bound: " << (max_bound+offset).transpose() << std::endl;
 
   // disable trees out of bounds
   for (auto &section : sections_)
@@ -1158,7 +1159,7 @@ void Trees::removeOutOfBoundRays(Cloud &cloud, const Eigen::Vector3d &min_bound,
 }
 
 // save the structure to a text file
-bool Trees::save(const std::string &filename, bool verbose) const
+bool Trees::save(const std::string &filename, const Eigen::Vector3d &offset, bool verbose) const
 {
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
@@ -1166,6 +1167,7 @@ bool Trees::save(const std::string &filename, bool verbose) const
     std::cerr << "Error: cannot open " << filename << " for writing." << std::endl;
     return false;
   }
+  ofs << std::setprecision(4) << std::fixed;
   ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
   ofs << "x,y,z,radius,parent_id,section_id"; // simple format
   if (verbose)
@@ -1180,7 +1182,7 @@ bool Trees::save(const std::string &filename, bool verbose) const
     {
       continue;
     }
-    ofs << section.tip[0] << "," << section.tip[1] << "," << section.tip[2] << "," << radius(section) << ",-1," << sec;
+    ofs << section.tip[0]+offset[0] << "," << section.tip[1]+offset[1] << "," << section.tip[2]+offset[2] << "," << radius(section) << ",-1," << sec;
     if (verbose)
     {
       ofs << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
@@ -1194,7 +1196,7 @@ bool Trees::save(const std::string &filename, bool verbose) const
       {
         std::cout << "bad format: " << node.root << " != " << root << std::endl;
       }
-      ofs << ", " << node.tip[0] << "," << node.tip[1] << "," << node.tip[2] << "," << radius(node) << "," << sections_[node.parent].id << "," << contiguous_section_ids_[children[c]];
+      ofs << ", " << node.tip[0]+offset[0] << "," << node.tip[1]+offset[1] << "," << node.tip[2]+offset[2] << "," << radius(node) << "," << sections_[node.parent].id << "," << contiguous_section_ids_[children[c]];
       if (verbose)
       {
         ofs << "," << node.weight << "," << node.len << "," << node.accuracy << "," << node.junction_weight;

@@ -44,10 +44,10 @@ class RAYLIB_EXPORT Trees
 public:
   /// Constructs the piecewise cylindrical tree structures from the input ray cloud @c cloud
   /// The ground @c mesh defines the ground and @params are used to control the reconstruction
-  Trees(Cloud &cloud, const Mesh &mesh, const TreesParams &params, bool verbose);
+  Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose);
 
   /// save the trees representation to a text file
-  bool save(const std::string &filename, bool verbose) const;
+  bool save(const std::string &filename, const Eigen::Vector3d &offset, bool verbose) const;
 
 private:
   /// The piecewise cylindrical represenation of all of the trees
@@ -86,7 +86,7 @@ private:
   /// set ids that are locel (0-based) per tree
   void generateLocalSectionIds();
   /// if using an overlapping grid, then remove trees with base outside the non-overlapping cell bounds
-  void removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound);
+  void removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound, const Eigen::Vector3d &offset);
   /// colour the cloud based on the section id for each point
   void segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids);
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds

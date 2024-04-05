@@ -27,7 +27,7 @@ public:
   /// it treats ground like sand, being incapable of having a gradient beyond the specified value
   /// The input is the @c cloud and its @c file_prefix (to name debug outputs), and a specified @c gradient
   /// The output is the stored mesh, which is accessed with the mesh() accessor.
-  void extract(const Cloud &cloud, const std::string &file_prefix, double gradient, bool verbose);
+  void extract(const Cloud &cloud, const Eigen::Vector3d &offset, const std::string &file_prefix, double gradient, bool verbose);
 
   /// Direct extraction of the pareto front points
   void growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient);

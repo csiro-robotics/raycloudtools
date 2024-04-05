@@ -16,7 +16,7 @@ namespace ray
 namespace
 {
 /// debug draw the trunks, either as a set of lines to rviz, or as a point cloud.
-void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vector3d> *closest_approach_points = nullptr,
+void drawTrunks(const std::vector<Trunk> &trunks, const Eigen::Vector3d &offset, const std::vector<Eigen::Vector3d> *closest_approach_points = nullptr,
                 const std::vector<Eigen::Vector3d> *pass_through_points = nullptr)
 {
   std::vector<Eigen::Vector3d> cloud_points;
@@ -31,7 +31,7 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
   {
     for (auto &point : *closest_approach_points)
     {
-      cloud_points.push_back(point);
+      cloud_points.push_back(point + offset);
       times.push_back(0.0);
       colours.push_back(colour);
     }
@@ -41,7 +41,7 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
   {
     for (auto &point : *pass_through_points)
     {
-      cloud_points.push_back(point);
+      cloud_points.push_back(point + offset);
       times.push_back(0.0);
       colours.push_back(colour);
     }
@@ -73,7 +73,7 @@ void drawTrunks(const std::vector<Trunk> &trunks, const std::vector<Eigen::Vecto
       {
         const Eigen::Vector3d pos =
           trunk.centre + trunk.dir * trunk.length * z + side1 * std::sin(ang) * rad + side2 * std::cos(ang) * rad;
-        cloud_points.push_back(pos);
+        cloud_points.push_back(pos + offset);
         times.push_back(0.0);
         colours.push_back(colour);
       }
@@ -329,7 +329,7 @@ void removeOverlappingTrunks(std::vector<Trunk> &best_trunks_)
 }
 
 // trunk identification in ray cloud
-Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_permeable_trunks)
+Trunks::Trunks(const Cloud &cloud, const Eigen::Vector3d &offset, double midRadius, bool verbose, bool remove_permeable_trunks)
 {
   // The method is iterative, starting with a large set of trunk candidates, it
   // iteratively adjusts their pose and size to better approximate the neighbourhood of points,
@@ -430,7 +430,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
     std::cout << active_count << " active" << std::endl;
     if (verbose)
     {
-      drawTrunks(trunks);
+      drawTrunks(trunks, offset);
     }
   }
   trunks.clear();
@@ -460,7 +460,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
   }
   if (verbose)
   {
-    drawTrunks(trunks);
+    drawTrunks(trunks, offset);
     std::cout << "num non-overlapping trunks: " << trunks.size() << std::endl;
   }
 
@@ -468,14 +468,14 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
   // then it cannot be a trunk. We deal with that situation here
   if (remove_permeable_trunks)
   {
-    removePermeableTrunks(verbose, cloud, trunks, min_bound, max_bound);
+    removePermeableTrunks(verbose, cloud, offset, trunks, min_bound, max_bound);
   }
 
   setTrunkGroundHeights(cloud, trunks, min_bound, max_bound);
   // find only the lowest trunk to the ground in any near-vertical chain of candidates
   std::vector<int> lowest_trunk_ids = findLowestTrunks(trunks);
 
-  saveDebugTrunks("trunks_verbose.ply", verbose, lowest_trunk_ids, trunks);
+  saveDebugTrunks("trunks_verbose.ply", verbose, lowest_trunk_ids, trunks, offset);
 
   best_trunks_.clear();
   for (auto &id : lowest_trunk_ids)
@@ -485,7 +485,7 @@ Trunks::Trunks(const Cloud &cloud, double midRadius, bool verbose, bool remove_p
 }
 
 /// remove trunk candidates with rays that pass right through them
-void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, std::vector<Trunk> &trunks, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound)
+void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, const Eigen::Vector3d &offset, std::vector<Trunk> &trunks, const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_bound)
 {
   // first we make a 2D grid to store which horizontal cells (pixels) have rays passing through them
   RayIndexGrid2D grid2D;
@@ -559,7 +559,7 @@ void Trunks::removePermeableTrunks(bool verbose, const Cloud &cloud, std::vector
   {
     // visualise the trunks and the removed ones, showing the closest point of passing rays
     std::cout << "num trunks removed: " << num_removed << std::endl;
-    drawTrunks(trunks, &closest_approach_points, &pass_through_points);
+    drawTrunks(trunks, offset, &closest_approach_points, &pass_through_points);
   }
 
   best_trunks_ = trunks;
@@ -640,7 +640,7 @@ std::vector<int> Trunks::findLowestTrunks(const std::vector<Trunk> &trunks) cons
 }
 
 /// render trunk points to disk:
-void Trunks::saveDebugTrunks(const std::string &filename, bool verbose, const std::vector<int> &lowest_trunk_ids, const std::vector<Trunk> &trunks) const
+void Trunks::saveDebugTrunks(const std::string &filename, bool verbose, const std::vector<int> &lowest_trunk_ids, const std::vector<Trunk> &trunks, const Eigen::Vector3d &offset) const
 {
   if (verbose)
   {
@@ -665,7 +665,7 @@ void Trunks::saveDebugTrunks(const std::string &filename, bool verbose, const st
         {
           const Eigen::Vector3d pos =
             trunk.centre + trunk.dir * trunk.length * z + side1 * std::sin(ang) * rad + side2 * std::cos(ang) * rad;
-          cloud_points.push_back(pos);
+          cloud_points.push_back(pos + offset);
           times.push_back(0.0);
           colours.push_back(colour);
         }
@@ -675,7 +675,7 @@ void Trunks::saveDebugTrunks(const std::string &filename, bool verbose, const st
   }  
 }
 
-bool Trunks::save(const std::string &filename) const
+bool Trunks::save(const std::string &filename, const Eigen::Vector3d &offset) const
 {
   std::ofstream ofs(filename.c_str(), std::ios::out);
   if (!ofs.is_open())
@@ -692,7 +692,7 @@ bool Trunks::save(const std::string &filename) const
       continue;
     }
     Eigen::Vector3d base = trunk.centre - trunk.dir * trunk.length * 0.5;
-    ofs << base[0] << ", " << base[1] << ", " << base[2] << ", " << trunk.radius << std::endl;
+    ofs << base[0]+offset[0] << ", " << base[1]+offset[1] << ", " << base[2]+offset[2] << ", " << trunk.radius << std::endl;
   }
   return true;
 }

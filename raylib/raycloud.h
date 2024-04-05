@@ -63,6 +63,32 @@ public:
   /// maximum bounds of all bounded rays
   Eigen::Vector3d calcMaxBound() const;
 
+  Eigen::Vector3d removeStartPos() // to aid in floating point accuracy 
+  {
+    Eigen::Vector3d offset(0,0,0);
+    if (!ends.empty())
+    {
+      offset = ends[0];
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        ends[i] -= offset;
+        starts[i] -= offset;
+      }
+    }
+    return offset;
+  }
+  void translate(const Eigen::Vector3d &offset)
+  {
+    if (offset.squaredNorm() != 0.0)
+    {
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        ends[i] += offset;
+        starts[i] += offset;
+      }
+    }
+  }
+
   /// apply a Euclidean transform and time shift to the ray cloud
   void transform(const Pose &pose, double time_delta);
   /// spatial decimation of the ray cloud, into one end point per voxel of width @c voxel_width

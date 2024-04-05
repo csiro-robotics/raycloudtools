@@ -19,8 +19,7 @@ void usage(int exit_code = 1)
   // clang-format off
   std::cout << "Export a ray cloud into a point cloud amd trajectory file" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayexport raycloudfile.ply pointcloud.ply trajectoryfile.ply - output in specified formats" << std::endl;
-  std::cout << "                           pointcloud.laz trajectoryfile.txt" << std::endl;
+  std::cout << "rayexport raycloudfile.ply pointcloud.ply/.laz/.txt/.xyz trajectoryfile.ply/.txt - output in the chosen point cloud and trajectory formats" << std::endl;
   std::cout << "                           --traj_delta 0.1 - trajectory temporal decimation period in s. Default is 0.1" << std::endl;
   // clang-format on
   exit(exit_code);
@@ -59,6 +58,42 @@ int rayExport(int argc, char *argv[])
       usage();
     ray::writePointCloudChunkEnd(ofs);
   }
+  else if (pointcloud_file.nameExt() == "xyz" || pointcloud_file.nameExt() == "txt")
+  {
+    ray::PointPlyBuffer buffer;
+    std::ofstream ofs;
+    ofs.open(pointcloud_file.name(), std::ios::out);
+    if (ofs.fail())
+    {
+      usage();
+    }
+    ofs << std::setprecision(4) << std::fixed;
+    bool txt = pointcloud_file.nameExt() == "txt";
+    if (txt)
+    {
+      ofs << "# point cloud text format. Comma delimited x,y,z,time,red,green,blue,alpha" << std::endl;
+    }
+    auto add_chunk = [&ofs, txt](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+                            std::vector<double> &times, std::vector<ray::RGBA> &colours) {
+      for (size_t i = 0; i < ends.size(); i++)
+      {
+        if (txt)
+        {
+          ofs << ends[i][0] << "," << ends[i][1] << "," << ends[i][2] << "," << times[i] << "," << 
+            (int)colours[i].red << "," << (int)colours[i].green << "," << (int)colours[i].blue << "," << (int)colours[i].alpha << std::endl;
+        }
+        else
+        {
+          ofs << ends[i][0] << " " << ends[i][1] << " " << ends[i][2] << " " << std::endl;
+        }
+      }    
+    };
+    if (!ray::readPly(raycloud_file.name(), true, add_chunk, 0))
+    {
+      usage();
+    }
+    ofs.close();
+  }
   else
   {
     usage();
@@ -90,9 +125,8 @@ int rayExport(int argc, char *argv[])
         const int64_t time_slot = static_cast<int64_t>(std::floor(times[i] / time_step));
         if (time_slot == last_time_slot)
           continue;
-        if (time_slots.find(time_slot) == time_slots.end())
+        if (time_slots.insert(time_slot).second)
         {
-          time_slots.insert(time_slot);
           chunk.starts.push_back(starts[i]);
           chunk.times.push_back(times[i]);
           chunk.colours.push_back(colours[i]);
@@ -121,9 +155,8 @@ int rayExport(int argc, char *argv[])
         {
           continue;
         }
-        if (time_slots.find(time_slot) == time_slots.end())
+        if (time_slots.insert(time_slot).second)
         {
-          time_slots.insert(time_slot);
           if (!traj_nodes.empty() && times[i] < traj_nodes.back().time)
           {
             sorted = false;

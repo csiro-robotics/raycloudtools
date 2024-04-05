@@ -102,8 +102,7 @@ void rayLookup(const Cloud *cloud, std::set<Vector6i, Vector6iLess> &ray_lookup)
       ray[j] = int(floor(start[j] / test_width));
       ray[3 + j] = int(floor(point[j] / test_width));
     }
-    if (ray_lookup.find(ray) == ray_lookup.end())
-      ray_lookup.insert(ray);
+    ray_lookup.insert(ray);
   }
 }
 
