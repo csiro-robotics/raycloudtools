@@ -2,9 +2,7 @@ FROM alpine:3
 
 RUN apk update
 
-RUN apk add make cmake g++ git proj-dev eigen-dev boost-dev libgeotiff-dev gtest-dev && \
-    cd /usr/share/cmake/Modules && \
-    wget https://raw.githubusercontent.com/ufz/geotiff/master/cmake/FindGeoTIFF.cmake
+RUN apk add make cmake g++ git proj-dev eigen-dev boost-dev libgeotiff-dev gtest-dev
 
 RUN cd /home && \
     git clone https://github.com/ethz-asl/libnabo.git && \
@@ -41,7 +39,7 @@ RUN cd /home && \
     git clone https://github.com/csiro-robotics/raycloudtools.git && \
     cd raycloudtools && \
     mkdir build && cd build && \
-    cmake .. -DWITH_QHULL=ON -DWITH_LAS=ON -DWITH_TIFF=ON -DRAYCLOUD_BUILD_TESTS=ON && \
+    cmake .. -DWITH_QHULL=ON -DWITH_LAS=ON -DRAYCLOUD_BUILD_TESTS=ON && \
     make && make install 
     
 RUN cd /home && \
