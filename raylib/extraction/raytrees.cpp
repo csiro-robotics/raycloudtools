@@ -837,8 +837,19 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   double power = 0.25; // when 1 this is usual radius, but lower powers reduce outliers due to foliage
   for (auto &node : nodes)
   {
-    const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
-    rad += std::pow((offset - dir * offset.dot(dir)).squaredNorm(), power/2.0);
+    Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
+    offset -= dir * offset.dot(dir); // flatten
+    if (params_->use_rays)
+    {
+      Eigen::Vector3d ray = points_[node].pos - points_[node].start;
+      double mag1 = offset.norm();
+      ray -= dir * ray.dot(dir); // flatten
+      offset -= ray*offset.dot(ray)/ray.dot(ray); // move to closest point
+      double mag2 = offset.norm();
+      if (mag2 > mag1)
+        std::cout << "bad coding: " << mag1 << " < " << mag2 << std::endl;
+    }
+    rad += std::pow(offset.squaredNorm(), power/2.0);
     n++;
   }
   rad /= n;
@@ -846,8 +857,15 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
   double e = 0.0;
   for (auto &node : nodes)
   {
-    const Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
-    e += std::abs((offset - dir * offset.dot(dir)).norm() - rad);
+    Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
+    offset -= dir * offset.dot(dir); // flatten
+    if (params_->use_rays)
+    {
+      Eigen::Vector3d ray = points_[node].pos - points_[node].start;
+      ray -= dir * ray.dot(dir); // flatten
+      offset -= ray*offset.dot(ray)/ray.dot(ray); // move to closest point    
+    }
+    e += std::abs(offset.norm() - rad);
   }
   e /= n;
   double eps = 1e-5;

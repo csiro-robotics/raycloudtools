@@ -18,8 +18,8 @@ namespace ray
 /// Vertex structure used in shortest path algorithm
 struct RAYLIB_EXPORT Vertex
 {
-  Vertex(const Eigen::Vector3d &pos)
-    : pos(pos)
+  Vertex(const Eigen::Vector3d &pos, const Eigen::Vector3d &start)
+    : pos(pos), start(start)
     , edge_pos(0, 0, 0)
     , parent(-1)
     , root(-1)
@@ -29,6 +29,7 @@ struct RAYLIB_EXPORT Vertex
     , visited(false)
   {}
   Eigen::Vector3d pos;
+  Eigen::Vector3d start;
   Eigen::Vector3d edge_pos;
   int parent, root;
   double distance_to_ground;
