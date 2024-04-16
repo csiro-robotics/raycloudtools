@@ -841,10 +841,10 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
     offset -= dir * offset.dot(dir); // flatten
     if (params_->use_rays)
     {
-      Eigen::Vector3d ray = points_[node].pos - points_[node].start;
+      Eigen::Vector3d ray = points_[node].start - points_[node].pos;
       double mag1 = offset.norm();
       ray -= dir * ray.dot(dir); // flatten
-      offset -= ray*offset.dot(ray)/ray.dot(ray); // move to closest point
+      offset += ray*std::max(0.0, std::min(-offset.dot(ray)/ray.dot(ray), 1.0)); // move to closest point
       double mag2 = offset.norm();
       if (mag2 > mag1)
         std::cout << "bad coding: " << mag1 << " < " << mag2 << std::endl;
@@ -861,9 +861,9 @@ double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen:
     offset -= dir * offset.dot(dir); // flatten
     if (params_->use_rays)
     {
-      Eigen::Vector3d ray = points_[node].pos - points_[node].start;
+      Eigen::Vector3d ray = points_[node].start - points_[node].pos;
       ray -= dir * ray.dot(dir); // flatten
-      offset -= ray*offset.dot(ray)/ray.dot(ray); // move to closest point    
+      offset += ray*std::max(0.0, std::min(-offset.dot(ray)/ray.dot(ray), 1.0)); // move to closest point    
     }
     e += std::abs(offset.norm() - rad);
   }
