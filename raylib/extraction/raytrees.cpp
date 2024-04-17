@@ -492,7 +492,13 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
   const int par = sections_[sec_].parent;
   std::vector<int> &all_ends = sections_[sec_].ends;
 
-  // 3. cluster end points to find if we have separate branches
+  // convert to a structure that is better for the cluster function
+  std::vector<Eigen::Vector3d> ps;
+  std::vector<int> v_indices;
+  ps.reserve(all_ends.size());
+  v_indices.reserve(all_ends.size());
+
+  // cluster end points to find if we have separate branches
   // first, get interpolated edge points_. i.e. interpolate between two connected points inside and outside
   // the branch section's cylinder, so that the set edge_pos are right on the top boundary of the section
   for (auto &j : all_ends)
@@ -501,18 +507,11 @@ std::vector<std::vector<int>> Trees::findPointClusters(const Eigen::Vector3d &ba
     const double dist0j =
       par == -1 ? points_[points_[j].parent].pos[2] - base[2] : (points_[points_[j].parent].pos - base).norm();
     const double blendj = dist1j == dist0j ? 0.0 : (thickness - dist0j) / (dist1j - dist0j);
-    points_[j].edge_pos = points_[points_[j].parent].pos * (1.0 - blendj) + points_[j].pos * blendj;
+    Eigen::Vector3d edge_pos = points_[points_[j].parent].pos * (1.0 - blendj) + points_[j].pos * blendj;
+    ps.push_back(edge_pos);
+    v_indices.push_back(j);
   }
-  // convert to a structure that is better for the cluster function
-  std::vector<Eigen::Vector3d> ps;
-  std::vector<int> v_indices;
-  ps.reserve(all_ends.size());
-  v_indices.reserve(all_ends.size());
-  for (auto i : all_ends)
-  {
-    ps.push_back(points_[i].edge_pos);
-    v_indices.push_back(i);
-  }
+
   // cluster these end points based on two separation criteria (gap_ratio and span_ratio)
   std::vector<std::vector<int>> clusters;
   generateClusters(clusters, ps, gap, span);
@@ -831,44 +830,46 @@ Eigen::Vector3d Trees::vectorToCylinderCentre(const std::vector<int> &nodes, con
 
 double Trees::estimateCylinderRadius(const std::vector<int> &nodes, const Eigen::Vector3d &dir, double &accuracy)
 {
-  double n = 1e-10;
   double rad = 0.0;
   // get the mean radius
   double power = 0.25; // when 1 this is usual radius, but lower powers reduce outliers due to foliage
-  for (auto &node : nodes)
+  std::vector<double> norms;
+  norms.reserve(nodes.size());
+  if (params_->use_rays)
   {
-    Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
-    offset -= dir * offset.dot(dir); // flatten
-    if (params_->use_rays)
+    for (auto &node : nodes)
     {
+      Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
+      offset -= dir * offset.dot(dir); // flatten    
       Eigen::Vector3d ray = points_[node].start - points_[node].pos;
-      double mag1 = offset.norm();
       ray -= dir * ray.dot(dir); // flatten
       offset += ray*std::max(0.0, std::min(-offset.dot(ray)/ray.dot(ray), 1.0)); // move to closest point
-      double mag2 = offset.norm();
-      if (mag2 > mag1)
-        std::cout << "bad coding: " << mag1 << " < " << mag2 << std::endl;
+      norms.push_back(offset.norm());
     }
-    rad += std::pow(offset.squaredNorm(), power/2.0);
-    n++;
   }
-  rad /= n;
+  else
+  {
+    for (auto &node : nodes)
+    {
+      Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
+      offset -= dir * offset.dot(dir); // flatten    
+      norms.push_back(offset.norm());
+    }
+  }
+
+  for (auto &norm: norms)
+  {
+    rad += std::pow(norm, power);
+  }
+  const double eps = 1e-5; // prevent division by 0
+  rad /= (double)nodes.size() + eps;
   rad = std::pow(rad, 1.0/power);
   double e = 0.0;
-  for (auto &node : nodes)
+  for (auto &norm : norms)
   {
-    Eigen::Vector3d offset = points_[node].pos - sections_[sec_].tip;
-    offset -= dir * offset.dot(dir); // flatten
-    if (params_->use_rays)
-    {
-      Eigen::Vector3d ray = points_[node].start - points_[node].pos;
-      ray -= dir * ray.dot(dir); // flatten
-      offset += ray*std::max(0.0, std::min(-offset.dot(ray)/ray.dot(ray), 1.0)); // move to closest point    
-    }
-    e += std::abs(offset.norm() - rad);
+    e += std::abs(norm - rad);
   }
-  e /= n;
-  double eps = 1e-5;
+  e /= (double)nodes.size() + eps;
 #define NEW_ACCURACY
 #if defined NEW_ACCURACY
   const double sensor_noise = 0.02; // this prevents cylinders with a small number of very accurate points from totally dominating
