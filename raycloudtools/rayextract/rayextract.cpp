@@ -60,7 +60,8 @@ void usage(int exit_code = 1)
     std::cout << "                            --global_taper_factor 0.3- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
     std::cout << "                            --gravity_factor 0.3 - (-f) larger values preference vertical trees" << std::endl;
     std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
-    std::cout << "                            --grid_width         - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
+    std::cout << "                            --grid_width 10      - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
+    std::cout << "                            --use_rays           - (-u) use rays to reduce trunk radius overestimation in noisy cloud data" << std::endl;
     std::cout << "                            (for internal constants -c -g -s see source file rayextract)" << std::endl;
   // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
   //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
