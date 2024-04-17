@@ -26,7 +26,7 @@ static std::string extract_type;
 
 void usage(int exit_code = 1)
 {
-  const bool none = extract_type != "terrain" && extract_type != "trunks" && extract_type != "forest" && extract_type != "trees" && extract_type != "leaves";
+  const bool none = extract_type != "terrain" && extract_type != "trunks" && extract_type != "forest" && extract_type != "trees" && extract_type != "leaves"  && extract_type != "grid";
   // clang-format off
   std::cout << "Extract natural features into a text file or mesh file" << std::endl;
   std::cout << "usage:" << std::endl;
