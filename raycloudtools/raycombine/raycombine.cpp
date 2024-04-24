@@ -10,6 +10,7 @@
 #include "raylib/rayply.h"
 #include "raylib/rayprogressthread.h"
 #include "raylib/raythreads.h"
+#include "raylib/raycloudwriter.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -58,8 +59,8 @@ int rayCombine(int argc, char *argv[])
     ray::parseCommandLine(argc, argv, { &base_cloud, &all_text, &cloud_1, &cloud_2 }, { &output });
   if (!standard_format && !concatenate_all && !threeway && !threeway_concatenate)
   {
-    concatenate = ray::parseCommandLine(argc, argv, { &cloud_files }, { &output }); // a bit more ambiguous, so only try if the other formats failed
-    if (!concatenate)
+    concatenate_all = ray::parseCommandLine(argc, argv, { &cloud_files }, { &output }); // a bit more ambiguous, so only try if the other formats failed
+    if (!concatenate_all)
     {
       usage();
     }
@@ -78,7 +79,7 @@ int rayCombine(int argc, char *argv[])
     if (!clouds[1].load(cloud_2.name(), false))
       usage();
   }
-  else
+  else if (!concatenate_all)
   {
     clouds.resize(cloud_files.files().size());
     for (int i = 0; i < (int)cloud_files.files().size(); i++)
@@ -112,9 +113,35 @@ int rayCombine(int argc, char *argv[])
   {
     config.merge_type = ray::MergeType::Maximum;
   }
-  if (concatenate || threeway_concatenate || concatenate_all)
+  if (threeway_concatenate || concatenate_all)
   {
     config.merge_type = ray::MergeType::All;
+  }
+  std::string combined_file = output.isSet() ? output_file.name() : file_stub + "_combined.ply";
+  if (concatenate_all)
+  {
+    ray::CloudWriter writer;
+    if (!writer.begin(combined_file))
+      usage();
+
+    // By maintaining these buffers below, we avoid almost all memory fragmentation
+    auto concatenate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                        std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+    {
+      ray::Cloud chunk;
+      chunk.starts = starts;
+      chunk.ends = ends;
+      chunk.colours = colours;
+      chunk.times = times;
+      writer.writeChunk(chunk);
+    };
+    for (int i = 0; i < (int)cloud_files.files().size(); i++)
+    {
+      if (!ray::Cloud::read(cloud_files.files()[i].name(), concatenate))
+        usage();
+    }
+    writer.end();    
+    return 0;
   }
 
   ray::Merger merger(config);
@@ -130,17 +157,6 @@ int rayCombine(int argc, char *argv[])
       usage();
     merger.mergeThreeWay(base_cloud, clouds[0], clouds[1], &progress);
   }
-  else if (concatenate || concatenate_all)
-  {
-    fixed_cloud = &concatenated_cloud;
-    for (auto &cloud : clouds)
-    {
-      concatenated_cloud.starts.insert(concatenated_cloud.starts.end(), cloud.starts.begin(), cloud.starts.end());
-      concatenated_cloud.ends.insert(concatenated_cloud.ends.end(), cloud.ends.begin(), cloud.ends.end());
-      concatenated_cloud.times.insert(concatenated_cloud.times.end(), cloud.times.begin(), cloud.times.end());
-      concatenated_cloud.colours.insert(concatenated_cloud.colours.end(), cloud.colours.begin(), cloud.colours.end());
-    }
-  }
   else
   {
     merger.mergeMultiple(clouds, &progress);
@@ -150,11 +166,7 @@ int rayCombine(int argc, char *argv[])
   }
 
   progress_thread.join();
-
-  if (output.isSet())
-    fixed_cloud->save(output_file.name());
-  else
-    fixed_cloud->save(file_stub + "_combined.ply");
+  fixed_cloud->save(combined_file);
   return 0;
 }
 
