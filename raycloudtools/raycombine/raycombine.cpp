@@ -52,7 +52,6 @@ int rayCombine(int argc, char *argv[])
   // three-way merge option
   bool standard_format = ray::parseCommandLine(argc, argv, { &merge_type, &cloud_files, &num_rays, &rays_text }, { &output });
   bool concatenate_all = ray::parseCommandLine(argc, argv, { &all_text, &cloud_files }, { &output });
-  bool concatenate = false;
   bool threeway = ray::parseCommandLine(
     argc, argv, { &base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text }, { &output });
   bool threeway_concatenate =
