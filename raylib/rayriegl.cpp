@@ -58,7 +58,7 @@ public:
 protected:
   void on_shot_end()
   {
-    if (target_count == 0 && beam_direction[2] > 0)
+    if (target_count == 0 && beam_direction[2] > 0 && beam_direction[2] < 0.866) //remove points below the scanner and remove the "buffer" points at the top of the scan lines
     {
       float X, Y, Z;
       std::tie(X, Y, Z) = getPositionAtDistance(beam_origin[0], beam_origin[1], beam_origin[2], beam_direction[0],

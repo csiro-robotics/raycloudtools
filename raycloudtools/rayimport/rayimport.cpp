@@ -180,7 +180,6 @@ int rayImport(int argc, char *argv[])
 
   if (transform_format)
   {
-    std::cout << "transform format " << std::endl;
     std::ifstream inputFile(trans_file);
 
     if (inputFile.is_open()) {
