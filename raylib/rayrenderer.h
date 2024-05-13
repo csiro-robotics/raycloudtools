@@ -41,6 +41,13 @@ bool RAYLIB_EXPORT renderCloud(const std::string &cloud_file, const Cuboid &boun
                                const std::string &projection_file, bool mark_origin,
                                const std::string *transform_file = nullptr);
 
+#if RAYLIB_WITH_TIFF
+// save to geotif format using floating-point per-channel colour data. This function passes a projection file in order
+// to geolocate the image
+bool RAYLIB_EXPORT writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar,
+                       const std::string &projection_file, double origin_x, double origin_y);
+#endif
+
 /// This is used for estimating the per-voxel density of a ray cloud
 /// Density represents the surface area per volume, assuming an unbiased distribution of surface angles
 /// It is most effective as a measure of leaf area per volume on vegetation, and is described in:

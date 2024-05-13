@@ -103,6 +103,10 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
   double top = box_max[2];
   box_max[2] = box_min[2] + 0.5 * width;  // ensure that the grid is only 1 voxel high
   // first convert the mesh to a list of triangles, with calculated normals
+  if (index_list_.empty())
+  {
+    std::cerr << "Error: mesh is empty" << std::endl;
+  }
   std::vector<Triangle> triangles(index_list_.size());
   for (int i = 0; i < (int)index_list_.size(); i++)
   {
@@ -134,6 +138,7 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
   field = Eigen::ArrayXXd::Constant(grid.dims[0], grid.dims[1], unset);
   std::cout << "dims for low: " << grid.dims.transpose() << ", rows: " << field.rows() << ", cols: " << field.cols()
             << std::endl;
+  int num_heights = 0;
   for (int x = 0; x < grid.dims[0]; x++)
   {
     for (int y = 0; y < grid.dims[1]; y++)
@@ -152,10 +157,28 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
           // intersects so interpolate the height
           double height = pos_top[2] + (pos_base[2] - pos_top[2]) * depth;
           field(x, y) = height;
+          num_heights++;
           break;
         }
       }
     }
+  }
+  if (num_heights == 0) 
+  {
+    std::cout << "warning mesh does not intersect any pixel centres, using nearest triangle centre heights" << std::endl;
+    for (auto &tri: triangles)
+    {
+      Eigen::Vector3d centre = (tri.corners[0] + tri.corners[1] + tri.corners[3])/3.0;
+      Eigen::Vector3d c = (centre - box_min) / width;
+      int X = std::max(0, std::min((int)std::floor(c[0]), grid.dims[0]-1)); // move to nearest inside grid
+      int Y = std::max(0, std::min((int)std::floor(c[0]), grid.dims[1]-1));
+      field(X,Y) = centre[2];
+      num_heights++;
+    }
+  }
+  if (num_heights == 0)
+  {
+    std::cerr << "Error: mesh is empty. Shouldn't get here" << std::endl;
   }
   // lastly, we repeatedly fill in the gaps
   bool gaps_remain = true;

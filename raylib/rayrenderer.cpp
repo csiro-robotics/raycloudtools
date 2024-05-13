@@ -451,8 +451,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
   try  // there is a possibility of running out of memory here. So provide a helpful message rather than just asserting
   {
     // accumulated colour buffer
-    std::vector<Eigen::Vector4d> pixels(width * height);
-    std::fill(pixels.begin(), pixels.end(), Eigen::Vector4d(0, 0, 0, 0));
+    std::vector<Eigen::Vector4d> pixels(width * height, Eigen::Vector4d(0, 0, 0, 0));
     // density calculation is a special case
     if (style == RenderStyle::Density || style == RenderStyle::Density_rgb)
     {
