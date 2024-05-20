@@ -32,6 +32,7 @@ void usage(int exit_code = 1)
   std::cout << "                  range 10               - splits out rays more than 10 m long" << std::endl;
   std::cout << "                  time 1000 (or time 3 %)- splits at given time stamp (or percentage along)" << std::endl;
   std::cout << "                  box x,y,z rx,ry,rz     - splits around a given XYZ centred axis-aligned box of the given radii" << std::endl;  
+  std::cout << "                  gap 0.1                - splits into largest cloud connected within this gap, and the remainder." << std::endl;
   std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
   std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
@@ -49,9 +50,9 @@ int raySplit(int argc, char *argv[])
     box_centre, box_radius(0.0, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
   ray::Vector4dArgument cell_width2(0.0, max_val);
   ray::DoubleArgument overlap(0.0, 10000.0);
-  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), capsule_radius(0.001, 1000.0);
-  ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range" },
-                             { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range });
+  ray::DoubleArgument time, alpha(0.0, 1.0), range(0.0, 1000.0), capsule_radius(0.001, 1000.0), gap(0.000001, 10000.0);
+  ray::KeyValueChoice choice({ "plane", "time", "colour", "single_colour", "alpha", "raydir", "range", "gap" },
+                             { &plane, &time, &colour, &single_colour, &alpha, &raydir, &range, &gap });
   ray::FileArgument mesh_file, tree_file;
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
   ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), seg_colour_text("seg_colour"), capsule_text("capsule");
@@ -215,6 +216,59 @@ int raySplit(int argc, char *argv[])
     {
       res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &cloud, int i) -> bool {
         return (cloud.starts[i] - cloud.ends[i]).norm() > range.value();
+      });
+    }
+    else if (parameter == "gap")
+    {
+      // sadly not chunked, so do it the old way:
+      ray::Cloud cloud;
+      cloud.load(rc_name);
+      cloud.removeStartPos();
+
+      Eigen::MatrixXi neighbour_indices;
+      int search_size = 10;
+      cloud.getSurfels(search_size, nullptr, nullptr, nullptr, nullptr, &neighbour_indices, gap.value(), false);
+ //     cloud.clear();
+      // now somehow connect all these points together!
+      // floodfill each cluster
+      std::vector<bool> visited(neighbour_indices.cols(), false);
+      std::vector<std::vector<int>> clusters;
+      int largest_cluster = -1;
+      int largest_cluster_size = 0;
+      for (int i = 0; i<(int)neighbour_indices.cols(); i++)
+      {
+        if (visited[i])
+          continue;
+        clusters.push_back(std::vector<int>());
+        auto &cluster = clusters.back();
+        cluster.push_back(i);
+        visited[i] = true;
+        for (size_t j = 0; j<cluster.size(); j++) // depth-first dynamic programming flood-fill
+        {
+          int id = cluster[j];
+          for (int k = 0; k<search_size; k++)
+          {
+            int ind = neighbour_indices(k, id);
+            if (ind == -1)
+              break;
+            if (!visited[ind])
+            {
+              cluster.push_back(ind);
+              visited[ind] = true;
+            }
+          }
+        }
+        if ((int)cluster.size() > largest_cluster_size)
+        {
+          largest_cluster_size = (int)cluster.size();
+          largest_cluster = (int)clusters.size()-1;
+        }
+      }
+      for (auto &ind: clusters[largest_cluster])
+        visited[ind] = false;
+        
+      res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &, int i) -> bool {
+        return visited[i];
       });
     }
   }
