@@ -223,13 +223,12 @@ int raySplit(int argc, char *argv[])
       // sadly not chunked, so do it the old way:
       ray::Cloud cloud;
       cloud.load(rc_name);
-      cloud.removeStartPos();
+      Eigen::Vector3d offset = cloud.removeStartPos();
 
       Eigen::MatrixXi neighbour_indices;
       int search_size = 10;
       cloud.getSurfels(search_size, nullptr, nullptr, nullptr, nullptr, &neighbour_indices, gap.value(), false);
- //     cloud.clear();
-      // now somehow connect all these points together!
+
       // floodfill each cluster
       std::vector<bool> visited(neighbour_indices.cols(), false);
       std::vector<std::vector<int>> clusters;
@@ -264,12 +263,19 @@ int raySplit(int argc, char *argv[])
           largest_cluster = (int)clusters.size()-1;
         }
       }
+      cloud.translate(offset);
+
       for (auto &ind: clusters[largest_cluster])
         visited[ind] = false;
-        
-      res = ray::split(rc_name, in_name, out_name, [&](const ray::Cloud &, int i) -> bool {
-        return visited[i];
-      });
+
+      ray::Cloud inside, outside;
+      for (size_t i = 0; i<visited.size(); i++)
+      {
+        ray::Cloud &chosen_cloud = visited[i] ? outside : inside;
+        chosen_cloud.addRay(cloud.starts[i], cloud.ends[i], cloud.times[i], cloud.colours[i]);
+      }
+      inside.save(in_name);
+      outside.save(out_name);
     }
   }
   if (!res)
