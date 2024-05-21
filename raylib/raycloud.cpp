@@ -237,64 +237,64 @@ void Cloud::getSurfels(int search_size, std::vector<Eigen::Vector3d> *centroids,
         (*neighbour_indices)(i, j) = -1;
       }
     }
-  }
-  for (int i = 0; i < (int)ray_ids.size(); i++)
-  {
-    int ray_id = ray_ids[i];
-    Eigen::Vector3d centroid;
-    int num_neighbours;
-    for (num_neighbours = 0; num_neighbours < search_size && indices(num_neighbours, i) != Nabo::NNSearchD::InvalidIndex; num_neighbours++)
-      ;
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(3);
-
-    eigenSolve(ray_ids, indices, i, num_neighbours, eigen_solver, centroid);
-
-    if (reject_back_facing_rays)
+    for (int i = 0; i < (int)ray_ids.size(); i++)
     {
-      Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);
-      if ((ends[ray_id] - starts[ray_id]).dot(normal) > 0.0)
-        normal = -normal;
-      bool changed = false;
-      for (int j = num_neighbours - 1; j >= 0; j--)
-      {
-        int id = ray_ids[indices(j, i)];
-        if ((ends[id] - starts[id]).dot(normal) > 0.0)
-        {
-          indices(j, i) = indices(--num_neighbours, i);
-          changed = true;
-        }
-      }
-      if (changed)
-      {
-        eigenSolve(ray_ids, indices, i, num_neighbours, eigen_solver, centroid);
-      }
-    }
-
-    if (neighbour_indices)
-    {
-      int j;
-      for (j = 0; j < num_neighbours; j++) 
+      int ray_id = ray_ids[i];
+      for (int j = 0; j < search_size && indices(j, i) != Nabo::NNSearchD::InvalidIndex; j++) 
       {
         (*neighbour_indices)(j, ray_id) = ray_ids[indices(j, i)];
       }
     }
-    if (centroids)
-      (*centroids)[ray_id] = centroid;
-    if (normals)
+  }
+  if (centroids || normals || dimensions || mats)
+  {
+    for (int i = 0; i < (int)ray_ids.size(); i++)
     {
-      Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);
-      if ((ends[ray_id] - starts[ray_id]).dot(normal) > 0.0)
-        normal = -normal;
-      (*normals)[ray_id] = normal;
+      int ray_id = ray_ids[i];
+      Eigen::Vector3d centroid;
+      int num_neighbours;
+      for (num_neighbours = 0; num_neighbours < search_size && indices(num_neighbours, i) != Nabo::NNSearchD::InvalidIndex; num_neighbours++){}
+
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigen_solver(3);
+      eigenSolve(ray_ids, indices, i, num_neighbours, eigen_solver, centroid);
+      if (reject_back_facing_rays)
+      {
+        Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);
+        if ((ends[ray_id] - starts[ray_id]).dot(normal) > 0.0)
+          normal = -normal;
+        bool changed = false;
+        for (int j = num_neighbours - 1; j >= 0; j--)
+        {
+          int id = ray_ids[indices(j, i)];
+          if ((ends[id] - starts[id]).dot(normal) > 0.0)
+          {
+            indices(j, i) = indices(--num_neighbours, i);
+            changed = true;
+          }
+        }
+        if (changed)
+        {
+          eigenSolve(ray_ids, indices, i, num_neighbours, eigen_solver, centroid);
+        }
+      }   
+      if (centroids)
+        (*centroids)[ray_id] = centroid;
+      if (normals)
+      {
+        Eigen::Vector3d normal = eigen_solver.eigenvectors().col(0);
+        if ((ends[ray_id] - starts[ray_id]).dot(normal) > 0.0)
+          normal = -normal;
+        (*normals)[ray_id] = normal;
+      }
+      if (dimensions)
+      {
+        Eigen::Vector3d eigenvals = maxVector(Eigen::Vector3d(1e-10, 1e-10, 1e-10), eigen_solver.eigenvalues());
+        (*dimensions)[ray_id] =
+          Eigen::Vector3d(std::sqrt(eigenvals[0]), std::sqrt(eigenvals[1]), std::sqrt(eigenvals[2]));
+      }
+      if (mats)
+        (*mats)[ray_id] = eigen_solver.eigenvectors();
     }
-    if (dimensions)
-    {
-      Eigen::Vector3d eigenvals = maxVector(Eigen::Vector3d(1e-10, 1e-10, 1e-10), eigen_solver.eigenvalues());
-      (*dimensions)[ray_id] =
-        Eigen::Vector3d(std::sqrt(eigenvals[0]), std::sqrt(eigenvals[1]), std::sqrt(eigenvals[2]));
-    }
-    if (mats)
-      (*mats)[ray_id] = eigen_solver.eigenvectors();
   }
 }
 

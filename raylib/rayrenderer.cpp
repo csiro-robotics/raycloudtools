@@ -20,6 +20,7 @@
 namespace ray
 {
 #if RAYLIB_WITH_TIFF
+
 // save to geotif format using floating-point per-channel colour data. This function passes a projection file in order
 // to geolocate the image
 bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar,
@@ -107,8 +108,9 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       return false;
     }
     // the set of keys in the key-value pairs that we are parsing
-    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0" };
+    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0", "+zone" };
     std::vector<std::string> values;
+    int zone_value = KvUserDefined;
     for (const auto &key : keys)
     {
       std::string::size_type found = line.find(key);
@@ -120,6 +122,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
           values.push_back("");
           continue;
         }
+        if (key == "+zone")
+        {
+          std::cout << "No zone field found in proj file" << std::endl;
+          values.push_back("");
+          continue;
+        }
         std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
         return false;
       }
@@ -127,7 +135,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       found += key.length() + 1;
       std::string::size_type space = line.find(" ", found);
       if (space == std::string::npos)
-        space = line.length() - 1;
+        space = line.length();
       values.push_back(line.substr(found, space - found));
     }
     if (values[1].empty())  // if ellipsoid type not specified, we take it to be the same as the datum
@@ -153,8 +161,14 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     {
       geo_offset[1] = std::stod(values[7]);  // offset in m
     }
-    std::cout << "geooffset: " << geo_offset << ", geokey: " << values[1] << ", datum: " << values[2]
-              << ", coord_long: " << coord_long << std::endl;
+    if (!values[8].empty())
+    {
+      std::cout << "zone: " << values[8] << std::endl;
+      zone_value = std::stoi(values[8]);
+      std::cout << "zone?: " << zone_value << std::endl;
+    }
+    std::cout << "proj: " << values[0] << ", geooffset: " << geo_offset.transpose() << ", geokey: " << values[1] << ", datum: " << values[2]
+              << ", coord_long: " << coord_long << " zone: " << zone_value << std::endl;
 
     const double scales[3] = { pixel_width, pixel_width, pixel_width };
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
@@ -168,7 +182,25 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     GTIFKeySet(gtif, VerticalUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
 
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
-    GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
+    if (values[0] == "ortho")
+      GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
+    else if (values[0] == "utm")
+      GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_TransverseMercator);
+    else
+    {
+      std::stringstream ss(values[0]);
+      int projcoord = 0;
+      ss >> projcoord;
+      if (!ss.fail())  // we are using a direct number here, so
+      {
+        GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, projcoord);
+      }
+      else
+      {
+        std::cout << "unknown projection type: " << values[0] << std::endl;
+        return false;
+      }   
+    }
 
     // describe the coordinates of the image corners
     const double tiepoints[6] = { 0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0 };
@@ -197,19 +229,24 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     {
       GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
     }
-    else if (!values[2].empty())
+    else
     {
-      std::cout << "unknown geodetic datum: " << values[2] << std::endl;
-      return false;
+      std::stringstream ss(values[2]);
+      int datum = 0;
+      ss >> datum;
+      if (!ss.fail())  // we are using a direct number here, so
+      {
+        GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, datum);
+      }
+      else
+      {
+        std::cout << "unknown datum: " << values[2] << std::endl;
+        return false;
+      }
     }
-
-    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, KvUserDefined);
+    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, zone_value);
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
-    if (values[0] != "ortho")  // we only support ortho projection
-    {
-      std::cout << "unknown projection type: " << values[0] << std::endl;
-      return false;
-    }
+
     if (values[3] != "m")  // we only support metres as the units
     {
       std::cout << "unknown unit type: " << values[3] << std::endl;
