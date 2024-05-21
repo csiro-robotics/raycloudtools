@@ -20,9 +20,9 @@ void usage(int exit_code = 1)
   // clang-format off
   std::cout << "Decimate a ray cloud spatially or temporally" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm" << std::endl;
-  std::cout << "raydecimate raycloud 4 rays - reduces to every fourth ray" << std::endl;
-  std::cout << "raydecimate raycloud 100 cm 1000 rays - A maximum of 1000 rays per metre cubed" << std::endl;
+  std::cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm. A spatially even subsampling" << std::endl;
+  std::cout << "raydecimate raycloud 4 rays - reduces to every fourth ray. A temporally even subsampling (if rays are chronological)" << std::endl;
+  std::cout << "raydecimate raycloud 20 cm 64 rays - A maximum of 64 rays per cubic 20 cm. Retains small-scale details compared to spatial decimation" << std::endl;
   std::cout << "raydecimate raycloud 3 cm/m - reduces to ray ends spaced 3 cm apart for each metre of their length" << std::endl;
   // clang-format off
   exit(exit_code);
