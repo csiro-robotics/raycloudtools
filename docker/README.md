@@ -13,7 +13,7 @@ Be sure to have the latest [Docker](https://docs.docker.com/engine/install/) ins
 docker build -f Dockerfile -t raytools .
 ```
 
-This image will download and compile raycloudtools and all its dependencies. You can then run the `raytools` image as a standalone executable. The basic command is `docker run -v your/local/datadir:/data raytools` followed by the specific ray tool you want to use, as in: 
+This image will download and compile raycloudtools and all its dependencies (including treetools, so you can process rayextract outputs). You can then run the `raytools` image as a standalone executable. The basic command is `docker run -v your/local/datadir:/data raytools` followed by the specific ray tool you want to use, as in: 
 
 ```
 docker run -v your/local/datadir:/data raytools rayimport --help
