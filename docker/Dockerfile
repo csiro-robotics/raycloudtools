@@ -48,7 +48,7 @@ RUN cd /home && \
     git clone https://github.com/csiro-robotics/treetools.git && \
     cd treetools && \
     mkdir build && cd build && \
-    cmake .. && \
+    cmake .. -DWITH_TIFF=ON && \
     make -j$(nproc) && make install
 
 WORKDIR /data
