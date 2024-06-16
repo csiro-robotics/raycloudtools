@@ -41,14 +41,14 @@ RUN cd /home && \
     git clone https://github.com/csiro-robotics/raycloudtools.git && \
     cd raycloudtools && \
     mkdir build && cd build && \
-    cmake .. -DGEOTIFF_LIBRARIES=/usr/lib/libgeotiff.so -DWITH_QHULL=ON -DWITH_LAS=ON -DWITH_TIFF=ON -DDOUBLE_RAYS=ON -DRAYCLOUD_BUILD_TESTS=ON && \
-    make -j$(nproc) && make install 
+    cmake .. -DGEOTIFF_LIBRARIES=/usr/lib/libgeotiff.so -DWITH_QHULL=ON -DWITH_LAS=ON -DWITH_TIFF=ON -DDOUBLE_RAYS=ON -DRAYCLOUD_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release && \
+    make -j$(nproc) && make install
         
 RUN cd /home && \
     git clone https://github.com/csiro-robotics/treetools.git && \
     cd treetools && \
     mkdir build && cd build && \
-    cmake .. -DWITH_TIFF=ON && \
+    cmake .. -DWITH_TIFF=ON -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && make install
 
 WORKDIR /data
