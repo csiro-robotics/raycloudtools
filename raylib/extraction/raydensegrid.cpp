@@ -23,16 +23,14 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width)
   }
   const Cuboid bounds = info.ends_bound;
   const Eigen::Vector3d extent = bounds.max_bound_ - bounds.min_bound_;
-  Eigen::Vector3i dims =
-    (extent / vox_width).cast<int>() + Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
+  Eigen::Vector3i dims = (extent / vox_width).cast<int>() + Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
   Cuboid grid_bounds = bounds;
   grid_bounds.min_bound_ -= Eigen::Vector3d(vox_width, vox_width, vox_width);
   DensityGrid grid(grid_bounds, vox_width, dims);
   grid.calculateDensities(cloud_name);
   grid.addNeighbourPriors();
 
-  Eigen::MatrixXd points(grid.voxels().size(), 7);
-  Eigen::MatrixXd points_q(3, grid.voxels().size());
+  Eigen::MatrixXd points(grid.voxels().size(), 8);
   int c = 0;
   for (int k = 0; k < dims[2]; k++)
   {
@@ -44,26 +42,24 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width)
         if (grid.voxels()[index].numHits() > 0 && grid.voxels()[index].numRays() > 0)
         {
           double density = grid.voxels()[index].density();
-          // points_q.row(c++) = grid_bounds.min_bound_ + vox_width * Eigen::Vector3d((double)i+0.5, (double)j+0.5, (double)k+0.5);
-          double x = grid_bounds.min_bound_[0] + vox_width * (double)i+0.5;
-          double y = grid_bounds.min_bound_[1] + vox_width * (double)j+0.5;
-          double z = grid_bounds.min_bound_[2] + vox_width * (double)k+0.5;
-          points.row(index) << x, y, z, density, grid.voxels()[index].numHits(), grid.voxels()[index].numRays(),
-            vox_width;
-
-        }
-        else
-        {
-          continue;
+          double surface_area = density * vox_width * vox_width * vox_width;
+          double x = grid_bounds.min_bound_[0] + vox_width * (double)(i + 0.5);
+          double y = grid_bounds.min_bound_[1] + vox_width * (double)(j + 0.5);
+          double z = grid_bounds.min_bound_[2] + vox_width * (double)(k + 0.5);
+          points.row(c++) << x, y, z, density, surface_area, grid.voxels()[index].numHits(), grid.voxels()[index].numRays(), vox_width;
         }
       }
     }
   }
 
-  std::ofstream myfile;
-  myfile.open(cloud_stub + "_voxels.asc");
+  points.conservativeResize(c, points.cols());  // Resize to actual number of points
 
-  myfile << "X Y Z DENSITY NUM_HITS NUM_RAYS VOX_WIDTH\n";
+  std::ofstream myfile;
+  std::ostringstream filename;
+  filename << cloud_stub << "_voxels_" << vox_width << ".asc";
+  myfile.open(filename.str());
+
+  myfile << "X Y Z DENSITY SURFACE_AREA NUM_HITS NUM_RAYS VOX_WIDTH\n";
 
   // Iterate through each row and column of the points matrix
   for (int r = 0; r < points.rows(); ++r)
@@ -80,10 +76,9 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width)
     // Add a newline character at the end of the row
     myfile << "\n";
   }
-  printf("Wrote %d voxels to %s\n", points.rows(), (cloud_stub + "_voxels.asc").c_str());
+  printf("Wrote %d voxels to %s\n", points.rows(), filename.str().c_str());
   myfile.close();
   return true;
 }
-
 
 }  // namespace ray
