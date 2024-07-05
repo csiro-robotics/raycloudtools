@@ -42,7 +42,7 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width)
         if (grid.voxels()[index].numHits() > 0 && grid.voxels()[index].numRays() > 0)
         {
           double density = grid.voxels()[index].density();
-          double surface_area = density * vox_width * vox_width * vox_width;
+          double surface_area = (density * vox_width * vox_width * vox_width) / 2.0;
           double x = grid_bounds.min_bound_[0] + vox_width * (double)(i + 0.5);
           double y = grid_bounds.min_bound_[1] + vox_width * (double)(j + 0.5);
           double z = grid_bounds.min_bound_[2] + vox_width * (double)(k + 0.5);
