@@ -83,7 +83,8 @@ void usage(int exit_code = 1)
   {
   std::cout << "rayextract grid cloud.ply" << std::endl;
   std::cout << "                            --voxel_size " << std::endl;
-  std::cout << "                            --grid_bounds 0,0,0 100,100,100 - Set min/max bounds of voxel grid. Defaults to min/max bounds of raycloud if not set." << std::endl;
+  std::cout << "                            --grid_bounds_min x,y,z - Set min/max bounds of voxel grid. Defaults to min/max bounds of raycloud if not set." << std::endl;
+  std::cout << "                            --grid_bounds_max x,y,z - Set min/max bounds of voxel grid. Defaults to min/max bounds of raycloud if not set." << std::endl;
   std::cout << "                            --verbose  - extra debug output." << std::endl;
   }
   // clang-format on
