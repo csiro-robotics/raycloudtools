@@ -21,7 +21,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <Eigen/src/Core/util/XprHelper.h>
 
 static std::string extract_type;
 
