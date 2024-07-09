@@ -23,10 +23,8 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width, E
 
   Eigen::Vector3d extent;
   const Cuboid bounds = info.ends_bound;
-
   auto grid_bounds_min = bounds.min_bound_;
   auto grid_bounds_max = bounds.max_bound_;
-
 
   auto isZeroVector = [](const Eigen::Vector3d& vec) -> bool {
     return vec.isApprox(Eigen::Vector3d::Zero());
@@ -46,18 +44,8 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width, E
 
   Eigen::Vector3i dims = (extent / vox_width).cast<int>() + Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
   Cuboid grid_bounds;
-  if (!isZeroVector(grid_bounds_min) && !isZeroVector(grid_bounds_max))
-  {
-    grid_bounds.min_bound_ = grid_bounds_min - Eigen::Vector3d(vox_width, vox_width, vox_width);
-    grid_bounds.max_bound_ = grid_bounds_max;
-  } 
-  else 
-  {
-    const Cuboid bounds = info.ends_bound;
-    grid_bounds = bounds;
-    grid_bounds.min_bound_ -= Eigen::Vector3d(vox_width, vox_width, vox_width);
-  }
-  extent = grid_bounds_max - grid_bounds_min;
+  grid_bounds.min_bound_ = grid_bounds_min - Eigen::Vector3d(vox_width, vox_width, vox_width);
+  grid_bounds.max_bound_ = grid_bounds_max;
 
   DensityGrid grid(grid_bounds, vox_width, dims);
   grid.calculateDensities(cloud_name);

@@ -73,19 +73,19 @@ void usage(int exit_code = 1)
   {
     std::cout << "rayextract leaves cloud.ply trees.txt            - reconstruct the leaf locations coming from the specified tree structures, and save to text file" << std::endl;
     std::cout << "                            --leaf mesh.ply      - mesh for each leaf. Should have its centre at 0,0,0, be along the y axis, with first vertex at the stalk connection" << std::endl;
-    std::cout << "                            --leaf image.png     - make leaf from the image, assuming it uses its alpha channel (loads in cloudompare but not meshlab)" << std::endl;
+    std::cout << "                            --leaf image.png     - make leaf from the image, assuming it uses its alpha channel (loads in CloudCompare but not Meshlab)" << std::endl;
     std::cout << "                            --leaf_area 0.002    - area for each leaf." << std::endl;
     std::cout << "                            --leaf_droop 0.1     - drop per square horizontal distance." << std::endl;
     std::cout << "                            --stalks             - include stalks to closest branch." << std::endl;
-    std::cout << "                                 --verbose  - extra debug output." << std::endl;
   }
   if (extract_type == "grid" || none)
   {
   std::cout << "rayextract grid cloud.ply" << std::endl;
   std::cout << "                            --voxel_size " << std::endl;
-  std::cout << "                            --grid_bounds_min x,y,z - Set min/max bounds of voxel grid. Defaults to min/max bounds of raycloud if not set." << std::endl;
-  std::cout << "                            --grid_bounds_max x,y,z - Set min/max bounds of voxel grid. Defaults to min/max bounds of raycloud if not set." << std::endl;
-  std::cout << "                            --verbose  - extra debug output." << std::endl;
+  std::cout << "                            --grid_bounds_min x,y,z - Set min bounds of voxel grid. Defaults to min bounds of raycloud if not set." << std::endl;
+  std::cout << "                            --grid_bounds_max x,y,z - Set max bounds of voxel grid. Defaults to max bounds of raycloud if not set." << std::endl;
+  std::cout << "                                 --verbose  - extra debug output." << std::endl;
+
   }
   // clang-format on
   exit(exit_code);
