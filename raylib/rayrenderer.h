@@ -56,8 +56,10 @@ bool RAYLIB_EXPORT writeGeoTiffFloat(const std::string &filename, int x, int y, 
 struct RAYLIB_EXPORT DensityGrid
 {
   static const int min_voxel_hits = 2;
-  static constexpr double spherical_distribution_scale =
-    2.0;  // average area scale due to a spherical uniform distribution of leave angles relative to the rays
+  // static constexpr double spherical_distribution_scale =
+  //   2.0;  // average area scale due to a spherical uniform distribution of leave angles relative to the rays
+
+  static constexpr double distribution_scale = 0.0;  
 
   DensityGrid(const Cuboid &grid_bounds, double vox_width, const Eigen::Vector3i &dims)
     : bounds_(grid_bounds)
@@ -118,7 +120,7 @@ private:
 // inline functions
 double DensityGrid::Voxel::numerator() const
 {
-  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_;
+  return distribution_scale * (num_rays_ - 1.0) * num_hits_;
 }
 double DensityGrid::Voxel::denominator() const
 {
@@ -132,7 +134,7 @@ double DensityGrid::Voxel::density() const
     return 0.0;
   }
   const double eps = 1e-10; // avoid division by 0
-  return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (eps + num_rays_ * path_length_);
+  return distribution_scale * (num_rays_ - 1.0) * num_hits_ / (eps + num_rays_ * path_length_);
 }
 void DensityGrid::Voxel::operator+=(const DensityGrid::Voxel &other)
 {

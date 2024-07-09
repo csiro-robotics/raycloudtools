@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <Eigen/src/Core/util/XprHelper.h>
 
 static std::string extract_type;
 
@@ -83,6 +84,7 @@ void usage(int exit_code = 1)
   {
   std::cout << "rayextract grid cloud.ply" << std::endl;
   std::cout << "                            --voxel_size " << std::endl;
+  std::cout << "                            --grid_bounds 0,0,0 100,100,100 - Set min/max bounds of voxel grid. Defaults to min/max bounds of raycloud if not set." << std::endl;
   std::cout << "                            --verbose  - extra debug output." << std::endl;
   }
   // clang-format on
@@ -113,6 +115,7 @@ int rayExtract(int argc, char *argv[])
   ray::DoubleArgument gravity_factor(0.0, 100.0), grid_width(1.0, 100000.0),
     grid_overlap(0.0, 0.9);
   ray::DoubleArgument voxel_size(0.1, 10);
+  ray::Vector3dArgument grid_bounds_min, grid_bounds_max;
   ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
   ray::OptionalKeyValueArgument crop_length_option("crop_length", 'n', &crop_length);
   ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
@@ -130,7 +133,8 @@ int rayExtract(int argc, char *argv[])
   ray::OptionalKeyValueArgument leaf_area_option("leaf_area", 'a', &leaf_area);
   ray::OptionalKeyValueArgument leaf_droop_option("leaf_droop", 'd', &leaf_droop);
   ray::OptionalKeyValueArgument voxel_size_option("voxel_size", 'vs', &voxel_size);
-
+  ray::OptionalKeyValueArgument grid_bounds_min_option("grid_bounds_min", 'bmin', &grid_bounds_min);
+  ray::OptionalKeyValueArgument grid_bounds_max_option("grid_bounds_max", 'bmax', &grid_bounds_max);
   ray::IntArgument smooth(0, 50);
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth),
     drop_option("drop_ratio", 'd', &drop);
@@ -148,7 +152,7 @@ int rayExtract(int argc, char *argv[])
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
       &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &use_rays, &verbose });
   bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_option, &leaf_area_option, &leaf_droop_option, &stalks });
-  bool extract_grid = ray::parseCommandLine(argc, argv, { &grid, &cloud_file }, { &voxel_size_option, &verbose });
+  bool extract_grid = ray::parseCommandLine(argc, argv, { &grid, &cloud_file }, { &voxel_size_option, &grid_bounds_min_option, &grid_bounds_max_option, &verbose });
 
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves && !extract_grid)
   {
@@ -319,7 +323,7 @@ int rayExtract(int argc, char *argv[])
   }
   else if (extract_grid)
   {
-    ray::generateAreaVoxels(cloud_file.nameStub(), voxel_size.value());
+    ray::generateAreaVoxels(cloud_file.nameStub(), voxel_size.value(), grid_bounds_min.value(), grid_bounds_max.value());
   }
   else
   {

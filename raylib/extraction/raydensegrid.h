@@ -11,6 +11,6 @@
 
 namespace ray
 {
-bool generateAreaVoxels(const std::string &cloud_stub, double voxel_size);
+bool generateAreaVoxels(const std::string &cloud_stub, double voxel_size, Eigen::Vector3d grid_bounds_min, Eigen::Vector3d grid_bounds_max);
 }  // namespace ray
 #endif  // RAYLIB_RAYLEAVES_H
