@@ -59,7 +59,7 @@ struct RAYLIB_EXPORT DensityGrid
   // static constexpr double spherical_distribution_scale =
   //   2.0;  // average area scale due to a spherical uniform distribution of leave angles relative to the rays
 
-  static constexpr double distribution_scale = 0.0;  
+  static constexpr double distribution_scale = 1.0;  
 
   DensityGrid(const Cuboid &grid_bounds, double vox_width, const Eigen::Vector3i &dims)
     : bounds_(grid_bounds)
