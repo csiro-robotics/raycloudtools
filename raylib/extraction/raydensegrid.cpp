@@ -51,7 +51,7 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width, E
   grid.calculateDensities(cloud_name);
   grid.addNeighbourPriors();
 
-  Eigen::MatrixXd points(grid.voxels().size(), 8);
+  Eigen::MatrixXd points(grid.voxels().size(), 9); // Corrected the number of columns to 9
   int c = 0;
   for (int k = 0; k < dims[2]; k++)
   {
