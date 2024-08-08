@@ -12,7 +12,7 @@
 namespace ray
 {
 
-bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width, Eigen::Vector3d user_bounds_min, Eigen::Vector3d user_bounds_max)
+bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, Eigen::Vector3d user_bounds_min, Eigen::Vector3d user_bounds_max)
 {
   std::string cloud_name = cloud_stub + ".ply";
   Cloud::Info info;
@@ -78,7 +78,7 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width, E
 
   std::ofstream myfile;
   std::ostringstream filename;
-  filename << cloud_stub << "_voxels_" << vox_width << ".asc";
+  filename << cloud_stub << "_voxels_" << vox_width << ".txt";
   myfile.open(filename.str());
 
   if (!myfile.is_open()) 
@@ -87,7 +87,7 @@ bool generateAreaVoxels(const std::string &cloud_stub, const double vox_width, E
     return false;
   }
 
-  myfile << "X Y Z PATH_LENGTH DENSITY SURFACE_AREA NUM_HITS NUM_RAYS VOX_WIDTH\n";
+  myfile << "x y z path_length density surface_area num_hits num_rays width\n";
 
   // Iterate through each row and column of the points matrix
   for (int r = 0; r < points.rows(); ++r)

@@ -323,7 +323,7 @@ int rayExtract(int argc, char *argv[])
   }
   else if (extract_grid)
   {
-    ray::generateAreaVoxels(cloud_file.nameStub(), voxel_size.value(), grid_bounds_min.value(), grid_bounds_max.value());
+    ray::generateDenseVoxels(cloud_file.nameStub(), voxel_size.value(), grid_bounds_min.value(), grid_bounds_max.value());
   }
   else
   {
