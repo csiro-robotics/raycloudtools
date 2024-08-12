@@ -16,5 +16,5 @@
     },
     "remoteUser": "root",
     "forwardPorts": [],
-    "postCreateCommand": "echo 'Development environment is ready!'"
+    "postCreateCommand": "/workspace/raycloudtools/.devcontainer/commands/compile_install.sh"
 }
