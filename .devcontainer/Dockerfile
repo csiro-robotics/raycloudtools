@@ -69,38 +69,6 @@ RUN git clone https://github.com/ethz-asl/libnabo.git && \
     make install && \
     cd ../.. && rm -rf libnabo
 
-# Build RayCloudTools 
-RUN mkdir build && \
-    cd build && \
-    cmake .. \
-        -DGeoTIFF_INCLUDE_DIR=/usr/include/geotiff \
-        -DGeoTIFF_LIBRARY=/usr/lib/x86_64-linux-gnu/libgeotiff.so \
-        -DPROJ_INCLUDE_DIR=/usr/include/proj \
-        -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
-        -DWITH_LAS=ON \
-        -DWITH_RIEGL=ON \
-        -DDOUBLE_RAYS=ON \
-        -DWITH_TIFF=ON \
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo && \
-    make -j"$(nproc)" && \
-    make install && \
-    cd ../.. && \
-    ldconfig /usr/local/lib
-
-# Clone and build TreeTools
-RUN git clone https://github.com/tim-devereux/treetools.git  && \
-    cd treetools  && \
-    mkdir build  && \
-    cd build  && \
-    cmake ..  \
-        -DPROJ_INCLUDE_DIR=/usr/include/proj \
-        -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
-        -DWITH_TIFF=ON \
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo && \
-    make -j"$(nproc)"  && \
-    make install  && \
-    cd ../..
-
 # Update ldconfig
 RUN ldconfig /usr/local/lib
 
