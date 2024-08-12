@@ -17,7 +17,6 @@
 // #include <riegl/rdb/default.hpp>
 #include <riegl/scanlib.hpp>
 #include <tuple>
-#endif  // RAYLIB_WITH_RIEGL
 
 
 struct RieglPointData
@@ -74,6 +73,7 @@ protected:
     }
   }
 };
+#endif  // RAYLIB_WITH_RIEGL
 
 namespace ray
 {
@@ -83,6 +83,7 @@ bool readRXP(const std::string &file_name,
                apply,
              size_t &num_bounded, double max_intensity, std::vector<double> pose_transformation, size_t chunk_size)
 {
+#if RAYLIB_WITH_RIEGL
   std::cout << "readRiegl: " << file_name << std::endl;
 
   std::ifstream ifs;
@@ -191,6 +192,7 @@ bool readRXP(const std::string &file_name,
 
 
   return true;
+#endif  // RAYLIB_WITH_RIEGL
 }
 
 
