@@ -20,35 +20,38 @@ RUN apt-get update && apt-get upgrade -y && \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a script to handle library setup
-RUN echo '#!/bin/bash\n\
-setup_riegl_lib() {\n\
-    local lib_name=$1\n\
-    local lib_version=$2\n\
-    local lib_path="/opt/${lib_name}-${lib_version}"\n\
-    if [ -d "$lib_path" ]; then\n\
-        echo "${lib_name} found. Setting up environment variables."\n\
-        case $lib_name in\n\
-            "rdblib")\n\
-                export rdb_DIR="${lib_path}/interface/cpp"\n\
-                export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${lib_path}/library"\n\
-                ;;\n\
-            "rivlib")\n\
-                export RiVLib_DIR="${lib_path}"\n\
-                export RiVLib_INCLUDE_DIRS="${lib_path}/include"\n\
-                ;;\n\
-        esac\n\
-    else\n\
-        echo "${lib_name} not found. Skipping setup."\n\
-    fi\n\
-}\n\
-setup_riegl_lib "rdblib" "2.4.1"\n\
-setup_riegl_lib "rivlib" "2.6.0"\n\
-exec "$@"' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
-
-# Copy Riegl libraries if they exist
+# Copy Riegl libraries if they exist - If using -DWITH_RIEGL put them in a folder 'riegl_libs' in top directory before making container.
 COPY --chown=root:root riegl_libs/rdblib-2.4.1-x86_64-linux /opt/rdblib-2.4.1
 COPY --chown=root:root riegl_libs/rivlib-2_6_0-x86_64-linux-gcc11 /opt/rivlib-2.6.0
+
+# Set environment variables for RiVLib and rdblib paths
+ENV RiVLib_DIR=/opt/rivlib-2.6.0 \
+    RiVLib_INCLUDE_DIRS=/opt/rivlib-2.6.0/include \
+    rdb_DIR=/opt/rdblib-2.4.1/interface/cpp \
+    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rdblib-2.4.1/library
+
+# Clone and build LASzip
+ENV LASZIP_VERSION=2.0.1
+RUN git clone --branch ${LASZIP_VERSION} --depth 1 https://github.com/LASzip/LASzip.git && \
+    cd LASzip && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j$(nproc) && \
+    sudo make install && \
+    sudo cp bin/Release/liblas* /usr/lib/ && \
+    cd ../.. && rm -rf LASzip
+
+# Clone and build libLAS
+ENV LIBLAS_VERSION=master
+RUN git clone --branch ${LIBLAS_VERSION} --depth 1 https://github.com/libLAS/libLAS.git && \
+    cd libLAS && \
+    mkdir build && \
+    cd build && \
+    cmake .. -DWITH_LASZIP=ON && \
+    make -j$(nproc) && \
+    sudo make install && \
+    cd ../.. && rm -rf libLAS
 
 # Install Qhull
 ENV QHULL_VERSION=v7.3.2
@@ -77,9 +80,3 @@ WORKDIR /workspace
 
 # Set the default shell to bash
 SHELL ["/bin/bash", "-c"]
-
-# Use the entrypoint script
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-# Default command
-CMD ["/bin/bash"]
