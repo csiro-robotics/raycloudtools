@@ -16,5 +16,5 @@
     },
     "remoteUser": "root",
     "forwardPorts": [],
-    "postCreateCommand": "/workspaces/raycloudtools/.devcontainer/commands/compile_install.sh"
+    "postCreateCommand": "chmod +x /workspaces/raycloudtools/.devcontainer/commands/compile_install.sh && /workspaces/raycloudtools/.devcontainer/commands/compile_install.sh"
 }
