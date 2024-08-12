@@ -22,13 +22,6 @@ RUN apt-get update && apt-get upgrade -y && \
     wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy the conditional copy script
-COPY .devcontainer/copy_external_libs.sh /usr/local/bin/copy_external_libs.sh
-RUN chmod +x /usr/local/bin/copy_external_libs.sh
-
-# Run the script to handle copying RiVLib and rdblib if they exist
-RUN /usr/local/bin/copy_external_libs.sh
-
 # Clone, build and clean up LASzip
 RUN git clone https://github.com/LASzip/LASzip.git && \
     cd LASzip && \
