@@ -85,18 +85,36 @@ if(WITH_QHULL)
   list(APPEND RAYTOOLS_INCLUDE ${QHULL_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${QHULL_LIBRARIES})
 endif(WITH_QHULL)
-if(WITH_TIFF)
-  find_package(GeoTIFF REQUIRED)
-  find_package(PROJ REQUIRED COMPONENTS proj)
-  list(APPEND RAYTOOLS_INCLUDE ${GEOTIFF_INCLUDE_DIR})
-  list(APPEND RAYTOOLS_LINK ${GEOTIFF_LIBRARIES})
-  find_package(TIFF REQUIRED)
-  list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
-  list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
-  find_package(PROJ REQUIRED CONFIG)
-  list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIR})
-  list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
-endif(WITH_TIFF)
+
+if (WITH_TIFF)
+    # Find and configure GeoTIFF
+    find_package(GeoTIFF REQUIRED)
+  
+    if(GeoTIFF_FOUND)
+      list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIR})
+      list(APPEND RAYTOOLS_LINK ${GeoTIFF_LIBRARIES})
+    else()
+      message(FATAL_ERROR "GeoTIFF library not found.")
+    endif()
+
+    # Find and configure TIFF
+    find_package(TIFF REQUIRED)
+    if (TIFF_FOUND)
+        list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
+        list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
+    else()
+        message(FATAL_ERROR "TIFF library not found.")
+    endif()
+
+    # Find and configure PROJ
+    find_package(PROJ REQUIRED)
+    if (PROJ_FOUND)
+        list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIRS})
+        list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
+    else()
+        message(FATAL_ERROR "PROJ library not found.")
+    endif()
+endif (WITH_TIFF)
 
 if(WITH_TBB)
 # Helper macro to Find TBB prefering TBBConfig, falling back to FindTBB. TBB_LIBRARIES will be defined in both cases.
