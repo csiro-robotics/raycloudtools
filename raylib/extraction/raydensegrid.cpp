@@ -42,7 +42,41 @@ bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, 
 
   extent = grid_bounds_max - grid_bounds_min;  
 
-  Eigen::Vector3i dims = (extent / vox_width).cast<int>() + Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
+  // Eigen::Vector3i dims = (extent / vox_width).cast<int>() + Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
+
+  // std::cout << "bounds ext: " << extent.transpose() << std::endl;
+  // std::cout << "vox_width: " << vox_width << std::endl;
+
+  // Check for division by zero
+  if (std::abs(vox_width) < 1e-10) {
+      std::cerr << "Error: vox_width is too close to zero." << std::endl;
+      return false;
+  }
+
+  // Perform the calculation step by step with bounds checking
+  Eigen::Vector3d temp1 = extent / vox_width;
+  // std::cout << "After division: " << temp1.transpose() << std::endl;
+
+  Eigen::Vector3d temp2 = temp1.array().ceil();
+  // std::cout << "After ceiling: " << temp2.transpose() << std::endl;
+
+  Eigen::Vector3i dims;
+  for (int i = 0; i < 3; ++i) {
+      if (temp2[i] > std::numeric_limits<int>::max() - 2) {
+          dims[i] = std::numeric_limits<int>::max();
+      } else {
+          dims[i] = static_cast<int>(temp2[i]) + 2;
+      }
+  }
+  std::cout << "Final padded dims: " << dims.transpose() << std::endl;
+
+  // Check if dimensions are reasonable
+  const int max_reasonable_dim = 1000000; // Adjust this value as needed
+  if (dims.maxCoeff() > max_reasonable_dim) {
+      std::cerr << "Error: Resulting dimensions are unreasonably large. "
+                << "Please check your input data and voxel size." << std::endl;
+      return false;
+  }
   Cuboid grid_bounds;
   grid_bounds.min_bound_ = grid_bounds_min - Eigen::Vector3d(vox_width, vox_width, vox_width);
   grid_bounds.max_bound_ = grid_bounds_max;
@@ -67,7 +101,7 @@ bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, 
           double z = grid_bounds.min_bound_[2] + vox_width * (k + 0.5);
           double path_length = grid.voxels()[index].pathLength();
           double density = grid.voxels()[index].density();
-          double surface_area = (density * vox_width * vox_width * vox_width);
+          double surface_area = density * vox_width * vox_width * vox_width;
           points.row(c++) << x, y, z, path_length, density, surface_area, grid.voxels()[index].numHits(), grid.voxels()[index].numRays(), vox_width;
         }
       }

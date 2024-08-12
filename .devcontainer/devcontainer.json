@@ -1,0 +1,20 @@
+{
+    "name": "RayCloudTools Development",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "twxs.cmake",
+                "ms-vscode.cpptools-extension-pack"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "forwardPorts": [],
+    "postCreateCommand": "echo 'Development environment is ready!'"
+}
