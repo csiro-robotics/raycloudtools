@@ -57,7 +57,8 @@ cmake .. \
     -DDOUBLE_RAYS=ON \
     -DWITH_TIFF=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DWITH_RIEGL=$WITH_RIEGL
+    -DWITH_RIEGL=$WITH_RIEGL \
+    -DWITH_NETCDF=ON
 
 make -j"$(nproc)"
 make install

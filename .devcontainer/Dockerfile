@@ -21,6 +21,8 @@ RUN apt-get update && apt-get upgrade -y && \
     libgeotiff-dev \
     libboost-all-dev \
     wget && \
+    libnetcdf-dev && \
+    libnetcdf-c++4-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone, build and clean up LASzip

@@ -36,6 +36,7 @@ option(WITH_QHULL "With libqhull support?" OFF)
 option(WITH_TIFF "With libgeotiff support?" OFF)
 option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
 option(WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
+option(WITH_NETCDF "With NetCDF support?" OFF)
 
 # Convert WITH_ options to 1/0 so we can use them in configuration headers.
 ras_bool_to_int(WITH_LAS)
@@ -44,6 +45,7 @@ ras_bool_to_int(WITH_QHULL)
 ras_bool_to_int(WITH_TIFF)
 ras_bool_to_int(WITH_TBB)
 ras_bool_to_int(WITH_NORMAL_FIELD)
+ras_bool_to_int(WITH_NETCDF)  
 
 # other build-time options
 option(DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
@@ -116,6 +118,23 @@ if (WITH_TIFF)
     endif()
 endif (WITH_TIFF)
 
+if(WITH_NETCDF)
+  find_package(NetCDF REQUIRED)
+  if(NOT NetCDF_FOUND)
+    message(FATAL_ERROR "NetCDF not found. Please install NetCDF and try again.")
+  endif()
+  list(APPEND RAYTOOLS_INCLUDE ${NetCDF_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK NetCDF::NetCDF)
+  
+  if(NetCDF_HAS_CXX)
+    list(APPEND RAYTOOLS_LINK NetCDF::NetCDF_CXX)
+    add_definitions(-DHAS_NETCDF_CXX)
+  else()
+    message(WARNING "NetCDF C++ library not found. Only C API will be available.")
+  endif()
+endif(WITH_NETCDF)
+
+
 if(WITH_TBB)
 # Helper macro to Find TBB prefering TBBConfig, falling back to FindTBB. TBB_LIBRARIES will be defined in both cases.
 # TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.
@@ -145,6 +164,19 @@ endmacro(find_tbb)
     list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
   endif(TBB_FOUND)
 endif(WITH_TBB)
+
+if(WITH_NETCDF)
+  find_package(NetCDF REQUIRED)
+  if(NOT NetCDF_FOUND)
+    message(FATAL_ERROR "NetCDF not found. Please install NetCDF and try again.")
+  endif()
+  find_package(NetCDF_CXX REQUIRED)
+  if(NOT NetCDF_CXX_FOUND)
+    message(FATAL_ERROR "NetCDF C++ not found. Please install NetCDF C++ and try again.")
+  endif()
+  list(APPEND RAYTOOLS_INCLUDE ${NetCDF_INCLUDE_DIRS} ${NetCDF_CXX_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK NetCDF::NetCDF NetCDF::NetCDF_CXX)
+endif(WITH_NETCDF)
 
 # Create libs
 add_subdirectory(3rd-party)
