@@ -3,14 +3,14 @@
 // ABN 41 687 119 230
 //
 // Author: Tim Devereux
-#ifndef RAYLIB_raydensegrid_H
-#define RAYLIB_raydensegrid_H
+#ifndef RAYLIB_RAYDENSEGRID_H
+#define RAYLIB_RAYDENSEGRID_H
 
 #include "raylib/raylibconfig.h"
 #include "raylib/rayutils.h"
 
 namespace ray
 {
-bool generateDenseVoxels(const std::string &cloud_stub, double voxel_size, Eigen::Vector3d grid_bounds_min, Eigen::Vector3d grid_bounds_max);
+bool generateDenseVoxels(const std::string &cloud_stub, double voxel_size, Eigen::Vector3d grid_bounds_min, Eigen::Vector3d grid_bounds_max, bool write_empty);
 }  // namespace ray
-#endif  // RAYLIB_RAYLEAVES_H
+#endif  // RAYLIB_RAYDENSEGRID_H

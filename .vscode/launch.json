@@ -5,7 +5,7 @@
             "name": "CMake Debug Current File",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/${fileBasenameNoExtension}",
+            "program": "${workspaceFolder}/build/bin/${fileBasenameNoExtension}d",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
