@@ -62,7 +62,7 @@ cmake .. \
 
 make -j"$(nproc)"
 make install
-cd ../..
+cd /workspaces/raycloudtools
 ldconfig /usr/local/lib
 
 # Clone and build TreeTools
@@ -75,6 +75,7 @@ cmake .. \
     -DPROJ_INCLUDE_DIR=/usr/include/proj \
     -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
     -DWITH_TIFF=ON \
+    -DWITH_NETCDF=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo
 make -j"$(nproc)"
 make install
