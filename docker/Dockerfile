@@ -12,14 +12,12 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y \
     git \
     build-essential \
-    gdb \
     cmake \
-    cmake-curses-gui \
     clang-tidy \
     libeigen3-dev \
     libproj-dev \
     libgeotiff-dev \
-    libboost-all-dev \
+    libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
     
 # Create a directory for building packages
