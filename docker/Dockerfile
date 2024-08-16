@@ -67,7 +67,6 @@ RUN git clone https://github.com/ethz-asl/libnabo.git && \
 # Clone, build and install raycloudtools
 RUN git clone https://github.com/tim-devereux/raycloudtools.git && \
     cd raycloudtools && \
-    git checkout riegl && \
     mkdir build && \
     cd build && \
     cmake .. \
@@ -79,7 +78,7 @@ RUN git clone https://github.com/tim-devereux/raycloudtools.git && \
         -DWITH_LAS=ON \
         -DDOUBLE_RAYS=ON \
         -DWITH_TIFF=ON \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
     make install && \
     cd ../.. && \
