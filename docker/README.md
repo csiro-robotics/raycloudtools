@@ -5,7 +5,7 @@
 #### date: June 24, 2023
 ---
 
-The provided docker file allows easy building ([Ubuntu22.04](https://hub.docker.com/_/ubuntu/)).
+The provided dockerfile allows easy building. It is based on [Ubuntu22.04](https://hub.docker.com/_/ubuntu/).
 
 Be sure to have the latest [Docker](https://docs.docker.com/engine/install/) installed in your system. To build the raycloudtools image, run:
 
