@@ -5,18 +5,18 @@
 #### date: June 24, 2023
 ---
 
-The provided docker file allows easy building from a lightweight linux image ([Alpine v3](https://hub.docker.com/_/alpine/)).
+The provided docker file allows easy building ([Ubuntu22.04](https://hub.docker.com/_/ubuntu/)).
 
 Be sure to have the latest [Docker](https://docs.docker.com/engine/install/) installed in your system. To build the raycloudtools image, run:
 
 ```
-docker build -f Dockerfile -t raytools .
+docker build -f Dockerfile -t raycloudtools .
 ```
 
-This image will download and compile raycloudtools and all its dependencies (including treetools, so you can process rayextract outputs). You can then run the `raytools` image as a standalone executable. The basic command is `docker run -v your/local/datadir:/data raytools` followed by the specific ray tool you want to use, as in: 
+This image will download and compile raycloudtools and all its dependencies (including treetools, so you can process rayextract outputs). You can then run the `raycloudtools` image as a standalone executable. The basic command is `docker run -v your/local/datadir:/data raycloudtools` followed by the specific tool you want to use, as in: 
 
 ```
-docker run -v your/local/datadir:/data raytools rayimport --help
+docker run -v your/local/datadir:/data raycloudtools rayimport
 ```
 
 Here's an example of a pipeline to process a forest plot:
@@ -28,7 +28,7 @@ cd mydata
 
 # [optional] create a local environment variable with the arguments you 
 # want to pass to docker - so you don't have to rewrite it everytime
-CMD="run --rm -u $(id -u $USER) -v $PWD:/data raytools"
+CMD="run --rm -u $(id -u $USER) -v $PWD:/data raycloudtools"
 
 # generate some sample data
 docker $CMD raycreate forest 3
