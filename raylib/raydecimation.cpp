@@ -164,6 +164,107 @@ bool decimateSpatioTemporal(const std::string &file_stub, double vox_width, int 
   return true;
 }
 
+
+bool decimateRaysSpatial(const std::string &file_stub, double vox_width)
+{
+  ray::CloudWriter writer;
+  if (!writer.begin(file_stub + "_decimated.ply"))
+    return false;
+
+  // By maintaining these buffers below, we avoid almost all memory fragmentation
+  ray::Cloud chunk;
+  std::vector<int64_t> subsample;
+  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
+
+  auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+  {
+    double width = 0.01 * vox_width;
+    subsample.clear();
+    for (int i = 0; i < (int)ends.size(); i++)
+    {
+      // #define END_FIRST // by traversing from end to start we match the existence of the ray more to the free space near the end point. In building1 test start first found more ray locations
+      #if defined END_FIRST
+      Eigen::Vector3d dir = starts[i] - ends[i];
+      const Eigen::Vector3d source = ends[i] / width;
+      const Eigen::Vector3d target = starts[i] / width;
+      #else
+      Eigen::Vector3d dir = ends[i] - starts[i];
+      const Eigen::Vector3d source = starts[i] / width;
+      const Eigen::Vector3d target = ends[i] / width;
+      #endif
+      const double length = dir.norm();
+      for (int a = 0; a<3; a++)
+      {
+        if (dir[a] == 0.0)
+        {
+          dir[a] = 1e-10; // prevent division by 0
+        }
+      }
+      const double eps = 1e-9;  // to stay away from edge cases
+      const double maxDist = (target - source).norm();
+
+      // cached values to speed up the loop below
+      Eigen::Vector3i adds;
+      Eigen::Vector3d offsets;
+      for (int k = 0; k < 3; ++k)
+      {
+        if (dir[k] > 0.0)
+        {
+          adds[k] = 1;
+          offsets[k] = 0.5;
+        }
+        else
+        {
+          adds[k] = -1;
+          offsets[k] = -0.5;
+        }
+      }
+
+      Eigen::Vector3d p = source;  // our moving variable as we walk over the grid
+      Eigen::Vector3i inds((int)std::floor(p[0]), (int)std::floor(p[1]), (int)std::floor(p[2]));
+      if (voxel_set.insert(inds).second)
+      {
+        subsample.push_back(i);
+        continue;
+      }
+      double depth = 0;
+      // for every ray, walk over its length and if there is a free space then add it
+      do
+      {
+        double ls[3] = { (std::round(p[0] + offsets[0]) - p[0]) / dir[0], (std::round(p[1] + offsets[1]) - p[1]) / dir[1],
+                         (std::round(p[2] + offsets[2]) - p[2]) / dir[2] };
+        int axis = (ls[0] < ls[1] && ls[0] < ls[2]) ? 0 : (ls[1] < ls[2] ? 1 : 2);
+        inds[axis] += adds[axis];
+        double minL = ls[axis] * length;
+        depth += minL + eps;
+        p = source + dir * (depth / length);
+        
+        if (voxel_set.insert(inds).second)
+        {
+          subsample.push_back(i);
+          break; // only adding to one cell
+        }
+      } while (depth <= maxDist);
+    }
+    chunk.resize(subsample.size());
+    for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
+    {
+      int64_t id = subsample[i];
+      chunk.starts[i] = starts[id];
+      chunk.ends[i] = ends[id];
+      chunk.colours[i] = colours[id];
+      chunk.times[i] = times[id];
+    }
+    writer.writeChunk(chunk);
+  };
+
+  if (!ray::Cloud::read(file_stub + ".ply", decimate))
+    return false;
+  writer.end();
+  return true;
+}
+
 bool decimateAngular(const std::string &file_stub, double radius_per_length)
 {
   ray::CloudWriter writer;

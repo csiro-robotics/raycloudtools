@@ -27,6 +27,12 @@ bool RAYLIB_EXPORT decimateTemporal(const std::string &file_stub, int num_rays);
 /// This allows a more even distribution of points while maintaining details better than pure spatial decimation
 bool RAYLIB_EXPORT decimateSpatioTemporal(const std::string &file_stub, double vox_width, int num_rays);
 
+/// @brief Maintains a maximum number of rays intersecting each voxel. This has some ambiguity, but is a useful routine
+/// as it maintains the integrity of the full ray cloud including free space, so is better for combine operations
+/// By contrast, standard spatial decimation removes free space whenever the end points coincide 
+bool RAYLIB_EXPORT decimateRaysSpatial(const std::string &file_stub, double vox_width);
+
+
 /// @brief decimate to no more than 1 point per voxel of width @c radius_per_length x ray length. 
 /// This is used when error is proportional to ray length, prioritising closer measurements and leaving distant areas sparse
 bool RAYLIB_EXPORT decimateAngular(const std::string &file_stub, double radius_per_length);
