@@ -36,6 +36,62 @@ bool RAYLIB_EXPORT decimateRaysSpatial(const std::string &file_stub, double vox_
 /// @brief decimate to no more than 1 point per voxel of width @c radius_per_length x ray length. 
 /// This is used when error is proportional to ray length, prioritising closer measurements and leaving distant areas sparse
 bool RAYLIB_EXPORT decimateAngular(const std::string &file_stub, double radius_per_length);
+
+
+struct Subsampler
+{
+  inline bool operator()(const Eigen::Vector3i &p, int i)
+  {
+    if (voxel_set.insert(p).second)
+    {
+      subsample.push_back(i);
+      return true;
+    }
+    return false;
+  }
+  std::vector<int64_t> subsample;
+  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
+};
+
+inline int sign(double x)
+{
+  return (x > 0.0) - (x < 0.0);
+}
+
+// for similar appraoch see: https://github.com/StrandedKitty/tiles-intersect/blob/master/src/index.js
+template<class T> 
+void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &object, int i)
+{
+  Eigen::Vector3i p = Eigen::Vector3d(std::floor(start[0]), std::floor(start[1]), std::floor(start[2])).cast<int>();
+  
+  if (object(p, i))
+  {
+    return; // only adding to one cell
+  }
+  
+  Eigen::Vector3i step(sign(end[0] - start[0]), sign(end[1] - start[1]), sign(end[2] - start[2]));
+  Eigen::Vector3d tmax, tdelta;
+  for (int j = 0; j<3; j++)
+  {
+    step[j] = sign(end[j] - start[j]);
+    double to = std::abs(start[j] - p[j] - (double)std::max(0, step[j]));        
+    double dir = std::max(std::numeric_limits<double>::min(), std::abs(start[j] - end[j]));
+    tmax[j] = to / dir;
+    tdelta[j] = 1.0 / dir;
+  }
+  
+  Eigen::Vector3i target = Eigen::Vector3d(std::floor(end[0]), std::floor(end[1]), std::floor(end[2])).cast<int>();
+  while (p != target) 
+  {
+    int ax = tmax[0] < tmax[1] && tmax[0] < tmax[2] ? 0 : (tmax[1] < tmax[2] ? 1 : 2);
+    p[ax] += step[ax];
+    tmax[ax] += tdelta[ax];
+    if (object(p, i))
+    {
+      break; // only adding to one cell
+    }          
+  }     
+}
 }  // namespace ray
 
 #endif  // RAYLIB_RAYDECIMATION_H

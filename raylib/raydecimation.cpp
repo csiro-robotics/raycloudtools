@@ -164,10 +164,6 @@ bool decimateSpatioTemporal(const std::string &file_stub, double vox_width, int 
   return true;
 }
 
-int sign(double x)
-{
-  return (x > 0.0) - (x < 0.0);
-}
 
 bool decimateRaysSpatial(const std::string &file_stub, double vox_width)
 {
@@ -177,148 +173,26 @@ bool decimateRaysSpatial(const std::string &file_stub, double vox_width)
 
   // By maintaining these buffers below, we avoid almost all memory fragmentation
   ray::Cloud chunk;
-  std::vector<int64_t> subsample;
-  std::set<Eigen::Vector3i, ray::Vector3iLess> voxel_set;
 
+  Subsampler subsampler;
   auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                       std::vector<double> &times, std::vector<ray::RGBA> &colours) 
   {
     double width = 0.01 * vox_width;
-    subsample.clear();
+    subsampler.subsample.clear();
     for (int i = 0; i < (int)ends.size(); i++)
     {
-      // #define END_FIRST // by traversing from end to start we match the existence of the ray more to the free space near the end point. In building1 test start first found more ray locations
+      #define END_FIRST // Testing on building.ply it finds more rays, so deemed to be more successful at filling space
       #if defined END_FIRST
-      Eigen::Vector3d dir = starts[i] - ends[i];
-      const Eigen::Vector3d source = ends[i] / width;
-      const Eigen::Vector3d target = starts[i] / width;
+      walkGrid(ends[i] / width, starts[i] / width, subsampler, i);
       #else
-      Eigen::Vector3d dir = ends[i] - starts[i];
-      const Eigen::Vector3d source = starts[i] / width;
-      const Eigen::Vector3d target = ends[i] / width;
-      #endif
-
-      #define OLD_METHOD
-      #if defined OLD_METHOD
-      const double length = dir.norm();
-      dir /= length; 
-      for (int a = 0; a<3; a++)
-      {
-        if (dir[a] == 0.0)
-        {
-          dir[a] = 1e-10; // prevent division by 0
-        }
-      }
-      const double eps = 1e-9;  // to stay away from edge cases
-      const double maxDist = (target - source).norm();
-
-      // cached values to speed up the loop below
-      Eigen::Vector3i adds;
-      Eigen::Vector3d offsets;
-      for (int k = 0; k < 3; ++k)
-      {
-        if (dir[k] > 0.0)
-        {
-          adds[k] = 1;
-          offsets[k] = 0.5;
-        }
-        else
-        {
-          adds[k] = -1;
-          offsets[k] = -0.5;
-        }
-      }
-
-      Eigen::Vector3d p = source;  // our moving variable as we walk over the grid
-      Eigen::Vector3i inds((int)std::floor(p[0]), (int)std::floor(p[1]), (int)std::floor(p[2]));
-      if (voxel_set.insert(inds).second)
-      {
-        subsample.push_back(i);
-        continue;
-      }
-      double depth = 0;
-      // for every ray, walk over its length and if there is a free space then add it
-      do
-      {
-        double ls[3] = { (std::round(p[0] + offsets[0]) - p[0]) / dir[0], (std::round(p[1] + offsets[1]) - p[1]) / dir[1],
-                         (std::round(p[2] + offsets[2]) - p[2]) / dir[2] };
-        int axis = (ls[0] < ls[1] && ls[0] < ls[2]) ? 0 : (ls[1] < ls[2] ? 1 : 2);
-        inds[axis] += adds[axis];
-        depth += ls[axis] + eps;
-        p = source + dir * depth;
-        
-        if (voxel_set.insert(inds).second)
-        {
-          subsample.push_back(i);
-          break; // only adding to one cell
-        }
-      } while (depth <= maxDist);
-      #else
-        Eigen::Vector3i p = Eigen::Vector3d(std::floor(source[0]), std::floor(source[1]), std::floor(source[2])).cast<int>();
-        Eigen::Vector3i end = Eigen::Vector3d(std::floor(target[0]), std::floor(target[1]), std::floor(target[2])).cast<int>();
-        
-        if (voxel_set.insert(p).second)
-        {
-          std::cout << "missed p: " << p.transpose() << " between " << source.transpose() << " and " << target.transpose() << std::endl;
-          subsample.push_back(i);
-          continue; // only adding to one cell
-        }
-        
-        Eigen::Vector3i step(sign(target[0] - source[0]), sign(target[1] - source[1]), sign(target[2] - source[2]));
-        Eigen::Vector3d tmax, tdelta;
-        for (int j = 0; j<3; j++)
-        {
-          step[j] = sign(target[j] - source[j]);
-          double to = std::abs(source[j] - p[j] - (double)std::max(0, step[j]));        
-          double dir = std::max(std::numeric_limits<double>::min(), std::abs(source[j] - target[j]));
-          tmax[j] = to / dir;
-          tdelta[j] = 1.0 / dir;
-        }
-        
-        while (p != end) 
-        {
-          int ax = tmax[0] < tmax[1] && tmax[0] < tmax[2] ? 0 : (tmax[1] < tmax[2] ? 1 : 2);
-          p[ax] += step[ax];
-          tmax[ax] += tdelta[ax];
-     /*     if (tmax[0] < tmax[1]) 
-          {
-            if (tmax[0] < tmax[2]) 
-            {
-              p[0] += step[0];
-              tmax[0] += tdelta[0];
-            } 
-            else 
-            {
-              p[2] += step[2];
-              tmax[2] += tdelta[2];
-            }
-          } 
-          else 
-          {
-            if (tmax[1] < tmax[2]) 
-            {
-              p[1] += step[1];
-              tmax[1] += tdelta[1];
-            } 
-            else 
-            {
-              p[2] += step[2];
-              tmax[2] += tdelta[2];
-            }
-          }*/
-          if (voxel_set.insert(p).second)
-          {
-            std::cout << "missed p: " << p.transpose() << " between " << source.transpose() << " and " << target.transpose() << std::endl;
-            subsample.push_back(i);
-            break; // only adding to one cell
-          }          
-        }      
-       #endif
+      walkGrid(starts[i] / width, ends[i] / width, subsampler, i);
+      #endif 
     }
-    chunk.resize(subsample.size());
-    for (int64_t i = 0; i < (int64_t)subsample.size(); i++)
+    chunk.resize(subsampler.subsample.size());
+    for (int64_t i = 0; i < (int64_t)subsampler.subsample.size(); i++)
     {
-      int64_t id = subsample[i];
+      int64_t id = subsampler.subsample[i];
       chunk.starts[i] = starts[id];
       chunk.ends[i] = ends[id];
       chunk.colours[i] = colours[id];
