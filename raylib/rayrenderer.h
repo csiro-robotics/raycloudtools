@@ -107,12 +107,15 @@ struct RAYLIB_EXPORT DensityGrid
   inline const std::vector<Voxel> &voxels() const { return voxels_; }
   inline Eigen::Vector3i dimensions(){ return voxel_dims_; }
   inline Cuboid bounds(){ return bounds_; }
-
+  inline double voxelWidth() const { return voxel_width_; }
+  // used in walking grid only
+  inline bool operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length);
 private:
   Cuboid bounds_;
   std::vector<Voxel> voxels_;
   double voxel_width_;
   Eigen::Vector3i voxel_dims_;
+  bool bounded_;
 };
 
 // inline functions
@@ -168,6 +171,23 @@ int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
   Eigen::Vector3d gridspace = (pos - bounds_.min_bound_) / voxel_width_;
   return getIndex(gridspace.cast<int>());
 }
-
+inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length)
+{
+  int index = getIndex(p);
+  if (p == target && bounded_)
+  {
+    double length_in_voxel = std::min(out_length, max_length) - in_length;
+    if (length_in_voxel > 1.733 || length_in_voxel < -1e-7)
+      std::cout << "what's going on?" << out_length << ", " << max_length << ", " << in_length << std::endl;
+    voxels_[index].addHitRay(static_cast<float>(length_in_voxel * voxel_width_));
+  }
+  else
+  {
+    if ((out_length - in_length) > 1.733 || (out_length - in_length) < -1e-7)
+      std::cout << "what on earth's going on?" << (out_length - in_length) << std::endl;
+    voxels_[index].addMissRay(static_cast<float>((out_length - in_length) * voxel_width_));
+  }
+  return false;
+}
 }  // namespace ray
 #endif  // RAYLIB_RAYRENDERER_H

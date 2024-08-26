@@ -182,11 +182,12 @@ bool decimateRaysSpatial(const std::string &file_stub, double vox_width)
     subsampler.subsample.clear();
     for (int i = 0; i < (int)ends.size(); i++)
     {
+      subsampler.index = i;
       #define END_FIRST // Testing on building.ply it finds more rays, so deemed to be more successful at filling space
       #if defined END_FIRST
-      walkGrid(ends[i] / width, starts[i] / width, subsampler, i);
+      walkGrid(ends[i] / width, starts[i] / width, subsampler);
       #else
-      walkGrid(starts[i] / width, ends[i] / width, subsampler, i);
+      walkGrid(starts[i] / width, ends[i] / width, subsampler);
       #endif 
     }
     chunk.resize(subsampler.subsample.size());

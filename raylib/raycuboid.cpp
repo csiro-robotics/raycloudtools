@@ -12,12 +12,12 @@ Cuboid::Cuboid(const Eigen::Vector3d &min_bound, const Eigen::Vector3d &max_boun
   max_bound_ = max_bound;
 }
 
-bool Cuboid::clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const
+bool Cuboid::clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end, double eps) const
 {
   double max_near_d = 0;
   double min_far_d = 1.0;
   Eigen::Vector3d centre = (min_bound_ + max_bound_) / 2.0;
-  Eigen::Vector3d extent = (max_bound_ - min_bound_) / 2.0;
+  Eigen::Vector3d extent = (max_bound_ - min_bound_) / 2.0 - Eigen::Vector3d(eps, eps, eps);
   Eigen::Vector3d to_centre = centre - start;
   Eigen::Vector3d dir = end - start;
   for (int ax = 0; ax < 3; ax++)

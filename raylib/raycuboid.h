@@ -37,7 +37,7 @@ public:
   }
 
   /// clip ray to cuboid. Return false if no ray left.
-  bool clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end) const;
+  bool clipRay(Eigen::Vector3d &start, Eigen::Vector3d &end, double eps = 0.0) const;
 
   Eigen::Vector3d min_bound_, max_bound_;
 };

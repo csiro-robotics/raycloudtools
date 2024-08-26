@@ -279,11 +279,16 @@ void DensityGrid::calculateDensities(const std::string &file_name)
     {
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end = ends[i];
-      if (!bounds_.clipRay(start, end))
+      if (!bounds_.clipRay(start, end, 1e-10))
       {
         continue; // ray is outside of bounds
       }
 
+      #define NEW_METHOD
+      #if defined NEW_METHOD
+      bounded_ = colours[i].alpha > 0;
+      walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
+      #else
       // now walk the voxels
       Eigen::Vector3d dir = end - start;
       const Eigen::Vector3d source = (start - bounds_.min_bound_) / voxel_width_;
@@ -352,6 +357,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
           voxels_[index].addMissRay(static_cast<float>(minL * voxel_width_));
         }
       } while (depth <= maxDist);
+      #endif
     }
   };
   Cloud::read(file_name, calculate);
