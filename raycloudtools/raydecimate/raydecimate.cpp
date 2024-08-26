@@ -24,7 +24,7 @@ void usage(int exit_code = 1)
   std::cout << "raydecimate raycloud 4 rays - reduces to every fourth ray. A temporally even subsampling (if rays are chronological)" << std::endl;
   std::cout << "advanced methods not supported in rayrestore:" << std::endl;
   std::cout << "raydecimate raycloud 20 cm 64 points - A maximum of 64 end points per cubic 20 cm. Retains small-scale details compared to spatial decimation" << std::endl;
-  std::cout << "raydecimate raycloud 20 cm/ray - If all cells overlapping a ray intersect a ray then this way is not added" << std::endl;
+  std::cout << "raydecimate raycloud 20 cm/ray - If all cells overlapping the ray intersect a ray then ray not added. Maintains distribution of rays for e.g. raycombine" << std::endl;
   std::cout << "raydecimate raycloud 3 cm/m - reduces to ray ends spaced 3 cm apart for each metre of their length. Good for maintaining a range of point densities" << std::endl;
   // clang-format off
   exit(exit_code);
