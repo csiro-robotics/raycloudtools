@@ -279,79 +279,12 @@ void DensityGrid::calculateDensities(const std::string &file_name)
     {
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end = ends[i];
-      if (!bounds_.clipRay(start, end))
+      if (!bounds_.clipRay(start, end, 1e-10))
       {
         continue; // ray is outside of bounds
       }
-
-      // now walk the voxels
-      Eigen::Vector3d dir = end - start;
-      const Eigen::Vector3d source = (start - bounds_.min_bound_) / voxel_width_;
-      const Eigen::Vector3d target = (end - bounds_.min_bound_) / voxel_width_;
-      const double length = dir.norm();
-      for (int a = 0; a<3; a++)
-      {
-        if (dir[a] == 0.0)
-        {
-          dir[a] = 1e-10; // prevent division by 0
-        }
-      }
-      const double eps = 1e-9;  // to stay away from edge cases
-      const double maxDist = (target - source).norm();
-
-      // cached values to speed up the loop below
-      Eigen::Vector3i adds;
-      Eigen::Vector3d offsets;
-      for (int k = 0; k < 3; ++k)
-      {
-        if (dir[k] > 0.0)
-        {
-          adds[k] = 1;
-          offsets[k] = 0.5;
-        }
-        else
-        {
-          adds[k] = -1;
-          offsets[k] = -0.5;
-        }
-      }
-
-      Eigen::Vector3d p = source;  // our moving variable as we walk over the grid
-      Eigen::Vector3i inds = p.cast<int>();
-
-      double depth = 0;
-      // walk over the grid, one voxel at a time.
-      do
-      {
-        double ls[3] = { (round(p[0] + offsets[0]) - p[0]) / dir[0], (round(p[1] + offsets[1]) - p[1]) / dir[1],
-                         (round(p[2] + offsets[2]) - p[2]) / dir[2] };
-        int axis = (ls[0] < ls[1] && ls[0] < ls[2]) ? 0 : (ls[1] < ls[2] ? 1 : 2);
-        inds[axis] += adds[axis];
-        if (inds[axis] < 0 || inds[axis] >= voxel_dims_[axis])
-        {
-          break;
-        }
-        double minL = ls[axis] * length;
-        depth += minL + eps;
-        p = source + dir * (depth / length);
-        int index = getIndex(inds);
-        if (depth > maxDist)
-        {
-          double length_in_voxel = minL + maxDist - depth;
-          if (colours[i].alpha > 0)
-          {
-            voxels_[index].addHitRay(static_cast<float>(length_in_voxel * voxel_width_));
-          }
-          else
-          {
-            voxels_[index].addMissRay(static_cast<float>(length_in_voxel * voxel_width_));
-          }
-        }
-        else
-        {
-          voxels_[index].addMissRay(static_cast<float>(minL * voxel_width_));
-        }
-      } while (depth <= maxDist);
+      bounded_ = colours[i].alpha > 0;
+      walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
     }
   };
   Cloud::read(file_name, calculate);

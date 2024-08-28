@@ -361,6 +361,49 @@ inline std::ostream &logDuration(std::ostream &out, const D &duration)
   }
   return out;
 }
+
+inline int sign(double x)
+{
+  return (x > 0.0) - (x < 0.0);
+}
+
+// for similar appraoch see: https://github.com/StrandedKitty/tiles-intersect/blob/master/src/index.js
+template<class T> 
+void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &object)
+{
+  Eigen::Vector3d direction = end - start;
+  double max_length = direction.norm();
+  Eigen::Vector3i p = Eigen::Vector3d(std::floor(start[0]), std::floor(start[1]), std::floor(start[2])).cast<int>();
+  const Eigen::Vector3i target = Eigen::Vector3d(std::floor(end[0]), std::floor(end[1]), std::floor(end[2])).cast<int>();
+  
+  const Eigen::Vector3i step(sign(direction[0]), sign(direction[1]), sign(direction[2]));
+  direction /= max_length;
+  Eigen::Vector3d lengths, length_delta;
+  for (int j = 0; j<3; j++)
+  {
+    const double to = std::abs(start[j] - p[j] - (double)std::max(0, step[j]));        
+    const double dir = std::max(std::numeric_limits<double>::epsilon(), std::abs(direction[j]));
+    lengths[j] = to / dir;
+    length_delta[j] = 1.0 / dir;
+  }
+  int ax = lengths[0] < lengths[1] && lengths[0] < lengths[2] ? 0 : (lengths[1] < lengths[2] ? 1 : 2);
+  if (object(p, target, 0.0, lengths[ax], max_length))
+  {      
+    return; // only adding to one cell
+  }
+  
+  while (p != target) 
+  {
+    p[ax] += step[ax];
+    const double in_length = lengths[ax];
+    lengths[ax] += length_delta[ax];
+    ax = lengths[0] < lengths[1] && lengths[0] < lengths[2] ? 0 : (lengths[1] < lengths[2] ? 1 : 2);
+    if (object(p, target, in_length, lengths[ax], max_length))
+    {
+      break; // only adding to one cell
+    }          
+  }     
+}
 }  // namespace ray
 
 #endif  // RAYLIB_RAYUTILS_H

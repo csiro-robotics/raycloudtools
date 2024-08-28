@@ -164,6 +164,50 @@ bool decimateSpatioTemporal(const std::string &file_stub, double vox_width, int 
   return true;
 }
 
+
+bool decimateRaysSpatial(const std::string &file_stub, double vox_width)
+{
+  ray::CloudWriter writer;
+  if (!writer.begin(file_stub + "_decimated.ply"))
+    return false;
+
+  // By maintaining these buffers below, we avoid almost all memory fragmentation
+  ray::Cloud chunk;
+
+  Subsampler subsampler;
+  auto decimate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+  {
+    double width = 0.01 * vox_width;
+    subsampler.subsample.clear();
+    for (int i = 0; i < (int)ends.size(); i++)
+    {
+      subsampler.index = i;
+      #define END_FIRST // Testing on building.ply it finds more rays, so deemed to be more successful at filling space
+      #if defined END_FIRST
+      walkGrid(ends[i] / width, starts[i] / width, subsampler);
+      #else
+      walkGrid(starts[i] / width, ends[i] / width, subsampler);
+      #endif 
+    }
+    chunk.resize(subsampler.subsample.size());
+    for (int64_t i = 0; i < (int64_t)subsampler.subsample.size(); i++)
+    {
+      int64_t id = subsampler.subsample[i];
+      chunk.starts[i] = starts[id];
+      chunk.ends[i] = ends[id];
+      chunk.colours[i] = colours[id];
+      chunk.times[i] = times[id];
+    }
+    writer.writeChunk(chunk);
+  };
+
+  if (!ray::Cloud::read(file_stub + ".ply", decimate))
+    return false;
+  writer.end();
+  return true;
+}
+
 bool decimateAngular(const std::string &file_stub, double radius_per_length)
 {
   ray::CloudWriter writer;
