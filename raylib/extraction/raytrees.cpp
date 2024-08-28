@@ -23,6 +23,7 @@ TreesParams::TreesParams()
   , segment_branches(false)
   , global_taper(0.012)
   , global_taper_factor(0.3)
+  , alpha_weighting(false)
 {}
 
 /// The main reconstruction algorithm
@@ -34,7 +35,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
   params_ = &params;
 
   std::vector<std::vector<int>> roots_list = getRootsAndSegment(
-    points_, cloud, mesh, params_->max_diameter, params_->distance_limit, params_->height_min, params_->gravity_factor);
+    points_, cloud, mesh, params_->max_diameter, params_->distance_limit, params_->height_min, params_->gravity_factor, params_->alpha_weighting);
 
   // Now we want to convert these paths into a set of branch sections, from root to tips
   // splitting as we go up...
