@@ -20,8 +20,8 @@ RUN apt-get update && apt-get upgrade -y && \
     libproj-dev \
     libgeotiff-dev \
     libboost-all-dev \
-    wget && \
-    libnetcdf-dev && \
+    wget \
+    libnetcdf-dev \
     libnetcdf-c++4-dev && \
     rm -rf /var/lib/apt/lists/*
 
