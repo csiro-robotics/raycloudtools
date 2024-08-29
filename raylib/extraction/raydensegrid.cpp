@@ -10,10 +10,8 @@
 #include "../rayply.h"
 #include "../rayrenderer.h"
 
-
 namespace ray
 {
-
 bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, Eigen::Vector3d user_bounds_min,
                          Eigen::Vector3d user_bounds_max, bool write_empty, bool write_netcdf)
 {
@@ -52,12 +50,6 @@ bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, 
 
   extent = grid_bounds_max - grid_bounds_min;
 
-  // Eigen::Vector3i dims = (extent / vox_width).cast<int>() + Eigen::Vector3i(2, 2, 2);  // so that we have extra space
-  // to convolve
-
-  // std::cout << "bounds ext: " << extent.transpose() << std::endl;
-  // std::cout << "vox_width: " << vox_width << std::endl;
-
   // Check for division by zero
   if (std::abs(vox_width) < 1e-10)
   {
@@ -65,58 +57,76 @@ bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, 
     return false;
   }
 
-  // Perform the calculation step by step with bounds checking
   Eigen::Vector3d temp1 = extent / vox_width;
-  // std::cout << "After division: " << temp1.transpose() << std::endl;
-
   Eigen::Vector3d temp2 = temp1.array().ceil();
-  // std::cout << "After ceiling: " << temp2.transpose() << std::endl;
 
-  Eigen::Vector3i dims;
+  // Use Eigen::Matrix<long, 3, 1> instead of Eigen::Vector3l
+  Eigen::Matrix<long, 3, 1> dims;
   for (int i = 0; i < 3; ++i)
   {
-    if (temp2[i] > std::numeric_limits<int>::max() - 2)
+    if (temp2[i] > std::numeric_limits<long>::max() - 2)
     {
-      dims[i] = std::numeric_limits<int>::max();
+      dims[i] = std::numeric_limits<long>::max();
     }
     else
     {
-      dims[i] = static_cast<int>(temp2[i]) + 2;
+      dims[i] = static_cast<long>(temp2[i]) + 2;
     }
   }
   std::cout << "Final padded dims: " << dims.transpose() << std::endl;
 
   // Check if dimensions are reasonable
-  const int max_reasonable_dim = 1000000;  // Adjust this value as needed
+  const long max_reasonable_dim = 1000000000L;  // 1 billion
   if (dims.maxCoeff() > max_reasonable_dim)
   {
     std::cerr << "Error: Resulting dimensions are unreasonably large. "
               << "Please check your input data and voxel size." << std::endl;
     return false;
   }
+
+  // Calculate total number of voxels
+  long long total_voxels = static_cast<long long>(dims[0]) * dims[1] * dims[2];
+
+  // Check if total number of voxels is too large
+  const long long max_total_voxels = 10000000000LL;  // 10 billion
+  if (total_voxels > max_total_voxels)
+  {
+    std::cerr << "Error: Total number of voxels (" << total_voxels << ") exceeds maximum allowed (" << max_total_voxels
+              << "). Please use a larger voxel size or smaller bounds." << std::endl;
+    return false;
+  }
+
+  std::cout << "Creating Grid " << std::endl;
+
   Cuboid grid_bounds;
   grid_bounds.min_bound_ = grid_bounds_min - Eigen::Vector3d(vox_width, vox_width, vox_width);
   grid_bounds.max_bound_ = grid_bounds_max;
+  DensityGrid grid(grid_bounds, vox_width, dims.cast<int>());
 
-  DensityGrid grid(grid_bounds, vox_width, dims);
+  std::cout << "Calculating Density " << std::endl;
   grid.calculateDensities(cloud_name);
+
+  std::cout << "Adding Neighbour Priors " << std::endl;
   grid.addNeighbourPriors();
 
-  Eigen::MatrixXd points(grid.voxels().size(), 9);  // Corrected the number of columns to 9
-  int c = 0;
-  for (int k = 0; k < dims[2]; k++)
+  std::cout << "Writing Grid " << std::endl;
+
+
+  Eigen::MatrixXd points(grid.voxels().size(), 9);
+  long c = 0;
+  for (long k = 0; k < dims[2]; k++)
   {
-    for (int j = 0; j < dims[1]; j++)
+    for (long j = 0; j < dims[1]; j++)
     {
-      for (int i = 0; i < dims[0]; i++)
+      for (long i = 0; i < dims[0]; i++)
       {
-        int index = grid.getIndex(Eigen::Vector3i(i, j, k));
+        int index = grid.getIndex(Eigen::Vector3i(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k)));
 
         if (write_empty)
         {
-          double x = grid_bounds.min_bound_[0] + vox_width * (i + 1);
-          double y = grid_bounds.min_bound_[1] + vox_width * (j + 1);
-          double z = grid_bounds.min_bound_[2] + vox_width * (k + 1);
+          double x = grid_bounds.min_bound_[0] + vox_width * (i + 1.5);
+          double y = grid_bounds.min_bound_[1] + vox_width * (j + 1.5);
+          double z = grid_bounds.min_bound_[2] + vox_width * (k + 1.5);
           double path_length = grid.voxels()[index].pathLength();
           double density = grid.voxels()[index].density();
           double surface_area = density * vox_width * vox_width * vox_width;
@@ -127,9 +137,9 @@ bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, 
         {
           if (grid.voxels()[index].numHits() > 0 && grid.voxels()[index].numRays() > 0)
           {
-            double x = grid_bounds.min_bound_[0] + vox_width * (i + 1);
-            double y = grid_bounds.min_bound_[1] + vox_width * (j + 1);
-            double z = grid_bounds.min_bound_[2] + vox_width * (k + 1);
+            double x = grid_bounds.min_bound_[0] + vox_width * (i + 1.5);
+            double y = grid_bounds.min_bound_[1] + vox_width * (j + 1.5);
+            double z = grid_bounds.min_bound_[2] + vox_width * (k + 1.5);
             double path_length = grid.voxels()[index].pathLength();
             double density = grid.voxels()[index].density();
             double surface_area = density * vox_width * vox_width * vox_width;
@@ -141,7 +151,7 @@ bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, 
     }
   }
 
-  points.conservativeResize(c, points.cols());  // Resize to actual number of points
+  points.conservativeResize(c, points.cols());
 
   if (write_netcdf)
   {
