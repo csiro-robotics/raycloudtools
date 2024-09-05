@@ -286,7 +286,6 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         continue;  // ray is outside of bounds
       }
       bounded_ = colours[i].alpha > 0;
-      std::cout << "Waling Grid" << std::endl;
       walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
     }
   };
