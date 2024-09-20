@@ -39,7 +39,7 @@ RUN git clone https://github.com/LASzip/LASzip.git && \
 RUN git clone https://github.com/libLAS/libLAS.git && \
     cd libLAS && \
     mkdir build && cd build && \
-    cmake .. -DWITH_LASZIP=ON -DWITH_GEOTIFF=OFF -DCMAKE_CXX_STANDARD=11 && \
+    cmake .. -DWITH_LASZIP=ON -DWITH_GEOTIFF=OFF -DCMAKE_CXX_STANDARD=14 && \
     make -j$(nproc) && \
     make install && \
     cd ../.. && rm -rf libLAS
