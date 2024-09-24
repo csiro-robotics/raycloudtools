@@ -56,7 +56,7 @@ bool RAYLIB_EXPORT writeGeoTiffFloat(const std::string &filename, int x, int y, 
 struct RAYLIB_EXPORT DensityGrid
 {
   static const int min_voxel_hits = 2;
-  static constexpr double spherical_distribution_scale =
+  static constexpr double distribution_scale =
     2.0;  // average area scale due to a spherical uniform distribution of leave angles relative to the rays
   // static constexpr double distribution_scale = 1.0;
 
