@@ -276,7 +276,6 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 {
   auto calculate = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &,
                        std::vector<RGBA> &colours) {
-    std::cout << "Calculating densities" << std::endl;
     for (size_t i = 0; i < ends.size(); ++i)
     {
       Eigen::Vector3d start = starts[i];
@@ -289,9 +288,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
       walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
     }
   };
-  std::cout << "Calculating densities" << std::endl;
   Cloud::read(file_name, calculate);
-  std::cout << "Finished calculating densities" << std::endl;
 }
 
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
