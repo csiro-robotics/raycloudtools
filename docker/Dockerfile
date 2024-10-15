@@ -108,5 +108,13 @@ RUN rm -rf /build
 # Set the working directory
 WORKDIR /workspace
 
-# Set the entrypoint
-ENTRYPOINT ["/bin/bash"]
+# Handle entrypoint for interactive and non-interactive
+RUN echo '#!/bin/bash\n\
+if [ $# -eq 0 ]; then\n\
+    exec /bin/bash\n\
+else\n\
+    exec "$@"\n\
+fi' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Set the entrypoint to script
+ENTRYPOINT ["/entrypoint.sh"]
