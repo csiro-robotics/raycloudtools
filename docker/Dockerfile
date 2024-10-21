@@ -17,6 +17,7 @@ RUN apt-get update && apt-get upgrade -y && \
     libeigen3-dev \
     libproj-dev \
     libgeotiff-dev \
+    parallel \
     libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
     
