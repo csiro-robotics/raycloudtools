@@ -240,7 +240,7 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
       if (val < min_value_ || val > max_value_)
       {
         std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
-                  << std::endl;
+                  << " provided " << val << std::endl;
         return false;
       }
       value_[i] = val;
@@ -409,6 +409,30 @@ bool OptionalKeyValueArgument::parse(int argc, char *argv[], int &index, bool se
     }
     return true;
   }
+  return false;
+}
+
+bool Optional3DVectorArgument::parse(int argc, char *argv[], int &index, bool set_value)
+{
+  if (index >= argc)
+    return false;
+
+  std::string str(argv[index]);
+  if (str == ("--" + name_))
+  {
+    if (set_value)
+      is_set_ = true;
+
+    index++;
+    if (!value_->parse(argc, argv, index, set_value))
+    {
+      index--;
+      return false;
+    }
+
+    return true;
+  }
+
   return false;
 }
 
