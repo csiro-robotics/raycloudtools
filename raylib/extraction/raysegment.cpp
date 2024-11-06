@@ -5,15 +5,16 @@
 // Author: Thomas Lowe
 #include "raysegment.h"
 #include <nabo/nabo.h>
-#include "rayterrain.h"
 #include <queue>
+#include "rayterrain.h"
+
 
 namespace ray
 {
 /// nodes of priority queue used in shortest path algorithm
 struct QueueNode
 {
-//  QueueNode() {}
+  //  QueueNode() {}
   QueueNode(double distance_to_ground, double score, double radius, int root, int index)
     : distance_to_ground(distance_to_ground)
     , score(score)
@@ -22,11 +23,11 @@ struct QueueNode
     , id(index)
   {}
 
-  double distance_to_ground; // path distance to the ground
-  double score;              // score is the modified edge length metric being minimised
-  double radius;             // radius of the tree base, this acts as a score scale coefficient
-  int root;                  // index of the root of the path
-  int id;                    // index into the points_ array for this node
+  double distance_to_ground;  // path distance to the ground
+  double score;               // score is the modified edge length metric being minimised
+  double radius;              // radius of the tree base, this acts as a score scale coefficient
+  int root;                   // index of the root of the path
+  int id;                     // index into the points_ array for this node
 };
 
 class QueueNodeComparator
@@ -53,6 +54,7 @@ void connectPointsShortestPath(
     points_p.col(i) = points[i].pos;
   }
   Nabo::NNSearchD *nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
+
   // Run the search
   Eigen::MatrixXi indices;
   Eigen::MatrixXd dists2;
@@ -89,6 +91,7 @@ void connectPointsShortestPath(
             dir = (points[node.id].pos - points[ppar].pos).normalized();
           }
         }
+
         const double d = std::max(0.001, dif.dot(dir));
         // we are looking for a minimum score, so large distances are bad, but new points in line with the
         // path direction are good
@@ -151,10 +154,9 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
   const int roots_start = static_cast<int>(points.size());
   for (auto &vert : mesh.vertices())
   {
-    if (vert[0] >= box_min[0] && vert[1] >= box_min[1] &&
-        vert[0] <= box_max[0] && vert[1] <= box_max[1])
+    if (vert[0] >= box_min[0] && vert[1] >= box_min[1] && vert[0] <= box_max[0] && vert[1] <= box_max[1])
     {
-      points.push_back(Vertex(vert, vert + Eigen::Vector3d(0,0,0.01))); // make small vertical ray
+      points.push_back(Vertex(vert, vert + Eigen::Vector3d(0, 0, 0.01)));  // make small vertical ray
     }
   }
   // convert the ground mesh to an easy look-up height field
@@ -162,8 +164,8 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
   mesh.toHeightField(lowfield, box_min, box_max, pixel_width);
 
   // set heightfield as the height of the canopy above the ground
-  Eigen::ArrayXXd heightfield =
-    Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), std::numeric_limits<double>::lowest());
+  Eigen::ArrayXXd heightfield = Eigen::ArrayXXd::Constant(
+    static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), std::numeric_limits<double>::lowest());
   for (const auto &point : points)
   {
     Eigen::Vector3i index = ((point.pos - box_min) / pixel_width).cast<int>();

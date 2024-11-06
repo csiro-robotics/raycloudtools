@@ -46,11 +46,16 @@ int rayImport(int argc, char *argv[])
   bool ray_format =
     ray::parseCommandLine(argc, argv, { &cloud_file, &ray_text, &ray_vec }, { &max_intensity_option, &remove });
   if (!standard_format && !position_format && !ray_format)
+  {
     usage();
+  }
+
 
   if (ray_format && ray_vec.value().norm() == 0.0)
   {
-    std::cerr << "Error: some ray cloud functions require rays to have a length. Please enter a non-zero vector for ray argument" << std::endl;
+    std::cerr << "Error: some ray cloud functions require rays to have a length. Please enter a non-zero vector for "
+                 "ray argument"
+              << std::endl;
     usage();
   }
   ray::Cloud cloud;
@@ -78,7 +83,10 @@ int rayImport(int argc, char *argv[])
       else
       {
         if (!ray::readLas(traj_file, ends, times, colours, maximum_intensity))
+        {
+          std::cerr << "Failed to read las file" << std::endl;
           return false;
+        }
       }
       trajectory.points() = std::move(ends);
       trajectory.times() = std::move(times);
@@ -100,8 +108,7 @@ int rayImport(int argc, char *argv[])
   double min_time = std::numeric_limits<double>::max();
   double max_time = std::numeric_limits<double>::lowest();
   auto add_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                       std::vector<double> &times, std::vector<ray::RGBA> &colours) 
-  {
+                       std::vector<double> &times, std::vector<ray::RGBA> &colours) {
     if (start_pos.squaredNorm() == 0.0)
     {
       start_pos = ends[0];
@@ -111,7 +118,7 @@ int rayImport(int argc, char *argv[])
     {
       starts = ends;
       Eigen::Vector3d pos = position.value();
-      for (auto &start : starts) 
+      for (auto &start : starts)
       {
         start = pos;
       }
@@ -122,7 +129,7 @@ int rayImport(int argc, char *argv[])
     {
       starts = ends;
       Eigen::Vector3d offset = -ray_vec.value();
-      for (auto &start : starts) 
+      for (auto &start : starts)
       {
         start += offset;
       }
@@ -148,18 +155,18 @@ int rayImport(int argc, char *argv[])
     // this is particularly useful if we are storing the ray cloud positions using floats
     if (remove.isSet())
     {
-      for (auto &end : ends) 
+      for (auto &end : ends)
       {
         end -= start_pos;
       }
-      for (auto &start : starts) 
+      for (auto &start : starts)
       {
         start -= start_pos;
       }
     }
     if (maximum_intensity == 0.0)
     {
-      for (auto &c : colours) 
+      for (auto &c : colours)
       {
         c.alpha = 255;
       }
@@ -173,8 +180,8 @@ int rayImport(int argc, char *argv[])
   if (cloud_file.nameExt() == "ply")
   {
     bool can_times_be_missing = position_format || ray_format;
-    if (!ray::readPly(cloud_file.name(), false, add_chunk,
-                      maximum_intensity, can_times_be_missing))  // special case of reading a non-ray-cloud ply
+    if (!ray::readPly(cloud_file.name(), false, add_chunk, maximum_intensity,
+                      can_times_be_missing))  // special case of reading a non-ray-cloud ply
     {
       usage();
     }
@@ -196,18 +203,20 @@ int rayImport(int argc, char *argv[])
     const float grace_period = 30.0;
     if (trajectory.times()[0] < min_time - grace_period)
     {
-      std::cout << "trajectory begins " << min_time - trajectory.times()[0] << " s before first point cloud time" << std::endl;
+      std::cout << "trajectory begins " << min_time - trajectory.times()[0] << " s before first point cloud time"
+                << std::endl;
     }
     if (trajectory.times().back() > max_time + grace_period)
     {
-      std::cout << "trajectory ends " << trajectory.times().back() - max_time << " s after last point cloud time" << std::endl;
+      std::cout << "trajectory ends " << trajectory.times().back() - max_time << " s after last point cloud time"
+                << std::endl;
     }
-    if (min_time < trajectory.times()[0]-grace_period || max_time > trajectory.times().back()+grace_period
-     || min_time > trajectory.times().back() || max_time < trajectory.times()[0])
+    if (min_time < trajectory.times()[0] - grace_period || max_time > trajectory.times().back() + grace_period ||
+        min_time > trajectory.times().back() || max_time < trajectory.times()[0])
     {
       std::cerr.precision(10);
-      std::cerr << "Error: trajectory times " << trajectory.times()[0] << "-" << trajectory.times().back() << 
-        " do not span the point cloud times " << min_time << "-" << max_time << std::endl;
+      std::cerr << "Error: trajectory times " << trajectory.times()[0] << "-" << trajectory.times().back()
+                << " do not span the point cloud times " << min_time << "-" << max_time << std::endl;
       usage();
     }
   }
