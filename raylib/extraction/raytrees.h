@@ -18,20 +18,23 @@ namespace ray
 struct RAYLIB_EXPORT TreesParams
 {
   TreesParams();
-  double max_diameter;              // maximum tree diameter. Trees wider than this may be segmented into multiple trees
-  double crop_length;               // distance to end of branch where it crops the branch, and doesn't generate further geometry
-  double distance_limit;            // maximum distance between points that can count as connected
-  double height_min;                // minimum height for a tree. Lower values are considered undergrowth and excluded
+  double max_diameter;    // maximum tree diameter. Trees wider than this may be segmented into multiple trees
+  double crop_length;     // distance to end of branch where it crops the branch, and doesn't generate further geometry
+  double distance_limit;  // maximum distance between points that can count as connected
+  double height_min;      // minimum height for a tree. Lower values are considered undergrowth and excluded
   double girth_height_ratio;        // how far up tree to measure girth
   double cylinder_length_to_width;  // the slenderness of the branch segment cylinders
   double gap_ratio;                 // max gap per branch length
   double span_ratio;                // points that span a larger width determine that a branch has become two
-  double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
-  double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
-  bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
-  double global_taper;     // forced global taper, uses global_taper_factor to define how much it is applied
-  double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
-  bool use_rays; // use the full rays in order to estimate a smaller radius when points are not all on the real branch
+  double gravity_factor;  // preferences branches that are less lateral, so penalises implausable horizontal branches
+  double grid_width;      // used on a grid cell with overlap, to remove trees with a base in the overlap zone
+  bool segment_branches;  // flag to output the ray cloud coloured by branch segment index rather than by tree index
+  double global_taper;    // forced global taper, uses global_taper_factor to define how much it is applied
+  double
+    global_taper_factor;  // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
+  bool use_rays;  // use the full rays in order to estimate a smaller radius when points are not all on the real branch
+  Eigen::Vector3d interest_zone_left_corner;  // if using a grid, then this is the left corner of the interest zone
+  double min_radius;                          // minimum radius for a branch
 };
 
 struct BranchSection;  // forwards declaration
@@ -66,10 +69,11 @@ private:
   void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
                                     const std::vector<std::vector<int>> &children, double min_dist, double max_dist);
   /// find separate clusters of points within the branch section
-  std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
-                                                  double thickness, double span, double gap);
+  std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed, double thickness,
+                                                  double span, double gap);
   /// split the branch section to one branch for each cluster
-  void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness, std::vector<std::vector<int>> &children, bool clip_tree, bool add_offshoots);
+  void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness,
+                 std::vector<std::vector<int>> &children, bool clip_tree, bool add_offshoots);
   /// find the points within the branch section from its end points
   void extractNodesFromEnds(std::vector<int> &nodes);
   /// set the branch section tip position from the supplied list of Vertex IDs
@@ -87,7 +91,11 @@ private:
   /// set ids that are locel (0-based) per tree
   void generateLocalSectionIds();
   /// if using an overlapping grid, then remove trees with base outside the non-overlapping cell bounds
-  void removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound, const Eigen::Vector3d &offset);
+  void removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
+                                const Eigen::Vector3d &offset);
+  /// if using overlappng grid and interest zone, then remove trees with base outside of the interest zone
+  void removeOutOfInterestSections(const Cloud &cloud, Eigen::Vector3d &min_bound, Eigen::Vector3d &max_bound,
+                                   const Eigen::Vector3d &offset);
   /// colour the cloud based on the section id for each point
   void segmentCloud(Cloud &cloud, std::vector<int> &root_segs, const std::vector<int> &section_ids);
   /// remove points from the ray cloud if outside of the non-overlapping grid cell bounds
@@ -104,11 +112,11 @@ private:
   int sec_;
   const TreesParams *params_;
   std::vector<Vertex> points_;
-  double forest_taper_{0};
-  double forest_weight_{0};
-  double forest_weight_squared_{0};
-  std::vector<int> contiguous_section_ids_; // converts section ids to contiguous (empty trees removed) sectino ids for output
-
+  double forest_taper_{ 0 };
+  double forest_weight_{ 0 };
+  double forest_weight_squared_{ 0 };
+  std::vector<int>
+    contiguous_section_ids_;  // converts section ids to contiguous (empty trees removed) sectino ids for output
 };
 
 /// The structure for a single (cylindrical) branch section
@@ -130,6 +138,7 @@ struct RAYLIB_EXPORT BranchSection
     , radius_scale(1)
     , split_count(0)
     , tree_height(0)
+    , radius(0)
   {}
   Eigen::Vector3d tip;
 
@@ -139,12 +148,13 @@ struct RAYLIB_EXPORT BranchSection
   int root;
   int id;  // 0 based per tree
   double max_distance_to_end;
-  double total_taper; // a weighted taper estimate
-  double total_weight; // the weighting
+  double total_taper;   // a weighted taper estimate
+  double total_weight;  // the weighting
   double len, accuracy, junction_weight;
   double radius_scale;
   int split_count;
   double tree_height;
+  double radius;
   std::vector<int> roots;  // root points
   std::vector<int> ends;
   std::vector<int> children;

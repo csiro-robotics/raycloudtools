@@ -8,6 +8,7 @@
 #include "raylib/rayprogressthread.h"
 #include "rayunused.h"
 
+
 #if RAYLIB_WITH_LAS
 #include <liblas/factory.hpp>
 #include <liblas/point.hpp>
@@ -23,16 +24,24 @@ bool readLas(const std::string &file_name,
 {
 #if RAYLIB_WITH_LAS
   std::cout << "readLas: filename: " << file_name << std::endl;
+  std::ifstream file(file_name);
+
+  if (file)
+  {
+    std::cout << "File exists!" << std::endl;
+  }
+  else
+  {
+    std::cout << "File does not exist." << std::endl;
+  }
 
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
-
   if (ifs.fail())
   {
     std::cerr << "readLas: failed to open stream" << std::endl;
     return false;
   }
-
   liblas::ReaderFactory f;
   liblas::Reader reader = f.CreateWithStream(ifs);
   liblas::Header const &header = reader.GetHeader();
@@ -45,7 +54,6 @@ bool readLas(const std::string &file_name,
   }
 
   const size_t number_of_points = header.GetPointRecordsCount();
-
   bool using_time = (header.GetDataFormatId() & 1) > 0;
   bool using_colour = (header.GetDataFormatId() & 2) > 0;
   if (!using_time)
@@ -144,12 +152,11 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
 {
   std::vector<Eigen::Vector3d> starts;  // dummy as lax just reads in point clouds, not ray clouds
   auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points,
-                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) 
-  {
+                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) {
     starts.insert(starts.end(), start_points.begin(), start_points.end());
     positions.insert(positions.end(), end_points.begin(), end_points.end());
     times.insert(times.end(), time_points.begin(), time_points.end());
-    colours.insert(colours.end(), colour_values.begin(), colour_values.end());    
+    colours.insert(colours.end(), colour_values.begin(), colour_values.end());
   };
   size_t num_bounded;
   bool success =

@@ -145,8 +145,8 @@ class RAYLIB_EXPORT Vector2dArgument : public ValueArgument
 {
 public:
   Vector2dArgument();
-  Vector2dArgument(double min_element_value, double max_element_value, 
-    const Eigen::Vector2d &default_value = Eigen::Vector2d(0,0))
+  Vector2dArgument(double min_element_value, double max_element_value,
+                   const Eigen::Vector2d &default_value = Eigen::Vector2d(0, 0))
     : min_value_(min_element_value)
     , max_value_(max_element_value)
     , value_(default_value)
@@ -164,8 +164,8 @@ class RAYLIB_EXPORT Vector3dArgument : public ValueArgument
 {
 public:
   Vector3dArgument();
-  Vector3dArgument(double min_element_value, double max_element_value, 
-    const Eigen::Vector3d &default_value = Eigen::Vector3d(0,0,0))
+  Vector3dArgument(double min_element_value, double max_element_value,
+                   const Eigen::Vector3d &default_value = Eigen::Vector3d(0, 0, 0))
     : min_value_(min_element_value)
     , max_value_(max_element_value)
     , value_(default_value)
@@ -184,7 +184,7 @@ class RAYLIB_EXPORT Vector4dArgument : public ValueArgument
 public:
   Vector4dArgument();
   Vector4dArgument(double min_element_value, double max_element_value,
-    const Eigen::Vector4d &default_value = Eigen::Vector4d(0,0,0,0))
+                   const Eigen::Vector4d &default_value = Eigen::Vector4d(0, 0, 0, 0))
     : min_value_(min_element_value)
     , max_value_(max_element_value)
     , value_(default_value)
@@ -202,7 +202,8 @@ class RAYLIB_EXPORT FileArgumentList : public FixedArgument
 {
 public:
   FileArgumentList(int min_number, bool check_extension = true)
-    : min_number_(min_number), check_extension_(check_extension)
+    : min_number_(min_number)
+    , check_extension_(check_extension)
   {}
   virtual bool parse(int argc, char *argv[], int &index, bool set_value);
   inline const std::vector<FileArgument> &files() const { return files_; }
@@ -319,6 +320,26 @@ private:
   std::string name_;
   char character_;
   FixedArgument *value_;
+  bool is_set_;
+};
+
+/// Optional 3d vector, e.g. "--offset 0,0,0"
+struct RAYLIB_EXPORT Optional3DVectorArgument : OptionalArgument
+{
+public:
+  Optional3DVectorArgument();
+  Optional3DVectorArgument(const std::string &name, Vector3dArgument *value)
+    : name_(name)
+    , value_(value)
+    , is_set_(false)
+  {}
+  virtual bool parse(int argc, char *argv[], int &index, bool set_value);
+  inline const std::string &name() const { return name_; }
+  inline bool isSet() const { return is_set_; }
+
+private:
+  std::string name_;
+  Vector3dArgument *value_;
   bool is_set_;
 };
 
