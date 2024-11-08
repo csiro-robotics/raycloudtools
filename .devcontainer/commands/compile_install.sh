@@ -69,6 +69,7 @@ ldconfig /usr/local/lib
 echo "Cloning and building TreeTools..."
 git clone https://github.com/tim-devereux/treetools.git
 cd treetools
+git checkout dev
 mkdir -p build
 cd build
 cmake .. \
