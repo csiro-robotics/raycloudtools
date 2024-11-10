@@ -3,5 +3,4 @@ build*/
 cmake-build*/
 riegl_libs*/
 test_data*/
-.github*/
 treetools*/
