@@ -26,6 +26,7 @@ set(PUBLIC_HEADERS
   rayforeststructure.h
   raygrid.h
   raylaz.h
+  rayriegl.h
   raymerger.h
   raymesh.h
   rayply.h
@@ -56,6 +57,7 @@ set(PUBLIC_HEADERS
   extraction/raysegment.h
   extraction/raytreenode.h
   extraction/raygrid2d.h
+  extraction/raydensegrid.h
 )
 
 set(PRIVATE_HEADERS
@@ -78,6 +80,7 @@ set(SOURCES
   rayforestgen.cpp
   rayforeststructure.cpp
   raylaz.cpp
+  rayriegl.cpp
   raymerger.cpp
   raymesh.cpp
   rayply.cpp
@@ -105,6 +108,7 @@ set(SOURCES
   extraction/rayforest_draw.cpp
   extraction/rayforest_watershed.cpp
   extraction/raysegment.cpp
+  extraction/raydensegrid.cpp
 )
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)

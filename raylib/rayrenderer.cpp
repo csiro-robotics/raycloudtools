@@ -108,7 +108,8 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       return false;
     }
     // the set of keys in the key-value pairs that we are parsing
-    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0", "+zone" };
+    const std::vector<std::string> keys = { "+proj",  "+ellps", "+datum", "+units", "+lat_0",
+                                            "+lon_0", "+x_0",   "+y_0",   "+zone" };
     std::vector<std::string> values;
     int zone_value = KvUserDefined;
     for (const auto &key : keys)
@@ -167,8 +168,8 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       zone_value = std::stoi(values[8]);
       std::cout << "zone?: " << zone_value << std::endl;
     }
-    std::cout << "proj: " << values[0] << ", geooffset: " << geo_offset.transpose() << ", geokey: " << values[1] << ", datum: " << values[2]
-              << ", coord_long: " << coord_long << " zone: " << zone_value << std::endl;
+    std::cout << "proj: " << values[0] << ", geooffset: " << geo_offset.transpose() << ", geokey: " << values[1]
+              << ", datum: " << values[2] << ", coord_long: " << coord_long << " zone: " << zone_value << std::endl;
 
     const double scales[3] = { pixel_width, pixel_width, pixel_width };
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
@@ -199,7 +200,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       {
         std::cout << "unknown projection type: " << values[0] << std::endl;
         return false;
-      }   
+      }
     }
 
     // describe the coordinates of the image corners
@@ -281,7 +282,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
       Eigen::Vector3d end = ends[i];
       if (!bounds_.clipRay(start, end, 1e-10))
       {
-        continue; // ray is outside of bounds
+        continue;  // ray is outside of bounds
       }
       bounded_ = colours[i].alpha > 0;
       walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
@@ -487,8 +488,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           case RenderStyle::Sum:
             pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
             break;
-          case RenderStyle::Rays:
-          {
+          case RenderStyle::Rays: {
             Eigen::Vector3d cloud_start = starts[i];
             Eigen::Vector3d cloud_end = ends[i];
             // clip to within the image (since we exclude unbounded rays from the image bounds)
@@ -579,8 +579,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         case RenderStyle::Rays:
           col3d /= colour[3];  // simple mean
           break;
-        case RenderStyle::Height:
-        {
+        case RenderStyle::Height: {
           double shade =
             dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
           col3d = Eigen::Vector3d(shade, shade, shade);
@@ -590,8 +589,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         case RenderStyle::Density:
           col3d /= max_val;  // rescale to within limited colour range
           break;
-        case RenderStyle::Density_rgb:
-        {
+        case RenderStyle::Density_rgb: {
           if (is_hdr)
             col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
           else

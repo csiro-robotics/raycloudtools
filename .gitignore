@@ -1,4 +1,6 @@
-.vscode/
 .idea/
 build*/
 cmake-build*/
+riegl_libs*/
+test_data*/
+treetools*/

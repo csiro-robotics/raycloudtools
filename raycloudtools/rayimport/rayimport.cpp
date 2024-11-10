@@ -12,6 +12,8 @@
 #include "raylib/raylaz.h"
 #include "raylib/rayparse.h"
 #include "raylib/rayply.h"
+
+#include "raylib/rayriegl.h"
 #include "raylib/raytrajectory.h"
 
 void usage(int exit_code = 1)
@@ -19,8 +21,12 @@ void usage(int exit_code = 1)
   // clang-format off
   std::cout << "Import a point cloud and trajectory file into a ray cloud" << std::endl;
   std::cout << "usage:" << std::endl;
-  std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las or .ply file" << std::endl;
+  // std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las, .ply, .rdbx or .rxp file" << std::endl;
+  std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las, .ply or .rxp file" << std::endl;
   std::cout << "                                           trajectoryfile is a text file using 'time x y z' format per line" << std::endl;
+  // std::cout << "rayimport pointcloudfile transform transformfile  - pointcloudfile can be a .laz, .las, .ply, .rdbx or .rxp file" << std::endl;
+  std::cout << "rayimport pointcloudfile transform transformfile  - pointcloudfile can be a .laz, .las, .ply or .rxp file" << std::endl;
+  std::cout << "                                               transformfile is a text file containing a 4x4 transformation matrix" << std::endl;
   std::cout << "rayimport pointcloudfile 0,0,0           - use 0,0,0 as the sensor location" << std::endl;
   std::cout << "rayimport pointcloudfile ray 0,0,-10     - use 0,0,-10 as the constant ray vector from start to point" << std::endl;
   std::cout << "                                        --max_intensity 100 - specify maximum intensity value (default 100)." << std::endl;
@@ -36,29 +42,31 @@ int rayImport(int argc, char *argv[])
   ray::DoubleArgument max_intensity(0.0, 10000, 100.0);
   ray::Vector3dArgument position, ray_vec;
   ray::TextArgument ray_text("ray");
+  ray::TextArgument transform_text("transform");
   ray::OptionalKeyValueArgument max_intensity_option("max_intensity", 'm', &max_intensity);
   ray::OptionalFlagArgument remove("remove_start_pos", 'r');
-  ray::FileArgument cloud_file, trajectory_file;
+  ray::FileArgument cloud_file, trajectory_file, transform_file;
   bool standard_format =
     ray::parseCommandLine(argc, argv, { &cloud_file, &trajectory_file }, { &max_intensity_option, &remove });
   bool position_format =
     ray::parseCommandLine(argc, argv, { &cloud_file, &position }, { &max_intensity_option, &remove });
   bool ray_format =
     ray::parseCommandLine(argc, argv, { &cloud_file, &ray_text, &ray_vec }, { &max_intensity_option, &remove });
-  if (!standard_format && !position_format && !ray_format)
+  bool transform_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &transform_text, &transform_file }, { &max_intensity_option, &remove });
+  if (!standard_format && !position_format && !ray_format && !transform_format)
     usage();
 
-  if (ray_format && ray_vec.value().norm() == 0.0)
-  {
-    std::cerr << "Error: some ray cloud functions require rays to have a length. Please enter a non-zero vector for ray argument" << std::endl;
-    usage();
-  }
   ray::Cloud cloud;
   const std::string &traj_file = trajectory_file.name();
+  const std::string &trans_file = transform_file.name();
   // Sensors we use have 0 to 100 for normal output, and to 255 for special reflective surfaces
   double maximum_intensity = max_intensity.value();
 
+  // init transformation
+  std::vector<double> transformation;
   // load the trajectory first, it should fit into main memory
+
   ray::Trajectory trajectory;
   if (standard_format)
   {
@@ -107,7 +115,7 @@ int rayImport(int argc, char *argv[])
       start_pos = ends[0];
     }
     // user provides a single sensor location (e.g. for static scanners)
-    if (position_format)
+    else if  (position_format || transform_format)
     {
       starts = ends;
       Eigen::Vector3d pos = position.value();
@@ -169,6 +177,27 @@ int rayImport(int argc, char *argv[])
       usage();
     }
   };
+
+  if (transform_format)
+  {
+    std::ifstream inputFile(trans_file);
+
+    if (inputFile.is_open()) {
+      std::string line;
+      while (std::getline(inputFile, line)) {
+        std::stringstream ss(line);
+        double number;
+        while (ss >> number) {
+          transformation.push_back(number);
+        }
+      }
+      inputFile.close();
+
+    } else {
+      usage();
+    }
+  }
+
   Eigen::Vector3d *offset = remove.isSet() ? &start_pos : nullptr;
   if (cloud_file.nameExt() == "ply")
   {
@@ -186,6 +215,20 @@ int rayImport(int argc, char *argv[])
       usage();
     }
   }
+  else if (cloud_file.nameExt() == "rxp")
+  {
+    if (!ray::readRXP(cloud_file.name(), add_chunk, num_bounded, maximum_intensity, transformation))
+    {
+      usage();
+    }
+  }
+  // else if (cloud_file.nameExt() == "rdbx")
+  // {
+  //   if (!ray::readRDBX(cloud_file.name(), add_chunk, num_bounded, maximum_intensity))
+  //   {
+  //     usage();
+  //   }
+  // }
   else
   {
     std::cout << "Error converting unknown type: " << cloud_file.name() << std::endl;
@@ -213,10 +256,42 @@ int rayImport(int argc, char *argv[])
   }
   if (num_bounded == 0 && maximum_intensity > 0)
   {
-    std::cout << "warning: all laz file intensities are 0." << std::endl;
+    std::cout << "warning: all point cloud intensities are 0." << std::endl;
     std::cout << "If your sensor lacks intensity information, set them to full using:" << std::endl;
     std::cout << "rayimport <point cloud> <trajectory file> --max_intensity 0" << std::endl;
   }
+
+  //  Cloud in_chunk, out_chunk;
+  //  const Cuboid cuboid(centre - extents, centre + extents);
+  //
+  //  for (size_t i = 0; i < ends.size(); i++)
+  //  {
+  //        Eigen::Vector3d start = starts[i];
+  //        Eigen::Vector3d end = ends[i];
+  //        if (cuboid.clipRay(start, end))  // true if ray intersects the cuboid
+  //        {
+  //          RGBA col = colours[i];
+  //          if (!cuboid.intersects(ends[i]))  // mark as unbounded for the in_chunk
+  //          {
+  //            col.red = col.green = col.blue = col.alpha = 0;
+  //          }
+  //          in_chunk.addRay(start, end, times[i], col);
+  //          if (start != starts[i])  // start part is clipped
+  //          {
+  //            col.red = col.green = col.blue = col.alpha = 0;
+  //            out_chunk.addRay(starts[i], start, times[i], col);
+  //          }
+  //          if (ends[i] != end)  // end part is clipped
+  //          {
+  //            out_chunk.addRay(end, ends[i], times[i], colours[i]);
+  //          }
+  //        }
+  //        else  // no intersection
+  //        {
+  //          out_chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+  //        }
+  //  }
+
   ray::writeRayCloudChunkEnd(ofs);
   // if we remove the start position, then it is useful to print this value that is removed
   // so that the user hasn't lost information

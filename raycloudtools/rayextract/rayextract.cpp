@@ -9,6 +9,7 @@
 #include "raylib/extraction/raytrees.h"
 #include "raylib/extraction/raytrunks.h"
 #include "raylib/extraction/rayleaves.h"
+#include "raylib/extraction/raydensegrid.h"
 #include "raylib/raycloud.h"
 #include "raylib/rayforestgen.h"
 #include "raylib/rayforeststructure.h"
@@ -25,7 +26,7 @@ static std::string extract_type;
 
 void usage(int exit_code = 1)
 {
-  const bool none = extract_type != "terrain" && extract_type != "trunks" && extract_type != "forest" && extract_type != "trees" && extract_type != "leaves";
+  const bool none = extract_type != "terrain" && extract_type != "trunks" && extract_type != "forest" && extract_type != "trees" && extract_type != "leaves"  && extract_type != "grid";
   // clang-format off
   std::cout << "Extract natural features into a text file or mesh file" << std::endl;
   std::cout << "usage:" << std::endl;
@@ -42,7 +43,7 @@ void usage(int exit_code = 1)
   if (extract_type == "forest" || none)
   {
     std::cout << "rayextract forest cloud.ply                 - extracts tree locations, radii and heights to file" << std::endl;
-    std::cout << "                            --ground ground_mesh.ply - ground mesh file (otherwise assume flat)" << std::endl; 
+    std::cout << "                            --ground ground_mesh.ply - ground mesh file (otherwise assume flat)" << std::endl;
     std::cout << "                            --trunks cloud_trunks.txt - known tree trunks file" << std::endl;
     std::cout << "                            --width 0.25    - grid cell width" << std::endl;
     std::cout << "                            --smooth 15     - canopy smooth iterations, higher for rough canopies" << std::endl;
@@ -70,13 +71,26 @@ void usage(int exit_code = 1)
   }
   if (extract_type == "leaves" || none)
   {
-    std::cout << "rayextract leaves cloud.ply trees.txt            - reconstruct the leaf locations coming from the specified tree structures, and save to text file" << std::endl;
-    std::cout << "                            --leaf mesh.ply      - mesh for each leaf. Should have its centre at 0,0,0, be along the y axis, with first vertex at the stalk connection" << std::endl;
-    std::cout << "                            --leaf image.png     - make leaf from the image, assuming it uses its alpha channel (loads in cloudompare but not meshlab)" << std::endl;
-    std::cout << "                            --leaf_area 0.002    - area for each leaf." << std::endl;
-    std::cout << "                            --leaf_droop 0.1     - drop per square horizontal distance." << std::endl;
-    std::cout << "                            --stalks             - include stalks to closest branch." << std::endl;
-    std::cout << "                                 --verbose  - extra debug output." << std::endl;
+    std::cout << "rayextract leaves cloud.ply trees.txt           - reconstruct the leaf locations coming from the specified tree structures, and save to text file" << std::endl;
+    std::cout << "                            --leaf mesh.ply     - mesh for each leaf. Should have its centre at 0,0,0, be along the y axis, with first vertex at the stalk connection" << std::endl;
+    std::cout << "                            --leaf image.png    - make leaf from the image, assuming it uses its alpha channel (loads in CloudCompare but not Meshlab)" << std::endl;
+    std::cout << "                            --leaf_area 0.002   - area for each leaf." << std::endl;
+    std::cout << "                            --leaf_droop 0.1    - drop per square horizontal distance." << std::endl;
+    std::cout << "                            --leaf_density 0.5  - leaf area density per cubic metre (default: 0.5)" << std::endl;
+    std::cout << "                            --leaf_angle 1      - leaf angle distribution set with int value (default: uniform (1))" << std::endl;
+    std::cout << "                                                    Options: uniform (1), spherical (2), erectophile (3), plagiophile (4), planophile (5), extremophile (6)" << std::endl;
+    std::cout << "                            --stalks            - include stalks to closest branch." << std::endl;
+  }
+  if (extract_type == "grid" || none)
+  {
+  std::cout << "rayextract grid cloud.ply" << std::endl;
+  std::cout << "                            --voxel_size " << std::endl;
+  std::cout << "                            --grid_bounds_min x,y,z - set min bounds of voxel grid. Defaults to min bounds of raycloud if not set." << std::endl;
+  std::cout << "                            --grid_bounds_max x,y,z - set max bounds of voxel grid. Defaults to max bounds of raycloud if not set." << std::endl;
+  std::cout << "                            --write_empty           - write whole voxel grid incuding empty voxels." << std::endl; 
+  std::cout << "                            --write_netcdf          - write voxel grid in NetCDF format." << std::endl; 
+  std::cout << "                                 --verbose  - extra debug output." << std::endl;
+
   }
   // clang-format on
   exit(exit_code);
@@ -91,27 +105,26 @@ int rayExtract(int argc, char *argv[])
     extract_type = std::string(argv[1]);
   }
   ray::FileArgument cloud_file, mesh_file, trunks_file, trees_file, leaf_file;
-  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain"), leaves("leaves");
+  ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain"), leaves("leaves"), grid("grid");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
   ray::DoubleArgument gradient(0.001, 1000.0, 1.0), global_taper(0.0, 1.0), global_taper_factor(0.0, 1.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
-  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b'), stalks("stalks", 's'), use_rays("use_rays", 'u');
+  ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b'), stalks("stalks", 's'), use_rays("use_rays", 'u'), write_empty("write_empty", 'w'), write_netcdf("write_netcdf", 'wn');
   ray::DoubleArgument width(0.01, 10.0, 0.25), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
-
+  ray::IntArgument leaf_angle(1, 6);
   ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
-    min_diameter(0.01, 100.0), leaf_area(0.00001, 1.0, 0.002), leaf_droop(0.0, 10.0, 0.1), crop_length(0.01, 100.0);;
+    min_diameter(0.01, 100.0), leaf_area(0.00001, 1.0, 0.002), leaf_droop(0.0, 10.0, 0.1), leaf_density(0.01, 5), crop_length(0.01, 100.0);
   ray::DoubleArgument girth_height_ratio(0.001, 0.5), length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
-    span_ratio(0.01, 10.0);
-  ray::DoubleArgument gravity_factor(0.0, 100.0), grid_width(1.0, 100000.0),
-    grid_overlap(0.0, 0.9);
+    span_ratio(0.01, 10.0);  ray::DoubleArgument gravity_factor(0.0, 100.0), grid_width(1.0, 100000.0), grid_overlap(0.0, 0.9);
+  ray::DoubleArgument voxel_size(0.1, 10);
+  ray::Vector3dArgument grid_bounds_min, grid_bounds_max;
   ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
   ray::OptionalKeyValueArgument crop_length_option("crop_length", 'n', &crop_length);
   ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
   ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
   ray::OptionalKeyValueArgument girth_height_ratio_option("girth_height_ratio", 'i', &girth_height_ratio);
-  ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c',
-                                                                &cylinder_length_to_width);
+  ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c', &cylinder_length_to_width);
   ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
   ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
@@ -121,7 +134,11 @@ int rayExtract(int argc, char *argv[])
   ray::OptionalKeyValueArgument leaf_option("leaf", 'l', &leaf_file);
   ray::OptionalKeyValueArgument leaf_area_option("leaf_area", 'a', &leaf_area);
   ray::OptionalKeyValueArgument leaf_droop_option("leaf_droop", 'd', &leaf_droop);
-
+  ray::OptionalKeyValueArgument leaf_density_option("leaf_density", 'ld', &leaf_density);
+  ray::OptionalKeyValueArgument leaf_angle_option("leaf_angle", 'la', &leaf_angle);
+  ray::OptionalKeyValueArgument voxel_size_option("voxel_size", 'vs', &voxel_size);
+  ray::OptionalKeyValueArgument grid_bounds_min_option("grid_bounds_min", 'bmin', &grid_bounds_min);
+  ray::OptionalKeyValueArgument grid_bounds_max_option("grid_bounds_max", 'bmax', &grid_bounds_max);
   ray::IntArgument smooth(0, 50);
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth),
     drop_option("drop_ratio", 'd', &drop);
@@ -138,10 +155,10 @@ int rayExtract(int argc, char *argv[])
     { &max_diameter_option, &distance_limit_option, &height_min_option, &crop_length_option, &girth_height_ratio_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
       &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &use_rays, &verbose });
-  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_option, &leaf_area_option, &leaf_droop_option, &stalks });
+  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_option, &leaf_area_option, &leaf_droop_option, &leaf_angle_option, &leaf_density_option, &stalks });
+  bool extract_grid = ray::parseCommandLine(argc, argv, { &grid, &cloud_file }, { &voxel_size_option, &grid_bounds_min_option, &grid_bounds_max_option, &write_empty, &write_netcdf, &verbose });
 
-
-  if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves)
+  if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves && !extract_grid)
   {
     usage();
   }
@@ -226,8 +243,8 @@ int rayExtract(int argc, char *argv[])
     if (global_taper_factor_option.isSet())
     {
       params.global_taper_factor = global_taper_factor.value();
-    }   
-    params.use_rays = use_rays.isSet(); 
+    }
+    params.use_rays = use_rays.isSet();
     params.segment_branches = segment_branches.isSet();
 
     ray::Trees trees(cloud, offset, mesh, params, verbose.isSet());
@@ -306,7 +323,11 @@ int rayExtract(int argc, char *argv[])
   else if (extract_leaves)
   {
     ray::generateLeaves(cloud_file.nameStub(), trees_file.name(), leaf_file.name(), 
-      leaf_area.value(), leaf_droop.value(), stalks.isSet());
+      leaf_area.value(), leaf_droop.value(), leaf_angle.value(), leaf_density.value(), stalks.isSet());
+  }
+  else if (extract_grid)
+  {
+    ray::generateDenseVoxels(cloud_file.nameStub(), voxel_size.value(), grid_bounds_min.value(), grid_bounds_max.value(), write_empty.isSet(), write_netcdf.isSet());
   }
   else
   {

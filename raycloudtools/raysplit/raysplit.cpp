@@ -19,7 +19,7 @@
 void usage(int exit_code = 1)
 {
   // clang-format off
-  std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds" << std::endl;
+  std::cout << "Split a ray cloud relative to the supplied geometry, generating two cropped ray clouds" << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raysplit raycloud plane 10,0,0           - splits around plane at 10 m along x axis" << std::endl;
   std::cout << "                  colour                 - splits by colour, one cloud per colour" << std::endl;
