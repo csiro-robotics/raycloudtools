@@ -1,4 +1,4 @@
-FROM ubuntu:ubuntu-latest
+FROM ubuntu:latest
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
