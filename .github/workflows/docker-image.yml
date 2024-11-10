@@ -8,9 +8,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # Convert repository name to lowercase using GitHub's built-in function
-  IMAGE_NAME: ${{ toLowerCase(github.repository) }}
-  
+  # Converting to lowercase using shell command
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -21,6 +21,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      - name: Convert repository name to lowercase
+        run: |
+          echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v1
@@ -33,6 +37,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./docker/Dockerfile  # Updated path to Dockerfile
+          file: ./docker/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ env.REGISTRY }}/${{ env.REPO }}:latest
