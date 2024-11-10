@@ -8,8 +8,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
+  # Convert repository name to lowercase using GitHub's built-in function
+  IMAGE_NAME: ${{ toLowerCase(github.repository) }}
+  
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
