@@ -66,7 +66,7 @@ RUN git clone https://github.com/ethz-asl/libnabo.git && \
     cd ../.. && rm -rf libnabo
 
 # Clone, build and install raycloudtools
-RUN git clone https://github.com/csiro-robotics/raycloudtools.git && \
+RUN git clone https://github.com/Leaf2Landscape/raycloudtools.git && \
     cd raycloudtools && \
     mkdir build && \
     cd build && \
@@ -86,7 +86,7 @@ RUN git clone https://github.com/csiro-robotics/raycloudtools.git && \
     rm -rf raycloudtools
 
 # Clone and build TreeTools
-RUN git clone https://github.com/csiro-robotics/treetools.git && \
+RUN git clone https://github.com/Leaf2Landscape/treetools.git && \
     cd treetools && \
     mkdir -p build && \
     cd build && \
