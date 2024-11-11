@@ -67,7 +67,7 @@ ldconfig /usr/local/lib
 
 # Clone and build TreeTools
 echo "Cloning and building TreeTools..."
-git clone https://github.com/tim-devereux/treetools.git
+git clone https://github.com/Leaf2Landscape/treetools.git
 cd treetools
 mkdir -p build
 cd build
