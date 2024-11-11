@@ -1,304 +1,271 @@
 // Copyright (c) 2023
 // Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 // ABN 41 687 119 230
-
 // Author: Tim Devereux
+
 #include "rayriegl.h"
 #include "raylib/rayprogress.h"
 #include "raylib/rayprogressthread.h"
 #include "raypose.h"
 #include "rayunused.h"
 
+namespace ray
+{
 
 #if RAYLIB_WITH_RIEGL
 #include <cmath>
 #include <iostream>
-// #include <riegl/rdb.hpp>
-// #include <riegl/rdb/default.hpp>
+#include <memory>
 #include <riegl/scanlib.hpp>
+#include <stdexcept>
 #include <tuple>
 
+namespace
+{
 
 struct RieglPointData
 {
   std::vector<float> start_x, start_y, start_z;
   std::vector<float> end_x, end_y, end_z;
-  std::vector<float> reflectance;
   std::vector<float> time;
-};
 
-std::tuple<float, float, float> normalizeVector(float Vx, float Vy, float Vz)
-{
-  float magnitude = std::sqrt(Vx * Vx + Vy * Vy + Vz * Vz);
-  return std::make_tuple(Vx / magnitude, Vy / magnitude, Vz / magnitude);
-}
+  size_t size() const { return start_x.size(); }
 
-std::tuple<float, float, float> getPositionAtDistance(float X0, float Y0, float Z0, float Vx, float Vy, float Vz,
-                                                      float distance)
-{
-  double Vx_normalized, Vy_normalized, Vz_normalized;
-  std::tie(Vx_normalized, Vy_normalized, Vz_normalized) = normalizeVector(Vx, Vy, Vz);
-  float X = X0 + distance * Vx_normalized;
-  float Y = Y0 + distance * Vy_normalized;
-  float Z = Z0 + distance * Vz_normalized;
-  return std::make_tuple(X, Y, Z);
-}
-
-class RieglReader : public scanlib::pointcloud
-{
-  RieglPointData &rxp_data;
-
-public:
-  RieglReader(RieglPointData &rxp_data)
-    : scanlib::pointcloud(false)
-    , rxp_data(rxp_data)
-  {}
-
-protected:
-  void on_shot_end()
+  void reserve(size_t capacity)
   {
-    if (target_count == 0 && beam_direction[2] > 0 && beam_direction[2] < 0.866) //remove points below the scanner and remove the "buffer" points at the top of the scan lines
-    {
-      float X, Y, Z;
-      std::tie(X, Y, Z) = getPositionAtDistance(beam_origin[0], beam_origin[1], beam_origin[2], beam_direction[0],
-                                                beam_direction[1], beam_direction[2], 1000);
-      rxp_data.end_x.push_back(X);
-      rxp_data.end_y.push_back(Y);
-      rxp_data.end_z.push_back(Z);
-      rxp_data.start_x.push_back(beam_origin[0]);
-      rxp_data.start_y.push_back(beam_origin[1]);
-      rxp_data.start_z.push_back(beam_origin[2]);
-      rxp_data.reflectance.push_back(0);
-      rxp_data.time.push_back(time);
-    }
+    start_x.reserve(capacity);
+    start_y.reserve(capacity);
+    start_z.reserve(capacity);
+    end_x.reserve(capacity);
+    end_y.reserve(capacity);
+    end_z.reserve(capacity);
+    time.reserve(capacity);
+  }
+
+  void clear()
+  {
+    start_x.clear();
+    start_y.clear();
+    start_z.clear();
+    end_x.clear();
+    end_y.clear();
+    end_z.clear();
+    time.clear();
   }
 };
-#endif  // RAYLIB_WITH_RIEGL
 
-namespace ray
+class Vector3D
 {
+public:
+  static std::tuple<float, float, float> normalize(float x, float y, float z)
+  {
+    float magnitude = std::sqrt(x * x + y * y + z * z);
+    return std::make_tuple(x / magnitude, y / magnitude, z / magnitude);
+  }
+
+  static std::tuple<float, float, float> getPositionAtDistance(float x0, float y0, float z0, float vx, float vy,
+                                                               float vz, float distance)
+  {
+    auto [vx_norm, vy_norm, vz_norm] = normalize(vx, vy, vz);
+    return std::make_tuple(x0 + distance * vx_norm, y0 + distance * vy_norm, z0 + distance * vz_norm);
+  }
+};
+class RieglReader : public scanlib::pointcloud {
+public:
+    explicit RieglReader(RieglPointData& rxp_data)
+        : scanlib::pointcloud(false)
+        , rxp_data_(rxp_data) 
+    {}
+
+protected:
+    void on_shot_end() override {
+        static constexpr float MIN_Z_DIRECTION = 0.0f;
+        static constexpr float MAX_Z_DIRECTION = 0.866f;
+        
+        // Skip points below scanner and buffer points at top of scan lines
+        if (target_count != 0 || 
+            beam_direction[2] <= MIN_Z_DIRECTION || 
+            beam_direction[2] >= MAX_Z_DIRECTION) {
+            return;
+        }
+
+        auto [end_x, end_y, end_z] = Vector3D::getPositionAtDistance(
+            beam_origin[0], beam_origin[1], beam_origin[2],
+            beam_direction[0], beam_direction[1], beam_direction[2],
+            1000.0f
+        );
+
+        rxp_data_.end_x.push_back(end_x);
+        rxp_data_.end_y.push_back(end_y);
+        rxp_data_.end_z.push_back(end_z);
+        rxp_data_.start_x.push_back(beam_origin[0]);
+        rxp_data_.start_y.push_back(beam_origin[1]);
+        rxp_data_.start_z.push_back(beam_origin[2]);
+        rxp_data_.time.push_back(time);
+    }
+
+private:
+    RieglPointData& rxp_data_;
+};
+
+class RieglDataProcessor
+{
+public:
+  static Eigen::Vector3d transformPoint(const std::vector<double> &pose_transform, float x, float y, float z)
+  {
+    if (pose_transform.empty())
+    {
+      return Eigen::Vector3d(x, y, z);
+    }
+
+    Eigen::Vector3d result;
+    for (int i = 0; i < 3; ++i)
+    {
+      result[i] = (x * pose_transform[i * 4] + y * pose_transform[i * 4 + 1] + z * pose_transform[i * 4 + 2]) +
+                  pose_transform[i * 4 + 3];
+    }
+    return result;
+  }
+};
+
+}  // anonymous namespace
+
+bool readRXP(const std::string& file_name,
+             std::function<void(std::vector<Eigen::Vector3d>& starts,
+                              std::vector<Eigen::Vector3d>& ends,
+                              std::vector<double>& times,
+                              std::vector<RGBA>& colours)> apply,
+             size_t& num_bounded,
+             [[maybe_unused]] double max_intensity,
+             std::vector<double> pose_transformation,
+             size_t chunk_size)
+{
+    try {
+        std::cout << "Reading Riegl file: " << file_name << std::endl;
+        
+        auto rc = scanlib::basic_rconnection::create(file_name);
+        if (!rc) {
+            throw std::runtime_error("Failed to create connection");
+        }
+        
+        RieglPointData riegl_data;
+        rc->open();
+        scanlib::decoder_rxpmarker dec(rc);
+        RieglReader reader(riegl_data);
+        scanlib::buffer buf;
+        
+        for (dec.get(buf); !dec.eoi(); dec.get(buf)) {
+            reader.dispatch(buf.begin(), buf.end());
+        }
+        rc->close();
+
+        const size_t number_of_points = riegl_data.size();
+        if (number_of_points == 0) {
+            throw std::runtime_error("No points read from file");
+        }
+
+        ray::Progress progress;
+        ray::ProgressThread progress_thread(progress);
+        const size_t num_chunks = (number_of_points + (chunk_size - 1)) / chunk_size;
+        chunk_size = std::min(number_of_points, chunk_size);
+        progress.begin("Processing points", num_chunks);
+
+        std::vector<Eigen::Vector3d> starts;
+        std::vector<Eigen::Vector3d> ends;
+        std::vector<double> times;
+        std::vector<RGBA> colours;
+
+        starts.reserve(chunk_size);
+        ends.reserve(chunk_size);
+        times.reserve(chunk_size);
+        colours.reserve(chunk_size);
+
+        num_bounded = 0;  // Set to 0 since we're not tracking intensity bounds
+
+        for (size_t i = 0; i < number_of_points; ++i) {
+            auto start = RieglDataProcessor::transformPoint(
+                pose_transformation,
+                riegl_data.start_x[i],
+                riegl_data.start_y[i],
+                riegl_data.start_z[i]
+            );
+
+            auto end = RieglDataProcessor::transformPoint(
+                pose_transformation,
+                riegl_data.end_x[i],
+                riegl_data.end_y[i],
+                riegl_data.end_z[i]
+            );
+
+            ends.push_back(end);
+            starts.push_back(start);
+            times.push_back(riegl_data.time[i]);
+
+            if (ends.size() == chunk_size || i == number_of_points - 1) {
+                if (colours.empty()) {
+                    colourByTime(times, colours);
+                    // Set all intensities to 0
+                    colours.resize(times.size());
+                    for (auto& colour : colours) {
+                        colour.alpha = u_int8_t(0);
+                    }
+                }
+                
+                apply(starts, ends, times, colours);
+                
+                starts.clear();
+                ends.clear();
+                times.clear();
+                colours.clear();
+                
+                progress.increment();
+            }
+        }
+
+        progress.end();
+        progress_thread.requestQuit();
+        progress_thread.join();
+
+        std::cout << "Successfully loaded " << number_of_points << " points from " 
+                  << file_name << std::endl;
+        return true;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error reading RXP file: " << e.what() << std::endl;
+        return false;
+    }
+}
+#else  // !RAYLIB_WITH_RIEGL
+
+bool readRXP(std::string file_name, std::vector<Eigen::Vector3d> &positions, std::vector<double> &times,
+             std::vector<RGBA> &colours, double max_intensity, std::vector<double> pose_transformation)
+{
+  RAYLIB_UNUSED(file_name);
+  RAYLIB_UNUSED(positions);
+  RAYLIB_UNUSED(times);
+  RAYLIB_UNUSED(colours);
+  RAYLIB_UNUSED(max_intensity);
+  RAYLIB_UNUSED(pose_transformation);
+  std::cerr << "RIEGL support is not enabled in this build" << std::endl;
+  return false;
+}
+
 bool readRXP(const std::string &file_name,
              std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                                 std::vector<double> &times, std::vector<RGBA> &colours)>
                apply,
              size_t &num_bounded, double max_intensity, std::vector<double> pose_transformation, size_t chunk_size)
 {
-#if RAYLIB_WITH_RIEGL
-  std::cout << "readRiegl: " << file_name << std::endl;
-
-  std::ifstream ifs;
-  ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
-
-  if (ifs.fail())
-  {
-    std::cerr << "readRiegl: failed to open stream" << std::endl;
-    return false;
-  }
-
-  RieglPointData riegl_data;
-
-  std::shared_ptr<scanlib::basic_rconnection> rc;
-  rc = scanlib::basic_rconnection::create(file_name);
-  rc->open();
-  scanlib::decoder_rxpmarker dec(rc);
-  RieglReader imp(riegl_data);
-  scanlib::buffer buf;
-  rc->close();
-  for (dec.get(buf); !dec.eoi(); dec.get(buf))
-  {
-    imp.dispatch(buf.begin(), buf.end());
-  }
-
-  std::size_t number_of_points = riegl_data.start_x.size();
-
-  ray::Progress progress;
-  ray::ProgressThread progress_thread(progress);
-  const size_t num_chunks = (number_of_points + (chunk_size - 1)) / chunk_size;
-  chunk_size = std::min(number_of_points, chunk_size);
-  progress.begin("read and process", num_chunks);
-
-  std::vector<Eigen::Vector3d> starts;
-  std::vector<Eigen::Vector3d> ends;
-  std::vector<double> times;
-  std::vector<RGBA> colours;
-  std::vector<uint8_t> intensities;
-  starts.reserve(chunk_size);
-  ends.reserve(chunk_size);
-  times.reserve(chunk_size);
-  intensities.reserve(chunk_size);
-  colours.reserve(chunk_size);
-
-  num_bounded = 0;
-  for (unsigned int i = 0; i < number_of_points; i++)
-  {
-    Eigen::Vector3d start;
-    Eigen::Vector3d end;
-
-    start[0] = ((riegl_data.end_x[i] * pose_transformation[0]) + (riegl_data.end_y[i] * pose_transformation[1]) +
-                (riegl_data.end_z[i] * pose_transformation[2])) +
-               pose_transformation[3];
-    start[1] = ((riegl_data.end_x[i] * pose_transformation[4]) + (riegl_data.end_y[i] * pose_transformation[5]) +
-                (riegl_data.end_z[i] * pose_transformation[6])) +
-               pose_transformation[7];
-    start[2] = ((riegl_data.end_x[i] * pose_transformation[8]) + (riegl_data.end_y[i] * pose_transformation[9]) +
-                (riegl_data.end_z[i] * pose_transformation[10])) +
-               pose_transformation[11];
-
-    end[0] = ((riegl_data.end_x[i] * pose_transformation[0]) + (riegl_data.end_y[i] * pose_transformation[1]) +
-              (riegl_data.end_z[i] * pose_transformation[2])) +
-             pose_transformation[3];
-    end[1] = ((riegl_data.end_x[i] * pose_transformation[4]) + (riegl_data.end_y[i] * pose_transformation[5]) +
-              (riegl_data.end_z[i] * pose_transformation[6])) +
-             pose_transformation[7];
-    end[2] = ((riegl_data.end_x[i] * pose_transformation[8]) + (riegl_data.end_y[i] * pose_transformation[9]) +
-              (riegl_data.end_z[i] * pose_transformation[10])) +
-             pose_transformation[11];
-
-    ends.push_back(end);
-    starts.push_back(start);
-    times.push_back(riegl_data.time[i]);
-
-    const double point_int = riegl_data.reflectance[i];
-    const double normalised_intensity = (255.0 * point_int) / max_intensity;
-    const uint8_t intensity = static_cast<uint8_t>(std::min(normalised_intensity, 255.0));
-    if (intensity > 0)
-      num_bounded++;
-    intensities.push_back(intensity);
-
-
-    if (ends.size() == chunk_size || i == number_of_points - 1)
-    {
-      if (colours.size() == 0)
-      {
-        colourByTime(times, colours);
-      }
-      for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
-        colours[i].alpha = intensities[i];
-      apply(starts, ends, times, colours);
-      starts.clear();
-      ends.clear();
-      times.clear();
-      colours.clear();
-      intensities.clear();
-      progress.increment();
-    }
-  }
-
-  progress.end();
-  progress_thread.requestQuit();
-  progress_thread.join();
-
-  std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
-
-
-  return true;
-#endif  // RAYLIB_WITH_RIEGL
+  RAYLIB_UNUSED(file_name);
+  RAYLIB_UNUSED(apply);
+  RAYLIB_UNUSED(num_bounded);
+  RAYLIB_UNUSED(max_intensity);
+  RAYLIB_UNUSED(pose_transformation);
+  RAYLIB_UNUSED(chunk_size);
+  std::cerr << "RIEGL support is not enabled in this build" << std::endl;
+  return false;
 }
 
-
-// bool readRDBX(const std::string &file_name,
-//               std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-//                                  std::vector<double> &times, std::vector<RGBA> &colours)>
-//                 apply,
-//               size_t &num_bounded, double max_intensity, size_t chunk_size)
-// {
-  
-//   // New RDB library context
-//   riegl::rdb::Context context;
-
-//   // Access existing database
-//   riegl::rdb::Pointcloud rdb(context);
-//   riegl::rdb::pointcloud::OpenSettings settings;
-//   rdb.open(file_name, settings);
-
-//   // Prepare point attribute buffers
-//   static const uint32_t BUFFER_SIZE = 10000;
-//   std::vector<uint64_t> bufferPointNumber(BUFFER_SIZE);
-//   std::vector<std::array<double, 3>> bufferCoordinates(BUFFER_SIZE);
-//   std::vector<float> bufferReflectance(BUFFER_SIZE);
-//   std::vector<std::array<uint8_t, 4>> bufferTimestamp(BUFFER_SIZE);
-//   std::vector<std::array<uint8_t, 4>> bufferTrueColor(BUFFER_SIZE);
-
-//   // Start new select query to read...
-//   riegl::rdb::pointcloud::QuerySelect select = rdb.select();
-
-//   // Tell select query where to store the data
-//   using namespace riegl::rdb::pointcloud;
-//   select.bindBuffer(RDB_RIEGL_ID, bufferPointNumber);
-//   select.bindBuffer(RDB_RIEGL_XYZ, bufferCoordinates);
-//   select.bindBuffer(RDB_RIEGL_REFLECTANCE, bufferReflectance);
-//   // select.bindBuffer(RDB_RIEGL_TIMESTAMP, bufferTimestamp);
-//   // select.bindBuffer(RDB_RIEGL_RGBA, bufferTrueColor);
-
-//   // ray::Progress progress;
-//   // ray::ProgressThread progress_thread(progress);
-//   // progress.begin("read and process", chunk_size);
-
-//   std::vector<Eigen::Vector3d> starts;
-//   std::vector<Eigen::Vector3d> ends;
-//   std::vector<double> times;
-//   std::vector<RGBA> colours;
-//   std::vector<uint8_t> intensities;
-//   starts.reserve(chunk_size);
-//   ends.reserve(chunk_size);
-//   times.reserve(chunk_size);
-//   // intensities.reserve(chunk_size);
-//   // colours.reserve(chunk_size);
-
-//   num_bounded = 0;
-//   unsigned int number_of_points = bufferPointNumber[-1];
-
-//   // Read and process all points block-wise
-//   while (const uint32_t count = select.next(BUFFER_SIZE))
-//   {
-//     // Print points to output stream
-//     for (uint32_t i = 0; i < count; i++)
-//     {
-//       Eigen::Vector3d end;
-//       end[0] = bufferCoordinates[i][0];
-//       end[1] = bufferCoordinates[i][1];
-//       end[2] = bufferCoordinates[i][2];
-
-//       // std::vector<RGBA> colour;
-//       // colour << int(bufferTrueColor[i][0]), int(bufferTrueColor[i][0]), int(bufferTrueColor[i][0]);
-//       // ends.push_back(end);
-//       // times.push_back(bufferTimestamp[i]);
-//       // colours.push_back(colour);
-
-//       const double point_int = bufferReflectance[i];
-//       const double normalised_intensity = (255.0 * point_int) / max_intensity;
-//       const uint8_t intensity = static_cast<uint8_t>(std::min(normalised_intensity, 255.0));
-//       if (point_int > 0)
-//         num_bounded++;
-//       intensities.push_back(point_int);
-
-
-//       if (ends.size() == BUFFER_SIZE || i == number_of_points - 1)
-//       {
-//         if (colours.size() == 0)
-//         {
-//           colourByTime(times, colours);
-//         }
-//         for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
-//           colours[i].alpha = intensities[i];
-//         apply(starts, ends, times, colours);
-//         starts.clear();
-//         ends.clear();
-//         times.clear();
-//         colours.clear();
-//         intensities.clear();
-//         // progress.increment();
-//       }
-//     }
-//   }
-//   // progress.end();
-//   // progress_thread.requestQuit();
-//   // progress_thread.join();
-
-//   std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
-
-//   return true;
-// }
-
+#endif  // RAYLIB_WITH_RIEGL
 
 }  // namespace ray

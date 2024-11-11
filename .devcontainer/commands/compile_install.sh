@@ -2,27 +2,10 @@
 set -e
 
 # Print starting message
-echo "Starting conditional copying of RiVLib and rdblib folders..."
+echo "Starting conditional copying of RiVLib ..."
 
 # Define the base path for Riegl libraries
 RIEGL_LIBS_PATH="/workspaces/raycloudtools/riegl_libs"
-
-# Initialize flags
-WITH_RIEGL=OFF
-
-# Check for the rdblib folder
-RDBLIB_PATH=$(find "$RIEGL_LIBS_PATH" -maxdepth 1 -type d -name 'rdblib-*-x86_64-linux' | head -n 1)
-if [ -n "$RDBLIB_PATH" ]; then
-    echo "Found rdblib folder: $RDBLIB_PATH. Copying to /opt/rdblib..."
-    mkdir -p /opt/rdblib
-    cp -r "$RDBLIB_PATH"/* /opt/rdblib/
-    WITH_RIEGL=ON
-    # Set environment variables for Riegl libraries
-    export RiVLib_DIR=/opt/rivlib
-    export RiVLib_INCLUDE_DIRS=/opt/rivlib/include 
-else
-    echo "rdblib folder not found."
-fi
 
 # Check for the rivlib folder
 RIVLIB_PATH=$(find "$RIEGL_LIBS_PATH" -maxdepth 1 -type d -name 'rivlib-*-x86_64-linux-gcc11' | head -n 1)
@@ -32,14 +15,14 @@ if [ -n "$RIVLIB_PATH" ]; then
     cp -r "$RIVLIB_PATH"/* /opt/rivlib/
     WITH_RIEGL=ON
     # Set environment variables for Riegl libraries
-    export rdb_DIR=/opt/rdblib/interface/cpp 
-    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rdblib/library
+    export RiVLib_DIR=/opt/rivlib-2_6_0-x86_64-linux-gcc11
+    export RiVLib_INCLUDE_DIRS=/opt/rivlib-2_6_0-x86_64-linux-gcc11/include
 else
     echo "rivlib folder not found."
 fi
 
 # Print completion message
-echo "Conditional copying of RiVLib and rdblib folders completed."
+echo "Conditional copying of RiVLib completed."
 
 # Build RayCloudTools
 echo "Building RayCloudTools..."
@@ -67,7 +50,7 @@ ldconfig /usr/local/lib
 
 # Clone and build TreeTools
 echo "Cloning and building TreeTools..."
-git clone https://github.com/Leaf2Landscape/treetools.git
+rm -rf treetools && git clone https://github.com/Leaf2Landscape/treetools.git
 cd treetools
 mkdir -p build
 cd build

@@ -2,13 +2,16 @@
 #include <Eigen/Dense>
 #include <fstream>
 #include <iostream>
-#include <netcdf>
 #include <sstream>
 #include "../raycuboid.h"
 #include "../rayforeststructure.h"
 #include "../raymesh.h"
 #include "../rayply.h"
 #include "../rayrenderer.h"
+
+#if RAYLIB_WITH_NETCDF
+#include <netcdf>
+#endif // RAYLIB_WITH_NETCDF
 
 namespace ray
 {
@@ -153,86 +156,81 @@ bool generateDenseVoxels(const std::string &cloud_stub, const double vox_width, 
 
   points.conservativeResize(c, points.cols());
 
-  if (write_netcdf)
-  {
-    try
-    {
-      // Create a new NetCDF file
-      std::string filename =
-        (std::ostringstream{} << cloud_stub << "_voxels_" << std::fixed << std::setprecision(1) << vox_width << ".nc")
-          .str();
-      netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
+    if (write_netcdf) {
+#if RAYLIB_WITH_NETCDF
+        try {
+            // Create a new NetCDF file
+            std::string filename = 
+                (std::ostringstream{} << cloud_stub << "_voxels_" << 
+                 std::fixed << std::setprecision(1) << vox_width << ".nc").str();
+            
+            netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
 
-      // Define dimensions
-      auto nPoints = dataFile.addDim("nPoints", points.rows());
-      auto nVars = dataFile.addDim("nVars", points.cols());
+            // Define dimensions
+            auto nPoints = dataFile.addDim("nPoints", points.rows());
+            auto nVars = dataFile.addDim("nVars", points.cols());
 
-      // Define variables
-      std::vector<std::string> varNames = { "x",        "y",        "z",    "path_length", "density", "surface_area",
-                                            "num_hits", "num_rays", "width" };
-      std::vector<netCDF::NcVar> vars;
+            // Define variables
+            std::vector<std::string> varNames = {
+                "x", "y", "z", "path_length", "density", 
+                "surface_area", "num_hits", "num_rays", "width"
+            };
+            
+            std::vector<netCDF::NcVar> vars;
+            for (const auto& varName : varNames) {
+                vars.push_back(dataFile.addVar(varName, netCDF::ncDouble, {nPoints}));
+            }
 
-      for (const auto &varName : varNames)
-      {
-        vars.push_back(dataFile.addVar(varName, netCDF::ncDouble, { nPoints }));
-      }
+            // Write data
+            for (size_t i = 0; i < vars.size(); ++i) {
+                std::vector<double> data(points.rows());
+                for (int j = 0; j < points.rows(); ++j) {
+                    data[j] = points(j, i);
+                }
+                vars[i].putVar(data.data());
+            }
 
-      // Write data
-      for (size_t i = 0; i < vars.size(); ++i)
-      {
-        std::vector<double> data(points.rows());
-        for (int j = 0; j < points.rows(); ++j)
-        {
-          data[j] = points(j, i);
+            std::cout << "Wrote " << points.rows() << " voxels to " << filename << std::endl;
+            return true;
+
+        } catch (const netCDF::exceptions::NcException& e) {
+            std::cerr << "NetCDF exception: " << e.what() << std::endl;
+            return false;
         }
-        vars[i].putVar(data.data());
-      }
-
-      std::cout << "Wrote " << points.rows() << " voxels to " << filename << std::endl;
-      return true;
-    }
-    catch (netCDF::exceptions::NcException &e)
-    {
-      std::cerr << "NetCDF exception: " << e.what() << std::endl;
-      return false;
-    }
-  }
-  else
-  {
-    std::ofstream myfile;
-    std::ostringstream filename;
-    filename << cloud_stub << "_voxels_" << vox_width << ".txt";
-    myfile.open(filename.str());
-
-    if (!myfile.is_open())
-    {
-      std::cerr << "Unable to open file " << filename.str() << std::endl;
-      return false;
-    }
-
-    myfile << "x y z path_length density surface_area num_hits num_rays width\n";
-
-    // Iterate through each row and column of the points matrix
-    for (int r = 0; r < points.rows(); ++r)
-    {
-      for (int c = 0; c < points.cols(); ++c)
-      {
-        // Write the current element to the file
-        myfile << points(r, c);
-        if (c != points.cols() - 1)
-        {
-          myfile << " ";
+#else
+        std::cerr << "NetCDF support is not enabled in this build." << std::endl;
+        return false;
+#endif // RAYLIB_WITH_NETCDF
+    } else {
+        std::ofstream myfile;
+        std::ostringstream filename;
+        filename << cloud_stub << "_voxels_" << vox_width << ".txt";
+        
+        myfile.open(filename.str());
+        if (!myfile.is_open()) {
+            std::cerr << "Unable to open file " << filename.str() << std::endl;
+            return false;
         }
-      }
-      // Add a newline character at the end of the row
-      myfile << "\n";
+
+        // Write header
+        myfile << "x y z path_length density surface_area num_hits num_rays width\n";
+
+        // Write data
+        for (int r = 0; r < points.rows(); ++r) {
+            for (int c = 0; c < points.cols(); ++c) {
+                myfile << points(r, c);
+                if (c != points.cols() - 1) {
+                    myfile << " ";
+                }
+            }
+            myfile << "\n";
+        }
+
+        std::cout << "Wrote " << points.rows() << " voxels to " << filename.str() << std::endl;
+        myfile.close();
+        return true;
     }
-
-    std::cout << "Wrote " << points.rows() << " voxels to " << filename.str() << std::endl;
-    myfile.close();
-  }
-
-  return true;
 }
 
-}  // namespace ray
+} // namespace ray
+
