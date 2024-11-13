@@ -92,7 +92,7 @@ void connectPointsShortestPath(
         const double d = std::max(0.001, dif.dot(dir));
         // we are looking for a minimum score, so large distances are bad, but new points in line with the
         // path direction are good
-        double score = dist2 / (d * d);
+        double score = dist2 / (d * d * (double)points[child].weight);
 
         if (gravity_factor > 0.0)  // penalise paths that are hard to hold up against gravity (lateral direction)
         {
@@ -130,7 +130,7 @@ void connectPointsShortestPath(
 /// the returned vector of index sets provides the root points for each separated tree
 std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, const Cloud &cloud, const Mesh &mesh,
                                                  double max_diameter, double distance_limit, double height_min,
-                                                 double gravity_factor)
+                                                 double gravity_factor, bool alpha_weighting)
 {
   // first fill in the basic attributes of the points structure
   points.reserve(cloud.ends.size());
@@ -138,7 +138,10 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
   {
     if (cloud.rayBounded(i))
     {
-      points.push_back(Vertex(cloud.ends[i], cloud.starts[i]));
+      uint8_t weight = 1;
+      if (alpha_weighting && cloud.colours[i].alpha > 0)
+        weight = cloud.colours[i].alpha;
+      points.push_back(Vertex(cloud.ends[i], cloud.starts[i], weight));
     }
   }
 
@@ -154,7 +157,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
     if (vert[0] >= box_min[0] && vert[1] >= box_min[1] &&
         vert[0] <= box_max[0] && vert[1] <= box_max[1])
     {
-      points.push_back(Vertex(vert, vert + Eigen::Vector3d(0,0,0.01))); // make small vertical ray
+      points.push_back(Vertex(vert, vert + Eigen::Vector3d(0,0,0.01), 1)); // make small vertical ray
     }
   }
   // convert the ground mesh to an easy look-up height field
