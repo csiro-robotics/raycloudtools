@@ -114,7 +114,8 @@ int rayExtract(int argc, char *argv[])
   ray::DoubleArgument gradient(0.001, 1000.0, 1.0), global_taper(0.0, 1.0), global_taper_factor(0.0, 1.0);
   ray::OptionalKeyValueArgument gradient_option("gradient", 'g', &gradient);
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b'),
-    stalks("stalks", 's'), use_rays("use_rays", 'u'), alpha_weighted("alpha_weighting", 'p');
+    stalks("stalks", 's'), use_rays("use_rays", 'u'), write_empty("write_empty", 'w'),
+    alpha_weighted("alpha_weighting", 'p'), write_netcdf("write_netcdf", 'wn');
   ray::DoubleArgument width(0.01, 10.0, 0.25), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
   ray::IntArgument leaf_angle(1, 6);
   ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
@@ -163,8 +164,12 @@ int rayExtract(int argc, char *argv[])
                             &girth_height_ratio_option, &cylinder_length_to_width_option, &gap_ratio_option,
                             &span_ratio_option, &gravity_factor_option, &segment_branches, &grid_width_option,
                             &global_taper_option, &global_taper_factor_option, &use_rays, &alpha_weighted, &verbose });
-  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file },
-                                              { &leaf_option, &leaf_area_option, &leaf_droop_option, &stalks });
+  bool extract_leaves = ray::parseCommandLine(
+    argc, argv, { &leaves, &cloud_file, &trees_file },
+    { &leaf_option, &leaf_area_option, &leaf_droop_option, &leaf_angle_option, &leaf_density_option, &stalks });
+  bool extract_grid = ray::parseCommandLine(
+    argc, argv, { &grid, &cloud_file },
+    { &voxel_size_option, &grid_bounds_min_option, &grid_bounds_max_option, &write_empty, &write_netcdf, &verbose });
 
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves && !extract_grid)
   {
