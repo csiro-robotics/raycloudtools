@@ -5,7 +5,7 @@ on:
 
 jobs:
   call-docker-build:
-    uses: Leaf2Lanscape/raycloudtools_riegl/.github/workflows/docker-publish.yml@main
+    uses: Leaf2Landscape/raycloudtools_riegl/.github/workflows/docker-publish.yml@main
     secrets:
       CALLER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     permissions:
