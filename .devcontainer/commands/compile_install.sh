@@ -36,6 +36,7 @@ cmake .. \
     -DGeoTIFF_LIBRARY=/usr/lib/x86_64-linux-gnu/libgeotiff.so \
     -DPROJ_INCLUDE_DIR=/usr/include/proj \
     -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
+    -DWITH_QHULL=ON \
     -DWITH_LAS=ON \
     -DDOUBLE_RAYS=ON \
     -DWITH_TIFF=ON \
