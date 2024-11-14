@@ -7,18 +7,14 @@ jobs:
   trigger-docker:
     runs-on: ubuntu-latest
     steps:
-      # Optional: add checkout if you need repository content
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        
       - name: Trigger workflow in Docker repo
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            /repos/Leaf2Landscape/raycloudtools_riegl/dispatches \
-            -f event_type='raycloudtools-push' \
-            -f client_payload[repository]="$GITHUB_REPOSITORY" \
-            -f client_payload[sha]="$GITHUB_SHA"
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/Leaf2Landscape/raycloudtools_riegl/dispatches \
+            -d '{"event_type":"raycloudtools-push","client_payload":{"repository":"${{ github.repository }}","sha":"${{ github.sha }}"}}'
