@@ -402,13 +402,13 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
         normal_is_float = line.find("float") != std::string::npos;
       }
     }
-    if (line.find("time") != std::string::npos || line.find("scalar_time") != std::string::npos)
+    if (line.find("time") != std::string::npos)
     {
       time_offset = row_size;
       if (line.find("float") != std::string::npos)
         time_is_float = true;
     }
-    if (line.find("intensity") != std::string::npos || line.find("scalar_alpha") != std::string::npos)
+    if (line.find("intensity") != std::string::npos)
     {
       intensity_offset = row_size;
       intensity_type = data_type;
@@ -592,40 +592,39 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
 
     if (colour_offset != -1)
     {
-      RGBA colour;
-      colour.red = (uint8_t &)vertices[colour_offset];
-      colour.green = (uint8_t &)vertices[colour_offset + sizeof(uint8_t)];
-      colour.blue = (uint8_t &)vertices[colour_offset + 2 * sizeof(uint8_t)];
-      colour.alpha = 255; // default alpha
+      RGBA colour = (RGBA &)vertices[colour_offset];
       colours.push_back(colour);
     }
-    if (intensity_offset != -1)
+    if (!is_ray_cloud)
     {
-      double intensity;
-      if (intensity_type == kDTfloat)
-        intensity = (double)((float &)vertices[intensity_offset]);
-      else if (intensity_type == kDTdouble)
-        intensity = (double &)vertices[intensity_offset];
-      else  // (intensity_type == kDTushort)
-        intensity = (double)((unsigned short &)vertices[intensity_offset]);
-      if (intensity >= 0.0)
+      if (intensity_offset != -1)
       {
-        // only intensity exactly 0 will be used for alpha=0 in uint_8 format.
-        intensity = std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0));  
+        double intensity;
+        if (intensity_type == kDTfloat)
+          intensity = (double)((float &)vertices[intensity_offset]);
+        else if (intensity_type == kDTdouble)
+          intensity = (double &)vertices[intensity_offset];
+        else  // (intensity_type == kDTushort)
+          intensity = (double)((unsigned short &)vertices[intensity_offset]);
+        if (intensity >= 0.0)
+        {
+          // only intensity exactly 0 will be used for alpha=0 in uint_8 format.
+          intensity = std::ceil(255.0 * clamped(intensity / max_intensity, 0.0, 1.0));  
+        }
+        // support for special codes for out of range cases, defined by intensity:
+        // -1 non-return of unknown length
+        // -2 the object is within minimum range, so range is not certain but small
+        // -3 outside maximum range, so range is uncertain but large
+        else if (intensity == -1.0) 
+        {
+          intensity = 0.0;
+        }
+        else // here a range is specified, just low certainty. We choose to this range.
+        {
+          intensity = 1.0;
+        }
+        intensities.push_back(static_cast<uint8_t>(intensity));
       }
-      // support for special codes for out of range cases, defined by intensity:
-      // -1 non-return of unknown length
-      // -2 the object is within minimum range, so range is not certain but small
-      // -3 outside maximum range, so range is uncertain but large
-      else if (intensity == -1.0) 
-      {
-        intensity = 0.0;
-      }
-      else // here a range is specified, just low certainty. We choose to this range.
-      {
-        intensity = 1.0;
-      }
-      intensities.push_back(static_cast<uint8_t>(intensity));
     }
     if (ends.size() == chunk_size || i == size - 1)
     {
@@ -705,7 +704,6 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
 
   return true;
 }
-
 
 bool readPly(const std::string &file_name, std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
              std::vector<double> &times, std::vector<RGBA> &colours, bool is_ray_cloud, double max_intensity)
