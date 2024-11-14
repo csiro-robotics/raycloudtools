@@ -7,14 +7,30 @@ jobs:
   trigger-docker:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger workflow in Docker repo
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - name: Repository Dispatch with Verification
         run: |
-          curl -L \
+          # Send the repository dispatch event
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
             -X POST \
-            -H "Accept: application/vnd.github+json" \
+            -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/Leaf2Landscape/raycloudtools_riegl/dispatches \
-            -d '{"event_type":"raycloudtools-push","client_payload":{"repository":"${{ github.repository }}","sha":"${{ github.sha }}"}}'
+            -d '{
+              "event_type": "raycloudtools-push",
+              "client_payload": {
+                "repository": "${{ github.repository }}",
+                "sha": "${{ github.sha }}"
+              }
+            }')
+          
+          # Extract status code
+          STATUS=$(echo "$RESPONSE" | tail -n1)
+          echo "Status code: $STATUS"
+          
+          if [ "$STATUS" -eq 204 ]; then
+            echo "✅ Repository dispatch event sent successfully"
+          else
+            echo "❌ Failed to send repository dispatch event"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
