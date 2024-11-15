@@ -14,6 +14,7 @@ TreesParams::TreesParams()
   , crop_length(1.0)
   , distance_limit(1.0)
   , height_min(2.0)
+  , radius_min(0.0)
   , girth_height_ratio(0.12)
   , cylinder_length_to_width(4.0)
   , gap_ratio(0.016)
@@ -23,6 +24,7 @@ TreesParams::TreesParams()
   , segment_branches(false)
   , global_taper(0.012)
   , global_taper_factor(0.3)
+  , grid_origin(0,0)
 {}
 
 /// The main reconstruction algorithm
@@ -283,6 +285,10 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     removeOutOfBoundSections(cloud, min_bound, max_bound, offset);
   }
 
+  if (params_->radius_min > 0.0)
+  {
+    removeSmallRadiusTrees();
+  }
   std::vector<int> root_segs(cloud.ends.size(), -1);
   // now colour the ray cloud based on the segmentation
   segmentCloud(cloud, root_segs, section_ids);
@@ -1051,11 +1057,14 @@ void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bo
   const double width = params_->grid_width;
   cloud.calcBounds(&min_bound, &max_bound);
   const Eigen::Vector3d mid = (min_bound + max_bound)/2.0 + offset;
-  const Eigen::Vector2d inds(std::round(mid[0] / width), std::round(mid[1] / width));
-  min_bound[0] = width * (inds[0] - 0.5) - offset[0];
-  min_bound[1] = width * (inds[1] - 0.5) - offset[1];
-  max_bound[0] = width * (inds[0] + 0.5) - offset[0];
-  max_bound[1] = width * (inds[1] + 0.5) - offset[1];
+  Eigen::Vector2d mid_local(mid[0], mid[1]);
+  mid_local -= params_->grid_origin;
+  const Eigen::Vector2d inds(std::floor(mid_local[0] / width), std::floor(mid_local[1] / width));
+  min_bound[0] = width * (inds[0]) + params_->grid_origin[0] - offset[0];
+  min_bound[1] = width * (inds[1]) + params_->grid_origin[1] - offset[1];
+  max_bound[0] = width * (inds[0] + 1.0) + params_->grid_origin[0] - offset[0];
+  max_bound[1] = width * (inds[1] + 1.0) + params_->grid_origin[1] - offset[1];
+
   std::cout << "min bound: " << (min_bound+offset).transpose() << ", max bound: " << (max_bound+offset).transpose() << std::endl;
 
   // disable trees out of bounds
@@ -1067,6 +1076,22 @@ void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bo
     }
     const Eigen::Vector3d pos = section.tip;
     if (pos[0] < min_bound[0] || pos[0] > max_bound[0] || pos[1] < min_bound[1] || pos[1] > max_bound[1])
+    {
+      section.children.clear();  // make it a non-tree
+    }
+  }
+}
+
+// filtering out these smaller trees must be done at the end, as that is when we have a final estimation of global taper (and therefore radius)
+void Trees::removeSmallRadiusTrees()
+{
+  for (auto &section : sections_)
+  {
+    if (section.parent >= 0 || section.children.empty())
+    {
+      continue;
+    }
+    if (radius(section) < params_->radius_min)
     {
       section.children.clear();  // make it a non-tree
     }
