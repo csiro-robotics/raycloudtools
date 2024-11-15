@@ -258,7 +258,8 @@ int rayExtract(int argc, char *argv[])
     ray::ForestStructure forest;
     if (!forest.load(cloud_file.nameStub() + "_trees.txt"))
     {
-      usage();
+      std::cerr << "Unable to load " << cloud_file.nameStub() + "_trees.txt to generate tree mesh file, this could mean that there were no trees output" << std::endl;
+      exit(true);
     }
     ray::Mesh tree_mesh;
     forest.generateSmoothMesh(tree_mesh, -1, 1, 1, 1);
