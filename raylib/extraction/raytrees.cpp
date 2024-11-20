@@ -7,6 +7,8 @@
 #include <nabo/nabo.h>
 #include "rayclusters.h"
 
+#include <unordered_set>
+
 namespace ray
 {
 TreesParams::TreesParams()
@@ -14,6 +16,7 @@ TreesParams::TreesParams()
   , crop_length(1.0)
   , distance_limit(1.0)
   , height_min(2.0)
+  , radius_min(0.0)
   , girth_height_ratio(0.12)
   , cylinder_length_to_width(4.0)
   , gap_ratio(0.016)
@@ -23,7 +26,7 @@ TreesParams::TreesParams()
   , segment_branches(false)
   , global_taper(0.012)
   , global_taper_factor(0.3)
-  , grid_origin(0, 0, 0)
+  , grid_origin(0, 0)
 {}
 
 /// The main reconstruction algorithm
@@ -148,13 +151,6 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       continue;
     }
 
-    if (params_->min_radius && estimated_radius < params_->min_radius)
-    {
-      sections_[sec_].tip = base + Eigen::Vector3d(0, 0, 0.01);
-      sections_[sec_].total_weight = 1e-10;
-      sections_[sec_].ends.clear();
-      continue;
-    }
     sections_[sec_].tip = best_tip;
     sections_[sec_].ends = best_ends;
     nodes = best_nodes;
@@ -300,9 +296,9 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     removeOutOfBoundSections(cloud, min_bound, max_bound, offset);
   }
 
-  if (params_->min_radius)
+  if (params_->radius_min)
   {
-    removeSmallRadiusTrees();
+    removeSmallRadiusTrees(verbose, offset, children);
   }
 
   std::vector<int> root_segs(cloud.ends.size(), -1);
@@ -1082,14 +1078,15 @@ void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bo
 {
   const double width = params_->grid_width;
   cloud.calcBounds(&min_bound, &max_bound);
-  const Eigen::Vector3d mid = (min_bound + max_bound) / 2.0 + offset + params_->grid_origin;
-  const Eigen::Vector2d inds(std::round(mid[0] / width), std::round(mid[1] / width));
-  min_bound[0] = width * (inds[0] - 0.5) - offset[0];
-  min_bound[1] = width * (inds[1] - 0.5) - offset[1];
-  max_bound[0] = width * (inds[0] + 0.5) - offset[0];
-  max_bound[1] = width * (inds[1] + 0.5) - offset[1];
-  std::cerr << "min bound: " << (min_bound + offset).transpose() << ", max bound: " << (max_bound + offset).transpose()
-            << " offset " << offset << std::endl;
+
+  const Eigen::Vector3d mid = (min_bound + max_bound) / 2.0 + offset;
+  Eigen::Vector2d mid_local(mid[0], mid[1]);
+  mid_local += params_->grid_origin;
+  const Eigen::Vector2d inds(std::floor(mid_local[0] / width), std::floor(mid_local[1] / width));
+  min_bound[0] = width * (inds[0]) - offset[0];
+  min_bound[1] = width * (inds[1]) - offset[1];
+  max_bound[0] = width * (inds[0] + 1.0) - offset[0];
+  max_bound[1] = width * (inds[1] + 1.0) - offset[1];
 
   // disable trees out of bounds
   for (auto &section : sections_)
@@ -1269,14 +1266,23 @@ bool Trees::save(const std::string &filename, const Eigen::Vector3d &offset, boo
   return true;
 }
 
-void Trees::removeSmallRadiusTrees()
+void Trees::removeSmallRadiusTrees(bool verbose, const Eigen::Vector3d &offset,
+                                   const std::vector<std::vector<int>> &children)
 {
+  ray::Cloud debug_cloud;
+  double coverage_threshold = 0.7;
+  double accuracy_threshold = 0.5;
   for (sec_ = 0; sec_ < (int)sections_.size(); sec_++)
   {
-    std::cerr << "------- processing " << sec_ << "th section" << std::endl;
+    if (sections_[sec_].parent >= 0 || sections_[sec_].children.empty())
+    {
+      continue;
+    }
+    if (verbose)
+      std::cerr << "------- Processing " << sec_ << "th section" << std::endl;
     double best_accuracy = -1.0;
-    std::vector<int> nodes;                    // used
-    Eigen::Vector3d base = getRootPosition();  // used
+    std::vector<int> nodes;
+    Eigen::Vector3d base = getRootPosition();
 
     double best_dist = 0.0;
     Eigen::Vector3d best_tip;
@@ -1284,12 +1290,12 @@ void Trees::removeSmallRadiusTrees()
     std::vector<int> best_nodes;
     std::vector<int> best_ends;
     std::vector<double> radius_estimates;
-    std::vector<double> accuracy_estimates;
+    std::vector<double> coverage_estimates;
     // set random section color
     for (int j = 1; j <= 10; j++)
     {
       double initial_dbh_height = 1;
-      double max_dist = initial_dbh_height + 0.1 * (double)j;  // range from 0.5 to 1.5 times the specified height
+      double max_dist = initial_dbh_height + 0.1 * (double)j;
       nodes.clear();
       sections_[sec_].ends.clear();
       extractNodesAndEndsFromRoots(nodes, base, children, max_dist - 0.5, max_dist);
@@ -1301,7 +1307,7 @@ void Trees::removeSmallRadiusTrees()
       if (verbose)
       {
         // choose random color for the section
-
+        ray::RGBA section_color(0, 0, 0, 255);
         for (auto &node : nodes)
         {
           debug_cloud.addRay(Eigen::Vector3d(0, 0, 0), points_[node].pos, 0.0, section_color);
@@ -1311,11 +1317,7 @@ void Trees::removeSmallRadiusTrees()
       {
         sections_[sec_].tip = calculateTipFromVertices(nodes);
       }
-      if (verbose)
-      {
-        debug_cloud.addRay(Eigen::Vector3d(0, 0, 0), sections_[sec_].tip + Eigen::Vector3d(0, 0, 0.03), 0.0,
-                           ray::RGBA(0, 0, 0, 255));
-      }
+
       // shift to cylinder's centre
       Eigen::Vector3d up(0, 0, 1);
       sections_[sec_].tip += vectorToCylinderCentre(nodes, up);
@@ -1324,17 +1326,19 @@ void Trees::removeSmallRadiusTrees()
       double circle_coverage = 0;
       Eigen::Vector3d circle_centre;
       double radius = estimateCylinderRadiusUsingRANSAC(nodes, up, accuracy, circle_coverage, circle_centre);
-
-      std::cerr << sec_ << "Estimated radius  " << radius << " and accuracy " << accuracy << " and coverage "
-                << circle_coverage << " j " << j << std::endl;
-      if (accuracy > 0.4 && circle_coverage > 0.5)
+      if (verbose)
+      {
+        std::cerr << sec_ << ": estimated radius  " << radius << " accuracy " << accuracy << " and coverage "
+                  << circle_coverage << std::endl;
+      }
+      if (accuracy > accuracy_threshold && circle_coverage > coverage_threshold)
       {
         radius_estimates.push_back(radius);
-        accuracy_estimates.push_back(accuracy);
+        coverage_estimates.push_back(accuracy);
         ray::RGBA col(uint8_t(circle_coverage * 10), uint8_t(10 * accuracy), uint8_t(sec_), 255);
         if (verbose)
         {
-          debug_cloud.addRay(Eigen::Vector3d(0, 0, 0), sections_[sec_].tip, 0.0, col);
+          debug_cloud.addRay(Eigen::Vector3d(0, 0, 0), circle_centre, 0.0, col);
           for (double ang = 0; ang < 2.0 * ray::kPi; ang += 0.1)
           {
             debug_cloud.addRay(Eigen::Vector3d(0, 0, 0),
@@ -1344,27 +1348,35 @@ void Trees::removeSmallRadiusTrees()
       }
     }
 
-    // take average of three smallest estimates
-    if (radius_estimates.size() > 4)
+    // take average of estimates
+    if (radius_estimates.size() > 3)
     {
       double radius_average =
         std::accumulate(radius_estimates.begin(), radius_estimates.end(), 0.0) / radius_estimates.size();
-      double accuracy_average =
-        std::accumulate(accuracy_estimates.begin(), accuracy_estimates.end(), 0.0) / accuracy_estimates.size();
-
-      std::cerr << sec_ << "radius_average  " << radius_average << std::endl;
-      if (radius_average < 0.05 && accuracy_average > 0.4)
+      double coverage_average =
+        std::accumulate(coverage_estimates.begin(), coverage_estimates.end(), 0.0) / coverage_estimates.size();
+      if (verbose)
+        std::cerr << sec_ << "radius_average  " << radius_average << " coverage_average " << coverage_average
+                  << std::endl;
+      if (radius_average < params_->radius_min)
       {
-        std::cerr << "Removing tree with average radius " << radius_average << " sec " << sec_ << std::endl;
+        if (verbose)
+          std::cerr << "Removing tree with average radius " << radius_average << " sec " << sec_ << std::endl;
         sections_[sec_].children.clear();
         continue;
       }
     }
   }
+  if (verbose)
+  {
+    debug_cloud.translate(offset);
+    debug_cloud.save("../data/debug.ply");
+  }
 }
 
 double Trees::estimateCylinderRadiusUsingRANSAC(const std::vector<int> &nodes, const Eigen::Vector3d &dir,
-                                                double &accuracy, double &circle_coverage)
+                                                double &accuracy, double &circle_coverage,
+                                                Eigen::Vector3d &circle_centre)
 {
   double best_rad = 0.0;
   double best_accuracy = 0.0;
@@ -1403,7 +1415,7 @@ double Trees::estimateCylinderRadiusUsingRANSAC(const std::vector<int> &nodes, c
     }
     estimated_radius /= sample_size;  // Average radius from the sample
 
-    double inlier_threshold = std::min(0.05, estimated_radius * 0.5);
+    double inlier_threshold = std::min(0.03, estimated_radius * 0.6);
 
     // Step 3: Identify Inliers Based on Estimated Radius
     std::vector<int> inliers;
@@ -1431,7 +1443,7 @@ double Trees::estimateCylinderRadiusUsingRANSAC(const std::vector<int> &nodes, c
     // Step 5: Update Circle Coverage, simulate points along the cirlce and see
     // how many matching poitns
     double coverage = 0.0;
-    double circle_coverage_th = 0.05;
+    double circle_coverage_th = std::min(0.03, estimated_radius * 0.2);
     for (int j = 0; j < 1000; j++)
     {
       double angle = 2.0 * M_PI * j / 1000;
@@ -1456,6 +1468,8 @@ double Trees::estimateCylinderRadiusUsingRANSAC(const std::vector<int> &nodes, c
       best_rad = avg_radius;
       best_accuracy = static_cast<double>(inliers.size()) / nodes.size();
       circle_coverage = coverage;
+      // save centroid in original space
+      circle_centre = sections_[sec_].tip + centroid;
     }
   }
 

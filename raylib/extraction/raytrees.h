@@ -33,8 +33,8 @@ struct RAYLIB_EXPORT TreesParams
   double
     global_taper_factor;  // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
   bool use_rays;  // use the full rays in order to estimate a smaller radius when points are not all on the real branch
-  Eigen::Vector3d grid_origin;  // if using a grid, then this is the left corner of the interest zone
-  double min_radius;            // minimum radius for a branch
+  Eigen::Vector2d grid_origin;  // if using a grid, then this is the left corner of the interest zone
+  double radius_min;            // minimum radius for a branch
 };
 
 struct BranchSection;  // forwards declaration
@@ -105,10 +105,11 @@ private:
   /// remove elements of nodes that are too distant to the set of end points
   bool removeDistantPoints(std::vector<int> &nodes);
   /// remove trees with radius less than the param
-  void removeSmallRadiusTrees();
+  void removeSmallRadiusTrees(bool verbose, const Eigen::Vector3d &offset,
+                              const std::vector<std::vector<int>> &children);
   /// Esimate cylinder radius using RANSAC
   double estimateCylinderRadiusUsingRANSAC(const std::vector<int> &nodes, const Eigen::Vector3d &dir, double &accuracy,
-                                           double &circle_coverage);
+                                           double &circle_coverage, Eigen::Vector3d &circle_centre);
 
   // cached data that is used throughout the processing method
   int sec_;

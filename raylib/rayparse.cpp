@@ -80,8 +80,8 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
   std::string file = std::string(argv[index]);
   if (file.length() < 1)
     return false;
-  if (file[0] == '-') // no file should start with a dash. That is reserved for flag arguments
-    return false; 
+  if (file[0] == '-')  // no file should start with a dash. That is reserved for flag arguments
+    return false;
   if (check_extension_)
   {
     if (file.length() <= 2)
@@ -409,30 +409,6 @@ bool OptionalKeyValueArgument::parse(int argc, char *argv[], int &index, bool se
     }
     return true;
   }
-  return false;
-}
-
-bool Optional3DVectorArgument::parse(int argc, char *argv[], int &index, bool set_value)
-{
-  if (index >= argc)
-    return false;
-
-  std::string str(argv[index]);
-  if (str == ("--" + name_))
-  {
-    if (set_value)
-      is_set_ = true;
-
-    index++;
-    if (!value_->parse(argc, argv, index, set_value))
-    {
-      index--;
-      return false;
-    }
-
-    return true;
-  }
-
   return false;
 }
 
