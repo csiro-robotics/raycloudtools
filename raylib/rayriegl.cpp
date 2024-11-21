@@ -84,7 +84,7 @@ protected:
         
         // Skip points below scanner and buffer points at top of scan lines
         if (target_count != 0 || 
-            beam_direction[2] <= MIN_Z_DIRECTION || 
+            // beam_direction[2] <= MIN_Z_DIRECTION ||
             beam_direction[2] >= MAX_Z_DIRECTION) {
             return;
         }
