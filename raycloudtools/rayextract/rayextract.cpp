@@ -63,12 +63,12 @@ void usage(int exit_code = 1)
     std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
     std::cout << "                            --grid_width 10      - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
     std::cout << "                            --use_rays           - (-u) use rays to reduce trunk radius overestimation in noisy cloud data" << std::endl;
-    std::cout << "                            (for internal constants -c -g -s -d see source file rayextract)" << std::endl;
+    std::cout << "                            (for internal constants -c -g -s -j see source file rayextract)" << std::endl;
   // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
   //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
   //  std::cout << "                            --gap_ratio 0.016    - (-g) will split for lateral gaps at this multiple of branch length" << std::endl;
   //  std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
-  //  std::cout << "                            --grid_origin 0,0    - (-d) location of grid corner (any of them) when grid_width used, use 0,0 for grid with vertex at 0,0. 
+  //  std::cout << "                            --grid_origin 0,0    - (-j) location of grid corner (any of them) when grid_width used, use 0,0 for grid with vertex at 0,0. 
   //                                                                   Default is -grid_width/2,-grid_width/2 to match the grid in raysplit grid" << std::endl;
   }
   if (extract_type == "leaves" || none)
@@ -119,7 +119,7 @@ int rayExtract(int argc, char *argv[])
                                                                 &cylinder_length_to_width);
   ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
-  ray::OptionalKeyValueArgument grid_origin_option("grid_origin", 'd', &grid_origin);
+  ray::OptionalKeyValueArgument grid_origin_option("grid_origin", 'j', &grid_origin);
   ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
   ray::OptionalKeyValueArgument global_taper_option("global_taper", 'a', &global_taper);

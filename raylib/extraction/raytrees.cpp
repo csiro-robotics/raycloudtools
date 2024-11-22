@@ -1064,7 +1064,6 @@ void Trees::removeOutOfBoundSections(const Cloud &cloud, Eigen::Vector3d &min_bo
   min_bound[1] = width * (inds[1]) + params_->grid_origin[1] - offset[1];
   max_bound[0] = width * (inds[0] + 1.0) + params_->grid_origin[0] - offset[0];
   max_bound[1] = width * (inds[1] + 1.0) + params_->grid_origin[1] - offset[1];
-
   std::cout << "min bound: " << (min_bound+offset).transpose() << ", max bound: " << (max_bound+offset).transpose() << std::endl;
 
   // disable trees out of bounds
