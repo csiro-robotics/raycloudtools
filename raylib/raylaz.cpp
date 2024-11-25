@@ -23,6 +23,16 @@ bool readLas(const std::string &file_name,
 {
 #if RAYLIB_WITH_LAS
   std::cout << "readLas: filename: " << file_name << std::endl;
+  std::ifstream file(file_name);
+
+  if (file)
+  {
+    std::cout << "File exists!" << std::endl;
+  }
+  else
+  {
+    std::cout << "File does not exist." << std::endl;
+  }
 
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);

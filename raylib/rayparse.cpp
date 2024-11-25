@@ -80,8 +80,8 @@ bool FileArgument::parse(int argc, char *argv[], int &index, bool set_value)
   std::string file = std::string(argv[index]);
   if (file.length() < 1)
     return false;
-  if (file[0] == '-') // no file should start with a dash. That is reserved for flag arguments
-    return false; 
+  if (file[0] == '-')  // no file should start with a dash. That is reserved for flag arguments
+    return false;
   if (check_extension_)
   {
     if (file.length() <= 2)
@@ -240,7 +240,7 @@ bool Vector3dArgument::parse(int argc, char *argv[], int &index, bool set_value)
       if (val < min_value_ || val > max_value_)
       {
         std::cout << "Please set argument " << index << " within the range: " << min_value_ << " to " << max_value_
-                  << std::endl;
+                  << " provided " << val << std::endl;
         return false;
       }
       value_[i] = val;
