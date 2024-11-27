@@ -5,7 +5,7 @@ set -e
 echo "Starting conditional copying of RiVLib ..."
 
 # Define the base path for Riegl libraries
-RIEGL_LIBS_PATH="/workspaces/raycloudtools/riegl_libs"
+RIEGL_LIBS_PATH="/workspaces/raycloudtools/3rd-party"
 
 # Check for the rivlib folder
 RIVLIB_PATH=$(find "$RIEGL_LIBS_PATH" -maxdepth 1 -type d -name 'rivlib-*-x86_64-linux-gcc11' | head -n 1)
@@ -41,8 +41,10 @@ cmake .. \
     -DDOUBLE_RAYS=ON \
     -DWITH_TIFF=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DRAYCLOUD_BUILD_TESTS=ON \
     -DWITH_RIEGL=$WITH_RIEGL \
     -DWITH_NETCDF=ON
+
 
 make -j"$(nproc)"
 make install
@@ -60,7 +62,8 @@ cmake .. \
     -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
     -DWITH_TIFF=ON \
     -DWITH_NETCDF=ON \
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DTREE_BUILD_TESTS=ON
 make -j"$(nproc)"
 make install
 ldconfig /usr/local/lib

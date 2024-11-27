@@ -23,6 +23,7 @@ RUN apt-get update && apt-get upgrade -y && \
     wget \
     libnetcdf-dev \
     libnetcdf-c++4-dev && \
+    libgtest-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone, build and clean up LASzip

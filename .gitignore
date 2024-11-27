@@ -4,3 +4,5 @@ cmake-build*/
 riegl_libs*/
 test_data*/
 treetools*/
+data*/
+3rd-party/rivlib*/

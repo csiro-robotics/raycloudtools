@@ -19,6 +19,7 @@ RUN apt-get update && apt-get upgrade -y && \
     libgeotiff-dev \
     parallel \
     libboost-all-dev && \
+    libgtest-dev && \
     rm -rf /var/lib/apt/lists/*
     
 # Create a directory for building packages
@@ -79,6 +80,7 @@ RUN git clone https://github.com/Leaf2Landscape/raycloudtools.git && \
         -DWITH_LAS=ON \
         -DDOUBLE_RAYS=ON \
         -DWITH_TIFF=ON \
+        -DRAYCLOUD_BUILD_TESTS=ON \
         -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
     make install && \
@@ -94,6 +96,7 @@ RUN git clone https://github.com/Leaf2Landscape/treetools.git && \
         -DPROJ_INCLUDE_DIR=/usr/include/proj \
         -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
         -DWITH_TIFF=ON \
+        -DTREE_BUILD_TESTS=ON \
         -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
     make install && \
