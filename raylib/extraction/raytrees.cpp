@@ -1201,7 +1201,7 @@ bool Trees::save(const std::string &filename, const Eigen::Vector3d &offset, boo
     {
       continue;
     }
-    ofs << section.tip[0]+offset[0] << "," << section.tip[1]+offset[1] << "," << section.tip[2]+offset[2] << "," << radius(section) << ",-1," << sec;
+    ofs << section.tip[0]+offset[0] << "," << section.tip[1]+offset[1] << "," << section.tip[2]+offset[2] << "," << radius(section) << ",-1," << contiguous_section_ids_[sec];
     if (verbose)
     {
       ofs << "," << section.weight << "," << section.len << "," << section.accuracy << "," << section.junction_weight;
