@@ -33,7 +33,7 @@ void usage(int exit_code = 1)
 
 int rayImport(int argc, char *argv[])
 {
-  ray::DoubleArgument max_intensity(0.0, 10000, 100.0);
+  ray::DoubleArgument max_intensity(0.0, 1e8, 100.0);
   ray::Vector3dArgument position, ray_vec;
   ray::TextArgument ray_text("ray");
   ray::OptionalKeyValueArgument max_intensity_option("max_intensity", 'm', &max_intensity);
