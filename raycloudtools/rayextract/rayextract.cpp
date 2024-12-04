@@ -54,7 +54,8 @@ void usage(int exit_code = 1)
     std::cout << "                            --max_diameter 0.9   - (-m) maximum trunk diameter in segmenting trees" << std::endl;
     std::cout << "                            --crop_length 1.0    - (-p) crops small branches to this distance from end" << std::endl;
     std::cout << "                            --distance_limit 1   - (-d) maximum distance between neighbour points in a tree" << std::endl;
-    std::cout << "                            --height_min 2       - (-h) minimum height counted as a tree" << std::endl;
+    std::cout << "                            --height_min 2       - (-h) minimum height tree to reconstruct" << std::endl;
+    std::cout << "                            --radius_min 0       - (-r) minimum radius tree to reconstruct" << std::endl;
     std::cout << "                            --girth_height_ratio 0.12 - (-i) the amount up tree's height to estimate trunk girth" << std::endl;
     std::cout << "                            --global_taper 0.024 - (-a) force a taper value (diameter per length) for trees under global_taper_factor of max tree height. Use 0 to estimate global taper from the data" << std::endl;
     std::cout << "                            --global_taper_factor 0.3- (-o) 1 estimates same taper for whole scan, 0 is per-tree tapering. Like a soft cutoff at this amount of max tree height" << std::endl;
@@ -62,11 +63,13 @@ void usage(int exit_code = 1)
     std::cout << "                            --branch_segmentation- (-b) _segmented.ply is per branch segment" << std::endl;
     std::cout << "                            --grid_width 10      - (-w) crops results assuming cloud has been gridded with given width" << std::endl;
     std::cout << "                            --use_rays           - (-u) use rays to reduce trunk radius overestimation in noisy cloud data" << std::endl;
-    std::cout << "                            (for internal constants -c -g -s see source file rayextract)" << std::endl;
+    std::cout << "                            (for internal constants -c -g -s -j see source file rayextract)" << std::endl;
   // These are the internal parameters that I don't expose as they are 'advanced' only, you shouldn't need to adjust them
   //  std::cout << "                            --cylinder_length_to_width 4- (-c) how slender the cylinders are" << std::endl;
   //  std::cout << "                            --gap_ratio 0.016    - (-g) will split for lateral gaps at this multiple of branch length" << std::endl;
   //  std::cout << "                            --span_ratio 4.5     - (-s) will split when branch width spans this multiple of radius" << std::endl;
+  //  std::cout << "                            --grid_origin 0,0    - (-j) location of grid corner (any of them) when grid_width used, use 0,0 for grid with vertex at 0,0. 
+  //                                                                   Default is -grid_width/2,-grid_width/2 to match the grid in raysplit grid" << std::endl;
   }
   if (extract_type == "leaves" || none)
   {
@@ -99,21 +102,24 @@ int rayExtract(int argc, char *argv[])
   ray::OptionalFlagArgument exclude_rays("exclude_rays", 'e'), segment_branches("branch_segmentation", 'b'), stalks("stalks", 's'), use_rays("use_rays", 'u');
   ray::DoubleArgument width(0.01, 10.0, 0.25), drop(0.001, 1.0), max_gradient(0.01, 5.0), min_gradient(0.01, 5.0);
 
-  ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0),
+  ray::DoubleArgument max_diameter(0.01, 100.0), distance_limit(0.01, 10.0), height_min(0.01, 1000.0), radius_min(0.0, 1000.0),
     min_diameter(0.01, 100.0), leaf_area(0.00001, 1.0, 0.002), leaf_droop(0.0, 10.0, 0.1), crop_length(0.01, 100.0);;
   ray::DoubleArgument girth_height_ratio(0.001, 0.5), length_to_radius(0.01, 10000.0), cylinder_length_to_width(0.1, 20.0), gap_ratio(0.01, 10.0),
     span_ratio(0.01, 10.0);
   ray::DoubleArgument gravity_factor(0.0, 100.0), grid_width(1.0, 100000.0),
     grid_overlap(0.0, 0.9);
+  ray::Vector2dArgument grid_origin(-1e10, 1e10);
   ray::OptionalKeyValueArgument max_diameter_option("max_diameter", 'm', &max_diameter);
   ray::OptionalKeyValueArgument crop_length_option("crop_length", 'n', &crop_length);
   ray::OptionalKeyValueArgument distance_limit_option("distance_limit", 'd', &distance_limit);
   ray::OptionalKeyValueArgument height_min_option("height_min", 'h', &height_min);
+  ray::OptionalKeyValueArgument radius_min_option("radius_min", 'r', &radius_min);
   ray::OptionalKeyValueArgument girth_height_ratio_option("girth_height_ratio", 'i', &girth_height_ratio);
   ray::OptionalKeyValueArgument cylinder_length_to_width_option("cylinder_length_to_width", 'c',
                                                                 &cylinder_length_to_width);
   ray::OptionalKeyValueArgument gap_ratio_option("gap_ratio", 'g', &gap_ratio);
   ray::OptionalKeyValueArgument span_ratio_option("span_ratio", 's', &span_ratio);
+  ray::OptionalKeyValueArgument grid_origin_option("grid_origin", 'j', &grid_origin);
   ray::OptionalKeyValueArgument gravity_factor_option("gravity_factor", 'f', &gravity_factor);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'w', &grid_width);
   ray::OptionalKeyValueArgument global_taper_option("global_taper", 'a', &global_taper);
@@ -135,8 +141,8 @@ int rayExtract(int argc, char *argv[])
     { &groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose });
   bool extract_trees = ray::parseCommandLine(
     argc, argv, { &trees, &cloud_file, &mesh_file },
-    { &max_diameter_option, &distance_limit_option, &height_min_option, &crop_length_option, &girth_height_ratio_option,
-      &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
+    { &max_diameter_option, &distance_limit_option, &height_min_option, &radius_min_option, &crop_length_option, &girth_height_ratio_option,
+      &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &grid_origin_option, &gravity_factor_option,
       &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &use_rays, &verbose });
   bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_option, &leaf_area_option, &leaf_droop_option, &stalks });
 
@@ -191,6 +197,10 @@ int rayExtract(int argc, char *argv[])
     {
       params.height_min = height_min.value();
     }
+    if (radius_min_option.isSet())
+    {
+      params.radius_min = radius_min.value();
+    }    
     if (crop_length_option.isSet())
     {
       params.crop_length = crop_length.value();
@@ -218,7 +228,12 @@ int rayExtract(int argc, char *argv[])
     if (grid_width_option.isSet())
     {
       params.grid_width = grid_width.value();
+      params.grid_origin = -Eigen::Vector2d(grid_width.value(), grid_width.value())/2.0; // the centred grid used by raysplit grid
     }
+    if (grid_origin_option.isSet())
+    {
+      params.grid_origin = grid_origin.value();
+    }   
     if (global_taper_option.isSet())
     {
       params.global_taper = 0.5 * global_taper.value();
@@ -243,7 +258,8 @@ int rayExtract(int argc, char *argv[])
     ray::ForestStructure forest;
     if (!forest.load(cloud_file.nameStub() + "_trees.txt"))
     {
-      usage();
+      std::cerr << "Unable to load " << cloud_file.nameStub() + "_trees.txt to generate tree mesh file, this could mean that there were no trees output" << std::endl;
+      exit(true);
     }
     ray::Mesh tree_mesh;
     forest.generateSmoothMesh(tree_mesh, -1, 1, 1, 1);
