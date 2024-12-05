@@ -7,10 +7,46 @@ Ray clouds represent free space as well as surfaces. This allows processing that
 
 This is an open-source research library, a place to release new techniques in ray cloud analysis and manipulation. So if you would like to contribute with a new or improved method, do suggest it in our discussions page: https://github.com/csiro-robotics/raycloudtools/discussions.
 
-## Build on any platform with Docker:
-Follow instructions in the docker folder
+## Install using a Pre-built Container
 
-## Build directly (tested on Linux-based systems):
+### Docker (Linux, MacOS, Windows)
+```bash
+# Pull the latest image from GitHub Packages
+docker pull ghcr.io/csiro-robotics/raycloudtools:latest
+
+# Run an interactive container (binds all host directories by default) 
+docker run -it raycloudtools:latest /bin/bash
+```
+
+### Apptainer/Singularity (Linux)
+```bash
+# Login to GitHub Container Registry (required once)
+export CR_PAT=YOUR_GITHUB_TOKEN
+echo $CR_PAT | apptainer registry login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+
+# Pull and convert the container
+apptainer pull docker://ghcr.io/csiro-robotics/raycloudtools:latest
+
+# Run an interactive container (binds host home directory by default)
+apptainer shell raycloudtools_latest.sif
+```
+
+To create a GitHub token:
+1. Go to GitHub Settings → Developer Settings → Personal Access Tokens → Tokens (classic)
+2. Generate new token with `read:packages` scope
+3. Copy the token and use it in the login command above
+
+## Build from Source with Docker
+```bash
+# Clone the repository
+git clone https://github.com/csiro-robotics/raycloudtools.git
+cd raycloudtools
+
+# Build the image
+docker build -f docker/Dockerfile -t raycloudtools:local .
+```
+
+## Build from Source (tested on Linux-based systems):
 ```console
 sudo apt-get install libeigen3-dev
 git clone https://github.com/ethz-asl/libnabo.git
