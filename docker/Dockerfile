@@ -17,6 +17,7 @@ RUN apt-get update && apt-get upgrade -y && \
     libeigen3-dev \
     libproj-dev \
     libgeotiff-dev \
+    libgtest-dev \
     libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
     
@@ -78,6 +79,7 @@ RUN git clone https://github.com/csiro-robotics/raycloudtools.git && \
         -DWITH_LAS=ON \
         -DDOUBLE_RAYS=ON \
         -DWITH_TIFF=ON \
+        -DRAYCLOUD_BUILD_TESTS=ON \
         -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
     make install && \
@@ -93,6 +95,7 @@ RUN git clone https://github.com/csiro-robotics/treetools.git && \
         -DPROJ_INCLUDE_DIR=/usr/include/proj \
         -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
         -DWITH_TIFF=ON \
+        -DTREE_BUILD_TESTS=ON \
         -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
     make install && \
