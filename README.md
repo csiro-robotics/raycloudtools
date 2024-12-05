@@ -10,7 +10,7 @@ This is an open-source research library, a place to release new techniques in ra
 ## Install using a Pre-built Container
 
 ### Docker (Linux, MacOS, Windows)
-```bash
+```console
 # Pull the latest image from GitHub Packages
 docker pull ghcr.io/csiro-robotics/raycloudtools:latest
 
@@ -19,7 +19,7 @@ docker run -it raycloudtools:latest /bin/bash
 ```
 
 ### Apptainer/Singularity (Linux)
-```bash
+```console
 # Login to GitHub Container Registry (required once)
 export CR_PAT=YOUR_GITHUB_TOKEN
 echo $CR_PAT | apptainer registry login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
@@ -37,7 +37,7 @@ To create a GitHub token:
 3. Copy the token and use it in the login command above
 
 ## Build from Source with Docker
-```bash
+```console
 # Clone the repository
 git clone https://github.com/csiro-robotics/raycloudtools.git
 cd raycloudtools
