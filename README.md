@@ -22,7 +22,7 @@ docker run -it raycloudtools:latest /bin/bash
 ```console
 # Login to GitHub Container Registry (required once)
 export CR_PAT=YOUR_GITHUB_TOKEN
-echo $CR_PAT | apptainer registry login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+apptainer registry login -u YOUR_GITHUB_USERNAME -p $CR_PAT oras://ghcr.io
 
 # Pull and convert the container
 apptainer pull docker://ghcr.io/csiro-robotics/raycloudtools:latest
