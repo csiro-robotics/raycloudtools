@@ -57,6 +57,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
 
   // first do a special case for all the trunks. This is where we estimate mean taper
   ray::Cloud debug_cloud;
+  const bool vertical_initial_extraction = false;
   for (sec_ = 0; sec_ < (int)sections_.size(); sec_++)
   {
     double best_accuracy = -1.0;
@@ -87,7 +88,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       double max_dist = girth_height * (double)j / 2.0; // range from 0.5 to 1.5 times the specified height
       nodes.clear();
       sections_[sec_].ends.clear();
-      extractNodesAndEndsFromRoots(nodes, base, children, max_dist * 2.0/3.0, max_dist, true);
+      extractNodesAndEndsFromRoots(nodes, base, children, max_dist * 2.0/3.0, max_dist, vertical_initial_extraction);
       if (nodes.size() < 2)
       {
         continue;
@@ -151,7 +152,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       bool points_removed = false;
       double gap = params_->gap_ratio * sections_[sec_].max_distance_to_end; // gap threshold for splitting
       double span = params_->span_ratio * estimated_radius; // span threshold for splitting
-      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness, span, gap, true);
+      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness, span, gap, vertical_initial_extraction);
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
@@ -175,8 +176,27 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     }
 
     nodes.clear();
+#if 1 // find section ends from roots of best_ends, rather than from all roots. This makes the average section ends a well-defined position in e.g. long grass
+    std::vector<int> roots;
+    for (auto &end : sections_[sec_].ends)
+    {
+      int node = end;
+      while (points_[node].parent != -1)
+      {
+        node = points_[node].parent;
+      }
+      if (std::find(roots.begin(), roots.end(), node) == roots.end())
+      {
+        roots.push_back(node);
+      }      
+    }
+    sections_[sec_].roots = roots;   
     sections_[sec_].ends.clear();
-    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0, true); // make it lower
+    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0, vertical_initial_extraction); // make it lower
+#else
+    sections_[sec_].ends.clear();
+    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0, vertical_initial_extraction); // make it lower
+#endif
     estimateCylinderTaper(estimated_radius, best_accuracy, false); // update the expected taper
   }
   if (verbose)
@@ -223,14 +243,12 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     bool extract_from_ends = sections_[sec_].ends.size() > 0;
     // if the branch section has no end points recorded, then we need to examine this branch to
     // find end points and potentially branch (bifurcate)
-    bool is_base_trunk = par == -1; 
     if (!extract_from_ends)
     {
-      Eigen::Vector3d base = getRootPosition();
+      Eigen::Vector3d base = getRootPosition(); // sections_[par].parent == -1 ? sections_[par].tip : getRootPosition();
       double span_rad = radius(sections_[sec_]); 
       double thickness = params_->cylinder_length_to_width * span_rad;
-      is_base_trunk = is_base_trunk || sections_[par].parent == -1; // vertical node extraction if at base, because root points are dispersed along the ground, so base location is unreliable
-      extractNodesAndEndsFromRoots(nodes, base, children, 0.0, thickness, is_base_trunk);
+      extractNodesAndEndsFromRoots(nodes, base, children, 0.0, thickness, false);
 /*
       if (sections_[par].parent == -1)
       {
@@ -258,7 +276,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       bool points_removed = false;
       double gap = params_->gap_ratio * sections_[sec_].max_distance_to_end; // gap threshold for splitting
       double span = params_->span_ratio * span_rad; // span thershold for splitting
-      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness, span, gap, is_base_trunk);
+      std::vector<std::vector<int>> clusters = findPointClusters(base, points_removed, thickness, span, gap, false);
 
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
@@ -274,26 +292,17 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     {
       extractNodesFromEnds(nodes);
     }
-    auto &point_ids = is_base_trunk && !sections_[sec_].ends.empty() ? sections_[sec_].ends : nodes;
     // estimate the section's tip (the centre of the cylinder of points)
-    sections_[sec_].tip = calculateTipFromVertices(point_ids);
-    if (is_base_trunk && !nodes.empty())
-    {
-      double h = 0.0;
-      for (auto &node_id: nodes)
-        h += points_[node_id].pos[2];
-      h /= (double)nodes.size();
-      sections_[sec_].tip[2] = h;      
-    }
+    sections_[sec_].tip = calculateTipFromVertices(nodes);
     // get section's direction
-    Eigen::Vector3d dir = is_base_trunk ? Eigen::Vector3d(0, 0, 1) : (sections_[sec_].tip - sections_[par].tip).normalized();
+    Eigen::Vector3d dir = par == -1 ? Eigen::Vector3d(0, 0, 1) : (sections_[sec_].tip - sections_[par].tip).normalized();
     // shift to cylinder's centre
-    sections_[sec_].tip += vectorToCylinderCentre(point_ids, dir);
+    sections_[sec_].tip += vectorToCylinderCentre(nodes, dir);
     // re-estimate direction
-    dir = is_base_trunk ? Eigen::Vector3d(0, 0, 1) : (sections_[sec_].tip - sections_[par].tip).normalized();
+    dir = par == -1 ? Eigen::Vector3d(0, 0, 1) : (sections_[sec_].tip - sections_[par].tip).normalized();
     // now find the segment radius
     double accuracy = 0.0;
-    double rad = estimateCylinderRadius(point_ids, dir, accuracy);
+    double rad = estimateCylinderRadius(nodes, dir, accuracy);
     // and estimate taper
     estimateCylinderTaper(rad / sections_[sec_].radius_scale, accuracy, extract_from_ends);
 
