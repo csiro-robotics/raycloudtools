@@ -176,7 +176,8 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     }
 
     nodes.clear();
-#if 1 // find section ends from roots of best_ends, rather than from all roots. This makes the average section ends a well-defined position in e.g. long grass
+#define CLEAN_SECTION_ROOTS // find section ends from roots of best_ends, rather than from all roots. This makes the average section ends a well-defined position in e.g. long grass
+#if defined CLEAN_SECTION_ROOTS 
     std::vector<int> roots;
     for (auto &end : sections_[sec_].ends)
     {
@@ -191,12 +192,9 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       }      
     }
     sections_[sec_].roots = roots;   
-    sections_[sec_].ends.clear();
-    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0, vertical_initial_extraction); // make it lower
-#else
-    sections_[sec_].ends.clear();
-    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0, vertical_initial_extraction); // make it lower
 #endif
+    sections_[sec_].ends.clear();
+    extractNodesAndEndsFromRoots(nodes, base, children, 0.0, best_dist/2.0, vertical_initial_extraction); // make it lower
     estimateCylinderTaper(estimated_radius, best_accuracy, false); // update the expected taper
   }
   if (verbose)
