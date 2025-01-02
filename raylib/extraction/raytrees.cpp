@@ -243,7 +243,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     // find end points and potentially branch (bifurcate)
     if (!extract_from_ends)
     {
-      Eigen::Vector3d base = getRootPosition(); // sections_[par].parent == -1 ? sections_[par].tip : getRootPosition();
+      Eigen::Vector3d base = getRootPosition();
       double span_rad = radius(sections_[sec_]); 
       double thickness = params_->cylinder_length_to_width * span_rad;
       extractNodesAndEndsFromRoots(nodes, base, children, 0.0, thickness, false);
