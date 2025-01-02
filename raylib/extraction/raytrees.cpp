@@ -57,7 +57,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
 
   // first do a special case for all the trunks. This is where we estimate mean taper
   ray::Cloud debug_cloud;
-  const bool vertical_initial_extraction = false;
+  const bool vertical_initial_extraction = true;
   for (sec_ = 0; sec_ < (int)sections_.size(); sec_++)
   {
     double best_accuracy = -1.0;
