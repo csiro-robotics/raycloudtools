@@ -249,29 +249,6 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       double span_rad = radius(sections_[sec_]); 
       double thickness = params_->cylinder_length_to_width * span_rad;
       extractNodesAndEndsFromRoots(nodes, base, children, 0.0, thickness, false);
-/*
-      if (sections_[par].parent == -1)
-      {
-        ray::Cloud temp;
-        Eigen::Vector3d p = base + offset + Eigen::Vector3d(0,0,0.04) ;
-        temp.addRay(p, p, 0.0, ray::RGBA(255,255,255,255));
-        for (auto &root_id: sections_[sec_].roots)
-        {
-          Eigen::Vector3d pos = points_[root_id].pos + offset;
-          temp.addRay(pos, pos, 0.0, ray::RGBA(255,0,0,255));
-        }
-        for (auto &node_id: nodes)
-        {
-          Eigen::Vector3d pos = points_[node_id].pos + Eigen::Vector3d(0,0,0.01) + offset;
-          temp.addRay(pos, pos, 0.0, ray::RGBA(0,255,0,255));
-        }
-        for (auto &end_id: sections_[sec_].ends)
-        {
-          Eigen::Vector3d pos = points_[end_id].pos + Eigen::Vector3d(0,0,0.02) + offset;
-          temp.addRay(pos, pos, 0.0, ray::RGBA(0,0,255,255));
-        }
-        temp.save("rootsnodesends.ply");
-      }*/
 
       bool points_removed = false;
       double gap = params_->gap_ratio * sections_[sec_].max_distance_to_end; // gap threshold for splitting

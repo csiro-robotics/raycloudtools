@@ -108,7 +108,7 @@ set(SOURCES
 )
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
-add_compile_options("-fPIC" -O0)
+add_compile_options("-fPIC")
 
 if(WITH_QHULL)
 set(QHULL_LIBS
