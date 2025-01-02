@@ -64,10 +64,10 @@ private:
   Eigen::Vector3d getRootPosition() const;
   /// find the points and end points within this branch section
   void extractNodesAndEndsFromRoots(std::vector<int> &nodes, const Eigen::Vector3d &base,
-                                    const std::vector<std::vector<int>> &children, double min_dist, double max_dist);
+                                    const std::vector<std::vector<int>> &children, double min_dist, double max_dist, bool vertical);
   /// find separate clusters of points within the branch section
   std::vector<std::vector<int>> findPointClusters(const Eigen::Vector3d &base, bool &points_removed,
-                                                  double thickness, double span, double gap);
+                                                  double thickness, double span, double gap, bool vertical);
   /// split the branch section to one branch for each cluster
   void bifurcate(const std::vector<std::vector<int>> &clusters, double thickness, std::vector<std::vector<int>> &children, bool clip_tree, bool add_offshoots);
   /// find the points within the branch section from its end points
