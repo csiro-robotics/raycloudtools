@@ -71,6 +71,11 @@ To run the rayXXXX tools from anywhere either sudo make install, or place in you
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
 ```
 
+If not there already, add to your ~/bashrc:
+'''console
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib 
+'''
+
 ## File format:
 Raycloud files are loaded and saved in binary .ply format, the header section is text and follows this format:
 ```console
