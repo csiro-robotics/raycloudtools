@@ -10,15 +10,33 @@ This is an open-source research library, a place to release new techniques in ra
 ## Install using a Pre-built Container
 
 ### Docker (Linux, MacOS, Windows)
-```console
-# Pull the latest image from GitHub Packages
+#### Pull the Latest Image
+To download the latest image from GitHub Packages, use the following command:
+```bash
 docker pull ghcr.io/csiro-robotics/raycloudtools:latest
-
-# Run an interactive container (binds all host directories by default) 
-docker run -it raycloudtools:latest /bin/bash
 ```
 
-### Apptainer/Singularity (Linux)
+#### Run an Interactive Container
+To run the container interactively and bind your home directory to a directory inside the container for accessing host files:
+
+#### On Linux/MacOS
+```bash
+docker run -it --name raycloudtools -v /home/yourusername:/workspace ghcr.io/csiro-robotics/raycloudtools:latest /bin/bash
+```
+
+#### On Windows
+```bash
+docker run -it --name raycloudtools -v C:/Users/YourUsername:/workspace ghcr.io/csiro-robotics/raycloudtools:latest /bin/bash
+```
+Replace `/home/yourusername` or `C:/Users/YourUsername` with the path to your home directory.
+
+#### Reusing Container
+To restart and attach to the container in the future:
+```bash
+docker start -ai raycloudtools
+```
+
+### Apptainer (Linux/HPC)
 ```console
 # Login to GitHub Container Registry (required once)
 export CR_PAT=YOUR_GITHUB_TOKEN
@@ -66,12 +84,12 @@ cmake ..
 make
 ```
 
-To run the rayXXXX tools from anywhere either sudo make install, or place in your ~/bashrc:
+To run the rayXXXX tools from anywhere either sudo make install, or place in your ~/.bashrc:
 ```console
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
 ```
 
-If not there already, add to your ~/bashrc:
+If not there already, add to your ~/.bashrc:
 '''console
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib 
 '''
