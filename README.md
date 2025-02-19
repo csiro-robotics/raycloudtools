@@ -261,6 +261,19 @@ When directly invoking the unit tests, is important that the tests are run from 
 * Change into the `bin/` directory
 * Run `./raytest`
 
+## Development Container Setup (.devcontainer)
+
+This project provides a `.devcontainer` directory for consistent development environments. Using the devcontainer is optional, but recommended for a streamlined setup. Here's how to get started:
+
+1. **Install Docker:** You'll need Docker Desktop (or a similar Docker engine) installed on your machine.
+
+2. **Open in VS Code:**
+    * Open the project in VS Code.
+    * VS Code should automatically detect the `.devcontainer` folder and prompt you to "Reopen in Container". Click it.
+    * If you're not prompted, open the command palette (Ctrl+Shift+P or Cmd+Shift+P) and type "Remote-Containers: Reopen in Container".
+
+That's it! VS Code will handle building and running the development container for you.  If you choose not to use the devcontainer, you will need to ensure your local environment matches the project's dependencies and requirements.
+
 ## Acknowledgements
 This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible. 
 
@@ -272,4 +285,3 @@ Citations:
 Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
 Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
 ```
-
