@@ -112,6 +112,7 @@ private:
   double non_rigid_;
   double verbose_;
   const double max_normal_difference_ = 0.5;
+  bool no_normals_ {false};
 
   /// Derived data
   std::vector<Surfel> surfels_[2];

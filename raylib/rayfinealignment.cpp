@@ -41,21 +41,24 @@ void getSurfel(const std::vector<Eigen::Vector3d> &points, const std::vector<int
 // Convert clouds_[] into sets of surfels.
 void FineAlignment::generateSurfels()
 {
-  double point_spacings[2];
   double avg_max_spacing = 0.0;
+  double min_spacing = 0.0, max_spacing = 0.0;
+  const double min_spacing_scale = 2.0;
+  const double max_spacing_scale = 10.0;
   for (int c = 0; c < 2; c++)
   {
-    point_spacings[c] = clouds_[c].estimatePointSpacing();
-    ASSERT(point_spacings[c] >= 0.0);
-    const double min_spacing_scale = 2.0;
-    const double max_spacing_scale = 20.0;
-    double min_spacing = min_spacing_scale * point_spacings[c];
-    double max_spacing = max_spacing_scale * point_spacings[c];
+    double point_spacing = clouds_[c].estimatePointSpacing();
+    ASSERT(point_spacing >= 0.0);
+    min_spacing += 0.5 * min_spacing_scale * point_spacing;
+    max_spacing += 0.5 * max_spacing_scale * point_spacing;
     avg_max_spacing += 0.5 * max_spacing;
-    if (verbose_)
-      std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing
-                << "m" << std::endl;
+  }
+  if (verbose_)
+    std::cout << "fine alignment min voxel size: " << min_spacing << "m and maximum voxel size: " << max_spacing
+              << "m" << std::endl;
 
+  for (int c = 0; c < 2; c++)
+  {
     // 1. decimate quite fine
     std::vector<int64_t> decimated;
     ray::voxelSubsample(clouds_[c].ends, min_spacing, decimated);
@@ -92,9 +95,11 @@ void FineAlignment::generateSurfels()
     const int search_size = std::min(20, (int)p_size - 1);
     Nabo::NNSearchD *nns;
     Eigen::MatrixXd points_q(3, q_size);
-    for (size_t i = 0; i < q_size; i++) points_q.col(i) = candidate_points[i];
+    for (size_t i = 0; i < q_size; i++) 
+      points_q.col(i) = candidate_points[i];
     Eigen::MatrixXd points_p(3, p_size);
-    for (size_t i = 0; i < p_size; i++) points_p.col(i) = decimated_points[i];
+    for (size_t i = 0; i < p_size; i++) 
+      points_p.col(i) = decimated_points[i];
     nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
 
     // Run the search
@@ -138,13 +143,16 @@ void FineAlignment::generateSurfels()
         if ((centroid - candidate_starts[i]).dot(normal) > 0.0)
           normal = -normal;
         // now repeat but removing back facing points. This deals better with double walls, which are quite common
-        for (int j = (int)ids.size() - 1; j >= 0; j--)
+        if (!no_normals_)
         {
-          int id = ids[j];
-          if ((decimated_points[id] - decimated_starts[id]).dot(normal) > 0.0)
+          for (int j = (int)ids.size() - 1; j >= 0; j--)
           {
-            ids[j] = ids.back();
-            ids.pop_back();
+            int id = ids[j];
+            if ((decimated_points[id] - decimated_starts[id]).dot(normal) > 0.0)
+            {
+              ids[j] = ids.back();
+              ids.pop_back();
+            }
           }
         }
         if (ids.size() < min_points_per_ellipsoid)  // not dense enough
@@ -158,6 +166,8 @@ void FineAlignment::generateSurfels()
         if ((centroid - candidate_starts[i]).dot(normal) > 0.0)
           normal = -normal;
         surfels_[c].push_back(Surfel(centroid, mat, width, normal, true));
+        if (c == 1)
+          surfels_[c].push_back(Surfel(centroid, mat, width, -normal, true));
       }
     }
   }
@@ -254,7 +264,8 @@ void FineAlignment::buildLinearSystem(const std::vector<Match> &matches, double 
       error_sqr = (flat * translation_weight_).squaredNorm();
     }
     // the normal difference is part of the error,
-    error_sqr += (s0.normal - s1.normal).squaredNorm();
+    if (!no_normals_)
+      error_sqr += (s0.normal - s1.normal).squaredNorm();
     double weight = pow(std::max(1.0 - error_sqr / ray::sqr(max_normal_difference_), 0.0), d * d);
     square_error += ray::sqr(error);
     Eigen::Matrix<double, 1, LinearSystem::state_size> a;  // the Jacobian
@@ -309,7 +320,8 @@ void FineAlignment::updateLinearSystem(std::vector<Match> &matches, const Quadra
     surfels_[0][i].normal = shift.rotation * surfels_[0][i].normal;
   }
   Eigen::Quaterniond half_rot(Eigen::AngleAxisd(trans.rotation.norm() / 2.0, trans.rotation.normalized()));
-  for (auto &match : matches) match.normal = half_rot * match.normal;
+  for (auto &match : matches) 
+    match.normal = half_rot * match.normal;
 
   // NOTE: transforming the whole cloud each time is a bit slow,
   // we should be able to concatenate these transforms and only apply them once at the end
@@ -325,6 +337,14 @@ void FineAlignment::updateLinearSystem(std::vector<Match> &matches, const Quadra
 // The fine grained alignment method
 void FineAlignment::align()
 {
+  // missing rays identified by start and end points being equal
+  int n0 = (int)clouds_[0].ends.size()/2;
+  int n1 = (int)clouds_[1].ends.size()/2;
+  if (clouds_[0].ends[n0] == clouds_[0].starts[n0] || clouds_[1].ends[n1] == clouds_[1].starts[n1])
+  {
+    std::cout << "Warning: at least some end and start points are coincident, so aligning using two-sided surfaces." << std::endl;
+    no_normals_ = true;
+  }
   // For each cloud: decimate the cloud to make it even, but still quite detailed, e.g. one point per cubic 10cm
   // Decimate again to pick one point per cubic 1m (for instance)
   // Now match the closest X points in 1 to those in 2, and generate surfel per point in 2.
