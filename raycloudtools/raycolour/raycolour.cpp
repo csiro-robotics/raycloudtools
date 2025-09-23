@@ -28,6 +28,7 @@ void usage(int exit_code = 1)
   std::cout << "                   normal        - colour by normal" << std::endl;
   std::cout << "                   alpha         - colour by alpha channel (which typically represents intensity)" << std::endl;
   std::cout << "                   alpha 1       - set only alpha channel (zero represents unbounded rays)" << std::endl;
+  std::cout << "                   desky 0.4     - reduce sky colour for coloured clouds on looking up. Value is strength of effect" << std::endl;
   std::cout << "                   1,1,1         - set r,g,b" << std::endl;
   std::cout << "                   branches      - red and green are lidar intensity and cylindricality respectively, greater for branches than for leaves" << std::endl;
   std::cout << "                   image planview.png - colour all points from image, stretched to fit the point bounds" << std::endl;
@@ -104,11 +105,14 @@ int rayColour(int argc, char *argv[])
   ray::Vector3dArgument col(0.0, 1.0);
   ray::DoubleArgument alpha(0.0, 1.0);
   ray::TextArgument alpha_text("alpha"), image_text("image");
+  ray::DoubleArgument desky(0.0, 100.0);
+  ray::TextArgument desky_text("desky");
   const bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_type }, { &lit });
   const bool flat_colour = ray::parseCommandLine(argc, argv, { &cloud_file, &col }, { &lit });
   const bool flat_alpha = ray::parseCommandLine(argc, argv, { &cloud_file, &alpha_text, &alpha }, { &lit });
+  const bool desky_format = ray::parseCommandLine(argc, argv, { &cloud_file, &desky_text, &desky }, { &lit });
   const bool image_format = ray::parseCommandLine(argc, argv, { &cloud_file, &image_text, &image_file }, { &lit });
-  if (!standard_format && !flat_colour && !flat_alpha && !image_format)
+  if (!standard_format && !flat_colour && !flat_alpha && !image_format && !desky_format)
     usage();
 
   std::string in_file = cloud_file.name();
@@ -116,16 +120,82 @@ int rayColour(int argc, char *argv[])
   const std::string type = colour_type.selectedKey();
   uint8_t split_alpha = 100;
 
+  Eigen::Vector3d ground_colour(0,0,0);
+  Eigen::Vector3d leaf_colour(0,0,0);
+  Eigen::Vector3d sky_colour(0,0,0);
+  if (desky_format)
+  {
+    double ground_weight = 0.0, sky_weight = 0.0, leaf_weight = 0.0;
+    auto analyse_colour = [&](
+                         std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                         std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+    {
+      for (int i = 0; i<(int)starts.size(); i++)
+      {
+        Eigen::Vector3d dir = (ends[i] - starts[i]).normalized();
+        Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+        if (dir[2] < 0.0 && dir[2] > -0.5) // don't look too far down at the road/soil
+        {
+          ground_colour += col;
+          ground_weight++;
+        }
+        else if (dir[2] > 0.5)
+        {
+          double d = dir[2] - 0.5;
+          double weight = d*d*d;
+          sky_colour += col * weight;
+          sky_weight += weight;
+        }
+        if (dir[2] < 0.15 && dir[2] > 0.0)
+        {
+          if (col[1] > col[0] && col[1] > col[2]) // if it is somewhat green
+          {
+            leaf_colour += col;
+            leaf_weight++;
+          }
+        }
+      }
+    };
+    if (!ray::Cloud::read(cloud_file.name(), analyse_colour))
+    {
+      usage();
+    }
+    ground_colour /= ground_weight;
+    sky_colour /= sky_weight;
+    leaf_colour /= leaf_weight;
+    leaf_colour *= 0.8; // because we looked through the sky a bit
+    std::cout << "ground colour: " << ground_colour.transpose() << ", sky colour: " << sky_colour.transpose() << ", leaf colour: " << leaf_colour.transpose() << std::endl;
+//    sky_colour = Eigen::Vector3d(115,207,255); // better than trying to guess from the data
+    sky_colour = Eigen::Vector3d(125,227,255); // better than trying to guess from the data
+  }
   if (type != "shape" && type != "normal" && type != "branches")  // chunk loading possible for simple cases
   {
     ray::CloudWriter writer;
     if (!writer.begin(out_file))
       usage();
 
-    auto colour_rays = [flat_colour, flat_alpha, &type, &col, &alpha, &writer, &split_alpha](
+    auto colour_rays = [&](
                          std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                          std::vector<double> &times, std::vector<ray::RGBA> &colours) {
-      if (flat_colour)
+      if (desky_format)
+      {
+        Eigen::Vector3d col_ax = (sky_colour - leaf_colour).normalized();
+        for (int i = 0; i<(int)starts.size(); i++)
+        {
+          Eigen::Vector3d dir = ends[i] - starts[i];
+          Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+          double col_dist = (sky_colour - col).dot(col_ax) / (255.0 * desky.value());
+          if (dir[2] > 0.0 && col_dist < 1.0)
+          {
+            // the smaller the distance, the more it shifts towards the ground colour
+            col += (leaf_colour - col) * std::max(0.0, std::min(1.0 - col_dist, 1.0));
+            colours[i].red = (uint8_t)col[0];
+            colours[i].green = (uint8_t)col[1];
+            colours[i].blue = (uint8_t)col[2];
+          }
+        }
+      }
+      else if (flat_colour)
       {
         for (auto &colour : colours)
         {
