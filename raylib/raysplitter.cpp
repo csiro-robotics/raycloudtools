@@ -482,7 +482,7 @@ bool splitColour(const std::string &file_name, const std::string &cloud_name_stu
   if (!ray::Cloud::read(file_name, count_colours))
     return false;
 
-  const int max_total_files = 5000; // raysplit colour more likely to be a mistake in this case
+  const int max_total_files = 50000; // raysplit colour more likely to be a mistake in this case
   if (num_colours > max_total_files)
   {
     std::cerr << "Error: " << num_colours << " colours generates more than the maximum number of files: " << max_total_files << std::endl;
