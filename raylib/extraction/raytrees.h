@@ -22,16 +22,18 @@ struct RAYLIB_EXPORT TreesParams
   double crop_length;               // distance to end of branch where it crops the branch, and doesn't generate further geometry
   double distance_limit;            // maximum distance between points that can count as connected
   double height_min;                // minimum height for a tree. Lower values are considered undergrowth and excluded
+  double radius_min;                // minimum radius for a tree. Note that all trees above height_min are processed before being filtered through this
   double girth_height_ratio;        // how far up tree to measure girth
   double cylinder_length_to_width;  // the slenderness of the branch segment cylinders
   double gap_ratio;                 // max gap per branch length
   double span_ratio;                // points that span a larger width determine that a branch has become two
-  double gravity_factor;   // preferences branches that are less lateral, so penalises implausable horizontal branches
-  double grid_width;       // used on a grid cell with overlap, to remove trees with a base in the overlap zone
-  bool segment_branches;   // flag to output the ray cloud coloured by branch segment index rather than by tree index
-  double global_taper;     // forced global taper, uses global_taper_factor to define how much it is applied
-  double global_taper_factor; // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
-  bool use_rays; // use the full rays in order to estimate a smaller radius when points are not all on the real branch
+  double gravity_factor;            // preferences branches that are less lateral, so penalises implausable horizontal branches
+  double grid_width;                // used on a grid cell with overlap, to remove trees with a base in the overlap zone
+  bool segment_branches;            // flag to output the ray cloud coloured by branch segment index rather than by tree index
+  double global_taper;              // forced global taper, uses global_taper_factor to define how much it is applied
+  double global_taper_factor;       // 0 estimates per-tree tapering, 1 uses per-scan tapering, 0.5 is mid-way on mid-weight trees
+  bool use_rays;                    // use the full rays in order to estimate a smaller radius when points are not all on the real branch
+  Eigen::Vector2d grid_origin;      // used when grid_width is set, for cropping purposes
 };
 
 struct BranchSection;  // forwards declaration
@@ -99,6 +101,8 @@ private:
   double radius(const BranchSection &section) const;
   /// remove elements of nodes that are too distant to the set of end points
   bool removeDistantPoints(std::vector<int> &nodes);
+  /// remove trees with radius under the specified minimum
+  void removeSmallRadiusTrees();
 
   // cached data that is used throughout the processing method
   int sec_;
