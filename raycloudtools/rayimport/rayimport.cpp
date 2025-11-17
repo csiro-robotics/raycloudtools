@@ -222,7 +222,8 @@ int rayImport(int argc, char *argv[])
   // so that the user hasn't lost information
   if (remove.isSet())
   {
-    std::cout << "start position: " << start_pos.transpose() << " removed from all points" << std::endl;
+ //   std::cout.precision(10);
+    std::cout << "start position: " << std::setprecision(5) << std::fixed << start_pos.transpose() << " removed from all points" << std::endl;
   }
   return 0;
 }
