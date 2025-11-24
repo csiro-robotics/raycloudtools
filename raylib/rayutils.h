@@ -22,6 +22,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#define VISUALISE_TOOL "QT_QPA_PLATFORM=xcb meshlab" // the first term fixed opening problems on some platforms
 
 namespace ray
 {
