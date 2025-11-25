@@ -97,65 +97,110 @@ int rayDiff(int argc, char *argv[])
     max_dist = std::max(max_dist, dists_to_cloud2[i]);
   for (int i = 0; i<(int)dists_to_cloud1.size(); i++)
     max_dist = std::max(max_dist, dists_to_cloud1[i]);
+  int num1 = (int)dists_to_cloud1.size();
+  int num2 = (int)dists_to_cloud2.size();
 
   // 3. median distance
-  dists_to_cloud2.insert(dists_to_cloud2.end(), dists_to_cloud1.begin(), dists_to_cloud1.end());
-  double median_dist = ray::median(dists_to_cloud2);
+  std::vector<double> sorted_dists = dists_to_cloud2;
+  sorted_dists.insert(sorted_dists.end(), dists_to_cloud1.begin(), dists_to_cloud1.end());
+  double median_dist = ray::median(sorted_dists);
 
-  std::sort(dists_to_cloud2.begin(), dists_to_cloud2.end());
-  double cum_dist = 0.0;
-  double cum_area = 0.0;
-  double last_dist = 0.0;
-  for (int i = 0; i<(int)dists_to_cloud2.size(); i++)
+  std::sort(sorted_dists.begin(), sorted_dists.end());
+  int num = (int)sorted_dists.size();
+  // 1. transform the result to make the distances uniform if their 3D points are uniformly distributed
+  for (int i = 0; i<num; i++)
   {
-    double dist = dists_to_cloud2[i];
-    cum_dist += dist;
-    double density = cum_dist / dist;
-
-    cum_area += density * (dist - last_dist);
-    last_dist = dist; 
+    double d = sorted_dists[i];
+    sorted_dists[i] = d*d*d; // would use d*d if the points were planar
   }
-  double total_area = cum_area;
-  
-  cum_dist = 0.0;
-  cum_area = 0.0;
-  last_dist = 0.0;
-  double shoulder_error = 0.0;
-  double shoulder_uniformity = 0.0;
-  double last_dif = 0.0;
-  int shoulder_i = 0;
-  for (int i = 0; i<(int)dists_to_cloud2.size(); i++)
+
+  // 2. accumulate uniform term backwards
+  std::vector<double> uniform_const(num+1, 0.0);
+  std::vector<double> uniform_linear(num+1, 0.0);
+  std::vector<double> uniform_square(num+1, 0.0);
+  for (int i = num-1; i>=0; i--)
   {
-    double dist = dists_to_cloud2[i];
-    double count = (double)(i+1);
-    double density = count / dist;
-    cum_area += density * (dist - last_dist);
-    double dif = (cum_area - count) - (total_area - cum_area);
-    if (dif >= 0.0)
+    uniform_const[i] = uniform_const[i+1] + ray::sqr((double)i);
+    uniform_linear[i] = uniform_linear[i+1] - 2.0*(double)i;
+    uniform_square[i] = uniform_square[i+1] + 1.0;
+  }
+
+  // 3. accumulate linear term forwards, but store only best results
+  double linear_const = 0.0;
+  double linear_linear = 0.0;
+  double linear_square = 0.0;
+  double min_error_sqr = 0.0;
+  double min_error_i = 0.0; 
+  double min_error_dist = 0.0;
+  for (int i = 0; i<num; i++)
+  {
+    linear_const += ray::sqr((double)i);
+    linear_linear -= 2.0*(double)i*sorted_dists[i];
+    linear_square += ray::sqr(sorted_dists[i]);
+
+    // ai^2 + bi + c = 0
+    double a = uniform_square[i] + linear_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
+    double b = uniform_linear[i] + linear_linear/sorted_dists[i];
+    double c = uniform_const[i] + linear_const;
+
+    double min_i = -b/(2.0*a);
+    double error_sqr = a*min_i*min_i + b*min_i + c;
+    if (error_sqr < min_error_sqr || i==0)
     {
-      // linearly interpolate between entries
-      double blend = -last_dif / (dif - last_dif);
-      shoulder_error = last_dist + (dist - last_dist)*blend;
-      shoulder_i = i;
-      
-      shoulder_uniformity = ((count - 1.0) + blend) / total_area;
-      break;
+      min_error_sqr = error_sqr;           // total square error in cumulative index, so measured in index offsets squared
+      min_error_i = i;                     // number of points within uniform distribution of best fit
+      min_error_dist = sorted_dists[i]; // the distance associated with the last index within the uniform distribution
     }
-    last_dif = dif;
-    last_dist = dist; 
   }
-  std::cout << "median difference: " << median_dist << " m" << std::endl;
-  std::cout << "max difference: " << max_dist << " m" << std::endl;
-  std::cout << "shoulder difference: " << shoulder_error << " m" << std::endl;
-  std::cout << "inside shoulder: " << 100.0*(double)shoulder_i / (double)dists_to_cloud2.size() << "%" << std::endl;
-  std::cout << "shoulder uniformity: " << 100.0*shoulder_uniformity << "%" << std::endl;
+  // 4. untransform the result:
+  min_error_dist = std::pow(min_error_dist, 1.0/3.0);
+
+  // print results...
+  double similarity = 100.0 * (double)min_error_i / (double)num;
+  std::cout << "shoulder distance: " << min_error_dist << " m, within: " << similarity << "%" << std::endl;
+  std::cout << "median difference: " << median_dist << " m, max difference: " << max_dist << " m" << std::endl;
+
+  // now render visuals
+  int j = 0;
+  Eigen::Vector3d diff_col(255,0,0);
+  for (int i = 0; i<(int)cloud1.ends.size(); i++)
+  {
+    if (cloud1.rayBounded(i))
+    {
+      if (dists_to_cloud1[j] > min_error_dist)
+      {
+        double proximity = min_error_dist / dists_to_cloud1[j];
+        Eigen::Vector3d col(cloud1.colours[i].red, cloud1.colours[i].green, cloud1.colours[i].blue);
+        Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
+        cloud1.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud1.colours[i].alpha);
+      }
+      j++;
+    }
+  }
+  cloud1.save(cloud1_name.nameStub() + "_diff.ply");
+  j = 0;
+  for (int i = 0; i<(int)cloud2.ends.size(); i++)
+  {
+    if (cloud2.rayBounded(i))
+    {
+      if (dists_to_cloud2[j] > min_error_dist)
+      {
+        double proximity = min_error_dist / dists_to_cloud2[j];
+        Eigen::Vector3d col(cloud2.colours[i].red, cloud2.colours[i].green, cloud2.colours[i].blue);
+        Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
+        cloud2.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud2.colours[i].alpha);
+      }
+      j++;
+    }
+  }
+  cloud2.save(cloud2_name.nameStub() + "_diff.ply");
 
   if (visualise.isSet())
   {
-    std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + ".ply";
+    std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply " + cloud2_name.nameStub() + "_diff.ply";
     return system(command.c_str());  
   }
-  return 0;
+  return (int)similarity;
 }
 
 int main(int argc, char *argv[])
