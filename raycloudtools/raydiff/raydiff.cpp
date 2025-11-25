@@ -18,7 +18,7 @@
 void usage(int exit_code = 1)
 {
   // clang-format off
-  std::cout << "Difference between two ray clouds. Optional visualisation." << std::endl;
+  std::cout << "Difference between two ray clouds, differences coloured red, and similarity printed to screen. Optional visualisation." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
   std::cout << "                              --visualise     - open in the default visualisation tool" << std::endl;
