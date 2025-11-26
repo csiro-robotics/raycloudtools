@@ -68,6 +68,11 @@ void calcNearestNeighbourDistances(const ray::Cloud &cloud1, const ray::Cloud &c
   delete nns;
 }
 
+double gamma(double k)
+{
+  return tgamma(5.0/k)*tgamma(1.0/k) / ray::sqr(tgamma(3.0/k));  
+}
+
 int rayDiff(int argc, char *argv[])
 {
   ray::FileArgument cloud1_name, cloud2_name;
@@ -105,6 +110,8 @@ int rayDiff(int argc, char *argv[])
 
   std::sort(sorted_dists.begin(), sorted_dists.end());
   int num = (int)sorted_dists.size();
+
+#if defined STANDARD_METRIC  
   // 1. transform the result to make the distances uniform if their 3D points are uniformly distributed
   for (int i = 0; i<num; i++)
   {
@@ -164,9 +171,54 @@ int rayDiff(int argc, char *argv[])
   }
   // 4. untransform the result:
   min_error_dist = std::pow(min_error_dist, 1.0/3.0);
+#else
+  double variance = 0.0;
+  double kurt = 0.0;
+  double n = (double)num;
+  for (int i = 0; i<sorted_dists.size(); i++)
+  {
+    double p = sorted_dists[i];
+    variance += p*p;
+    kurt += p*p*p*p;
+  }
+  variance /= n-1.0;
+  kurt /= n-1.0;
+  kurt /= (variance*variance);
+  
+  double k0 = 0.25, k1 = 10.0;
+  double t0 = gamma(k0) - kurt;
+  double t1 = gamma(k1) - kurt;
+  if (t0*t1 > 0.0)
+    std::cout << "error" << std::endl;
+  double kmid = (k0 + k1)/2.0;
+  double tmid = 0;
+  for (int i = 0; i<50; i++)
+  {
+    tmid = gamma(kmid) - kurt;
+    if (tmid*t1 > 0.0)
+    {
+      k1 = kmid;
+      t1 = tmid;
+    }
+    else
+    {
+      k0 = kmid;
+      t0 = tmid;
+    }
+//    kmid = k0 + (k1-k0)*-t0/(t1-t0);
+    kmid = (k0 + k1)/2.0;
+  }
+  std::cout << "power: " << kmid << std::endl;
+  double min_error_dist = 0.0;
+  for (int i = 0; i<num; i++)
+  {
+    min_error_dist += std::pow(sorted_dists[i], kmid);
+  }
+  min_error_dist = std::pow(min_error_dist / (double)num, 1.0/kmid);
+#endif
 
   // print results...
-  double similarity = 100.0 * (double)min_error_i / (double)num;
+  double similarity = 100.0;// * (double)min_error_i / (double)num;
   std::cout << "shoulder distance: " << min_error_dist << " m, within: " << similarity << "%" << std::endl;
   std::cout << "median difference: " << median_dist << " m, max difference: " << max_dist << " m" << std::endl;
 
