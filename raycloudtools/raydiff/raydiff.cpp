@@ -72,7 +72,9 @@ int rayDiff(int argc, char *argv[])
 {
   ray::FileArgument cloud1_name, cloud2_name;
   ray::OptionalFlagArgument visualise("--visualise", 'v');
-  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &visualise }))
+  ray::IntArgument type(0, 10, 0);
+  ray::OptionalKeyValueArgument type_option("--type", 't', &type);
+  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &type_option, &visualise }))
   {
     usage();
   }
@@ -113,6 +115,8 @@ int rayDiff(int argc, char *argv[])
     double d = sorted_dists[i];
     sorted_dists[i] = d*d*d; // would use d*d if the points were planar
   }
+ 
+  bool piecewise_linear = type.value() == 1;
 
   // 2. accumulate uniform term backwards
   std::vector<double> uniform_const(num+1, 0.0);
@@ -120,9 +124,21 @@ int rayDiff(int argc, char *argv[])
   std::vector<double> uniform_square(num+1, 0.0);
   for (int i = num-1; i>=0; i--)
   {
-    uniform_const[i] = uniform_const[i+1] + ray::sqr((double)i);
-    uniform_linear[i] = uniform_linear[i+1] - 2.0*(double)i;
-    uniform_square[i] = uniform_square[i+1] + 1.0;
+    if (piecewise_linear)
+    {
+      double d = sorted_dists.back() - sorted_dists[i];
+      double yN = (num-1);
+      double I = (double)i - yN;
+      uniform_const[i] = uniform_const[i+1] + I*I;
+      uniform_linear[i] = uniform_linear[i+1] + 2.0*I*d;
+      uniform_square[i] = uniform_square[i+1] + d*d;      
+    }
+    else
+    {
+      uniform_const[i] = uniform_const[i+1] + ray::sqr((double)i);
+      uniform_linear[i] = uniform_linear[i+1] - 2.0*(double)i;
+      uniform_square[i] = uniform_square[i+1] + 1.0;
+    }
   }
 
   // 3. accumulate linear term forwards, but store only best results
@@ -139,12 +155,43 @@ int rayDiff(int argc, char *argv[])
     linear_square += ray::sqr(sorted_dists[i]);
 
     // ai^2 + bi + c = 0
-    double a = uniform_square[i] + linear_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
-    double b = uniform_linear[i] + linear_linear/sorted_dists[i];
-    double c = uniform_const[i] + linear_const;
+    double yN = (double)(num-1);
+    double a = 0, b = 0, c = 0;
+    if (piecewise_linear)
+    {
+      double d = sorted_dists.back() - sorted_dists[i];
+
+      double square = uniform_square[i]/ray::sqr(d);
+      double linear = uniform_linear[i]/d;
+      a = square;
+      b = -linear - 2.0*yN*square;
+      c = uniform_const[i] + linear*yN + square*yN*yN; 
+
+      // add the inside part
+      a += linear_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
+      b += linear_linear/sorted_dists[i];
+      c += linear_const;
+    }
+    else
+    {
+      a = uniform_square[i] + linear_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
+      b = uniform_linear[i] + linear_linear/sorted_dists[i];
+      c = uniform_const[i] + linear_const;
+    }
 
     double min_i = -b/(2.0*a);
     double error_sqr = a*min_i*min_i + b*min_i + c;
+/*
+    double grad = min_i / sorted_dists[i];
+    double error_sqr1 = linear_square*grad*grad + linear_linear*grad + linear_const;
+    double grad2 = (yN - min_i) / (sorted_dists.back() - sorted_dists[i]);
+    double error_sqr2 = uniform_square[i]*grad2*grad2 + uniform_linear[i]*grad2 + uniform_const[i];
+    double sum = error_sqr1 + error_sqr2;
+    if (std::abs(sum/error_sqr - 1.0) > 0.01)
+    {
+      std::cout << "these shouldn't be different" << std::endl;
+    }*/
+
     if (error_sqr < min_error_sqr || i==0)
     {
       min_error_sqr = error_sqr;           // total square error in cumulative index, so measured in index offsets squared
