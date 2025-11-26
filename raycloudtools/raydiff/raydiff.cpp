@@ -14,6 +14,12 @@
 #include "raylib/rayparse.h"
 #include "raylib/raycuboid.h"
 #include "raylib/rayply.h"
+// This k-th Root Mean power K Error (RMKE) generalises:
+// - Minimum absolute error      - k=0   - for delta-function like distributions
+// - Mean Absolute Error (MAE)   - k=1   - for Laplace distributed data
+// - Root Mean Square Error RMSE - k=2   - for Gaussian distributed data
+// - Maximum absolute error      - k=inf - for uniformly distributed data
+#define GENERALISED_GAUSSIAN_ERROR 
 
 void usage(int exit_code = 1)
 {
@@ -111,7 +117,57 @@ int rayDiff(int argc, char *argv[])
   std::sort(sorted_dists.begin(), sorted_dists.end());
   int num = (int)sorted_dists.size();
 
-#if defined STANDARD_METRIC  
+#if defined GENERALISED_GAUSSIAN_ERROR
+  double variance = 0.0;
+  double kurt = 0.0;
+  double n = (double)num;
+  for (int i = 0; i<sorted_dists.size(); i++)
+  {
+    double p = sorted_dists[i];
+    variance += p*p;
+    kurt += p*p*p*p;
+  }
+  variance /= n;
+  kurt /= n;
+  kurt /= variance*variance;
+  
+  double k0 = 0.25, k1 = 10.0;
+  double t0 = gamma(k0) - kurt;
+  double t1 = gamma(k1) - kurt;
+  if (t0*t1 > 0.0)
+    std::cerr << "Error in estimating k factor" << std::endl;
+  double kmid = (k0 + k1)/2.0;
+  double tmid = 0;
+  for (int i = 0; i<50; i++)
+  {
+    tmid = gamma(kmid) - kurt;
+    if (tmid*t1 > 0.0)
+    {
+      k1 = kmid;
+      t1 = tmid;
+    }
+    else
+    {
+      k0 = kmid;
+      t0 = tmid;
+    }
+    kmid = (k0 + k1)/2.0;
+  }
+  double RMKE = 0.0;
+  for (int i = 0; i<num; i++)
+  {
+    RMKE += std::pow(sorted_dists[i], kmid);
+  }
+  RMKE = std::pow(RMKE / (double)num, 1.0/kmid);
+  int num_under = 0;
+  for (int i = 0; i<num; i++)
+  {
+    if (sorted_dists[i] < RMKE)
+      num_under++;
+  }
+  double similarity2 = 100.0*(double)num_under / (double)num;
+#endif
+
   // 1. transform the result to make the distances uniform if their 3D points are uniformly distributed
   for (int i = 0; i<num; i++)
   {
@@ -171,57 +227,21 @@ int rayDiff(int argc, char *argv[])
   }
   // 4. untransform the result:
   min_error_dist = std::pow(min_error_dist, 1.0/3.0);
-#else
-  double variance = 0.0;
-  double kurt = 0.0;
-  double n = (double)num;
-  for (int i = 0; i<sorted_dists.size(); i++)
-  {
-    double p = sorted_dists[i];
-    variance += p*p;
-    kurt += p*p*p*p;
-  }
-  variance /= n-1.0;
-  kurt /= n-1.0;
-  kurt /= (variance*variance);
-  
-  double k0 = 0.25, k1 = 10.0;
-  double t0 = gamma(k0) - kurt;
-  double t1 = gamma(k1) - kurt;
-  if (t0*t1 > 0.0)
-    std::cout << "error" << std::endl;
-  double kmid = (k0 + k1)/2.0;
-  double tmid = 0;
-  for (int i = 0; i<50; i++)
-  {
-    tmid = gamma(kmid) - kurt;
-    if (tmid*t1 > 0.0)
-    {
-      k1 = kmid;
-      t1 = tmid;
-    }
-    else
-    {
-      k0 = kmid;
-      t0 = tmid;
-    }
-//    kmid = k0 + (k1-k0)*-t0/(t1-t0);
-    kmid = (k0 + k1)/2.0;
-  }
-  std::cout << "power: " << kmid << std::endl;
-  double min_error_dist = 0.0;
-  for (int i = 0; i<num; i++)
-  {
-    min_error_dist += std::pow(sorted_dists[i], kmid);
-  }
-  min_error_dist = std::pow(min_error_dist / (double)num, 1.0/kmid);
-#endif
-
   // print results...
-  double similarity = 100.0;// * (double)min_error_i / (double)num;
-  std::cout << "shoulder distance: " << min_error_dist << " m, within: " << similarity << "%" << std::endl;
-  std::cout << "median difference: " << median_dist << " m, max difference: " << max_dist << " m" << std::endl;
+  double similarity = 100.0 * (double)min_error_i / (double)num;
 
+  std::cout << std::endl;
+  std::cout << "Differences:" << std::endl;
+  std::cout << std::endl;
+  std::cout << " shoulder difference:     " << min_error_dist << " m,\t" << similarity << "% inside" << std::endl;
+  std::cout << " median difference:       " << median_dist << " m,\t50% inside" << std::endl;
+#if defined GENERALISED_GAUSSIAN_ERROR
+  std::cout << " Root Mean power-K Error: " << RMKE << " m,\t" << similarity2 << "% inside, reliability factor (K): " << kmid << std::endl;
+#endif
+  std::cout << " max difference:          " << max_dist << " m,\t100% inside" << std::endl;
+  std::cout << std::endl;
+
+  std::cout << "saving out coloured red for matches beyond shoulder difference:" << std::endl;
   // now render visuals
   int j = 0;
   Eigen::Vector3d diff_col(255,0,0);
