@@ -21,7 +21,6 @@ void usage(int exit_code = 1)
   std::cout << "Difference between two ray clouds, differences coloured red, and similarity printed to screen. Optional visualisation." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
-  std::cout << "                              --metric 0    - diff metric: 0 single uniform, 1: double uniform" << std::endl;
   std::cout << "                              --visualise - open in the default visualisation tool" << std::endl;
   // clang-format on
   exit(exit_code);
@@ -72,10 +71,8 @@ void calcNearestNeighbourDistances(const ray::Cloud &cloud1, const ray::Cloud &c
 int rayDiff(int argc, char *argv[])
 {
   ray::FileArgument cloud1_name, cloud2_name;
-  ray::OptionalFlagArgument visualise("--visualise", 'v');
-  ray::IntArgument metric(0, 10, 0);
-  ray::OptionalKeyValueArgument metric_option("--metric", 'm', &metric);
-  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &metric_option, &visualise }))
+  ray::OptionalFlagArgument visualise("visualise", 'v');
+  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &visualise }))
   {
     usage();
   }
@@ -100,8 +97,6 @@ int rayDiff(int argc, char *argv[])
     max_dist = std::max(max_dist, dists_to_cloud2[i]);
   for (int i = 0; i<(int)dists_to_cloud1.size(); i++)
     max_dist = std::max(max_dist, dists_to_cloud1[i]);
-  int num1 = (int)dists_to_cloud1.size();
-  int num2 = (int)dists_to_cloud2.size();
 
   // 3. median distance
   std::vector<double> sorted_dists = dists_to_cloud2;
@@ -116,30 +111,19 @@ int rayDiff(int argc, char *argv[])
     double d = sorted_dists[i];
     sorted_dists[i] = d*d*d; // would use d*d if the points were planar
   }
- 
-  bool piecewise_linear = metric.value() == 1;
 
-  // 2. accumulate uniform term backwards
+  // 2. accumulate outside term backwards
   std::vector<double> outside_const(num+1, 0.0);
   std::vector<double> outside_linear(num+1, 0.0);
   std::vector<double> outside_square(num+1, 0.0);
   for (int i = num-1; i>=0; i--)
   {
-    if (piecewise_linear)
-    {
-      double d = sorted_dists.back() - sorted_dists[i];
-      double yN = (num-1);
-      double I = (double)i - yN;
-      outside_const[i] = outside_const[i+1] + I*I;
-      outside_linear[i] = outside_linear[i+1] + 2.0*I*d;
-      outside_square[i] = outside_square[i+1] + d*d;      
-    }
-    else
-    {
-      outside_const[i] = outside_const[i+1] + ray::sqr((double)i);
-      outside_linear[i] = outside_linear[i+1] - 2.0*(double)i;
-      outside_square[i] = outside_square[i+1] + 1.0;
-    }
+    double d = sorted_dists.back() - sorted_dists[i];
+    double yN = (num-1);
+    double I = (double)i - yN;
+    outside_const[i] = outside_const[i+1] + I*I;
+    outside_linear[i] = outside_linear[i+1] + 2.0*I*d;
+    outside_square[i] = outside_square[i+1] + d*d;      
   }
 
   // 3. accumulate linear term forwards, but store only best results
@@ -157,27 +141,17 @@ int rayDiff(int argc, char *argv[])
 
     // ai^2 + bi + c = 0
     double yN = (double)(num-1);
-    double a = 0, b = 0, c = 0;
-    if (piecewise_linear)
-    {
-      double d = sorted_dists.back() - sorted_dists[i];
-      double square = outside_square[i]/ray::sqr(d);
-      double linear = outside_linear[i]/d;
-      a = square;
-      b = -linear - 2.0*yN*square;
-      c = outside_const[i] + linear*yN + square*yN*yN; 
+    double d = sorted_dists.back() - sorted_dists[i];
+    double square = outside_square[i]/ray::sqr(d);
+    double linear = outside_linear[i]/d;
+    double a = square;
+    double b = -linear - 2.0*yN*square;
+    double c = outside_const[i] + linear*yN + square*yN*yN; 
 
-      // add the inside part
-      a += inside_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
-      b += inside_linear/sorted_dists[i];
-      c += inside_const;
-    }
-    else
-    {
-      a = outside_square[i] + inside_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
-      b = outside_linear[i] + inside_linear/sorted_dists[i];
-      c = outside_const[i] + inside_const;
-    }
+    // add the inside part
+    a += inside_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
+    b += inside_linear/sorted_dists[i];
+    c += inside_const;
 
     double min_i = -b/(2.0*a);  // the height y of the integrated readings
     double error_sqr = a*min_i*min_i + b*min_i + c;
