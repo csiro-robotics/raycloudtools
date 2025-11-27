@@ -27,7 +27,8 @@ void usage(int exit_code = 1)
   std::cout << "Difference between two ray clouds, differences coloured red, and similarity printed to screen. Optional visualisation." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
-  std::cout << "                              --visualise - open in the default visualisation tool" << std::endl;
+  std::cout << "                              --distance 0 - specify a threshold in m for colouring differences. Default auto-detects" << std::endl;
+  std::cout << "                              --visualise  - open in the default visualisation tool" << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -144,7 +145,9 @@ int rayDiff(int argc, char *argv[])
 {
   ray::FileArgument cloud1_name, cloud2_name;
   ray::OptionalFlagArgument visualise("visualise", 'v');
-  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &visualise }))
+  ray::DoubleArgument distance_threshold(0.0, 1000.0, 0.0);
+  ray::OptionalKeyValueArgument distance_option("distance", 'd', &distance_threshold);
+  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &distance_option, &visualise }))
   {
     usage();
   }
@@ -162,7 +165,6 @@ int rayDiff(int argc, char *argv[])
   calcNearestNeighbourDistances(cloud1, cloud2, dists_to_cloud2);
   std::cout << "calculating cloud1 neighbours of cloud2..." << std::endl;
   calcNearestNeighbourDistances(cloud2, cloud1, dists_to_cloud1);
-  std::cout << "sorting differences..." << std::endl;
 
   // 1. max distance
   double max_dist = 0.0;
@@ -173,50 +175,70 @@ int rayDiff(int argc, char *argv[])
 
   std::vector<double> sorted_dists = dists_to_cloud2;
   sorted_dists.insert(sorted_dists.end(), dists_to_cloud1.begin(), dists_to_cloud1.end());
-  std::sort(sorted_dists.begin(), sorted_dists.end());
 
-  double min_error = 0;
-  double min_error_dist = 0.0;
+  double min_error_dist = distance_threshold.value();
   double similarity = 0;
-  int min_i = 0;
-  double k = 2.0; // good default as point clouds are typically surfaces
 
-#if defined FIND_CORRELATION_DIMENSION
-  double errors[5];
-  std::cout << "(uniform deviations: ";
-  for (int i = 0; i<5; i++)
+  if (distance_option.isSet())
   {
-    double k = 1.0 + (double)i/2.0;
-    errors[i] = getShoulder(k, sorted_dists, min_error_dist, similarity);
-    std::cout << "k " << k << ": " << errors[i];
-    if (errors[i] < min_error || i==0)
+    std::cout << std::endl;
+    std::cout << "Differences:" << std::setprecision(3) << std::fixed << std::endl;
+    std::cout << std::endl;
+    int inside_count = 0;
+    for (int i = 0; i<(int)sorted_dists.size(); i++)
     {
-      min_error = errors[i];
-      min_i = i;
+      if (sorted_dists[i] <= min_error_dist)
+      {
+        inside_count++;
+      }
     }
+    similarity = 100.0*(double)inside_count / (int)sorted_dists.size();
+    std::cout << " specified difference:    " << min_error_dist << " m,\t" << similarity << "% inside" << std::endl;
   }
-  std::cout << ")" << std::endl;
-  k = 1.0 + min_i/2.0;
-  min_i = std::max(1, std::min(min_i, 3)); // so we can interpolate
-
-  double y0 = errors[min_i-1];
-  double y1 = errors[min_i];
-  double y2 = errors[min_i+1];
-  double den = y2 - 2.0*y1 + y0;
-  if (den > 0.0)
+  else
   {
-    double xmin = (y2 - 4.0*y1 + 3.0*y0)/(2.0*den);
-    xmin = std::max(0.0, std::min(xmin, 2.0)); // clamp
-    double I = (double)min_i - 1.0 + xmin;
-    k = 1.0 + I/2.0;
-  }
-#endif
+    std::cout << "sorting differences..." << std::endl;
+    std::sort(sorted_dists.begin(), sorted_dists.end());
+    double min_error = 0;
+    int min_i = 0;
+    double k = 2.0; // good default as point clouds are typically surfaces
+  #if defined FIND_CORRELATION_DIMENSION
+    double errors[5];
+    std::cout << "(uniform deviations: ";
+    for (int i = 0; i<5; i++)
+    {
+      double k = 1.0 + (double)i/2.0;
+      errors[i] = getShoulder(k, sorted_dists, min_error_dist, similarity);
+      std::cout << "k " << k << ": " << errors[i];
+      if (errors[i] < min_error || i==0)
+      {
+        min_error = errors[i];
+        min_i = i;
+      }
+    }
+    std::cout << ")" << std::endl;
+    k = 1.0 + min_i/2.0;
+    min_i = std::max(1, std::min(min_i, 3)); // so we can interpolate
 
-  std::cout << std::endl;
-  std::cout << "Differences:" << std::setprecision(3) << std::fixed << std::endl;
-  std::cout << std::endl;
-  min_error = getShoulder(k, sorted_dists, min_error_dist, similarity);
-  std::cout << " shoulder difference:     " << min_error_dist << " m,\t" << similarity << "% inside, correlation dimension: " << k << std::endl;
+    double y0 = errors[min_i-1];
+    double y1 = errors[min_i];
+    double y2 = errors[min_i+1];
+    double den = y2 - 2.0*y1 + y0;
+    if (den > 0.0)
+    {
+      double xmin = (y2 - 4.0*y1 + 3.0*y0)/(2.0*den);
+      xmin = std::max(0.0, std::min(xmin, 2.0)); // clamp
+      double I = (double)min_i - 1.0 + xmin;
+      k = 1.0 + I/2.0;
+    }
+  #endif
+
+    std::cout << std::endl;
+    std::cout << "Differences:" << std::setprecision(3) << std::fixed << std::endl;
+    std::cout << std::endl;
+    min_error = getShoulder(k, sorted_dists, min_error_dist, similarity);
+    std::cout << " shoulder difference:     " << min_error_dist << " m,\t" << similarity << "% inside, correlation dimension: " << k << std::endl;
+  }
   std::cout << " median difference:       " << sorted_dists[sorted_dists.size()/2] << " m" << std::endl;
   std::cout << " max difference:          " << max_dist << " m" << std::endl;
   std::cout << std::endl;
