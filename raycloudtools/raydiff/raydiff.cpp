@@ -27,7 +27,7 @@ void usage(int exit_code = 1)
   std::cout << "Difference between two ray clouds, differences coloured red, and similarity printed to screen. Optional visualisation." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
-  std::cout << "                              --distance 0 - specify a threshold in m for colouring differences. Default auto-detects" << std::endl;
+  std::cout << "                              --distance 0 - optional threshold in m for colouring differences. Default auto-detects distribution shoulder" << std::endl;
   std::cout << "                              --visualise  - open in the default visualisation tool" << std::endl;
   // clang-format on
   exit(exit_code);
