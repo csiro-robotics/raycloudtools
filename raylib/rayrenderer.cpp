@@ -284,6 +284,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         continue; // ray is outside of bounds
       }
       bounded_ = colours[i].alpha > 0;
+      intensity_ = bounded_ ? ((float)colours[i].alpha)/100.0f : 1.0f; // 100 is default 'full intensity'
       walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
     }
   };
@@ -588,7 +589,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         }
         case RenderStyle::Sum:
         case RenderStyle::Density:
-          col3d /= max_val;  // rescale to within limited colour range
+          if (!is_hdr)
+            col3d /= max_val;  // rescale to within limited colour range
           break;
         case RenderStyle::Density_rgb:
         {

@@ -30,6 +30,8 @@ void usage(int exit_code = 1)
   std::cout << "                               height      - render the maximum heights in the view axis" << std::endl;
   std::cout << "                               density     - shade according to estimated density within pixel" << std::endl;
   std::cout << "                               density_rgb - r->g->b colour by estimated density" << std::endl;
+  std::cout << "                                           - Note: densities weight by return intensity (alpha) with alpha=100 for non-returns." << std::endl;
+  std::cout << "                                           - use rayimport --max_intensity to scale, or raycolour alpha 1 to disable weighting." << std::endl;
   std::cout << "                     --resolution 512      - long axis resolution" << std::endl;
   std::cout << "                     --output name.png     - optional output file name. " << std::endl;
   std::cout << "                                             Supports .png, .tga, .hdr, .jpg, .bmp" << std::endl;
