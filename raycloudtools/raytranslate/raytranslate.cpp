@@ -20,8 +20,8 @@ void usage(int exit_code = 1)
   std::cout << "usage:" << std::endl;
   std::cout << "raytranslate raycloud 0,0,1 - translation (x,y,z) in metres" << std::endl;
   std::cout << "                      0,0,1,24.3 - optional 4th component translates time" << std::endl;
-  std::cout << "raytranslate raycloud subtract ground_mesh.ply  - translate vertically to remove ground_mesh heights" << std::endl;
-  std::cout << "raytranslate raycloud add ground_mesh.ply- translate vertically to add ground_mesh heights" << std::endl;
+  std::cout << "                      subtract ground_mesh.ply  - translate vertically to remove ground_mesh heights" << std::endl;
+  std::cout << "                      add ground_mesh.ply- translate vertically to add ground_mesh heights" << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -63,7 +63,20 @@ int rayTranslate(int argc, char *argv[])
     {
       usage();
     }
-    ground_mesh.toHeightField(ground_heights, info.ends_bound.min_bound_, info.ends_bound.max_bound_, voxel_width);
+    // the toHeightfield function only casts rays from max_bound[2] down to min_bound[2], so set these according to
+    // ground_file's extents, not cloud_file's extents.
+    Eigen::Vector3d min_bound = info.ends_bound.min_bound_;
+    Eigen::Vector3d max_bound = info.ends_bound.max_bound_;
+    min_bound[2] = std::numeric_limits<double>::max();
+    max_bound[2] = std::numeric_limits<double>::lowest();
+    for (auto &vert: ground_mesh.vertices())
+    {
+      min_bound[2] = std::min(min_bound[2], vert[2]);
+      max_bound[2] = std::max(max_bound[2], vert[2]);
+    }
+    min_bound[2] -= 0.1;
+    max_bound[2] += 0.1;
+    ground_mesh.toHeightField(ground_heights, min_bound, max_bound, voxel_width);
   }
 
   const std::string temp_name = cloud_file.nameStub() + "~.ply";  // tilde is a common suffix for temporary files
