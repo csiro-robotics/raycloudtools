@@ -10,6 +10,7 @@
 
 #include "raycloud.h"
 #include "rayutils.h"
+#include "rayunused.h"
 
 namespace ray
 {
@@ -67,7 +68,66 @@ private:
   std::string texture_name_; // optional texture to use if UVs are specifies
 };
 
+class Triangle
+{
+public:
+  Eigen::Vector3d corners[3];
+  Eigen::Vector3d normal;
+  bool tested;
+  bool intersectsRay(const Eigen::Vector3d &ray_start, const Eigen::Vector3d &ray_end, double &depth)
+  {
+    // 1. plane test:
+    double d1 = (ray_start - corners[0]).dot(normal);
+    double d2 = (ray_end - corners[0]).dot(normal);
+    if (d1 * d2 > 0.0)
+      return false;
 
+    depth = d1 / (d1 - d2);
+    Eigen::Vector3d contact_point = ray_start + (ray_end - ray_start) * depth;
+
+    // next we have to test every sideways direction
+    for (int i = 0; i < 3; i++)
+    {
+      Eigen::Vector3d side = (corners[(i + 1) % 3] - corners[i]).cross(normal);
+      if ((contact_point - corners[i]).dot(side) >= 0.0)
+        return false;
+    }
+    return true;
+  }
+  double distSqrToPoint(const Eigen::Vector3d &point)
+  {
+    Eigen::Vector3d pos = point - normal * (point - corners[0]).dot(normal);
+    bool outs[3];
+    double ds[3];
+    Eigen::Vector3d sides[3];
+    for (int i = 0; i < 3; i++)
+    {
+      sides[i] = (corners[(i + 1) % 3] - corners[i]).cross(normal);
+      ds[i] = (pos - corners[i]).dot(sides[i]);
+      outs[i] = ds[i] > 0.0;
+    }
+    if (outs[0] && outs[1])
+      pos = corners[1];
+    else if (outs[1] && outs[2])
+      pos = corners[2];
+    else if (outs[2] && outs[0])
+      pos = corners[0];
+    else if (outs[0])
+      pos -= sides[0] * ds[0] / sides[0].squaredNorm();
+    else if (outs[1])
+      pos -= sides[1] * ds[1] / sides[1].squaredNorm();
+    else if (outs[2])
+      pos -= sides[2] * ds[2] / sides[2].squaredNorm();
+    return (point - pos).squaredNorm();
+  }
+  bool intersectsCube(const Eigen::Vector3d &cube_min, double cube_width)
+  {
+    RAYLIB_UNUSED(cube_min);
+    RAYLIB_UNUSED(cube_width);
+    // TODO: fill in
+    return true;
+  }
+};
 }  // namespace ray
 
 #endif  // RAYLIB_RAYMESH_H
