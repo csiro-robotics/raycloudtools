@@ -588,7 +588,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         }
         case RenderStyle::Sum:
         case RenderStyle::Density:
-          col3d /= max_val;  // rescale to within limited colour range
+          if (!is_hdr)
+            col3d /= max_val;  // rescale to within limited colour range
           break;
         case RenderStyle::Density_rgb:
         {
