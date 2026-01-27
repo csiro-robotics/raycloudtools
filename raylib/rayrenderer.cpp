@@ -269,6 +269,30 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
 }
 #endif
 
+void DensityGrid::calculatePeaks(const std::string &file_name)
+{
+  auto calc_peaks = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &,
+                       std::vector<RGBA> &colours) {
+    for (size_t i = 0; i < ends.size(); ++i)
+    {
+      Eigen::Vector3d start = starts[i];
+      Eigen::Vector3d end = ends[i];
+      if (!bounds_.clipRay(start, end, 1e-10))
+      {
+        continue; // ray is outside of bounds
+      }
+      if (colours[i].alpha > 0)
+      {
+        const Eigen::Vector3d vox_end = (end - bounds_.min_bound_) / voxel_width_;
+        const Eigen::Vector3i target = Eigen::Vector3d(std::floor(vox_end[0]), std::floor(vox_end[1]), std::floor(vox_end[2])).cast<int>();
+        int peak_id = target[0] + target[1] * voxel_dims_[0];
+        peaks_[peak_id] = std::max(peaks_[peak_id], vox_end[2]);
+      }
+    }
+  };
+  Cloud::read(file_name, calc_peaks); 
+}
+
 /// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
 /// of surface angles.
 void DensityGrid::calculateDensities(const std::string &file_name)
@@ -286,11 +310,9 @@ void DensityGrid::calculateDensities(const std::string &file_name)
       bounded_ = colours[i].alpha > 0;
       const Eigen::Vector3d vox_start = (start - bounds_.min_bound_) / voxel_width_;
       const Eigen::Vector3d vox_end = (end - bounds_.min_bound_) / voxel_width_;
+      source_ = vox_start;
+      dir_ = (vox_end - vox_start).normalized();
       walkGrid(vox_start, vox_end, *this);
-      const Eigen::Vector3i target = Eigen::Vector3d(std::floor(vox_end[0]), std::floor(vox_end[1]), std::floor(vox_end[2])).cast<int>();
-
-      int peak_id = target[0] + target[1] * voxel_dims_[0];
-      peaks_[peak_id] = std::max(peaks_[peak_id], vox_end[2]);
     }
   };
   Cloud::read(file_name, calculate);
@@ -299,6 +321,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 // When the cloud has a sharp change in density at the top (e.g. grass or wheat field) between air and the crop, then
 // this function adjusts the density estimation based on this two-phase density, rather than assuming the top voxel is 
 // uniform density
+
 void DensityGrid::flatTopCompensation()
 {
   for (int x = 0; x < voxel_dims_[0]; x++)
@@ -313,19 +336,12 @@ void DensityGrid::flatTopCompensation()
         continue;
       int ind = getIndex(Eigen::Vector3i(x,y,z));
 
-      // num hits and num rays doesn't change, but pathlength should be reduced....
-      float air_height = p - (float)z;
-      std::cout << "height: " << air_height << std::endl;
-      // the below works if we assume all rays have been travelling downwards....
-
-      // this is a rough first approximation. 
-      // better would be to change it inside the ray walking where you know the angle....
-      // but this requires knowing the peaks before you do the ray walking....
-      voxels_[ind].pathLength() *= std::max(0.01f, air_height);
+      float r = voxels_[ind].numRays();
+      voxels_[ind].numHits() *= (r - 2.0f)/(r - 1.0f); // unbiased estimator reduces density estimation slightly in a manner that is equivalent to choosing a grass height slightly above the peak point height
     }
   }
-
 }
+
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
 void DensityGrid::addNeighbourPriors()
 {
@@ -462,16 +478,19 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     if (style == RenderStyle::Density || style == RenderStyle::Density_rgb)
     {
       Eigen::Vector3i dims = (extent / pix_width).cast<int>() + Eigen::Vector3i(1, 1, 1);
-#if DENSITY_MIN_RAYS > 0
-      dims += Eigen::Vector3i(1, 1, 1);  // so that we have extra space to convolve
-#endif
       Cuboid grid_bounds = bounds;
+#if DENSITY_MIN_RAYS > 0
+      dims += Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
       grid_bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
+#endif
       DensityGrid grid(grid_bounds, pix_width, dims);
 
+      grid.calculatePeaks(cloud_file);
       grid.calculateDensities(cloud_file);
       grid.flatTopCompensation();
+#if DENSITY_MIN_RAYS > 0
       grid.addNeighbourPriors();
+#endif
 
       for (int x = 0; x < width; x++)
       {
@@ -484,10 +503,10 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[axis] = z;
             ind[ax1] = x;
             ind[ax2] = y;
-            float d = grid.voxels()[grid.getIndex(ind)].density();
-            if (d > 1000.0)
+            double d = grid.voxels()[grid.getIndex(ind)].density();
+            if (d > 100.0)
             {
-              std::cout << grid.voxels()[grid.getIndex(ind)].pathLength() << ", " << grid.voxels()[grid.getIndex(ind)].numHits() << std::endl;
+              std::cout << "d = " << d << ", len: " << grid.voxels()[grid.getIndex(ind)].pathLength() << ", " << grid.voxels()[grid.getIndex(ind)].numHits() << std::endl;
               d = 0.1;
             }
             total_density += grid.voxels()[grid.getIndex(ind)].density();
