@@ -65,6 +65,7 @@ struct RAYLIB_EXPORT DensityGrid
     , voxel_dims_(dims)
   {
     voxels_.resize(dims[0] * dims[1] * dims[2]);
+    peaks_.resize(dims[0] * dims[1], std::numeric_limits<double>::lowest());
   }
 
   /// This specific voxel class represents a density
@@ -87,6 +88,7 @@ struct RAYLIB_EXPORT DensityGrid
     inline const float &numHits() const { return num_hits_; }
     inline const float &numRays() const { return num_rays_; }
     inline const float &pathLength() const { return path_length_; }
+    inline float &pathLength() { return path_length_; }
 
   private:
     float num_hits_;
@@ -96,6 +98,7 @@ struct RAYLIB_EXPORT DensityGrid
 
   /// This streams in a ray cloud file, and fills in the voxel density information
   void calculateDensities(const std::string &file_name);
+  void flatTopCompensation();
   /// To void low-ray-count voxels giving unstable density estimates, we fuse with neighbour information
   /// up to a specified minimum number of rays. Specified in DENSITY_MIN_RAYS
   void addNeighbourPriors();
@@ -113,6 +116,7 @@ struct RAYLIB_EXPORT DensityGrid
 private:
   Cuboid bounds_;
   std::vector<Voxel> voxels_;
+  std::vector<double> peaks_; // highest points
   double voxel_width_;
   Eigen::Vector3i voxel_dims_;
   bool bounded_;
