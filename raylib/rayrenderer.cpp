@@ -301,21 +301,26 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 // uniform density
 void DensityGrid::flatTopCompensation()
 {
-  for (int x = 1; x < voxel_dims_[0] - 1; x++)
+  for (int x = 0; x < voxel_dims_[0]; x++)
   {
-    for (int y = 1; y < voxel_dims_[1] - 1; y++)
+    for (int y = 0; y < voxel_dims_[1]; y++)
     {
-      int z = (int)std::floor(peaks_[x + voxel_dims_[0]*y]);
+      double p = peaks_[x + voxel_dims_[0]*y];
+      if (p < -10000.0)
+        continue;
+      int z = (int)std::floor(p);
+      if (z < 0 || z >= voxel_dims_[2])
+        continue;
       int ind = getIndex(Eigen::Vector3i(x,y,z));
 
       // num hits and num rays doesn't change, but pathlength should be reduced....
-      float air_height = (1.0 - (peaks_[x + voxel_dims_[0]*y] - (float)z)) * voxel_width_;
+      float air_height = p - (float)z;
       // the below works if we assume all rays have been travelling downwards....
 
       // this is a rough first approximation. 
       // better would be to change it inside the ray walking where you know the angle....
       // but this requires knowing the peaks before you do the ray walking....
-      voxels_[ind].pathLength() -= air_height * voxels_[ind].numRays();
+      voxels_[ind].pathLength() *= std::max(0.01f, air_height);
     }
   }
 
@@ -478,9 +483,17 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[axis] = z;
             ind[ax1] = x;
             ind[ax2] = y;
+            float d = grid.voxels()[grid.getIndex(ind)].density();
+            if (d > 1000.0)
+            {
+              std::cout << grid.voxels()[grid.getIndex(ind)].pathLength() << ", " << grid.voxels()[grid.getIndex(ind)].numHits() << std::endl;
+              d = 0.1;
+            }
             total_density += grid.voxels()[grid.getIndex(ind)].density();
           }
           pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
+          if (x <= 4 && y <= 4)
+            pixels[x+width*y] = Eigen::Vector4d(0,0,0,0);
         }
       }
     }
