@@ -196,10 +196,6 @@ inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vecto
   {
     double t = (in_height - peak)/(in_height - end_height);
     in_length += (end_length - in_length) * std::max(0.0, std::min(t, 1.0));
-    if (in_length > max_length - 0.2)
-    {
-      in_length = max_length - 0.2;
-    }
   }
 
   if (p == target && bounded_)
