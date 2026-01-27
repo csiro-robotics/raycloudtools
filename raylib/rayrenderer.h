@@ -115,10 +115,11 @@ struct RAYLIB_EXPORT DensityGrid
   inline double voxelWidth() const { return voxel_width_; }
   // used in walking grid only
   inline bool operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length);
+
+  std::vector<double> peaks_; // highest points
 private:
   Cuboid bounds_;
   std::vector<Voxel> voxels_;
-  std::vector<double> peaks_; // highest points
   double voxel_width_;
   Eigen::Vector3i voxel_dims_;
   bool bounded_;

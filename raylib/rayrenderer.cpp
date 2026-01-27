@@ -496,6 +496,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       {
         for (int y = 0; y < height; y++)
         {
+          double p = grid.peaks_[(x+1) + grid.dimensions()[0]*(y+1)]; // before it was sneakily shifted!
+          int top_z = p < -10000.0 ? -1 : (int)std::floor(p);
+
           double total_density = 0.0;
           for (int z = 0; z < depth; z++)
           {
@@ -504,16 +507,18 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[ax1] = x;
             ind[ax2] = y;
             double d = grid.voxels()[grid.getIndex(ind)].density();
+            if (z == top_z-1)
+            {
+              d *= p - (double)top_z;
+            }
             if (d > 100.0)
             {
               std::cout << "d = " << d << ", len: " << grid.voxels()[grid.getIndex(ind)].pathLength() << ", " << grid.voxels()[grid.getIndex(ind)].numHits() << std::endl;
               d = 0.1;
             }
-            total_density += grid.voxels()[grid.getIndex(ind)].density();
+            total_density += d;
           }
           pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
-          if (x <= 4 && y <= 4)
-            pixels[x+width*y] = Eigen::Vector4d(0,0,0,0);
         }
       }
     }
