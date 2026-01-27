@@ -284,12 +284,42 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         continue; // ray is outside of bounds
       }
       bounded_ = colours[i].alpha > 0;
-      walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
+      const Eigen::Vector3d vox_start = (start - bounds_.min_bound_) / voxel_width_;
+      const Eigen::Vector3d vox_end = (end - bounds_.min_bound_) / voxel_width_;
+      walkGrid(vox_start, vox_end, *this);
+      const Eigen::Vector3i target = Eigen::Vector3d(std::floor(vox_end[0]), std::floor(vox_end[1]), std::floor(vox_end[2])).cast<int>();
+
+      int peak_id = target[0] + target[1] * voxel_dims_[0];
+      peaks_[peak_id] = std::max(peaks_[peak_id], vox_end[2]);
     }
   };
   Cloud::read(file_name, calculate);
 }
 
+// When the cloud has a sharp change in density at the top (e.g. grass or wheat field) between air and the crop, then
+// this function adjusts the density estimation based on this two-phase density, rather than assuming the top voxel is 
+// uniform density
+void DensityGrid::flatTopCompensation()
+{
+  for (int x = 1; x < voxel_dims_[0] - 1; x++)
+  {
+    for (int y = 1; y < voxel_dims_[1] - 1; y++)
+    {
+      int z = (int)std::floor(peaks_[x + voxel_dims_[0]*y]);
+      int ind = getIndex(Eigen::Vector3i(x,y,z));
+
+      // num hits and num rays doesn't change, but pathlength should be reduced....
+      float air_height = (1.0 - (peaks_[x + voxel_dims_[0]*y] - (float)z)) * voxel_width_;
+      // the below works if we assume all rays have been travelling downwards....
+
+      // this is a rough first approximation. 
+      // better would be to change it inside the ray walking where you know the angle....
+      // but this requires knowing the peaks before you do the ray walking....
+      voxels_[ind].pathLength() -= air_height * voxels_[ind].numRays();
+    }
+  }
+
+}
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
 void DensityGrid::addNeighbourPriors()
 {
@@ -434,7 +464,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       DensityGrid grid(grid_bounds, pix_width, dims);
 
       grid.calculateDensities(cloud_file);
-
+      grid.flatTopCompensation();
       grid.addNeighbourPriors();
 
       for (int x = 0; x < width; x++)
