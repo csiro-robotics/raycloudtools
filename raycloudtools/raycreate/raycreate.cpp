@@ -81,7 +81,7 @@ int rayCreate(int argc, char *argv[])
     double height_gradient = 0.0;
     double density_gradient = 0.0;
     double crop_density = random(0.04, 0.5);
-    double ray_density = random(200.0, 800.0); // rays per square metre
+    double ray_density = random(400.0, 1600.0); // rays per square metre
     int num_rays = (int)(ray_density * 4.0 * half_width*half_width);
     if (random(0.0,1.0) < 0.5 && seed.value() != 1)
       height_gradient = random(-crop_height/half_width, crop_height/half_width);
