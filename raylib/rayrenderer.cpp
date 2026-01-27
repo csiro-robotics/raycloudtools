@@ -315,6 +315,7 @@ void DensityGrid::flatTopCompensation()
 
       // num hits and num rays doesn't change, but pathlength should be reduced....
       float air_height = p - (float)z;
+      std::cout << "height: " << air_height << std::endl;
       // the below works if we assume all rays have been travelling downwards....
 
       // this is a rough first approximation. 
