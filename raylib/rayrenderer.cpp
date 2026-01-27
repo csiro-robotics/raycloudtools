@@ -480,6 +480,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       Eigen::Vector3i dims = (extent / pix_width).cast<int>() + Eigen::Vector3i(1, 1, 1);
       Cuboid grid_bounds = bounds;
 #if DENSITY_MIN_RAYS > 0
+      // TODO: should this be +2 or +1??
       dims += Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
       grid_bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
 #endif
@@ -496,6 +497,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       {
         for (int y = 0; y < height; y++)
         {
+          // TODO: what all this peak stuff in a single #define
+          // TODO: get rid of +1 by getting rid of sneaky shift
           double p = grid.peaks_[(x+1) + grid.dimensions()[0]*(y+1)]; // before it was sneakily shifted!
           int top_z = p < -10000.0 ? -1 : (int)std::floor(p);
 
@@ -507,14 +510,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[ax1] = x;
             ind[ax2] = y;
             double d = grid.voxels()[grid.getIndex(ind)].density();
-            if (z == top_z-1)
+            if (z == top_z-1) // TODO: get rid of -1 by getting rid of sneaky shift
             {
               d *= p - (double)top_z;
-            }
-            if (d > 100.0)
-            {
-              std::cout << "d = " << d << ", len: " << grid.voxels()[grid.getIndex(ind)].pathLength() << ", " << grid.voxels()[grid.getIndex(ind)].numHits() << std::endl;
-              d = 0.1;
             }
             total_density += d;
           }
