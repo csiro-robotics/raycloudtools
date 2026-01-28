@@ -82,11 +82,18 @@ int rayCreate(int argc, char *argv[])
     double density_gradient = 0.0;
     double crop_density = random(0.04, 0.5);
     double ray_density = random(400.0, 1600.0); // rays per square metre
+    std::cout << "Creating field of width " << 2.0*half_width << " m, height: " << crop_height << " m, crop density " << crop_density << " and " << ray_density << " vertical rays per m^2" << std::endl;
     int num_rays = (int)(ray_density * 4.0 * half_width*half_width);
     if (random(0.0,1.0) < 0.5 && seed.value() != 1)
+    {
       height_gradient = random(-crop_height/half_width, crop_height/half_width);
+      std::cout << "height gradient in y: " << height_gradient << std::endl;
+    }
     if (random(0.0, 1.0) < 0.5)
+    {
       density_gradient = random(-crop_density/half_width, crop_density/half_width);  
+      std::cout << "density gradient in x: " << density_gradient << std::endl;
+    }
 
     for (int i = 0; i<num_rays; i++)
     {

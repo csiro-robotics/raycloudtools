@@ -197,7 +197,7 @@ inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vecto
   if (dir_[2] < 0.0 && in_height > peak && end_height <= peak) // currently only supported on downwards rays
   {
     double t = (in_height - peak)/(in_height - end_height);
-    in_length += (end_length - in_length) * std::max(0.0, std::min(t, 1.0));
+    in_length += (end_length - in_length) * std::max(0.0, std::min(t, 0.99)); // 0.99 because 1 can cause very tiny distances, which can give density outliers
   }
 #endif
 
