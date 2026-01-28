@@ -74,7 +74,7 @@ int rayCreate(int argc, char *argv[])
     const std::vector<bool> &bounded = room_gen.rayBounded();
     for (int i = 0; i < (int)cloud.colours.size(); i++) cloud.colours[i].alpha = bounded[i] ? 255 : 0;
   }
-  else if (type == "field")
+  else if (type == "field") // like a field of wheat. The rays follow a Beer/Lambert law in their depth
   {
     double half_width = random(5.0, 20.0);
     double crop_height = random(0.2, 1.5);
