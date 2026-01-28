@@ -321,7 +321,6 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 // When the cloud has a sharp change in density at the top (e.g. grass or wheat field) between air and the crop, then
 // this function adjusts the density estimation based on this two-phase density, rather than assuming the top voxel is 
 // uniform density
-
 void DensityGrid::flatTopCompensation()
 {
   for (int x = 0; x < voxel_dims_[0]; x++)
@@ -497,7 +496,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
 #if DENSITY_MIN_RAYS > 0
       grid.addNeighbourPriors();
 #endif
-
+      double foliage_area = 0.0;
       for (int x = 0; x < width; x++)
       {
         for (int y = 0; y < height; y++)
@@ -513,15 +512,19 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[ax1] = x;
             ind[ax2] = y;
             double d = grid.voxels()[grid.getIndex(ind)].density();
+#if defined FLAT_TOP_COMPENSATION
             if (z == top_z-shift) 
             {
               d *= p - (double)top_z;
             }
-            total_density += d;
+#endif
+            total_density += d * pix_width;
           }
+          foliage_area += total_density * pix_width * pix_width;
           pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
         }
       }
+      std::cout << "total foliage area: " << foliage_area << " m^2" << std::endl;
     }
     else  // otherwise we use a common algorithm, specialising on render style only per-ray
     {
