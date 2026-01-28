@@ -9,6 +9,7 @@
 #include "raycuboid.h"
 #include "raypose.h"
 #include "rayutils.h"
+#define FLAT_TOP_COMPENSATION // use a 2-medium model for the top of the cloud, so only the cloud's density is estimated, not the air above it
 
 namespace ray
 {
@@ -186,17 +187,19 @@ int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
 inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length)
 {
   int index = getIndex(p);
+  double end_length = std::min(out_length, max_length);
 
+#if defined FLAT_TOP_COMPENSATION
   int peak_id = p[0] + p[1] * voxel_dims_[0];
   double peak = peaks_[peak_id];
   double in_height = source_[2] + dir_[2]*in_length;
-  double end_length = std::min(out_length, max_length);
   double end_height = source_[2] + dir_[2]*end_length;
   if (dir_[2] < 0.0 && in_height > peak && end_height <= peak) // currently only supported on downwards rays
   {
     double t = (in_height - peak)/(in_height - end_height);
     in_length += (end_length - in_length) * std::max(0.0, std::min(t, 1.0));
   }
+#endif
 
   if (p == target && bounded_)
   {

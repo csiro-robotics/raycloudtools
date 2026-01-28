@@ -479,16 +479,21 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     {
       Eigen::Vector3i dims = (extent / pix_width).cast<int>() + Eigen::Vector3i(1, 1, 1);
       Cuboid grid_bounds = bounds;
+      int shift = 0;
 #if DENSITY_MIN_RAYS > 0
-      // TODO: should this be +2 or +1??
-      dims += Eigen::Vector3i(2, 2, 2);  // so that we have extra space to convolve
+      shift = 1;
+      dims += 2*Eigen::Vector3i(shift, shift, shift);  // so that we have extra space to convolve
       grid_bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
 #endif
       DensityGrid grid(grid_bounds, pix_width, dims);
 
+#if defined FLAT_TOP_COMPENSATION
       grid.calculatePeaks(cloud_file);
+#endif
       grid.calculateDensities(cloud_file);
+#if defined FLAT_TOP_COMPENSATION
       grid.flatTopCompensation();
+#endif
 #if DENSITY_MIN_RAYS > 0
       grid.addNeighbourPriors();
 #endif
@@ -497,9 +502,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       {
         for (int y = 0; y < height; y++)
         {
-          // TODO: what all this peak stuff in a single #define
-          // TODO: get rid of +1 by getting rid of sneaky shift
-          double p = grid.peaks_[(x+1) + grid.dimensions()[0]*(y+1)]; // before it was sneakily shifted!
+          double p = grid.peaks_[(x+shift) + grid.dimensions()[0]*(y+shift)]; // the location before it was shifted
           int top_z = p < -10000.0 ? -1 : (int)std::floor(p);
 
           double total_density = 0.0;
@@ -510,7 +513,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[ax1] = x;
             ind[ax2] = y;
             double d = grid.voxels()[grid.getIndex(ind)].density();
-            if (z == top_z-1) // TODO: get rid of -1 by getting rid of sneaky shift
+            if (z == top_z-shift) 
             {
               d *= p - (double)top_z;
             }
