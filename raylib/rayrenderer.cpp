@@ -336,7 +336,8 @@ void DensityGrid::flatTopCompensation()
       int ind = getIndex(Eigen::Vector3i(x,y,z));
 
       float r = voxels_[ind].numRays();
-      voxels_[ind].numHits() *= (r - 2.0f)/(r - 1.0f); // unbiased estimator reduces density estimation slightly in a manner that is equivalent to choosing a grass height slightly above the peak point height
+      if (r > 2.0f)
+        voxels_[ind].numHits() *= (r - 2.0f)/(r - 1.0f); // unbiased estimator reduces density estimation slightly in a manner that is equivalent to choosing a grass height slightly above the peak point height
     }
   }
 }
