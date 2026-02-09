@@ -236,7 +236,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       ss >> datum;
       if (!ss.fail())  // we are using a direct number here, so
       {
-        GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, datum);
+        GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, datum);
       }
       else
       {
