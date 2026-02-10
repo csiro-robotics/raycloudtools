@@ -108,7 +108,8 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       return false;
     }
     // the set of keys in the key-value pairs that we are parsing
-    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0", "+zone" };
+    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0", "+zone", "+south" };
+    bool is_south = false;
     std::vector<std::string> values;
     int zone_value = KvUserDefined;
     for (const auto &key : keys)
@@ -133,6 +134,11 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       }
       // generate the list of values that correspond to the list of keys
       found += key.length() + 1;
+      if (key == "+south")
+      {
+        is_south = true;
+        continue; // don't need to set any value
+      }
       std::string::size_type space = line.find(" ", found);
       if (space == std::string::npos)
         space = line.length();
@@ -167,6 +173,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       zone_value = std::stoi(values[8]);
       std::cout << "zone?: " << zone_value << std::endl;
     }
+
     std::cout << "proj: " << values[0] << ", geooffset: " << geo_offset.transpose() << ", geokey: " << values[1] << ", datum: " << values[2]
               << ", coord_long: " << coord_long << " zone: " << zone_value << std::endl;
 
@@ -200,6 +207,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         std::cout << "unknown projection type: " << values[0] << std::endl;
         return false;
       }   
+    }
+    if (is_south)
+    {
+      GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, 10000000.0); // false northing
+      // Usually paired with the Latitude of Natural Origin (Equator)
+      GTIFKeySet(gtif, ProjNatOriginLatGeoKey, TYPE_DOUBLE, 1, 0.0);
     }
 
     // describe the coordinates of the image corners
