@@ -7,6 +7,18 @@ Ray clouds represent free space as well as surfaces. This allows processing that
 
 This is an open-source research library, a place to release new techniques in ray cloud analysis and manipulation. So if you would like to contribute with a new or improved method, do suggest it in our discussions page: https://github.com/csiro-robotics/raycloudtools/discussions.
 
+## Citation
+
+If you use the RayCloudTools library in your reseach, please cite:
+
+> Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
+
+> Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
+
+If you use RayExtract (`rayextract trees` or `rayextract terrain`) for tree or forest reconstruction, please cite:
+
+> Devereux, T., Lowe, T., Rivory, J., Reckziegel, R. B., Calders, K., Aryal, R. R., Eaton, G., Cooper, Z., Levick, S., Phinn, S., & Woodgate, W. (2026). RayExtract: A fast, scalable method for tree volume reconstruction from terrestrial laser scanning. Remote Sensing of Environment, 334, 115162. https://doi.org/10.1016/j.rse.2025.115162
+
 ## Install using a Pre-built Container
 
 ### Docker (Linux, MacOS, Windows)
@@ -275,19 +287,4 @@ This project provides a `.devcontainer` directory for consistent development env
 That's it! VS Code will handle building and running the development container for you.  If you choose not to use the devcontainer, you will need to ensure your local environment matches the project's dependencies and requirements.
 
 ## Acknowledgements
-This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible. 
-
-The paper describing RayCloudTools is available here: https://ieeexplore.ieee.org/abstract/document/9444433
-
-Citation:  
-```
-Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
-Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
-```
-
-The paper describing RayExtract Trees is available here: https://doi.org/10.1016/j.rse.2025.115162
-
-Citation:  
-```
-Devereux, T., Lowe, T., Rivory, J., Reckziegel, R. B., Calders, K., Aryal, R. R., Eaton, G., Cooper, Z., Levick, S., Phinn, S., & Woodgate, W. (2026). RayExtract: A fast, scalable method for tree volume reconstruction from terrestrial laser scanning. Remote Sensing of Environment, 334, 115162. https://doi.org/10.1016/j.rse.2025.115162
-```
+This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible.
