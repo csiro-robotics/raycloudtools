@@ -29,7 +29,7 @@ bool readLas(const std::string &file_name,
 
   if (ifs.fail())
   {
-    std::cerr << "readLas: failed to open stream" << std::endl;
+    std::cerr << "readLas: failed to open file " << file_name << ", error: " << std::strerror(errno) << std::endl;
     return false;
   }
 
