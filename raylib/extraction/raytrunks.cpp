@@ -726,6 +726,7 @@ std::vector<std::pair<Eigen::Vector3d, double>> Trunks::load(const std::string &
         if (i < 3)
         {
           base[i] = std::stod(token.c_str());
+          radius = 0.0;
         }
         else
         {

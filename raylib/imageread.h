@@ -3038,9 +3038,9 @@ static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
 
 static void stbi__jpeg_dequantize(short *data, stbi__uint16 *dequant)
 {
-   int i;
+   std::size_t i;
    for (i=0; i < 64; ++i)
-      data[i] *= dequant[i];
+      data[i] *= static_cast<short>(dequant[i]);
 }
 
 static void stbi__jpeg_finish(stbi__jpeg *z)
@@ -4996,10 +4996,10 @@ static void stbi__de_iphone(stbi__png *z)
             stbi_uc a = p[3];
             stbi_uc t = p[0];
             if (a) {
-               stbi_uc half = a / 2;
-               p[0] = (p[2] * 255 + half) / a;
-               p[1] = (p[1] * 255 + half) / a;
-               p[2] = ( t   * 255 + half) / a;
+               stbi_uc half = a >> 1; // divided by 2.
+               p[0] = static_cast<stbi_uc>((p[2] * 255 + half) / a);
+               p[1] = static_cast<stbi_uc>((p[1] * 255 + half) / a);
+               p[2] = static_cast<stbi_uc>(( t   * 255 + half) / a);
             } else {
                p[0] = p[2];
                p[2] = t;
@@ -7055,9 +7055,10 @@ static void stbi__hdr_convert(float *output, stbi_uc *input, int req_comp)
    if ( input[3] != 0 ) {
       float f1;
       // Exponent
-      f1 = (float) ldexp(1.0f, input[3] - (int)(128 + 8));
+      f1 = ldexp(1.0f, input[3] - (int)(128 + 8));
       if (req_comp <= 2)
-         output[0] = (input[0] + input[1] + input[2]) * f1 / 3;
+         // Promote stbi_uc int to prevent overflow. Result always fits in range of float.
+         output[0] = static_cast<float>(static_cast<int>(input[0]) + input[1] + input[2]) * f1 / 3.0f;
       else {
          output[0] = input[0] * f1;
          output[1] = input[1] * f1;
