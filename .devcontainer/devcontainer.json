@@ -16,6 +16,5 @@
     },
     "remoteUser": "root",
     "forwardPorts": [],
-    "postCreateCommand": "compile_install.sh",
-    "runArgs": ["--security-opt", "label=disable"]
+    "postCreateCommand": ".devcontainer/commands/compile_install.sh"
 }
