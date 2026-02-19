@@ -1,0 +1,21 @@
+{
+    "editor.formatOnSave": true,
+    "editor.rulers": [
+        120
+    ],
+    "files.trimFinalNewlines": true,
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "C_Cpp.default.cppStandard": "c++20",
+    "C_Cpp.default.cStandard": "c99",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "C_Cpp.files.exclude": {
+        "**/.vscode": true,
+        "build/**": true,
+    },
+    "C_Cpp.exclusionPolicy": "checkFolders",
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.tabSize": 2
+    }
+}
