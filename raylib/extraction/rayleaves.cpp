@@ -10,6 +10,7 @@
 #include "../rayply.h"
 #include "../raymesh.h"
 #include "../rayforeststructure.h"
+#include "../rayrandom.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "raylib/imageread.h"
 
@@ -144,10 +145,10 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
   };
   std::vector<Leaf> leaves;
   std::vector<double> leaf_counter(grid.voxels().size());
-  std::srand(1);
+  ::ray::srand(1);
   for (size_t i = 0; i<grid.voxels().size(); i++)
   {
-    leaf_counter[i] = (double)(std::rand()%10000) / 10000.0; // a random start stops regions of low density have 0 leaves
+    leaf_counter[i] = (double)(::ray::rand()%10000) / 10000.0; // a random start stops regions of low density have 0 leaves
   }
 
 
@@ -170,7 +171,7 @@ bool generateLeaves(const std::string &cloud_stub, const std::string &trees_file
       double num_leaves_d = desired_leaf_area / leaf_area;
       double num_points = (double)voxel.numHits();
       double &count = leaf_counter[index];
-      count += num_leaves_d / num_points;
+      count += num_leaves_d / num_points; 
       bool add_leaf = false;
       if (count >= 1.0)
       {

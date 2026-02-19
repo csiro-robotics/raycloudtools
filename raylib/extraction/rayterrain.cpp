@@ -9,6 +9,7 @@
 #include "../rayply.h"
 #include "../rayprogress.h"
 #include "../rayprogressthread.h"
+#include "../rayrandom.h"
 
 #if RAYLIB_WITH_TBB
 #include <tbb/enumerable_thread_specific.h>
@@ -123,7 +124,7 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
   int i = 0;
   while (points.size() > 0)
   {
-    const int ind = rand() % static_cast<int>(points.size());
+    const int ind = ::ray::rand() % static_cast<int>(points.size());
     nodes[i++].pos = points[ind];
     points[ind] = points.back();
     points.pop_back();

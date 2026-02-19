@@ -9,6 +9,7 @@
 #include "../raycuboid.h"
 #include "../raygrid.h"
 #include "../rayply.h"
+#include "../rayrandom.h"
 #include "raygrid2d.h"
 
 namespace ray
@@ -652,9 +653,9 @@ void Trunks::saveDebugTrunks(const std::string &filename, bool verbose, const st
     for (auto &id : lowest_trunk_ids)
     {
       const Trunk &trunk = trunks[id];
-      colour.red = uint8_t(rand() % 255);
-      colour.green = uint8_t(rand() % 255);
-      colour.blue = uint8_t(rand() % 255);
+      colour.red = uint8_t(::ray::rand() % 255);
+      colour.green = uint8_t(::ray::rand() % 255);
+      colour.blue = uint8_t(::ray::rand() % 255);
 
       const Eigen::Vector3d side1 = trunk.dir.cross(Eigen::Vector3d(1, 2, 3)).normalized();
       const Eigen::Vector3d side2 = side1.cross(trunk.dir);
