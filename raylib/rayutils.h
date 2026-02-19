@@ -9,7 +9,10 @@
 #include "raylib/raylibconfig.h"
 #include "rayrandom.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #include <Eigen/Dense>
+#pragma GCC diagnostic pop
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -22,7 +25,7 @@
 #include <set>
 #include <string>
 #include <vector>
-#define VISUALISE_TOOL "QT_QPA_PLATFORM=xcb meshlab" // the first term fixed opening problems on some platforms
+#define VISUALISE_TOOL "QT_QPA_PLATFORM=xcb meshlab"  // the first term fixed opening problems on some platforms
 
 namespace ray
 {
@@ -44,13 +47,13 @@ inline int runWithMemoryCheck(std::function<bool(int argc, char *argv[])> main_f
     std::cerr << "Error: Not enough memory to process the input file," << std::endl;
     std::cerr << "consider using raydecimate or raysplit grid to operate on a smaller file." << std::endl;
     return 1;
-  }  
+  }
   catch (std::length_error const &)  // catch any memory allocation problems in generating large images
   {
     std::cerr << "Error: Not enough memory to process the input file," << std::endl;
     std::cerr << "consider using raydecimate or raysplit grid to operate on a smaller file." << std::endl;
     return 1;
-  }    
+  }
 }
 
 inline std::vector<std::string> split(const std::string &s, char delim)
@@ -164,7 +167,7 @@ inline T median(std::vector<T> list)
   {
     typename std::vector<T>::iterator middle2 = middle - 1;
     nth_element(first, middle2, last);
-    return (*middle + *middle2) / static_cast<T>(2);
+    return static_cast<T>(*middle + *middle2) / static_cast<T>(2);
   }
 }
 
@@ -197,16 +200,21 @@ inline std::vector<T> componentList(const std::vector<U> &list, const T &compone
 
 struct RGBA
 {
-  RGBA(){}
-  RGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a) : red(r), green(g), blue(b), alpha(a) {}
+  RGBA() {}
+  RGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+    : red(r)
+    , green(g)
+    , blue(b)
+    , alpha(a)
+  {}
   uint8_t red;
   uint8_t green;
   uint8_t blue;
   uint8_t alpha;
-  static RGBA white(){ return RGBA(255, 255, 255, 255); }
-  static RGBA terrain(){ return RGBA(149,105,72, 255); }
-  static RGBA treetrunk(){ return RGBA(192,166,141, 255); }
-  static RGBA leaves(){ return RGBA(60,102,44, 255); }
+  static RGBA white() { return RGBA(255, 255, 255, 255); }
+  static RGBA terrain() { return RGBA(149, 105, 72, 255); }
+  static RGBA treetrunk() { return RGBA(192, 166, 141, 255); }
+  static RGBA leaves() { return RGBA(60, 102, 44, 255); }
 };
 
 /// Converts a value from 0 to 1 into a RGBA structure
@@ -369,33 +377,34 @@ inline int sign(double x)
 }
 
 // for similar appraoch see: https://github.com/StrandedKitty/tiles-intersect/blob/master/src/index.js
-template<class T> 
+template <class T>
 void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &object)
 {
   Eigen::Vector3d direction = end - start;
   double max_length = direction.norm();
   Eigen::Vector3i p = Eigen::Vector3d(std::floor(start[0]), std::floor(start[1]), std::floor(start[2])).cast<int>();
-  const Eigen::Vector3i target = Eigen::Vector3d(std::floor(end[0]), std::floor(end[1]), std::floor(end[2])).cast<int>();
-  
+  const Eigen::Vector3i target =
+    Eigen::Vector3d(std::floor(end[0]), std::floor(end[1]), std::floor(end[2])).cast<int>();
+
   const Eigen::Vector3i step(sign(direction[0]), sign(direction[1]), sign(direction[2]));
   direction /= max_length;
-  float eps = 1e-10; // remove tiny about so grid walking doesn't exceed its boundary
+  float eps = 1e-10f;  // remove tiny about so grid walking doesn't exceed its boundary
   max_length -= eps;
   Eigen::Vector3d lengths, length_delta;
-  for (int j = 0; j<3; j++)
+  for (int j = 0; j < 3; j++)
   {
-    const double to = step[j] > 0 ? (double)p[j] + 1.0 - start[j] : start[j] - (double)p[j];       
+    const double to = step[j] > 0 ? (double)p[j] + 1.0 - start[j] : start[j] - (double)p[j];
     const double dir = std::max(std::numeric_limits<double>::epsilon(), std::abs(direction[j]));
     lengths[j] = to / dir;
     length_delta[j] = 1.0 / dir;
   }
   int ax = lengths[0] < lengths[1] && lengths[0] < lengths[2] ? 0 : (lengths[1] < lengths[2] ? 1 : 2);
   if (object(p, target, 0.0, lengths[ax], max_length))
-  {      
-    return; // only adding to one cell
+  {
+    return;  // only adding to one cell
   }
-  
-  while (lengths[ax] < max_length) 
+
+  while (lengths[ax] < max_length)
   {
     p[ax] += step[ax];
     const double in_length = lengths[ax];
@@ -403,9 +412,9 @@ void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &objec
     ax = lengths[0] < lengths[1] && lengths[0] < lengths[2] ? 0 : (lengths[1] < lengths[2] ? 1 : 2);
     if (object(p, target, in_length, lengths[ax], max_length))
     {
-      break; // only adding to one cell
-    }          
-  }     
+      break;  // only adding to one cell
+    }
+  }
 }
 }  // namespace ray
 

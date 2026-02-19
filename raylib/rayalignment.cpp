@@ -56,7 +56,7 @@ void Array3D::init(const Eigen::Vector3d &box_min, double voxel_width, const Eig
   voxel_width_ = voxel_width;
   dims_ = dimensions;
   cells_.resize(dims_[0] * dims_[1] * dims_[2]);
-  memset(&cells_[0], 0, cells_.size() * sizeof(Complex));
+  std::fill(cells_.begin(), cells_.end(), Complex{});
   null_cell_ = 0;
 }
 
@@ -150,7 +150,7 @@ void Array3D::fillWithRays(const Cloud &cloud)
 void Array1D::init(int length)
 {
   cells_.resize(length);
-  memset(&cells_[0], 0, cells_.size() * sizeof(Complex));
+  std::fill(cells_.begin(), cells_.end(), Complex{});
 }
 
 void Array1D::operator*=(const Array1D &other)

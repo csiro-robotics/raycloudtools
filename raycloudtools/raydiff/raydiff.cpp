@@ -282,10 +282,12 @@ int rayDiff(int argc, char *argv[])
   if (visualise.isSet())
   {
     std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply " + cloud2_name.nameStub() + "_diff.ply";
-    system(command.c_str());  
+    if( system(command.c_str()) != 0 ) 
+    {
+      std::cerr << "failed to open visualisation tool with command: " << command << std::endl;
+    }
   }
   return (int)similarity;
-  return 1;
 }
 
 int main(int argc, char *argv[])

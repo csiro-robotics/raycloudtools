@@ -203,7 +203,7 @@ void RayIndexGrid2D::init(const Eigen::Vector3d &min_bound, const Eigen::Vector3
             << std::endl;
 
   pixels_.resize(dims_[0] * dims_[1]);
-  memset(&pixels_[0], 0, sizeof(Pixel) * pixels_.size());
+  std::fill(pixels_.begin(), pixels_.end(), Pixel{});
 }
 
 void RayIndexGrid2D::fillRays(const Cloud &cloud)
