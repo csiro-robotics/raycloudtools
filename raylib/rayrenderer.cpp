@@ -13,6 +13,12 @@
 #include "xtiffio.h"   /* for TIFF */
 #endif
 #include <fstream>
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 #include "rayunused.h"
 
 #define DENSITY_MIN_RAYS 10  // larger is more accurate but more blurred. 0 for no adaptive blending
@@ -20,6 +26,170 @@
 namespace ray
 {
 #if RAYLIB_WITH_TIFF
+
+namespace
+{
+struct Proj4Data
+{
+  std::unordered_map<std::string, std::string> values;
+  std::unordered_set<std::string> flags;
+};
+
+std::string trim(const std::string &s)
+{
+  std::string::size_type b = 0;
+  while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b])))
+    ++b;
+  std::string::size_type e = s.size();
+  while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1])))
+    --e;
+  return s.substr(b, e - b);
+}
+
+std::string toLower(std::string s)
+{
+  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return s;
+}
+
+bool tryParseInt(const std::string &s, int &value)
+{
+  char *end = nullptr;
+  const long v = std::strtol(s.c_str(), &end, 10);
+  if (end == s.c_str() || *end != '\0')
+    return false;
+  value = static_cast<int>(v);
+  return true;
+}
+
+bool tryParseDouble(const std::string &s, double &value)
+{
+  char *end = nullptr;
+  const double v = std::strtod(s.c_str(), &end);
+  if (end == s.c_str() || *end != '\0')
+    return false;
+  value = v;
+  return true;
+}
+
+bool parseProj4File(const std::string &projection_file, Proj4Data &proj4)
+{
+  std::ifstream ifs(projection_file.c_str(), std::ios::in);
+  if (ifs.fail())
+    return false;
+
+  std::string token;
+  while (ifs >> token)
+  {
+    const std::string::size_type comment_pos = token.find('#');
+    if (comment_pos == 0)
+    {
+      std::string ignored;
+      std::getline(ifs, ignored);
+      continue;
+    }
+
+    std::string clean = comment_pos == std::string::npos ? token : token.substr(0, comment_pos);
+    clean = trim(clean);
+    if (clean.empty())
+      continue;
+
+    if (clean.front() == '+')
+      clean.erase(clean.begin());
+
+    const std::string::size_type eq_pos = clean.find('=');
+    if (eq_pos == std::string::npos)
+    {
+      proj4.flags.insert(toLower(clean));
+      continue;
+    }
+
+    std::string key = toLower(trim(clean.substr(0, eq_pos)));
+    std::string value = trim(clean.substr(eq_pos + 1));
+    if (!value.empty() && value.front() == '"' && value.back() == '"' && value.size() >= 2)
+      value = value.substr(1, value.size() - 2);
+    if (!key.empty())
+      proj4.values[key] = value;
+  }
+
+  return !proj4.values.empty() || !proj4.flags.empty();
+}
+
+int parseProjCoordTrans(const std::string &proj_name)
+{
+  const std::string p = toLower(proj_name);
+  if (p == "utm" || p == "tmerc")
+    return CT_TransverseMercator;
+  if (p == "ortho")
+    return CT_Orthographic;
+
+  int projcoord = KvUserDefined;
+  if (tryParseInt(p, projcoord))
+    return projcoord;
+  return KvUserDefined;
+}
+
+int parseDatumCode(const std::string &datum)
+{
+  const std::string d = toLower(datum);
+  if (d == "wgs84")
+    return Datum_WGS84;
+  if (d == "gda2020")
+    return 1168;
+  if (d == "nad83")
+    return 6269;
+  if (d == "nad27")
+    return 6267;
+
+  int code = KvUserDefined;
+  if (tryParseInt(d, code))
+    return code;
+  return KvUserDefined;
+}
+
+int parseEllpsCode(const std::string &ellps)
+{
+  const std::string e = toLower(ellps);
+  if (e == "wgs84")
+    return 7030;
+  if (e == "grs80")
+    return 7019;
+  if (e == "clrk66")
+    return 7008;
+
+  int code = KvUserDefined;
+  if (tryParseInt(e, code))
+    return code;
+  return KvUserDefined;
+}
+
+int parseGeographicTypeCode(const std::string &datum)
+{
+  const std::string d = toLower(datum);
+  if (d == "wgs84")
+    return GCS_WGS_84;
+  if (d == "gda2020")
+    return 7844;
+  if (d == "nad83")
+    return 4269;
+  if (d == "nad27")
+    return 4267;
+  return KvUserDefined;
+}
+
+std::string defaultEllpsForDatum(const std::string &datum)
+{
+  const std::string d = toLower(datum);
+  if (d == "wgs84")
+    return "wgs84";
+  if (d == "gda2020" || d == "nad83")
+    return "grs80";
+  if (d == "nad27")
+    return "clrk66";
+  return datum;
+}
+
+}
 
 // save to geotif format using floating-point per-channel colour data. This function passes a projection file in order
 // to geolocate the image
@@ -37,13 +207,20 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   GTIF *gtif = GTIFNew(tif);
   if (!gtif)
   {
+    XTIFFClose(tif);
     return false;
   }
 
+  auto fail = [&](const std::string &msg) {
+    std::cerr << msg << std::endl;
+    GTIFFree(gtif);
+    XTIFFClose(tif);
+    return false;
+  };
+
   if (x < 0 || y < 0)
   {
-    std::cerr << "Bad image size: " << x << ", " << y << std::endl;
-    return false;
+    return fail("Bad image size: " + std::to_string(x) + ", " + std::to_string(y));
   }
   const uint32_t w = (uint32_t)x;
   const uint32_t h = (uint32_t)y;
@@ -90,95 +267,80 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     }
 
     // now actually write the row data
-    TIFFWriteScanline(tif, &pdst[0], row, 0);
+    if (TIFFWriteScanline(tif, &pdst[0], row, 0) != 1)
+    {
+      return fail("Failed writing TIFF scanline " + std::to_string(row));
+    }
   }
 
   // read in the projection parameters
   if (!projection_file.empty())
   {
-    std::ifstream ifs(projection_file.c_str(), std::ios::in);
-    if (ifs.fail())
-    {
-      std::cerr << "cannot open file " << projection_file << std::endl;
-      return false;
-    }
-    std::string line;
-    if (!getline(ifs, line))
-    {
-      return false;
-    }
-    // the set of keys in the key-value pairs that we are parsing
-    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0", "+zone", "+south" };
-    bool is_south = false;
-    std::vector<std::string> values;
+    Proj4Data proj4;
+    if (!parseProj4File(projection_file, proj4))
+      return fail("Cannot parse projection file: " + projection_file);
+
+    const auto getValue = [&](const std::string &k) -> std::string {
+      const auto it = proj4.values.find(k);
+      return it == proj4.values.end() ? std::string() : it->second;
+    };
+
+    const std::string proj_value = getValue("proj");
+    const std::string datum_value = getValue("datum");
+    std::string ellps_value = getValue("ellps");
+    if (ellps_value.empty())
+      ellps_value = defaultEllpsForDatum(datum_value);
+    const std::string units_value = getValue("units");
+
+    bool is_south = proj4.flags.count("south") > 0;
     int zone_value = KvUserDefined;
-    for (const auto &key : keys)
+    if (!getValue("zone").empty())
     {
-      std::string::size_type found = line.find(key);
-      if (found == std::string::npos)  // error checking
-      {
-        if (key == "+ellps")
-        {
-          std::cout << "No ellps field found in proj file, setting it equal to the datum." << std::endl;
-          values.push_back("");
-          continue;
-        }
-        if (key == "+zone")
-        {
-          std::cout << "No zone field found in proj file" << std::endl;
-          values.push_back("");
-          continue;
-        }
-        if (key == "+south")
-        {
-          continue; // optional field
-        }
-        std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
-        return false;
-      }
-      // generate the list of values that correspond to the list of keys
-      found += key.length() + 1;
-      if (key == "+south")
-      {
-        is_south = true;
-        continue; // don't need to set any value
-      }
-      std::string::size_type space = line.find(" ", found);
-      if (space == std::string::npos)
-        space = line.length();
-      values.push_back(line.substr(found, space - found));
-    }
-    if (values[1].empty())  // if ellipsoid type not specified, we take it to be the same as the datum
-    {
-      values[1] = values[2];
-    }
-    double coord_lat = 0.0;
-    if (!values[4].empty())
-    {
-      coord_lat = std::stod(values[4]);  // latitude
-    }
-    double coord_long = 0.0;
-    if (!values[5].empty())
-    {
-      coord_long = std::stod(values[5]);  // longitude
-    }
-    Eigen::Vector2d geo_offset(0, 0);
-    if (!values[6].empty())
-    {
-      geo_offset[0] = std::stod(values[6]);  // offset in m
-    }
-    if (!values[7].empty())
-    {
-      geo_offset[1] = std::stod(values[7]);  // offset in m
-    }
-    if (!values[8].empty())
-    {
-      std::cout << "zone: " << values[8] << std::endl;
-      zone_value = std::stoi(values[8]);
+      if (!tryParseInt(getValue("zone"), zone_value))
+        return fail("Invalid +zone in projection file: " + getValue("zone"));
     }
 
-    std::cout << "proj: " << values[0] << ", geooffset: " << geo_offset.transpose() << ", geokey: " << values[1] << ", datum: " << values[2]
-              << ", coord_long: " << coord_long << ", coord_lat: " << coord_lat << " zone: " << zone_value << std::endl;
+    double coord_lat = 0.0;
+    if (!getValue("lat_0").empty() && !tryParseDouble(getValue("lat_0"), coord_lat))
+      return fail("Invalid +lat_0 in projection file: " + getValue("lat_0"));
+
+    double coord_long = 0.0;
+    if (!getValue("lon_0").empty() && !tryParseDouble(getValue("lon_0"), coord_long))
+      return fail("Invalid +lon_0 in projection file: " + getValue("lon_0"));
+
+    Eigen::Vector2d geo_offset(0, 0);
+    if (!getValue("x_0").empty() && !tryParseDouble(getValue("x_0"), geo_offset[0]))
+      return fail("Invalid +x_0 in projection file: " + getValue("x_0"));
+    if (!getValue("y_0").empty() && !tryParseDouble(getValue("y_0"), geo_offset[1]))
+      return fail("Invalid +y_0 in projection file: " + getValue("y_0"));
+
+    int projected_cs_type = KvUserDefined;
+    const std::string init_value = toLower(getValue("init"));
+    const std::string epsg_value = getValue("epsg");
+    if (!epsg_value.empty())
+    {
+      if (!tryParseInt(epsg_value, projected_cs_type))
+        return fail("Invalid +epsg in projection file: " + epsg_value);
+    }
+    else if (!init_value.empty())
+    {
+      const std::string prefix = "epsg:";
+      if (init_value.find(prefix) == 0)
+      {
+        if (!tryParseInt(init_value.substr(prefix.size()), projected_cs_type))
+          return fail("Invalid +init EPSG code in projection file: " + init_value);
+      }
+    }
+
+    if (projected_cs_type == KvUserDefined && toLower(proj_value) == "utm" && zone_value >= 1 && zone_value <= 60)
+    {
+      if (toLower(datum_value) == "wgs84")
+        projected_cs_type = is_south ? (32700 + zone_value) : (32600 + zone_value);
+    }
+
+    std::cout << "proj: " << proj_value << ", geooffset: " << geo_offset.transpose() << ", ellps: " << ellps_value
+              << ", datum: " << datum_value << ", coord_long: " << coord_long << ", coord_lat: " << coord_lat
+              << " zone: " << zone_value << std::endl;
 
     const double scales[3] = { pixel_width, pixel_width, pixel_width };
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
@@ -192,24 +354,13 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     GTIFKeySet(gtif, VerticalUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
 
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
-    if (values[0] == "ortho")
-      GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
-    else if (values[0] == "utm")
-      GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_TransverseMercator);
-    else
+    if (!proj_value.empty())
     {
-      std::stringstream ss(values[0]);
-      int projcoord = 0;
-      ss >> projcoord;
-      if (!ss.fail())  // we are using a direct number here, so
-      {
+      const int projcoord = parseProjCoordTrans(proj_value);
+      if (projcoord != KvUserDefined)
         GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, projcoord);
-      }
       else
-      {
-        std::cout << "unknown projection type: " << values[0] << std::endl;
-        return false;
-      }   
+        std::cout << "warning: unknown projection type: " << proj_value << std::endl;
     }
     if (is_south)
     {
@@ -222,51 +373,29 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     const double tiepoints[6] = { 0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0 };
     TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);
 
-    if (values[1] == "WGS84")  // we support WGS84 by name
-    {
-      GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, GCS_WGS_84);
-    }
-    else  // all other Geographic type geokeys we parse directly by their number
-    {
-      std::stringstream ss(values[1]);
-      int geokey = 0;
-      ss >> geokey;
-      if (!ss.fail())  // we are using a direct number here, so
-      {
-        GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geokey);
-      }
-      else
-      {
-        std::cout << "unknown geographic projection type: " << values[1] << std::endl;
-        return false;
-      }
-    }
-    if (values[2] == "WGS84")  // we support the datum type by name
-    {
-      GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
-    }
-    else
-    {
-      std::stringstream ss(values[2]);
-      int datum = 0;
-      ss >> datum;
-      if (!ss.fail())  // we are using a direct number here, so
-      {
-        GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, datum);
-      }
-      else
-      {
-        std::cout << "unknown datum: " << values[2] << std::endl;
-        return false;
-      }
-    }
-    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, zone_value);
+    const int geographic_type = parseGeographicTypeCode(datum_value);
+    if (geographic_type != KvUserDefined)
+      GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geographic_type);
+
+    const int datum_code = parseDatumCode(datum_value);
+    if (datum_code != KvUserDefined)
+      GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, datum_code);
+    else if (!datum_value.empty())
+      std::cout << "warning: unknown datum: " << datum_value << std::endl;
+
+    const int ellps_code = parseEllpsCode(ellps_value);
+    if (ellps_code != KvUserDefined)
+      GTIFKeySet(gtif, GeogEllipsoidGeoKey, TYPE_SHORT, 1, ellps_code);
+    else if (!ellps_value.empty())
+      std::cout << "warning: unknown ellipsoid: " << ellps_value << std::endl;
+
+    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, projected_cs_type);
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
 
-    if (values[3] != "m")  // we only support metres as the units
+    const std::string unit_norm = toLower(units_value);
+    if (!units_value.empty() && unit_norm != "m" && unit_norm != "meter" && unit_norm != "metre")
     {
-      std::cout << "unknown unit type: " << values[3] << std::endl;
-      return false;
+      return fail("unknown unit type: " + units_value);
     }
     GTIFKeySet(gtif, ProjCenterLongGeoKey, TYPE_DOUBLE, 1, coord_long);
     GTIFKeySet(gtif, ProjCenterLatGeoKey, TYPE_DOUBLE, 1, coord_lat);
