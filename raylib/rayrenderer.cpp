@@ -129,6 +129,10 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
           values.push_back("");
           continue;
         }
+        if (key == "+south")
+        {
+          continue; // optional field
+        }
         std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
         return false;
       }
@@ -171,11 +175,10 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     {
       std::cout << "zone: " << values[8] << std::endl;
       zone_value = std::stoi(values[8]);
-      std::cout << "zone?: " << zone_value << std::endl;
     }
 
     std::cout << "proj: " << values[0] << ", geooffset: " << geo_offset.transpose() << ", geokey: " << values[1] << ", datum: " << values[2]
-              << ", coord_long: " << coord_long << " zone: " << zone_value << std::endl;
+              << ", coord_long: " << coord_long << ", coord_lat: " << coord_lat << " zone: " << zone_value << std::endl;
 
     const double scales[3] = { pixel_width, pixel_width, pixel_width };
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
