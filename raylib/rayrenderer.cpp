@@ -308,11 +308,16 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     if (!getValue("lon_0").empty() && !tryParseDouble(getValue("lon_0"), coord_long))
       return fail("Invalid +lon_0 in projection file: " + getValue("lon_0"));
 
-    Eigen::Vector2d geo_offset(0, 0);
-    if (!getValue("x_0").empty() && !tryParseDouble(getValue("x_0"), geo_offset[0]))
-      return fail("Invalid +x_0 in projection file: " + getValue("x_0"));
-    if (!getValue("y_0").empty() && !tryParseDouble(getValue("y_0"), geo_offset[1]))
-      return fail("Invalid +y_0 in projection file: " + getValue("y_0"));
+    const std::string x0_value = getValue("x_0");
+    const std::string y0_value = getValue("y_0");
+    const bool has_x0 = !x0_value.empty();
+    const bool has_y0 = !y0_value.empty();
+    double false_easting = 0.0;
+    double false_northing = 0.0;
+    if (has_x0 && !tryParseDouble(x0_value, false_easting))
+      return fail("Invalid +x_0 in projection file: " + x0_value);
+    if (has_y0 && !tryParseDouble(y0_value, false_northing))
+      return fail("Invalid +y_0 in projection file: " + y0_value);
 
     int projected_cs_type = KvUserDefined;
     const std::string init_value = toLower(getValue("init"));
@@ -336,9 +341,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     {
       if (toLower(datum_value) == "wgs84")
         projected_cs_type = is_south ? (32700 + zone_value) : (32600 + zone_value);
+      else if (toLower(datum_value) == "gda2020" && is_south)
+        projected_cs_type = 7800 + zone_value;  // MGA2020 zones, e.g. zone 55 -> EPSG:7855
     }
 
-    std::cout << "proj: " << proj_value << ", geooffset: " << geo_offset.transpose() << ", ellps: " << ellps_value
+    std::cout << "proj: " << proj_value << ", false_easting: " << false_easting << ", false_northing: " << false_northing
+              << ", using_south_flag: " << (is_south ? "true" : "false") << ", ellps: " << ellps_value
               << ", datum: " << datum_value << ", coord_long: " << coord_long << ", coord_lat: " << coord_lat
               << " zone: " << zone_value << std::endl;
 
@@ -362,7 +370,12 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       else
         std::cout << "warning: unknown projection type: " << proj_value << std::endl;
     }
-    if (is_south)
+    if (has_x0)
+      GTIFKeySet(gtif, ProjFalseEastingGeoKey, TYPE_DOUBLE, 1, false_easting);
+
+    if (has_y0)
+      GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, false_northing);
+    else if (is_south)
     {
       GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, 10000000.0); // false northing
       // Usually paired with the Latitude of Natural Origin (Equator)
@@ -370,7 +383,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     }
 
     // describe the coordinates of the image corners
-    const double tiepoints[6] = { 0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0 };
+    const double tiepoints[6] = { 0, 0, 0, origin_x, origin_y, 0 };
     TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);
 
     const int geographic_type = parseGeographicTypeCode(datum_value);
@@ -952,7 +965,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       // obtain the origin offsets
       const Eigen::Vector3d origin(0, 0, 0);
       const Eigen::Vector3d pos = -(origin - bounds.min_bound_);
-      const double x = pos[ax1], y = pos[ax2] + static_cast<double>(height) * pix_width;
+      const double x = pos[ax1], y = pos[ax2] + static_cast<double>(height - 1) * pix_width;
+
+      std::cout << std::setprecision(3) << std::fixed << "x: " << x << ", y: " << y << ", absy: " << pos[ax2] << std::endl;
       // generate the geotiff file
       writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y);
     }
