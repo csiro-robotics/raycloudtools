@@ -154,7 +154,7 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
     if (vert[0] >= box_min[0] && vert[1] >= box_min[1] &&
         vert[0] <= box_max[0] && vert[1] <= box_max[1])
     {
-      points.push_back(Vertex(vert, vert + Eigen::Vector3d(0,0,0.01))); // make small vertical ray
+      points.push_back(Vertex(vert - Eigen::Vector3d(0,0,0.01), vert + Eigen::Vector3d(0,0,0.01))); // make small vertical ray
     }
   }
   // convert the ground mesh to an easy look-up height field
