@@ -7,6 +7,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C
 ENV LANGUAGE=
 
+WORKDIR /src
+
+COPY . .
+
 # Update, install dependencies and cleanup
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y \
@@ -20,10 +24,12 @@ RUN apt-get update && apt-get upgrade -y && \
     libgtest-dev \
     libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
-    
+
+WORKDIR /deps
+
 # Create a directory for building packages
-RUN mkdir -p /build && \
-    cd /build
+RUN mkdir -p /deps && \
+    cd /deps
 
 # Clone, build and clean up LASzip
 RUN git clone https://github.com/LASzip/LASzip.git && \
@@ -65,12 +71,12 @@ RUN git clone https://github.com/ethz-asl/libnabo.git && \
     make install && \
     cd ../.. && rm -rf libnabo
 
-# Clone, build and install raycloudtools
-RUN git clone https://github.com/csiro-robotics/raycloudtools.git && \
-    cd raycloudtools && \
-    mkdir build && \
-    cd build && \
-    cmake .. \
+WORKDIR /src
+
+# Build and install raycloudtools
+RUN mkdir /build && \
+    cd /build && \
+    cmake /src \
         -DGeoTIFF_INCLUDE_DIR=/usr/include/geotiff \
         -DGeoTIFF_LIBRARY=/usr/lib/x86_64-linux-gnu/libgeotiff.so \
         -DPROJ_INCLUDE_DIR=/usr/include/proj \
