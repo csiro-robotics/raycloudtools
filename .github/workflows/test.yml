@@ -1,0 +1,52 @@
+name: Docker Image CI
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-jammy:
+    runs-on: ubuntu-22.04
+    steps: &build_steps
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            curl \
+            git \
+            cmake \
+            libeigen3-dev \
+            libgtest-dev \
+            libboost-all-dev
+
+      - name: Build and install libnabo
+        run: |
+          git clone https://github.com/ethz-asl/libnabo.git
+          cd libnabo
+          git checkout tags/1.1.2
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          sudo make install
+
+      - name: Build and Test
+        run: |
+          mkdir build
+          cd build
+          cmake ../ -DRAYCLOUD_BUILD_TESTS=ON
+          make -j$(nproc)
+          cd bin
+          ./raytest --gtest_output=xml:report.xml
+
+  build-noble:
+    runs-on: ubuntu-24.04
+    steps: *build_steps
