@@ -106,10 +106,10 @@ void Mesh::toHeightField(Eigen::ArrayXXd &field, const Eigen::Vector3d &box_min,
     std::cout << "warning mesh does not intersect any pixel centres, using nearest triangle centre heights" << std::endl;
     for (auto &tri: triangles)
     {
-      Eigen::Vector3d centre = (tri.corners[0] + tri.corners[1] + tri.corners[3])/3.0;
+      Eigen::Vector3d centre = (tri.corners[0] + tri.corners[1] + tri.corners[2])/3.0;
       Eigen::Vector3d c = (centre - box_min) / width;
       int X = std::max(0, std::min((int)std::floor(c[0]), grid.dims[0]-1)); // move to nearest inside grid
-      int Y = std::max(0, std::min((int)std::floor(c[0]), grid.dims[1]-1));
+      int Y = std::max(0, std::min((int)std::floor(c[1]), grid.dims[1]-1));
       field(X,Y) = centre[2];
       num_heights++;
     }
