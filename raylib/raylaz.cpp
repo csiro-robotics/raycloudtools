@@ -9,8 +9,7 @@
 #include "rayunused.h"
 
 #if RAYLIB_WITH_LAS
-#include <liblas/factory.hpp>
-#include <liblas/point.hpp>
+#include <laszip/laszip_api.h>
 #endif  // RAYLIB_WITH_LAS
 
 namespace ray
@@ -24,35 +23,55 @@ bool readLas(const std::string &file_name,
 #if RAYLIB_WITH_LAS
   std::cout << "readLas: filename: " << file_name << std::endl;
 
-  std::ifstream ifs;
-  ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
-
-  if (ifs.fail())
+  laszip_POINTER reader;
+  if (laszip_create(&reader))
   {
-    std::cerr << "readLas: failed to open stream" << std::endl;
+    std::cerr << "readLas: failed to create LASzip reader" << std::endl;
     return false;
   }
 
-  liblas::ReaderFactory f;
-  liblas::Reader reader = f.CreateWithStream(ifs);
-  liblas::Header const &header = reader.GetHeader();
+  laszip_BOOL is_compressed;
+  if (laszip_open_reader(reader, file_name.c_str(), &is_compressed))
+  {
+    laszip_CHAR *error;
+    laszip_get_error(reader, &error);
+    std::cerr << "readLas: failed to open stream: " << error << std::endl;
+    laszip_destroy(reader);
+    return false;
+  }
 
-  Eigen::Vector3d offset(header.GetOffsetX(), header.GetOffsetY(), header.GetOffsetZ());
+  laszip_header_struct *header;
+  laszip_get_header_pointer(reader, &header);
+
+  Eigen::Vector3d offset(header->x_offset, header->y_offset, header->z_offset);
   if (offset_to_remove)
   {
     *offset_to_remove = offset;
     std::cout << "offset to remove: " << offset.transpose() << std::endl;
   }
 
-  const size_t number_of_points = header.GetPointRecordsCount();
+  // LAS 1.4 uses a 64-bit point count; legacy uses the 32-bit field
+  const size_t number_of_points =
+    (header->version_minor >= 4 && header->extended_number_of_point_records > 0)
+      ? static_cast<size_t>(header->extended_number_of_point_records)
+      : static_cast<size_t>(header->number_of_point_records);
 
-  bool using_time = (header.GetDataFormatId() & 1) > 0;
-  bool using_colour = (header.GetDataFormatId() & 2) > 0;
+  const uint8_t format = header->point_data_format;
+  // Formats 1,3,4,5 have GPS time in LAS 1.0-1.3; formats 6-10 always have GPS time (LAS 1.4)
+  const bool using_time = (format == 1 || format == 3 || format == 4 || format == 5 || format >= 6);
+  // Formats 2,3,5 have RGB in LAS 1.0-1.3; formats 7,8,10 have RGB in LAS 1.4
+  const bool using_colour = (format == 2 || format == 3 || format == 5 || format == 7 || format == 8 || format == 10);
+
   if (!using_time)
   {
     std::cerr << "No timestamps found on laz file, these are required" << std::endl;
+    laszip_close_reader(reader);
+    laszip_destroy(reader);
     return false;
   }
+
+  laszip_point_struct *point;
+  laszip_get_point_pointer(reader, &point);
 
   ray::Progress progress;
   ray::ProgressThread progress_thread(progress);
@@ -72,31 +91,34 @@ bool readLas(const std::string &file_name,
   colours.reserve(chunk_size);
 
   num_bounded = 0;
-  for (unsigned int i = 0; i < number_of_points; i++)
+  for (size_t i = 0; i < number_of_points; i++)
   {
-    reader.ReadNextPoint();
-    liblas::Point point = reader.GetPoint();
+    if (laszip_read_point(reader))
+    {
+      laszip_CHAR *error;
+      laszip_get_error(reader, &error);
+      std::cerr << "readLas: error reading point " << i << ": " << error << std::endl;
+      break;
+    }
 
-    Eigen::Vector3d position;
-    position[0] = point.GetX();
-    position[1] = point.GetY();
-    position[2] = point.GetZ();
+    laszip_F64 coords[3];
+    laszip_get_coordinates(reader, coords);
+    Eigen::Vector3d position(coords[0], coords[1], coords[2]);
 
     ends.push_back(position);
     starts.push_back(position);  // equal to position for laz files, as we do not store the start points
 
     if (using_colour)
     {
-      liblas::Color colour = point.GetColor();
       RGBA col;
-      col.red = static_cast<uint8_t>(colour.GetRed());
-      col.green = static_cast<uint8_t>(colour.GetGreen());
-      col.blue = static_cast<uint8_t>(colour.GetBlue());
+      col.red = static_cast<uint8_t>(point->rgb[0]);
+      col.green = static_cast<uint8_t>(point->rgb[1]);
+      col.blue = static_cast<uint8_t>(point->rgb[2]);
       colours.push_back(col);
     }
-    times.push_back(point.GetTime());
+    times.push_back(point->gps_time);
 
-    const double point_int = point.GetIntensity();
+    const double point_int = point->intensity;
     const double normalised_intensity = (255.0 * point_int) / max_intensity;
     const uint8_t intensity = static_cast<uint8_t>(std::min(normalised_intensity, 255.0));
     if (intensity > 0)
@@ -109,8 +131,8 @@ bool readLas(const std::string &file_name,
       {
         colourByTime(times, colours);
       }
-      for (int i = 0; i < (int)colours.size(); i++)  // add intensity into alhpa channel
-        colours[i].alpha = intensities[i];
+      for (size_t j = 0; j < colours.size(); j++)  // add intensity into alpha channel
+        colours[j].alpha = intensities[j];
       apply(starts, ends, times, colours);
       starts.clear();
       ends.clear();
@@ -124,6 +146,9 @@ bool readLas(const std::string &file_name,
   progress.end();
   progress_thread.requestQuit();
   progress_thread.join();
+
+  laszip_close_reader(reader);
+  laszip_destroy(reader);
 
   std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
   return true;
@@ -144,12 +169,12 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
 {
   std::vector<Eigen::Vector3d> starts;  // dummy as lax just reads in point clouds, not ray clouds
   auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points,
-                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) 
+                   std::vector<double> &time_points, std::vector<RGBA> &colour_values)
   {
     starts.insert(starts.end(), start_points.begin(), start_points.end());
     positions.insert(positions.end(), end_points.begin(), end_points.end());
     times.insert(times.end(), time_points.begin(), time_points.end());
-    colours.insert(colours.end(), colour_values.begin(), colour_values.end());    
+    colours.insert(colours.end(), colour_values.begin(), colour_values.end());
   };
   size_t num_bounded;
   bool success =
@@ -169,37 +194,56 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
 #if RAYLIB_WITH_LAS
   std::cout << "saving LAZ file" << std::endl;
 
-  liblas::Header header;
-  header.SetDataFormatId(liblas::ePointFormat1);  // Time only
-
-  if (file_name.find(".laz") != std::string::npos)
-    header.SetCompressed(true);
-
-  std::cout << "Saving points to " << file_name << std::endl;
-
-  std::ofstream ofs;
-  ofs.open(file_name.c_str(), std::ios::out | std::ios::binary);
-  if (ofs.fail())
+  laszip_POINTER writer;
+  if (laszip_create(&writer))
   {
-    std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
+    std::cerr << "writeLas: failed to create LASzip writer" << std::endl;
     return false;
   }
 
-  const double scale = 1e-4;
-  header.SetScale(scale, scale, scale);
+  laszip_header_struct *header;
+  laszip_get_header_pointer(writer, &header);
 
-  liblas::Writer writer(ofs, header);
-  liblas::Point point(&header);
-  point.SetHeader(&header);  // TODO HACK Version 1.7.0 does not correctly resize the data. Commit
-                             // 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
-  for (unsigned int i = 0; i < points.size(); i++)
+  header->version_major = 1;
+  header->version_minor = 2;
+  header->point_data_format = 1;  // GPS time only
+  const double scale = 1e-4;
+  header->x_scale_factor = scale;
+  header->y_scale_factor = scale;
+  header->z_scale_factor = scale;
+  header->x_offset = 0.0;
+  header->y_offset = 0.0;
+  header->z_offset = 0.0;
+  header->number_of_point_records = static_cast<laszip_U32>(points.size());
+
+  const bool is_laz = file_name.find(".laz") != std::string::npos;
+  std::cout << "Saving points to " << file_name << std::endl;
+
+  if (laszip_open_writer(writer, file_name.c_str(), is_laz ? 1 : 0))
   {
-    point.SetCoordinates(points[i][0], points[i][1], points[i][2]);
-    point.SetIntensity(colours[i].alpha);
-    if (!times.empty())
-      point.SetTime(times[i]);
-    writer.WritePoint(point);
+    laszip_CHAR *error;
+    laszip_get_error(writer, &error);
+    std::cerr << "writeLas: failed to open file for writing: " << error << std::endl;
+    laszip_destroy(writer);
+    return false;
   }
+
+  laszip_point_struct *point;
+  laszip_get_point_pointer(writer, &point);
+
+  for (size_t i = 0; i < points.size(); i++)
+  {
+    laszip_F64 coords[3] = { points[i][0], points[i][1], points[i][2] };
+    laszip_set_coordinates(writer, coords);
+    point->intensity = colours[i].alpha;
+    if (!times.empty())
+      point->gps_time = times[i];
+    laszip_write_point(writer);
+  }
+
+  laszip_update_inventory(writer);
+  laszip_close_writer(writer);
+  laszip_destroy(writer);
   return true;
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
@@ -215,21 +259,44 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
 #if RAYLIB_WITH_LAS
 LasWriter::LasWriter(const std::string &file_name)
   : file_name_(file_name)
+  , writer_handle_(nullptr)
+  , header_(nullptr)
+  , point_(nullptr)
 {
-  header_.SetDataFormatId(liblas::ePointFormat1);  // Time only
-  if (file_name_.find(".laz") != std::string::npos)
-    header_.SetCompressed(true);
-
-  std::cout << "Saving points to " << file_name_ << std::endl;
-  out_.open(file_name_.c_str(), std::ios::out | std::ios::binary);
-  if (out_.fail())
+  if (laszip_create(&writer_handle_))
   {
-    std::cerr << "Error: cannot open " << file_name << " for writing." << std::endl;
+    std::cerr << "LasWriter: failed to create LASzip writer" << std::endl;
+    writer_handle_ = nullptr;
     return;
   }
+
+  laszip_get_header_pointer(writer_handle_, &header_);
+
+  header_->version_major = 1;
+  header_->version_minor = 2;
+  header_->point_data_format = 1;  // GPS time only
   const double scale = 1e-4;
-  header_.SetScale(scale, scale, scale);
-  writer_ = new liblas::Writer(out_, header_);
+  header_->x_scale_factor = scale;
+  header_->y_scale_factor = scale;
+  header_->z_scale_factor = scale;
+  header_->x_offset = 0.0;
+  header_->y_offset = 0.0;
+  header_->z_offset = 0.0;
+
+  const bool is_laz = file_name_.find(".laz") != std::string::npos;
+  std::cout << "Saving points to " << file_name_ << std::endl;
+
+  if (laszip_open_writer(writer_handle_, file_name_.c_str(), is_laz ? 1 : 0))
+  {
+    laszip_CHAR *error;
+    laszip_get_error(writer_handle_, &error);
+    std::cerr << "LasWriter: failed to open file for writing: " << error << std::endl;
+    laszip_destroy(writer_handle_);
+    writer_handle_ = nullptr;
+    return;
+  }
+
+  laszip_get_point_pointer(writer_handle_, &point_);
 }
 #else   // RAYLIB_WITH_LAS
 LasWriter::LasWriter(const std::string &file_name)
@@ -244,7 +311,12 @@ LasWriter::LasWriter(const std::string &file_name)
 LasWriter::~LasWriter()
 {
 #if RAYLIB_WITH_LAS
-  delete writer_;
+  if (writer_handle_)
+  {
+    laszip_update_inventory(writer_handle_);
+    laszip_close_writer(writer_handle_);
+    laszip_destroy(writer_handle_);
+  }
 #else
   std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
             << std::endl;
@@ -259,21 +331,19 @@ bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, const std
   {
     return true;  // this is acceptable behaviour. It avoids calling function checking for emptiness each time
   }
-  if (out_.fail())
+  if (!writer_handle_ || !point_)
   {
     std::cerr << "Error: cannot open " << file_name_ << " for writing." << std::endl;
     return false;
   }
-  liblas::Point point(&header_);
-  point.SetHeader(&header_);  // TODO HACK Version 1.7.0 does not correctly resize the data. Commit
-                              // 6e8657336ba445fcec3c9e70c2ebcd2e25af40b9 (1.8.0 3 July fixes it)
-  for (unsigned int i = 0; i < points.size(); i++)
+  for (size_t i = 0; i < points.size(); i++)
   {
-    point.SetCoordinates(points[i][0], points[i][1], points[i][2]);
-    point.SetIntensity(colours[i].alpha);
+    laszip_F64 coords[3] = { points[i][0], points[i][1], points[i][2] };
+    laszip_set_coordinates(writer_handle_, coords);
+    point_->intensity = colours[i].alpha;
     if (!times.empty())
-      point.SetTime(times[i]);
-    writer_->WritePoint(point);
+      point_->gps_time = times[i];
+    laszip_write_point(writer_handle_);
   }
   return true;
 #else   // RAYLIB_WITH_LAS

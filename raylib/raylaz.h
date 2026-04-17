@@ -10,7 +10,7 @@
 #include "rayutils.h"
 
 #if RAYLIB_WITH_LAS
-#include <liblas/reader.hpp>
+#include <laszip/laszip_api.h>
 #endif  // RAYLIB_WITH_LAS
 
 
@@ -48,10 +48,10 @@ public:
 
 private:
   const std::string &file_name_;
-  std::ofstream out_;
 #if RAYLIB_WITH_LAS
-  liblas::Header header_;
-  liblas::Writer *writer_;
+  laszip_POINTER writer_handle_;
+  laszip_header_struct *header_;
+  laszip_point_struct *point_;
 #endif  // RAYLIB_WITH_LAS
 };
 }  // namespace ray

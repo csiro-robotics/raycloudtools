@@ -26,25 +26,15 @@ RUN apt-get update && apt-get upgrade -y && \
     libgtest-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Clone, build and clean up LASzip
+# Clone, build and clean up LASzip (3.x supports LAS 1.4 via laszip_api.h C API)
 RUN git clone https://github.com/LASzip/LASzip.git && \
     cd LASzip && \
-    git checkout tags/2.0.1 && \
+    git checkout tags/3.4.4 && \
     mkdir build && cd build && \
     cmake .. && \
     make -j$(nproc) && \
     make install && \
-    cp bin/Release/liblas* /usr/lib/ && \
     cd ../.. && rm -rf LASzip
-
-# Clone, build and clean up libLAS
-RUN git clone https://github.com/libLAS/libLAS.git && \
-    cd libLAS && \
-    mkdir build && cd build && \
-    cmake .. -DWITH_LASZIP=ON -DWITH_GEOTIFF=OFF && \
-    make -j$(nproc) && \
-    make install && \
-    cd ../.. && rm -rf libLAS
 
 # Clone, build and clean up Qhull
 RUN git clone https://github.com/qhull/qhull.git && \
@@ -68,6 +58,10 @@ RUN git clone https://github.com/ethz-asl/libnabo.git && \
 
 # Update ldconfig
 RUN ldconfig /usr/local/lib
+
+# Copy build script into image
+COPY .devcontainer/commands/compile_install.sh /usr/local/bin/compile_install.sh
+RUN chmod +x /usr/local/bin/compile_install.sh
 
 # Set the working directory
 WORKDIR /workspaces/raycloudtools
