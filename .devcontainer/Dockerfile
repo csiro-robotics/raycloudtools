@@ -31,7 +31,7 @@ RUN git clone https://github.com/LASzip/LASzip.git && \
     cd LASzip && \
     git checkout tags/3.4.4 && \
     mkdir build && cd build && \
-    cmake .. && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
     make install && \
     cd ../.. && rm -rf LASzip

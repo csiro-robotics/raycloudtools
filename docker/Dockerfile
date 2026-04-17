@@ -31,25 +31,15 @@ WORKDIR /deps
 RUN mkdir -p /deps && \
     cd /deps
 
-# Clone, build and clean up LASzip
+# Clone, build and clean up LASzip (3.x supports LAS 1.4 via laszip_api.h C API)
 RUN git clone https://github.com/LASzip/LASzip.git && \
     cd LASzip && \
-    git checkout tags/2.0.1 && \
+    git checkout tags/3.4.4 && \
     mkdir build && cd build && \
-    cmake .. && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
     make install && \
-    cp bin/Release/liblas* /usr/lib/ && \
     cd ../.. && rm -rf LASzip
-
-# Clone, build and clean up libLAS
-RUN git clone https://github.com/libLAS/libLAS.git && \
-    cd libLAS && \
-    mkdir build && cd build && \
-    cmake .. -DWITH_LASZIP=ON -DWITH_GEOTIFF=OFF -DCMAKE_CXX_STANDARD=14 && \
-    make -j$(nproc) && \
-    make install && \
-    cd ../.. && rm -rf libLAS
 
 # Clone, build and clean up Qhull
 RUN git clone https://github.com/qhull/qhull.git && \
