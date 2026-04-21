@@ -3,23 +3,28 @@
 # ABN 41 687 119 230
 #
 # Author: Kazys Stepanas
-cmake_minimum_required(VERSION 3.10)
-
-if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
-  message(STATUS "Build type empty, so defaulting to Release.")
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
-endif()
+# Author: Rod Taylor
+cmake_minimum_required(VERSION 3.22) # Ubuntu 22.04 has CMake 3.22.
 
 # Setup project details.
-project(raycloudtools)
+project(raycloudtools VERSION 0.1.0
+  DESCRIPTION "A collection of tools for working with point cloud data, including rayclouds."
+  LANGUAGES CXX
+)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-include(RasProjectSetup)
-ras_project(
-  VERSION 0.0.1
-  NAMESPACE raycloud
+# Setup compiler warnings and options.
+add_compile_options(
+  "-pedantic"
+  "-Wall"
+  "-Wextra"
+  "-Wconversion"
+  "-Werror=pedantic"
+  "-Werror=vla"
+  "-fdiagnostics-color=always"
 )
+
 
 # Add project level options here.
 # Setup doxygen
@@ -37,17 +42,8 @@ option(WITH_QHULL "With libqhull support?" OFF)
 option(WITH_TIFF "With libgeotiff support?" OFF)
 option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
 option(WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
-
-# Convert WITH_ options to 1/0 so we can use them in configuration headers.
-ras_bool_to_int(WITH_LAS)
-ras_bool_to_int(WITH_QHULL)
-ras_bool_to_int(WITH_TIFF)
-ras_bool_to_int(WITH_TBB)
-ras_bool_to_int(WITH_NORMAL_FIELD)
-
-# other build-time options
 option(DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
-ras_bool_to_int(DOUBLE_RAYS)
+
 
 # Required packages.
 find_package(Eigen3 REQUIRED)
@@ -148,51 +144,31 @@ add_subdirectory(raycloudtools)
 # Test setup.
 if(RAYCLOUD_BUILD_TESTS)
   find_package(GTest REQUIRED)
-
-  # We can enable testing here and/or in the subdirectory, but doing it here allows us to run CTest from the build root.
-  # To run the tests, we execute:
-  #   CTest -C [Debug|Release|RelWithDebInfo|MinSizeRel] --output-on-failure
-  # CTest normally shows only a very terse test ouput, but we make sure failed tests show all output by adding
-  #   --output-on-failure
-  # The full test output is always available in:
-  #   <build>/Testing/Temporary/LastTest.log
   enable_testing()
   add_subdirectory(tests)
 endif(RAYCLOUD_BUILD_TESTS)
 
 # Doxygen setup.
 if(RAYCLOUD_BUILD_DOXYGEN)
-  # Include Doxygen helper functions. This also finds the Doxygen package.
-  include(RasDoxygen)
-
+  find_package(Doxygen)
   if(DOXYGEN_FOUND)
-    # Create a target to build the documentation.
-    # Here we also setup various documentation variables passed through to the doxyfile configuration.
-    # Each named argument below describes the Doxygen variable it sets.
-    ras_doxygen_create(
-      # DOXYFILE cmake/doxyfile.in  # Doxyfile to configure.
-      PROJECT ${CMAKE_PROJECT_NAME} # PROJECT_NAME
-      VERSION ${raycloudtools_VERSION}   # PROJECT_NUMBER
-      OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/html # HTML_OUPTUT
-      # CSS <style>.css             # HTML_STYLESHEET
-      PUBLISHER "CSIRO"             # DOCSET_PUBLISHER_NAME
-      PUBLISHER_ID au.csiro         # DOCSET_PUBLISHER_ID
-      PROJECT_ID au.csiro.ras  # DOCSET_BUNDLE_ID, QHP_NAMESPACE, ECLIPSE_DOC_ID
-      PATHS                         # INPUT (RECURSIVE is on)
-        src
-        doc
-      EXCLUDE_PATHS                 # EXCLUDE
-      # Where to find source code examples.
-      # EXAMPLE_PATHS <paths>        # EXAMPLE_PATH
-      # Where to find images.
-      # IMAGE_PATHS <paths>          # IMAGE_PATH
-    )
 
-    # Setup installation of the generated documentation: source, destination.
-    ras_doxygen_install(${CMAKE_CURRENT_BINARY_DIR}/html ras)
+    set(DOXYGEN_PROJECT_VERSION ${raycloudtools_VERSION})
+    set(DOXYGEN_DOCSET_BUNDLE_ID "au.csiro.raycloudtools")
+    set(DOXYGEN_DOCSET_PUBLISHER_ID "au.csiro")
+    set(DOXYGEN_DOCSET_PUBLISHER_NAME "CSIRO")
+
+    doxygen_add_docs(
+      src
+      doc
+      ALL
+    )
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html DESTINATION share/doc/${CMAKE_PROJECT_NAME} COMPONENT Devel)
+
   else(DOXYGEN_FOUND)
     message(FATAL_ERROR "Told to build Doxygen Documentation, but failed to find Doxygen")
   endif(DOXYGEN_FOUND)
+
 endif(RAYCLOUD_BUILD_DOXYGEN)
 
 # Installation
@@ -200,12 +176,10 @@ include(InstallRequiredSystemLibraries)
 include(CMakePackageConfigHelpers)
 
 
-
-
 install(EXPORT ${CMAKE_PROJECT_NAME}-targets
   FILE ${CMAKE_PROJECT_NAME}-targets.cmake
   NAMESPACE ${PACKAGE_NAMESPACE}
-  DESTINATION ${PACKAGE_EXPORT_LOCATION}
+  DESTINATION lib/cmake/${CMAKE_PROJECT_NAME}
 )
 
 write_basic_package_version_file(
@@ -218,11 +192,11 @@ write_basic_package_version_file(
 configure_package_config_file(
     "cmake/Config.in.cmake"
     "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
-    INSTALL_DESTINATION "${PACKAGE_EXPORT_LOCATION}"
+    INSTALL_DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
 )
 
 # Install package files
 install(FILES
   "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
   "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-version.cmake"
-  DESTINATION "${PACKAGE_EXPORT_LOCATION}")
+  DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}")

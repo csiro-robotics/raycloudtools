@@ -1,8 +1,5 @@
 set(SOURCES
   rayrender.cpp
 )
-ras_add_executable(rayrender
-  LIBS raylib
-  SOURCES ${SOURCES}
-  PROJECT_FOLDER "raycloudtools"
-)
+
+add_raycloudtools_executable(rayrender ${SOURCES})

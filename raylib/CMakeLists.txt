@@ -4,11 +4,6 @@
 #
 # Author: Kazys Stepanas
 
-if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
-  message(STATUS "Build type empty, so defaulting to Release.")
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
-endif()
-
 # Setup configuration header
 configure_file(raylibconfig.in.h "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h")
 
@@ -120,26 +115,41 @@ else(WITH_QHULL)
 set(QHULL_LIBS)
 endif(WITH_QHULL)
 
-ras_add_library(raylib
-  TYPE SHARED
-  INCLUDE_PREFIX "raylib"
-  PROJECT_FOLDER "raylib"
-  INCLUDE
-    PUBLIC_SYSTEM
-      ${RAYTOOLS_INCLUDE}
-    PRIVATE_SYSTEM
-      # Add the simple_fft include directories as PRIVATE system headers to prevent them generating compiler warnings.
-      # The simple_fft dependency is also added as an INTERFACE library, which will be propagated in the dependency
-      # chain.
-      "${SIMPLE_FFT_INCLUDE_DIRS}"
-  LIBS
-    PUBLIC
-      ${RAYTOOLS_LINK}
-    PRIVATE
-      ${QHULL_LIBS}
-  PUBLIC_HEADERS ${PUBLIC_HEADERS}
-  GENERATED PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h"
-  SOURCES ${SOURCES}
+add_library(raylib SHARED ${SOURCES} ${PUBLIC_HEADERS} ${PRIVATE_HEADERS})
+
+target_link_libraries(raylib PUBLIC ${RAYTOOLS_LINK} PRIVATE ${QHULL_LIBS})
+target_compile_options(raylib PUBLIC ${OpenMP_CXX_FLAGS})
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h DESTINATION "${INCLUDE_INSTALL_DIR}/raylib")
+
+install(FILES ${PUBLIC_HEADERS} DESTINATION "${INCLUDE_INSTALL_DIR}/raylib")
+
+install (TARGETS raylib
+  EXPORT ${CMAKE_PROJECT_NAME}-targets
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  INCLUDES DESTINATION include/raylib
 )
 
-target_compile_options(raylib PUBLIC ${OpenMP_CXX_FLAGS})
+# ras_add_library(raylib
+#   TYPE SHARED
+#   INCLUDE_PREFIX "raylib"
+#   PROJECT_FOLDER "raylib"
+#   INCLUDE
+#     PUBLIC_SYSTEM
+#       ${RAYTOOLS_INCLUDE}
+#     PRIVATE_SYSTEM
+#       # Add the simple_fft include directories as PRIVATE system headers to prevent them generating compiler warnings.
+#       # The simple_fft dependency is also added as an INTERFACE library, which will be propagated in the dependency
+#       # chain.
+#       "${SIMPLE_FFT_INCLUDE_DIRS}"
+#   LIBS
+#     PUBLIC
+#       ${RAYTOOLS_LINK}
+#     PRIVATE
+#       ${QHULL_LIBS}
+#   PUBLIC_HEADERS ${PUBLIC_HEADERS}
+#   GENERATED PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h"
+#   SOURCES ${SOURCES}
+# )

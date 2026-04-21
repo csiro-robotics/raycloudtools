@@ -1,8 +1,5 @@
 set(SOURCES
   raydecimate.cpp
 )
-ras_add_executable(raydecimate
-  LIBS raylib
-  SOURCES ${SOURCES}
-  PROJECT_FOLDER "raycloudtools"
-)
+
+add_raycloudtools_executable(raydecimate ${SOURCES})

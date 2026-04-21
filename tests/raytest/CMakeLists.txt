@@ -28,10 +28,7 @@ target_include_directories(raytest SYSTEM
 )
 
 target_link_libraries(raytest PUBLIC raylib GTest::Main)
-
-if(Eigen3_FOUND)
-  target_link_libraries(raytest PRIVATE Eigen3::Eigen)
-endif(Eigen3_FOUND)
+target_link_libraries(raytest PRIVATE Eigen3::Eigen)
 
 add_test(NAME raytest COMMAND raytest --gtest_output=xml:test-reports/
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

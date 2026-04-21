@@ -1,8 +1,4 @@
 set(SOURCES
   raydiff.cpp
 )
-ras_add_executable(raydiff
-  LIBS raylib
-  SOURCES ${SOURCES}
-  PROJECT_FOLDER "raycloudtools"
-)
+add_raycloudtools_executable(raydiff ${SOURCES})

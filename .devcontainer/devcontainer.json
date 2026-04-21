@@ -19,7 +19,7 @@
   "mounts": [
     "type=bind,source=${localWorkspaceFolder}/.devcontainer/commands/compile_install.sh,target=/usr/local/bin/compile_install.sh",
   ],
-  "remoteUser": "root",
+  "remoteUser": "ubuntu",
   "forwardPorts": [],
   "postCreateCommand": "compile_install.sh",
   "runArgs": [
