@@ -825,7 +825,10 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         case RenderStyle::Density_rgb:
         {
           if (is_hdr)
-            col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+          {
+            // brightness doubles and hue cycles every power of 10
+            col3d = std::pow(colour[0], 0.3) * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+          }
           else
           {
             double shade = colour[0] / max_val;
