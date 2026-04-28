@@ -156,7 +156,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
         sections_[sec_].split_count++;
-        bifurcate(clusters, thickness, children, true, false);
+        bifurcate(clusters, thickness, children, true, true);
         sec_--;
         continue;
       }
@@ -622,6 +622,9 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
       new_node.radius_scale *= max_distances[i] / std::sqrt(total_area);
       if (par == -1)
       {
+        // make this a branch of the trunk rather than a new separate root/tree,
+        // so that a merged single-tree root cluster stays as one tree
+        new_node.parent = sec_;
         new_node.radius_scale = 1.0;
       }
       if (new_node.max_distance_to_end > params_->crop_length)  // but only add if they are large enough
@@ -691,9 +694,10 @@ void Trees::bifurcate(const std::vector<std::vector<int>> &clusters, double thic
         {
           sections_[par].children.push_back(static_cast<int>(sections_.size()));
         }
-        if (par == -1)
+        else
         {
-          new_node.root = (int)sections_.size();
+          // par == -1: new_node.parent was set to sec_, so register as a child of this trunk
+          sections_[sec_].children.push_back(static_cast<int>(sections_.size()));
         }
         sections_.push_back(new_node);
       }
