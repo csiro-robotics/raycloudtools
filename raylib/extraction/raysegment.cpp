@@ -166,8 +166,10 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
     Eigen::ArrayXXd::Constant(static_cast<int>(lowfield.rows()), static_cast<int>(lowfield.cols()), std::numeric_limits<double>::lowest());
   for (const auto &point : points)
   {
-    Eigen::Vector3i index = ((point.pos - box_min) / pixel_width).cast<int>();
-    heightfield(index[0], index[1]) = std::max(heightfield(index[0], index[1]), point.pos[2]);
+    const Eigen::Vector3i raw = ((point.pos - box_min) / pixel_width).cast<int>();
+    const int cx = std::max(0, std::min(raw[0], static_cast<int>(heightfield.rows()) - 1));
+    const int cy = std::max(0, std::min(raw[1], static_cast<int>(heightfield.cols()) - 1));
+    heightfield(cx, cy) = std::max(heightfield(cx, cy), point.pos[2]);
   }
   // make heightfield relative to the ground
   for (int i = 0; i < heightfield.rows(); i++)
@@ -185,8 +187,10 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
     points[ind].distance_to_ground = 0.0;
     points[ind].score = 0.0;
     points[ind].root = ind;
-    const Eigen::Vector3i index = ((points[ind].pos - box_min) / pixel_width).cast<int>();
-    closest_node.push(QueueNode(0, 0, heightfield(index[0], index[1]), ind, ind));
+    const Eigen::Vector3i raw = ((points[ind].pos - box_min) / pixel_width).cast<int>();
+    const int cx = std::max(0, std::min(raw[0], static_cast<int>(heightfield.rows()) - 1));
+    const int cy = std::max(0, std::min(raw[1], static_cast<int>(heightfield.cols()) - 1));
+    closest_node.push(QueueNode(0, 0, heightfield(cx, cy), ind, ind));
   }
 
   // perform Djikstra's shortest path to ground algorithm to fill in the parent indices in 'points'
@@ -204,9 +208,11 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
     {
       continue;
     }
-    const Eigen::Vector3i index = ((points[point.root].pos - box_min) / pixel_width).cast<int>();
-    counts(index[0], index[1])++;
-    heights(index[0], index[1]) = std::max(heights(index[0], index[1]), point.pos[2] - lowfield(index[0], index[1]));
+    const Eigen::Vector3i raw = ((points[point.root].pos - box_min) / pixel_width).cast<int>();
+    const int cx = std::max(0, std::min(raw[0], static_cast<int>(counts.rows()) - 1));
+    const int cy = std::max(0, std::min(raw[1], static_cast<int>(counts.cols()) - 1));
+    counts(cx, cy)++;
+    heights(cx, cy) = std::max(heights(cx, cy), point.pos[2] - lowfield(cx, cy));
   }
 
   // in order to avoid boundary artefacts, we create a 2x2 summed array:
@@ -270,8 +276,10 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
   std::vector<std::vector<int>> roots_lists(sums.rows() * sums.cols());
   for (int i = roots_start; i < static_cast<int>(points.size()); i++)
   {
-    const Eigen::Vector3i index = ((points[i].pos - box_min) / pixel_width).cast<int>();
-    const Eigen::Vector2i best_index = bests[index[0] + static_cast<int>(sums.rows()) * index[1]];
+    const Eigen::Vector3i raw = ((points[i].pos - box_min) / pixel_width).cast<int>();
+    const int cx = std::max(0, std::min(raw[0], static_cast<int>(sums.rows()) - 1));
+    const int cy = std::max(0, std::min(raw[1], static_cast<int>(sums.cols()) - 1));
+    const Eigen::Vector2i best_index = bests[cx + static_cast<int>(sums.rows()) * cy];
     const double max_height = max_heights(best_index[0], best_index[1]);
     if (max_height >= height_min)
     {
@@ -292,6 +300,83 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
       {
         roots_set.push_back(roots);
       }
+    }
+  }
+
+  // Merge all root clusters into one when the scene looks like a single isolated tree
+  // that the NMS has over-segmented. Two conditions must both hold:
+  //   1. All canopy cells form a single connected region (no inter-tree gaps).
+  //   2. The total canopy area is small relative to the canopy height — consistent
+  //      with a single tree crown rather than a multi-tree stand.
+  if (roots_set.size() > 1)
+  {
+    const int rows = static_cast<int>(heightfield.rows());
+    const int cols = static_cast<int>(heightfield.cols());
+
+    // BFS connected-component labeling on cells with canopy >= height_min
+    std::vector<int> cell_label(rows * cols, -1);
+    int num_labels = 0;
+    for (int x = 0; x < rows; x++)
+    {
+      for (int y = 0; y < cols; y++)
+      {
+        if (cell_label[x + rows * y] >= 0 || heightfield(x, y) < height_min)
+        {
+          continue;
+        }
+        const int label = num_labels++;
+        std::queue<Eigen::Vector2i> q;
+        q.push(Eigen::Vector2i(x, y));
+        while (!q.empty())
+        {
+          Eigen::Vector2i c = q.front();
+          q.pop();
+          const int idx = c[0] + rows * c[1];
+          if (cell_label[idx] >= 0)
+          {
+            continue;
+          }
+          cell_label[idx] = label;
+          for (int dx = -1; dx <= 1; dx++)
+          {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+              if (dx == 0 && dy == 0)
+              {
+                continue;
+              }
+              const int nx = c[0] + dx, ny = c[1] + dy;
+              if (nx >= 0 && nx < rows && ny >= 0 && ny < cols &&
+                  cell_label[nx + rows * ny] < 0 && heightfield(nx, ny) >= height_min)
+              {
+                q.push(Eigen::Vector2i(nx, ny));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // estimate how many trees the canopy area could plausibly contain:
+    // one tree crown typically occupies ~height^2 of horizontal area
+    int canopy_cells = 0;
+    for (int x = 0; x < rows; x++)
+      for (int y = 0; y < cols; y++)
+        if (heightfield(x, y) >= height_min)
+          canopy_cells++;
+    const double max_h = heightfield.maxCoeff();
+    const double expected_trees = canopy_cells * pixel_width * pixel_width / (max_h * max_h);
+
+    // merge only when there is exactly one canopy region and the total canopy
+    // footprint is consistent with a single tree (expected_trees < 1.5)
+    if (num_labels == 1 && expected_trees < 1.5)
+    {
+      std::vector<int> combined;
+      for (auto &cluster : roots_set)
+      {
+        combined.insert(combined.end(), cluster.begin(), cluster.end());
+      }
+      roots_set = {std::move(combined)};
     }
   }
 

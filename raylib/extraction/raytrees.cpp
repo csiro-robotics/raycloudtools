@@ -156,7 +156,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
       if (clusters.size() > 1 || (points_removed && clusters.size() > 0))  // a bifurcation (or an alteration)
       {
         sections_[sec_].split_count++;
-        bifurcate(clusters, thickness, children, true, true);
+        bifurcate(clusters, thickness, children, true, false);
         sec_--;
         continue;
       }
