@@ -4,6 +4,9 @@
 //
 // Author: Thomas Lowe
 #include "raylaz.h"
+#include <algorithm>
+#include <fstream>
+#include <limits>
 #include "raylib/rayprogress.h"
 #include "raylib/rayprogressthread.h"
 #include "rayunused.h"
@@ -262,6 +265,7 @@ LasWriter::LasWriter(const std::string &file_name)
   , writer_handle_(nullptr)
   , header_(nullptr)
   , point_(nullptr)
+  , points_written_(0)
 {
   if (laszip_create(&writer_handle_))
   {
@@ -316,6 +320,19 @@ LasWriter::~LasWriter()
     laszip_update_inventory(writer_handle_);
     laszip_close_writer(writer_handle_);
     laszip_destroy(writer_handle_);
+    // laszip_close_writer clobbers number_of_point_records for streaming writes (our count
+    // wasn't known at open_writer). Patch it on disk: LAS 1.2 legacy count at offset 107.
+    if (points_written_ > 0)
+    {
+      std::fstream f(file_name_, std::ios::in | std::ios::out | std::ios::binary);
+      if (f.is_open())
+      {
+        const laszip_U32 count =
+          static_cast<laszip_U32>(std::min<uint64_t>(points_written_, std::numeric_limits<laszip_U32>::max()));
+        f.seekp(107);
+        f.write(reinterpret_cast<const char *>(&count), sizeof(count));
+      }
+    }
   }
 #else
   std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
@@ -345,6 +362,7 @@ bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, const std
       point_->gps_time = times[i];
     laszip_write_point(writer_handle_);
   }
+  points_written_ += points.size();
   return true;
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(points);

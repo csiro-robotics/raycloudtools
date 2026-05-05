@@ -52,6 +52,7 @@ private:
   laszip_POINTER writer_handle_;
   laszip_header_struct *header_;
   laszip_point_struct *point_;
+  uint64_t points_written_;
 #endif  // RAYLIB_WITH_LAS
 };
 }  // namespace ray
