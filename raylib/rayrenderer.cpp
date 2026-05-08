@@ -787,6 +787,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       max_val = mean + 2.0 * standard_deviation;
       min_val = mean - 2.0 * standard_deviation;
     }
+    std::cout << "max val: " << max_val << std::endl;
 
     // The final pixel buffer
     std::vector<RGBA> pixel_colours;
@@ -831,10 +832,12 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           }
           else
           {
-            double shade = colour[0] / max_val;
-            col3d = redGreenBlueGradient(shade);
-            if (shade < 0.05)
-              col3d *= 20.0 * shade;  // this blends the lowest densities down to black
+            col3d = 0.7 * std::pow(colour[0], 0.3) * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+
+//            double shade = colour[0] / max_val;
+//            col3d = redGreenBlueGradient(shade);
+//            if (shade < 0.05)
+//              col3d *= 20.0 * shade;  // this blends the lowest densities down to black
           }
           break;
         }
