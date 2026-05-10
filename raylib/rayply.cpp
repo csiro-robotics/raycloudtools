@@ -29,6 +29,7 @@ enum DataType
   kDTushort,
   kDTuchar,
   kDTint,
+  kDTuint,
   kDTnone
 };
 }  // namespace
@@ -347,7 +348,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
   bool pos_is_float = false;
   bool normal_is_float = false;
   DataType intensity_type = kDTnone;
-  int rowsteps[] = { int(sizeof(float)), int(sizeof(double)), int(sizeof(unsigned short)), int(sizeof(unsigned char)), int(sizeof(int)),
+  int rowsteps[] = { int(sizeof(float)), int(sizeof(double)), int(sizeof(unsigned short)), int(sizeof(unsigned char)), int(sizeof(int)), int(sizeof(unsigned int)),
                      0 };  // to match each DataType enum
 
   while (line != "end_header\r" && line != "end_header")
@@ -375,6 +376,8 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
       data_type = kDTushort;    
     else if (line.find("property int") != std::string::npos)
       data_type = kDTint;
+    else if (line.find("property uint") != std::string::npos || line.find("property unsigned int") != std::string::npos)
+      data_type = kDTuint;
 
     if (line == "property float x" || line == "property double x")
     {
