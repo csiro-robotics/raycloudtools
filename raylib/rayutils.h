@@ -22,6 +22,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#define VISUALISE_TOOL "QT_QPA_PLATFORM=xcb meshlab" // the first term fixed opening problems on some platforms
 
 namespace ray
 {
@@ -378,10 +379,12 @@ void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &objec
   
   const Eigen::Vector3i step(sign(direction[0]), sign(direction[1]), sign(direction[2]));
   direction /= max_length;
+  float eps = 1e-10; // remove tiny about so grid walking doesn't exceed its boundary
+  max_length -= eps;
   Eigen::Vector3d lengths, length_delta;
   for (int j = 0; j<3; j++)
   {
-    const double to = std::abs(start[j] - p[j] - (double)std::max(0, step[j]));        
+    const double to = step[j] > 0 ? (double)p[j] + 1.0 - start[j] : start[j] - (double)p[j];       
     const double dir = std::max(std::numeric_limits<double>::epsilon(), std::abs(direction[j]));
     lengths[j] = to / dir;
     length_delta[j] = 1.0 / dir;
@@ -392,7 +395,7 @@ void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &objec
     return; // only adding to one cell
   }
   
-  while (p != target) 
+  while (lengths[ax] < max_length) 
   {
     p[ax] += step[ax];
     const double in_length = lengths[ax];

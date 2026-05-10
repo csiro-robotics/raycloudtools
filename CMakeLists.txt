@@ -54,7 +54,7 @@ find_package(OpenMP REQUIRED)
 find_package(Threads)
 
 set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
-set(RAYTOOLS_LINK ${libnabo_LIBRARIES} Threads::Threads)
+set(RAYTOOLS_LINK ${libnabo_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
 
 # Optionally configured packages.
 if(WITH_LAS)

@@ -26,6 +26,7 @@ void usage(int exit_code = 1)
   std::cout << "          tree" << std::endl;
   std::cout << "          forest" << std::endl;
   std::cout << "          terrain" << std::endl;
+  std::cout << "          field" << std::endl;
   std::cout << std::endl;
   std::cout << "          forest trees.txt - generate from a comma-separated list of x,y,z,radius trees" << std::endl;
   std::cout << "          terrain mesh.ply      - generate from a ground mesh" << std::endl;
@@ -33,9 +34,11 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
+double random(double x, double y){ return ray::random(x, y); }
+
 int rayCreate(int argc, char *argv[])
 {
-  ray::KeyChoice cloud_type({ "room", "building", "tree", "forest", "terrain" });
+  ray::KeyChoice cloud_type({ "room", "building", "tree", "forest", "terrain", "field" });
   ray::IntArgument seed(1, 1000000);
   ray::FileArgument input_file;
   bool from_seed = ray::parseCommandLine(argc, argv, { &cloud_type, &seed });
@@ -70,6 +73,47 @@ int rayCreate(int argc, char *argv[])
     colourByTime(cloud.times, cloud.colours);
     const std::vector<bool> &bounded = room_gen.rayBounded();
     for (int i = 0; i < (int)cloud.colours.size(); i++) cloud.colours[i].alpha = bounded[i] ? 255 : 0;
+  }
+  else if (type == "field") // like a field of wheat. The rays follow a Beer/Lambert law in their depth
+  {
+    double half_width = random(5.0, 20.0);
+    double crop_height = random(0.2, 1.5);
+    double height_gradient = 0.0;
+    double density_gradient = 0.0;
+    double crop_density = random(0.04, 0.5);
+    double ray_density = random(400.0, 1600.0); // rays per square metre
+    std::cout << "Creating field of width " << 2.0*half_width << " m, height: " << crop_height << " m, crop density " << crop_density << " and " << ray_density << " vertical rays per m^2" << std::endl;
+    int num_rays = (int)(ray_density * 4.0 * half_width*half_width);
+    if (random(0.0,1.0) < 0.5 && seed.value() != 1)
+    {
+      height_gradient = random(-crop_height/half_width, crop_height/half_width);
+      std::cout << "height gradient in y: " << height_gradient << std::endl;
+    }
+    if (random(0.0, 1.0) < 0.5)
+    {
+      density_gradient = random(-crop_density/half_width, crop_density/half_width);  
+      std::cout << "density gradient in x: " << density_gradient << std::endl;
+    }
+
+    for (int i = 0; i<num_rays; i++)
+    {
+      Eigen::Vector3d pos(random(-half_width, half_width), random(-half_width, half_width), 0.0);
+      double lambda = crop_density + pos[0]*density_gradient;
+      double height = crop_height + pos[1]*height_gradient;
+      Eigen::Vector3d start(pos[0], pos[1], 2.0*height);
+
+      double prob_ground = 1.0 - std::exp(-lambda * height);
+      double rnd = random(0.0, 1.0);
+      if (rnd < prob_ground)
+      {
+        double h = std::log(1.0 - rnd)/-lambda;
+        pos[2] = height - h;
+        if (pos[2] < -0.01)
+          std::cout << "error: " << pos[2] << ", rnd: " << rnd << ", h: " << h << std::endl;
+      }
+      cloud.addRay(start, pos, 0.001*(double)i, ray::RGBA(255,255,255,255));
+    }
+    colourByTime(cloud.times, cloud.colours);
   }
   else if (type == "building")
   {

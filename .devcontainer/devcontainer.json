@@ -1,0 +1,20 @@
+{
+    "name": "RayCloudTools Development",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "twxs.cmake",
+                "ms-vscode.cpptools-extension-pack"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "forwardPorts": [],
+    "postCreateCommand": "chmod +x /workspaces/raycloudtools/.devcontainer/commands/compile_install.sh && /workspaces/raycloudtools/.devcontainer/commands/compile_install.sh"
+}

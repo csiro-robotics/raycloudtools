@@ -13,6 +13,12 @@
 #include "xtiffio.h"   /* for TIFF */
 #endif
 #include <fstream>
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 #include "rayunused.h"
 
 #define DENSITY_MIN_RAYS 10  // larger is more accurate but more blurred. 0 for no adaptive blending
@@ -20,6 +26,170 @@
 namespace ray
 {
 #if RAYLIB_WITH_TIFF
+
+namespace
+{
+struct Proj4Data
+{
+  std::unordered_map<std::string, std::string> values;
+  std::unordered_set<std::string> flags;
+};
+
+std::string trim(const std::string &s)
+{
+  std::string::size_type b = 0;
+  while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b])))
+    ++b;
+  std::string::size_type e = s.size();
+  while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1])))
+    --e;
+  return s.substr(b, e - b);
+}
+
+std::string toLower(std::string s)
+{
+  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return s;
+}
+
+bool tryParseInt(const std::string &s, int &value)
+{
+  char *end = nullptr;
+  const long v = std::strtol(s.c_str(), &end, 10);
+  if (end == s.c_str() || *end != '\0')
+    return false;
+  value = static_cast<int>(v);
+  return true;
+}
+
+bool tryParseDouble(const std::string &s, double &value)
+{
+  char *end = nullptr;
+  const double v = std::strtod(s.c_str(), &end);
+  if (end == s.c_str() || *end != '\0')
+    return false;
+  value = v;
+  return true;
+}
+
+bool parseProj4File(const std::string &projection_file, Proj4Data &proj4)
+{
+  std::ifstream ifs(projection_file.c_str(), std::ios::in);
+  if (ifs.fail())
+    return false;
+
+  std::string token;
+  while (ifs >> token)
+  {
+    const std::string::size_type comment_pos = token.find('#');
+    if (comment_pos == 0)
+    {
+      std::string ignored;
+      std::getline(ifs, ignored);
+      continue;
+    }
+
+    std::string clean = comment_pos == std::string::npos ? token : token.substr(0, comment_pos);
+    clean = trim(clean);
+    if (clean.empty())
+      continue;
+
+    if (clean.front() == '+')
+      clean.erase(clean.begin());
+
+    const std::string::size_type eq_pos = clean.find('=');
+    if (eq_pos == std::string::npos)
+    {
+      proj4.flags.insert(toLower(clean));
+      continue;
+    }
+
+    std::string key = toLower(trim(clean.substr(0, eq_pos)));
+    std::string value = trim(clean.substr(eq_pos + 1));
+    if (!value.empty() && value.front() == '"' && value.back() == '"' && value.size() >= 2)
+      value = value.substr(1, value.size() - 2);
+    if (!key.empty())
+      proj4.values[key] = value;
+  }
+
+  return !proj4.values.empty() || !proj4.flags.empty();
+}
+
+int parseProjCoordTrans(const std::string &proj_name)
+{
+  const std::string p = toLower(proj_name);
+  if (p == "utm" || p == "tmerc")
+    return CT_TransverseMercator;
+  if (p == "ortho")
+    return CT_Orthographic;
+
+  int projcoord = KvUserDefined;
+  if (tryParseInt(p, projcoord))
+    return projcoord;
+  return KvUserDefined;
+}
+
+int parseDatumCode(const std::string &datum)
+{
+  const std::string d = toLower(datum);
+  if (d == "wgs84")
+    return Datum_WGS84;
+  if (d == "gda2020")
+    return 1168;
+  if (d == "nad83")
+    return 6269;
+  if (d == "nad27")
+    return 6267;
+
+  int code = KvUserDefined;
+  if (tryParseInt(d, code))
+    return code;
+  return KvUserDefined;
+}
+
+int parseEllpsCode(const std::string &ellps)
+{
+  const std::string e = toLower(ellps);
+  if (e == "wgs84")
+    return 7030;
+  if (e == "grs80")
+    return 7019;
+  if (e == "clrk66")
+    return 7008;
+
+  int code = KvUserDefined;
+  if (tryParseInt(e, code))
+    return code;
+  return KvUserDefined;
+}
+
+int parseGeographicTypeCode(const std::string &datum)
+{
+  const std::string d = toLower(datum);
+  if (d == "wgs84")
+    return GCS_WGS_84;
+  if (d == "gda2020")
+    return 7844;
+  if (d == "nad83")
+    return 4269;
+  if (d == "nad27")
+    return 4267;
+  return KvUserDefined;
+}
+
+std::string defaultEllpsForDatum(const std::string &datum)
+{
+  const std::string d = toLower(datum);
+  if (d == "wgs84")
+    return "wgs84";
+  if (d == "gda2020" || d == "nad83")
+    return "grs80";
+  if (d == "nad27")
+    return "clrk66";
+  return datum;
+}
+
+}
 
 // save to geotif format using floating-point per-channel colour data. This function passes a projection file in order
 // to geolocate the image
@@ -37,13 +207,20 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
   GTIF *gtif = GTIFNew(tif);
   if (!gtif)
   {
+    XTIFFClose(tif);
     return false;
   }
 
+  auto fail = [&](const std::string &msg) {
+    std::cerr << msg << std::endl;
+    GTIFFree(gtif);
+    XTIFFClose(tif);
+    return false;
+  };
+
   if (x < 0 || y < 0)
   {
-    std::cerr << "Bad image size: " << x << ", " << y << std::endl;
-    return false;
+    return fail("Bad image size: " + std::to_string(x) + ", " + std::to_string(y));
   }
   const uint32_t w = (uint32_t)x;
   const uint32_t h = (uint32_t)y;
@@ -90,85 +267,88 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     }
 
     // now actually write the row data
-    TIFFWriteScanline(tif, &pdst[0], row, 0);
+    if (TIFFWriteScanline(tif, &pdst[0], row, 0) != 1)
+    {
+      return fail("Failed writing TIFF scanline " + std::to_string(row));
+    }
   }
 
   // read in the projection parameters
   if (!projection_file.empty())
   {
-    std::ifstream ifs(projection_file.c_str(), std::ios::in);
-    if (ifs.fail())
-    {
-      std::cerr << "cannot open file " << projection_file << std::endl;
-      return false;
-    }
-    std::string line;
-    if (!getline(ifs, line))
-    {
-      return false;
-    }
-    // the set of keys in the key-value pairs that we are parsing
-    const std::vector<std::string> keys = { "+proj", "+ellps", "+datum", "+units", "+lat_0", "+lon_0", "+x_0", "+y_0", "+zone" };
-    std::vector<std::string> values;
+    Proj4Data proj4;
+    if (!parseProj4File(projection_file, proj4))
+      return fail("Cannot parse projection file: " + projection_file);
+
+    const auto getValue = [&](const std::string &k) -> std::string {
+      const auto it = proj4.values.find(k);
+      return it == proj4.values.end() ? std::string() : it->second;
+    };
+
+    const std::string proj_value = getValue("proj");
+    const std::string datum_value = getValue("datum");
+    std::string ellps_value = getValue("ellps");
+    if (ellps_value.empty())
+      ellps_value = defaultEllpsForDatum(datum_value);
+    const std::string units_value = getValue("units");
+
+    bool is_south = proj4.flags.count("south") > 0;
     int zone_value = KvUserDefined;
-    for (const auto &key : keys)
+    if (!getValue("zone").empty())
     {
-      std::string::size_type found = line.find(key);
-      if (found == std::string::npos)  // error checking
-      {
-        if (key == "+ellps")
-        {
-          std::cout << "No ellps field found in proj file, setting it equal to the datum." << std::endl;
-          values.push_back("");
-          continue;
-        }
-        if (key == "+zone")
-        {
-          std::cout << "No zone field found in proj file" << std::endl;
-          values.push_back("");
-          continue;
-        }
-        std::cerr << "Error: cannot find key: " << key << " in the projection file: " << projection_file << std::endl;
-        return false;
-      }
-      // generate the list of values that correspond to the list of keys
-      found += key.length() + 1;
-      std::string::size_type space = line.find(" ", found);
-      if (space == std::string::npos)
-        space = line.length();
-      values.push_back(line.substr(found, space - found));
+      if (!tryParseInt(getValue("zone"), zone_value))
+        return fail("Invalid +zone in projection file: " + getValue("zone"));
     }
-    if (values[1].empty())  // if ellipsoid type not specified, we take it to be the same as the datum
-    {
-      values[1] = values[2];
-    }
+
     double coord_lat = 0.0;
-    if (!values[4].empty())
-    {
-      coord_lat = std::stod(values[4]);  // latitude
-    }
+    if (!getValue("lat_0").empty() && !tryParseDouble(getValue("lat_0"), coord_lat))
+      return fail("Invalid +lat_0 in projection file: " + getValue("lat_0"));
+
     double coord_long = 0.0;
-    if (!values[5].empty())
+    if (!getValue("lon_0").empty() && !tryParseDouble(getValue("lon_0"), coord_long))
+      return fail("Invalid +lon_0 in projection file: " + getValue("lon_0"));
+
+    const std::string x0_value = getValue("x_0");
+    const std::string y0_value = getValue("y_0");
+    const bool has_x0 = !x0_value.empty();
+    const bool has_y0 = !y0_value.empty();
+    double false_easting = 0.0;
+    double false_northing = 0.0;
+    if (has_x0 && !tryParseDouble(x0_value, false_easting))
+      return fail("Invalid +x_0 in projection file: " + x0_value);
+    if (has_y0 && !tryParseDouble(y0_value, false_northing))
+      return fail("Invalid +y_0 in projection file: " + y0_value);
+
+    int projected_cs_type = KvUserDefined;
+    const std::string init_value = toLower(getValue("init"));
+    const std::string epsg_value = getValue("epsg");
+    if (!epsg_value.empty())
     {
-      coord_long = std::stod(values[5]);  // longitude
+      if (!tryParseInt(epsg_value, projected_cs_type))
+        return fail("Invalid +epsg in projection file: " + epsg_value);
     }
-    Eigen::Vector2d geo_offset(0, 0);
-    if (!values[6].empty())
+    else if (!init_value.empty())
     {
-      geo_offset[0] = std::stod(values[6]);  // offset in m
+      const std::string prefix = "epsg:";
+      if (init_value.find(prefix) == 0)
+      {
+        if (!tryParseInt(init_value.substr(prefix.size()), projected_cs_type))
+          return fail("Invalid +init EPSG code in projection file: " + init_value);
+      }
     }
-    if (!values[7].empty())
+
+    if (projected_cs_type == KvUserDefined && toLower(proj_value) == "utm" && zone_value >= 1 && zone_value <= 60)
     {
-      geo_offset[1] = std::stod(values[7]);  // offset in m
+      if (toLower(datum_value) == "wgs84")
+        projected_cs_type = is_south ? (32700 + zone_value) : (32600 + zone_value);
+      else if (toLower(datum_value) == "gda2020" && is_south)
+        projected_cs_type = 7800 + zone_value;  // MGA2020 zones, e.g. zone 55 -> EPSG:7855
     }
-    if (!values[8].empty())
-    {
-      std::cout << "zone: " << values[8] << std::endl;
-      zone_value = std::stoi(values[8]);
-      std::cout << "zone?: " << zone_value << std::endl;
-    }
-    std::cout << "proj: " << values[0] << ", geooffset: " << geo_offset.transpose() << ", geokey: " << values[1] << ", datum: " << values[2]
-              << ", coord_long: " << coord_long << " zone: " << zone_value << std::endl;
+
+    std::cout << "proj: " << proj_value << ", false_easting: " << false_easting << ", false_northing: " << false_northing
+              << ", using_south_flag: " << (is_south ? "true" : "false") << ", ellps: " << ellps_value
+              << ", datum: " << datum_value << ", coord_long: " << coord_long << ", coord_lat: " << coord_lat
+              << " zone: " << zone_value << std::endl;
 
     const double scales[3] = { pixel_width, pixel_width, pixel_width };
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
@@ -182,75 +362,53 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
     GTIFKeySet(gtif, VerticalUnitsGeoKey, TYPE_SHORT, 1, Linear_Meter);
 
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
-    if (values[0] == "ortho")
-      GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_Orthographic);
-    else if (values[0] == "utm")
-      GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, CT_TransverseMercator);
-    else
+    if (!proj_value.empty())
     {
-      std::stringstream ss(values[0]);
-      int projcoord = 0;
-      ss >> projcoord;
-      if (!ss.fail())  // we are using a direct number here, so
-      {
+      const int projcoord = parseProjCoordTrans(proj_value);
+      if (projcoord != KvUserDefined)
         GTIFKeySet(gtif, ProjCoordTransGeoKey, TYPE_SHORT, 1, projcoord);
-      }
       else
-      {
-        std::cout << "unknown projection type: " << values[0] << std::endl;
-        return false;
-      }   
+        std::cout << "warning: unknown projection type: " << proj_value << std::endl;
+    }
+    if (has_x0)
+      GTIFKeySet(gtif, ProjFalseEastingGeoKey, TYPE_DOUBLE, 1, false_easting);
+
+    if (has_y0)
+      GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, false_northing);
+    else if (is_south)
+    {
+      GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, 10000000.0); // false northing
+      // Usually paired with the Latitude of Natural Origin (Equator)
+      GTIFKeySet(gtif, ProjNatOriginLatGeoKey, TYPE_DOUBLE, 1, 0.0);
     }
 
     // describe the coordinates of the image corners
-    const double tiepoints[6] = { 0, 0, 0, origin_x + geo_offset[0], origin_y + geo_offset[1], 0 };
+    const double tiepoints[6] = { 0, 0, 0, origin_x, origin_y, 0 };
     TIFFSetField(tif, TIFFTAG_GEOTIEPOINTS, 6, tiepoints);
 
-    if (values[1] == "WGS84")  // we support WGS84 by name
-    {
-      GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, GCS_WGS_84);
-    }
-    else  // all other Geographic type geokeys we parse directly by their number
-    {
-      std::stringstream ss(values[1]);
-      int geokey = 0;
-      ss >> geokey;
-      if (!ss.fail())  // we are using a direct number here, so
-      {
-        GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geokey);
-      }
-      else
-      {
-        std::cout << "unknown geographic projection type: " << values[1] << std::endl;
-        return false;
-      }
-    }
-    if (values[2] == "WGS84")  // we support the datum type by name
-    {
-      GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, Datum_WGS84);
-    }
-    else
-    {
-      std::stringstream ss(values[2]);
-      int datum = 0;
-      ss >> datum;
-      if (!ss.fail())  // we are using a direct number here, so
-      {
-        GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, datum);
-      }
-      else
-      {
-        std::cout << "unknown datum: " << values[2] << std::endl;
-        return false;
-      }
-    }
-    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, zone_value);
+    const int geographic_type = parseGeographicTypeCode(datum_value);
+    if (geographic_type != KvUserDefined)
+      GTIFKeySet(gtif, GeographicTypeGeoKey, TYPE_SHORT, 1, geographic_type);
+
+    const int datum_code = parseDatumCode(datum_value);
+    if (datum_code != KvUserDefined)
+      GTIFKeySet(gtif, GeogGeodeticDatumGeoKey, TYPE_SHORT, 1, datum_code);
+    else if (!datum_value.empty())
+      std::cout << "warning: unknown datum: " << datum_value << std::endl;
+
+    const int ellps_code = parseEllpsCode(ellps_value);
+    if (ellps_code != KvUserDefined)
+      GTIFKeySet(gtif, GeogEllipsoidGeoKey, TYPE_SHORT, 1, ellps_code);
+    else if (!ellps_value.empty())
+      std::cout << "warning: unknown ellipsoid: " << ellps_value << std::endl;
+
+    GTIFKeySet(gtif, ProjectedCSTypeGeoKey, TYPE_SHORT, 1, projected_cs_type);
     GTIFKeySet(gtif, ProjectionGeoKey, TYPE_SHORT, 1, KvUserDefined);
 
-    if (values[3] != "m")  // we only support metres as the units
+    const std::string unit_norm = toLower(units_value);
+    if (!units_value.empty() && unit_norm != "m" && unit_norm != "meter" && unit_norm != "metre")
     {
-      std::cout << "unknown unit type: " << values[3] << std::endl;
-      return false;
+      return fail("unknown unit type: " + units_value);
     }
     GTIFKeySet(gtif, ProjCenterLongGeoKey, TYPE_DOUBLE, 1, coord_long);
     GTIFKeySet(gtif, ProjCenterLatGeoKey, TYPE_DOUBLE, 1, coord_lat);
@@ -269,6 +427,30 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
 }
 #endif
 
+void DensityGrid::calculatePeaks(const std::string &file_name)
+{
+  auto calc_peaks = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &,
+                       std::vector<RGBA> &colours) {
+    for (size_t i = 0; i < ends.size(); ++i)
+    {
+      Eigen::Vector3d start = starts[i];
+      Eigen::Vector3d end = ends[i];
+      if (!bounds_.clipRay(start, end, 1e-10))
+      {
+        continue; // ray is outside of bounds
+      }
+      if (colours[i].alpha > 0)
+      {
+        const Eigen::Vector3d vox_end = (end - bounds_.min_bound_) / voxel_width_;
+        const Eigen::Vector3i target = Eigen::Vector3d(std::floor(vox_end[0]), std::floor(vox_end[1]), std::floor(vox_end[2])).cast<int>();
+        int peak_id = target[0] + target[1] * voxel_dims_[0];
+        peaks_[peak_id] = std::max(peaks_[peak_id], vox_end[2]);
+      }
+    }
+  };
+  Cloud::read(file_name, calc_peaks); 
+}
+
 /// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
 /// of surface angles.
 void DensityGrid::calculateDensities(const std::string &file_name)
@@ -284,10 +466,38 @@ void DensityGrid::calculateDensities(const std::string &file_name)
         continue; // ray is outside of bounds
       }
       bounded_ = colours[i].alpha > 0;
-      walkGrid((start - bounds_.min_bound_) / voxel_width_, (end - bounds_.min_bound_) / voxel_width_, *this);
+      const Eigen::Vector3d vox_start = (start - bounds_.min_bound_) / voxel_width_;
+      const Eigen::Vector3d vox_end = (end - bounds_.min_bound_) / voxel_width_;
+      source_ = vox_start;
+      dir_ = (vox_end - vox_start).normalized();
+      walkGrid(vox_start, vox_end, *this);
     }
   };
   Cloud::read(file_name, calculate);
+}
+
+// When the cloud has a sharp change in density at the top (e.g. grass or wheat field) between air and the crop, then
+// this function adjusts the density estimation based on this two-phase density, rather than assuming the top voxel is 
+// uniform density
+void DensityGrid::flatTopCompensation()
+{
+  for (int x = 0; x < voxel_dims_[0]; x++)
+  {
+    for (int y = 0; y < voxel_dims_[1]; y++)
+    {
+      double p = peaks_[x + voxel_dims_[0]*y];
+      if (p < -10000.0)
+        continue;
+      int z = (int)std::floor(p);
+      if (z < 0 || z >= voxel_dims_[2])
+        continue;
+      int ind = getIndex(Eigen::Vector3i(x,y,z));
+
+      float r = voxels_[ind].numRays();
+      if (r > 2.0f)
+        voxels_[ind].numHits() *= (r - 2.0f)/(r - 1.0f); // unbiased estimator reduces density estimation slightly in a manner that is equivalent to choosing a grass height slightly above the peak point height
+    }
+  }
 }
 
 // This is a form of windowed average over the Moore neighbourhood (3x3x3) window.
@@ -426,21 +636,33 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
     if (style == RenderStyle::Density || style == RenderStyle::Density_rgb)
     {
       Eigen::Vector3i dims = (extent / pix_width).cast<int>() + Eigen::Vector3i(1, 1, 1);
-#if DENSITY_MIN_RAYS > 0
-      dims += Eigen::Vector3i(1, 1, 1);  // so that we have extra space to convolve
-#endif
       Cuboid grid_bounds = bounds;
+      int shift = 0;
+#if DENSITY_MIN_RAYS > 0
+      shift = 1;
+      dims += 2*Eigen::Vector3i(shift, shift, shift);  // so that we have extra space to convolve
       grid_bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
+#endif
       DensityGrid grid(grid_bounds, pix_width, dims);
 
+#if defined FLAT_TOP_COMPENSATION
+      grid.calculatePeaks(cloud_file);
+#endif
       grid.calculateDensities(cloud_file);
-
+#if defined FLAT_TOP_COMPENSATION
+      grid.flatTopCompensation();
+#endif
+#if DENSITY_MIN_RAYS > 0
       grid.addNeighbourPriors();
-
+#endif
+      double foliage_area = 0.0;
       for (int x = 0; x < width; x++)
       {
         for (int y = 0; y < height; y++)
         {
+          double p = grid.peaks_[(x+shift) + grid.dimensions()[0]*(y+shift)]; // the location before it was shifted
+          int top_z = p < -10000.0 ? -1 : (int)std::floor(p);
+
           double total_density = 0.0;
           for (int z = 0; z < depth; z++)
           {
@@ -448,11 +670,20 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[axis] = z;
             ind[ax1] = x;
             ind[ax2] = y;
-            total_density += grid.voxels()[grid.getIndex(ind)].density();
+            double d = grid.voxels()[grid.getIndex(ind)].density();
+#if defined FLAT_TOP_COMPENSATION
+            if (z == top_z-shift) 
+            {
+              d *= p - (double)top_z;
+            }
+#endif
+            total_density += d * pix_width;
           }
+          foliage_area += total_density * pix_width * pix_width;
           pixels[x + width * y] = Eigen::Vector4d(total_density, total_density, total_density, total_density);
         }
       }
+      std::cout << "total foliage area: " << foliage_area << " m^2" << std::endl;
     }
     else  // otherwise we use a common algorithm, specialising on render style only per-ray
     {
@@ -556,6 +787,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       max_val = mean + 2.0 * standard_deviation;
       min_val = mean - 2.0 * standard_deviation;
     }
+    std::cout << "max val: " << max_val << std::endl;
 
     // The final pixel buffer
     std::vector<RGBA> pixel_colours;
@@ -588,18 +820,24 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         }
         case RenderStyle::Sum:
         case RenderStyle::Density:
-          col3d /= max_val;  // rescale to within limited colour range
+          if (!is_hdr)
+            col3d /= max_val;  // rescale to within limited colour range
           break;
         case RenderStyle::Density_rgb:
         {
           if (is_hdr)
-            col3d = colour[0] * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+          {
+            // brightness doubles and hue cycles every power of 10
+            col3d = std::pow(colour[0], 0.3) * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+          }
           else
           {
-            double shade = colour[0] / max_val;
-            col3d = redGreenBlueGradient(shade);
-            if (shade < 0.05)
-              col3d *= 20.0 * shade;  // this blends the lowest densities down to black
+            col3d = 0.7 * std::pow(colour[0], 0.3) * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
+
+//            double shade = colour[0] / max_val;
+//            col3d = redGreenBlueGradient(shade);
+//            if (shade < 0.05)
+//              col3d *= 20.0 * shade;  // this blends the lowest densities down to black
           }
           break;
         }
@@ -733,7 +971,9 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       // obtain the origin offsets
       const Eigen::Vector3d origin(0, 0, 0);
       const Eigen::Vector3d pos = -(origin - bounds.min_bound_);
-      const double x = pos[ax1], y = pos[ax2] + static_cast<double>(height) * pix_width;
+      const double x = pos[ax1], y = pos[ax2] + static_cast<double>(height - 1) * pix_width;
+
+      std::cout << std::setprecision(3) << std::fixed << "x: " << x << ", y: " << y << ", absy: " << pos[ax2] << std::endl;
       // generate the geotiff file
       writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y);
     }

@@ -9,6 +9,7 @@
 #include "raycuboid.h"
 #include "raypose.h"
 #include "rayutils.h"
+#define FLAT_TOP_COMPENSATION // use a 2-medium model for the top of the cloud, so only the cloud's density is estimated, not the air above it
 
 namespace ray
 {
@@ -65,6 +66,7 @@ struct RAYLIB_EXPORT DensityGrid
     , voxel_dims_(dims)
   {
     voxels_.resize(dims[0] * dims[1] * dims[2]);
+    peaks_.resize(dims[0] * dims[1], std::numeric_limits<double>::lowest());
   }
 
   /// This specific voxel class represents a density
@@ -85,8 +87,10 @@ struct RAYLIB_EXPORT DensityGrid
     /// Add a ray which enters and exits the voxel. @c length is the ray path length within the voxel
     inline void addMissRay(float length);
     inline const float &numHits() const { return num_hits_; }
+    inline float &numHits() { return num_hits_; }
     inline const float &numRays() const { return num_rays_; }
     inline const float &pathLength() const { return path_length_; }
+    inline float &pathLength() { return path_length_; }
 
   private:
     float num_hits_;
@@ -94,8 +98,10 @@ struct RAYLIB_EXPORT DensityGrid
     float path_length_;
   };
 
+  void calculatePeaks(const std::string &file_name);
   /// This streams in a ray cloud file, and fills in the voxel density information
   void calculateDensities(const std::string &file_name);
+  void flatTopCompensation();
   /// To void low-ray-count voxels giving unstable density estimates, we fuse with neighbour information
   /// up to a specified minimum number of rays. Specified in DENSITY_MIN_RAYS
   void addNeighbourPriors();
@@ -110,12 +116,18 @@ struct RAYLIB_EXPORT DensityGrid
   inline double voxelWidth() const { return voxel_width_; }
   // used in walking grid only
   inline bool operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length);
+
+  std::vector<double> peaks_; // highest points
 private:
   Cuboid bounds_;
   std::vector<Voxel> voxels_;
   double voxel_width_;
   Eigen::Vector3i voxel_dims_;
   bool bounded_;
+
+  // used when waling the grid
+  Eigen::Vector3d source_;
+  Eigen::Vector3d dir_;
 };
 
 // inline functions
@@ -135,6 +147,7 @@ double DensityGrid::Voxel::density() const
     return 0.0;
   }
   const double eps = 1e-10; // avoid division by 0
+  // below -1.0 should be -2.0 when min length is estimated (e.g. when initially air)
   return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (eps + num_rays_ * path_length_);
 }
 void DensityGrid::Voxel::operator+=(const DensityGrid::Voxel &other)
@@ -174,9 +187,23 @@ int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
 inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length)
 {
   int index = getIndex(p);
+  double end_length = std::min(out_length, max_length);
+
+#if defined FLAT_TOP_COMPENSATION
+  int peak_id = p[0] + p[1] * voxel_dims_[0];
+  double peak = peaks_[peak_id];
+  double in_height = source_[2] + dir_[2]*in_length;
+  double end_height = source_[2] + dir_[2]*end_length;
+  if (dir_[2] < 0.0 && in_height > peak && end_height <= peak) // currently only supported on downwards rays
+  {
+    double t = (in_height - peak)/(in_height - end_height);
+    in_length += (end_length - in_length) * std::max(0.0, std::min(t, 0.99)); // 0.99 because 1 can cause very tiny distances, which can give density outliers
+  }
+#endif
+
   if (p == target && bounded_)
   {
-    double length_in_voxel = std::min(out_length, max_length) - in_length;
+    double length_in_voxel = end_length - in_length;
     voxels_[index].addHitRay(static_cast<float>(length_in_voxel * voxel_width_));
   }
   else

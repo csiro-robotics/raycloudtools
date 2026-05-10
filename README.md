@@ -7,18 +7,48 @@ Ray clouds represent free space as well as surfaces. This allows processing that
 
 This is an open-source research library, a place to release new techniques in ray cloud analysis and manipulation. So if you would like to contribute with a new or improved method, do suggest it in our discussions page: https://github.com/csiro-robotics/raycloudtools/discussions.
 
+## Citation
+
+If you use the RayCloudTools library in your reseach, please cite:
+
+> Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
+
+> Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
+
+If you use RayExtract (`rayextract trees` or `rayextract terrain`) for tree or forest reconstruction, please cite:
+
+> Devereux, T., Lowe, T., Rivory, J., Reckziegel, R. B., Calders, K., Aryal, R. R., Eaton, G., Cooper, Z., Levick, S., Phinn, S., & Woodgate, W. (2026). RayExtract: A fast, scalable method for tree volume reconstruction from terrestrial laser scanning. Remote Sensing of Environment, 334, 115162. https://doi.org/10.1016/j.rse.2025.115162
+
 ## Install using a Pre-built Container
 
 ### Docker (Linux, MacOS, Windows)
-```console
-# Pull the latest image from GitHub Packages
+#### Pull the Latest Image
+To download the latest image from GitHub Packages, use the following command:
+```bash
 docker pull ghcr.io/csiro-robotics/raycloudtools:latest
-
-# Run an interactive container (binds all host directories by default) 
-docker run -it raycloudtools:latest /bin/bash
 ```
 
-### Apptainer/Singularity (Linux)
+#### Run an Interactive Container
+To run the container interactively and bind your home directory to a directory inside the container for accessing host files:
+
+#### On Linux/MacOS
+```bash
+docker run -it --name raycloudtools -v /home/yourusername:/workspace ghcr.io/csiro-robotics/raycloudtools:latest /bin/bash
+```
+
+#### On Windows
+```bash
+docker run -it --name raycloudtools -v C:/Users/YourUsername:/workspace ghcr.io/csiro-robotics/raycloudtools:latest /bin/bash
+```
+Replace `/home/yourusername` or `C:/Users/YourUsername` with the path to your home directory.
+
+#### Reusing Container
+To restart and attach to the container in the future:
+```bash
+docker start -ai raycloudtools
+```
+
+### Apptainer (Linux/HPC)
 ```console
 # Login to GitHub Container Registry (required once)
 export CR_PAT=YOUR_GITHUB_TOKEN
@@ -66,12 +96,12 @@ cmake ..
 make
 ```
 
-To run the rayXXXX tools from anywhere either sudo make install, or place in your ~/bashrc:
+To run the rayXXXX tools from anywhere either sudo make install, or place in your ~/.bashrc:
 ```console
   export PATH=$PATH:'source code path'/raycloudtools/build/bin
 ```
 
-If not there already, add to your ~/bashrc:
+If not there already, add to your ~/.bashrc:
 '''console
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib 
 '''
@@ -243,15 +273,18 @@ When directly invoking the unit tests, is important that the tests are run from 
 * Change into the `bin/` directory
 * Run `./raytest`
 
+## Development Container Setup (.devcontainer)
+
+This project provides a `.devcontainer` directory for consistent development environments. Using the devcontainer is optional, but recommended for a streamlined setup. Here's how to get started:
+
+1. **Install Docker:** You'll need Docker Desktop (or a similar Docker engine) installed on your machine.
+
+2. **Open in VS Code:**
+    * Open the project in VS Code.
+    * VS Code should automatically detect the `.devcontainer` folder and prompt you to "Reopen in Container". Click it.
+    * If you're not prompted, open the command palette (Ctrl+Shift+P or Cmd+Shift+P) and type "Remote-Containers: Reopen in Container".
+
+That's it! VS Code will handle building and running the development container for you.  If you choose not to use the devcontainer, you will need to ensure your local environment matches the project's dependencies and requirements.
+
 ## Acknowledgements
-This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible. 
-
-
-The paper describing this software is available here: https://ieeexplore.ieee.org/abstract/document/9444433
-
-Citations:  
-```
-Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
-Lowe, T, Moghadam, P, Edwards, E, Williams, J. Canopy density estimation in perennial horticulture crops using 3D spinning lidar SLAM. J Field Robotics. 2021; 1– 21. https://doi.org/10.1002/rob.22006
-```
-
+This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible.

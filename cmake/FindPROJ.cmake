@@ -5,25 +5,32 @@ if (PROJ_FOUND)
     return()
 endif()
 
-# Find the PROJ library
-find_package_handle_standard_args(PROJ DEFAULT_MSG PROJ_LIBRARY PROJ_INCLUDE_DIR)
+include(FindPackageHandleStandardArgs)
 
 # Define the PROJ library
 find_library(PROJ_LIBRARY
     NAMES proj
-    PATHS ${CMAKE_LIBRARY_PATH}
-    NO_DEFAULT_PATH
+        HINTS
+            ${CMAKE_INSTALL_PREFIX}/lib
+            /usr/local/lib
+            /usr/lib
+        PATH_SUFFIXES
+            ${CMAKE_LIBRARY_ARCHITECTURE}
+            aarch64-linux-gnu
 )
 
 # Define the PROJ include directory
 find_path(PROJ_INCLUDE_DIR
     NAMES proj.h
-    PATHS ${CMAKE_INCLUDE_PATH}
-    NO_DEFAULT_PATH
+        HINTS
+            ${CMAKE_INSTALL_PREFIX}/include
+            /usr/local/include
+            /usr/include
+        PATH_SUFFIXES
+            proj
 )
 
 # Handle the results
-include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(PROJ
     REQUIRED_VARS PROJ_LIBRARY PROJ_INCLUDE_DIR
     VERSION_VAR PROJ_VERSION
