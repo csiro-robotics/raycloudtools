@@ -596,6 +596,7 @@ bool readPly(const std::string &file_name, bool is_ray_cloud,
     if (colour_offset != -1)
     {
       RGBA colour = (RGBA &)vertices[colour_offset];
+      colour.alpha = 255;
       colours.push_back(colour);
     }
     if (!is_ray_cloud)
