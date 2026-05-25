@@ -319,7 +319,6 @@ int rayDiff(int argc, char *argv[])
   }
 
   return (int)similarity;
-  return 1;
 }
 
 int main(int argc, char *argv[])
