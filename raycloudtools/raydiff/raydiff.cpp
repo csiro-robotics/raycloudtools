@@ -28,6 +28,7 @@ void usage(int exit_code = 1)
   std::cout << "usage:" << std::endl;
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
   std::cout << "                              --distance 0 - optional threshold in m for colouring differences. Default auto-detects distribution shoulder" << std::endl;
+  std::cout << "                              --unified    - show as single cloud. Red for removed geometry, green for added." << std::endl;
   std::cout << "                              --visualise  - open in the default visualisation tool" << std::endl;
   // clang-format on
   exit(exit_code);
@@ -144,10 +145,10 @@ double getShoulder(double k, std::vector<double> sorted_dists, double &min_error
 int rayDiff(int argc, char *argv[])
 {
   ray::FileArgument cloud1_name, cloud2_name;
-  ray::OptionalFlagArgument visualise("visualise", 'v');
+  ray::OptionalFlagArgument visualise("visualise", 'v'), unified("unified", 'u');
   ray::DoubleArgument distance_threshold(0.0, 1000.0, 0.0);
   ray::OptionalKeyValueArgument distance_option("distance", 'd', &distance_threshold);
-  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &distance_option, &visualise }))
+  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &distance_option, &visualise, &unified }))
   {
     usage();
   }
@@ -261,29 +262,62 @@ int rayDiff(int argc, char *argv[])
       j++;
     }
   }
-  cloud1.save(cloud1_name.nameStub() + "_diff.ply");
   j = 0;
-  for (int i = 0; i<(int)cloud2.ends.size(); i++)
+  if (unified.isSet())
   {
-    if (cloud2.rayBounded(i))
+    Eigen::Vector3d diff2_col(0,255,0);
+    int imin = cloud1.ends.size();
+    cloud1.starts.insert(cloud1.starts.end(), cloud2.starts.begin(), cloud2.starts.end()); 
+    cloud1.ends.insert(cloud1.ends.end(), cloud2.ends.begin(), cloud2.ends.end()); 
+    cloud1.times.insert(cloud1.times.end(), cloud2.times.begin(), cloud2.times.end()); 
+    cloud1.colours.insert(cloud1.colours.end(), cloud2.colours.begin(), cloud2.colours.end()); 
+    for (int i = 0; i<(int)cloud2.ends.size(); i++)
     {
-      if (dists_to_cloud2[j] > min_error_dist)
+      int I = i + imin;
+      if (cloud2.rayBounded(i))
       {
-        double proximity = min_error_dist / dists_to_cloud2[j];
-        Eigen::Vector3d col(cloud2.colours[i].red, cloud2.colours[i].green, cloud2.colours[i].blue);
-        Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
-        cloud2.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud2.colours[i].alpha);
+        if (dists_to_cloud2[j] > min_error_dist)
+        {
+          double proximity = min_error_dist / dists_to_cloud2[j];
+          Eigen::Vector3d col(cloud2.colours[i].red, cloud2.colours[i].green, cloud2.colours[i].blue);
+          Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
+          cloud1.colours[I] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud2.colours[i].alpha);
+        }
+        j++;
       }
-      j++;
+    }
+    cloud1.save(cloud1_name.nameStub() + "_diff.ply");
+    if (visualise.isSet())
+    {
+      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply";
+      system(command.c_str());  
     }
   }
-  cloud2.save(cloud2_name.nameStub() + "_diff.ply");
-
-  if (visualise.isSet())
+  else
   {
-    std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply " + cloud2_name.nameStub() + "_diff.ply";
-    system(command.c_str());  
+    cloud1.save(cloud1_name.nameStub() + "_diff.ply");
+    for (int i = 0; i<(int)cloud2.ends.size(); i++)
+    {
+      if (cloud2.rayBounded(i))
+      {
+        if (dists_to_cloud2[j] > min_error_dist)
+        {
+          double proximity = min_error_dist / dists_to_cloud2[j];
+          Eigen::Vector3d col(cloud2.colours[i].red, cloud2.colours[i].green, cloud2.colours[i].blue);
+          Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
+          cloud2.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud2.colours[i].alpha);
+        }
+        j++;
+      }
+    }
+    cloud2.save(cloud2_name.nameStub() + "_diff.ply");
+    if (visualise.isSet())
+    {
+      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply " + cloud2_name.nameStub() + "_diff.ply";
+      system(command.c_str());  
+    }
   }
+
   return (int)similarity;
   return 1;
 }
