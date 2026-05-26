@@ -26,11 +26,11 @@
 void usage(int exit_code = 1)
 {
   // clang-format off
-  std::cout << "Difference between two ray clouds, differences coloured red, and similarity printed to screen. Optional visualisation." << std::endl;
+  std::cout << "Difference between two ray clouds output a coloured cloud, cloud1 differences in red, cloud2 differences in green, and similarity printed to screen." << std::endl;
   std::cout << "usage:" << std::endl;
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
   std::cout << "                              --distance 0 - optional threshold in m for colouring differences. Default auto-detects distribution shoulder" << std::endl;
-  std::cout << "                              --unified    - show as single cloud. Red for removed geometry, green for added." << std::endl;
+  std::cout << "                              --individual - output as two clouds, to show differences on each." << std::endl;
   std::cout << "                              --visualise  - open in the default visualisation tool" << std::endl;
   // clang-format on
   exit(exit_code);
@@ -147,10 +147,10 @@ double getShoulder(double k, std::vector<float> sorted_dists, double &min_error_
 int rayDiff(int argc, char *argv[])
 {
   ray::FileArgument cloud1_name, cloud2_name;
-  ray::OptionalFlagArgument visualise("visualise", 'v'), unified("unified", 'u');
+  ray::OptionalFlagArgument visualise("visualise", 'v'), individual("individual", 'i');
   ray::DoubleArgument distance_threshold(0.0, 1000.0, 0.0);
   ray::OptionalKeyValueArgument distance_option("distance", 'd', &distance_threshold);
-  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &distance_option, &visualise, &unified }))
+  if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &distance_option, &visualise, &individual }))
   {
     usage();
   }
@@ -226,7 +226,7 @@ int rayDiff(int argc, char *argv[])
   else
   {
     // prune out distance 0
-    for (int i = sorted_dists.size()-1; i>=0; i--)
+    for (int i = (int)sorted_dists.size()-1; i>=0; i--)
     {
       if (sorted_dists[i] <= 0.0)
       {
@@ -300,27 +300,31 @@ int rayDiff(int argc, char *argv[])
   int j = 0;
   Eigen::Vector3d diff_col(255,0,0);
   std::vector<float> *dists = &dists_to_cloud1;
+  const float eps = 1e-8f; // in case there is inaccuracy in the KNN distance estimation for co-located point pairs
   auto colour = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                     std::vector<double> &times, std::vector<ray::RGBA> &colours) 
   {
     // firstly we store a count per cell
-    chunk.starts = starts;
-    chunk.ends = ends;
-    chunk.times = times;
-    chunk.colours = colours;
+    chunk.clear();
     for (size_t i = 0; i<ends.size(); i++)
     {
       if (colours[i].alpha > 0)
       {
-        if ((*dists)[j] > min_error_dist)
+        if ((*dists)[j] > eps)
         {
-          double proximity = min_error_dist / (*dists)[j];
-          Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
-          Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
-          chunk.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+          chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+          if ((*dists)[j] > min_error_dist)
+          {
+            double proximity = min_error_dist / (*dists)[j];
+            Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+            Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
+            chunk.colours.back() = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+          }
         }
         j++;
       }
+      else
+        chunk.addRay(starts[i], ends[i], times[i], colours[i]);
     }
     writer.writeChunk(chunk);
   };
@@ -333,30 +337,32 @@ int rayDiff(int argc, char *argv[])
   Eigen::Vector3d diff2_col(0,255,0);
 
   dists = &dists_to_cloud2;
-  if (unified.isSet())
+  if (!individual.isSet())
   {
-
     auto colour2 = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                       std::vector<double> &times, std::vector<ray::RGBA> &colours) 
     {
       // firstly we store a count per cell
-      chunk.starts = starts;
-      chunk.ends = ends;
-      chunk.times = times;
-      chunk.colours = colours;
+      chunk.clear();
       for (size_t i = 0; i<ends.size(); i++)
       {
         if (colours[i].alpha > 0)
         {
-          if ((*dists)[j] > min_error_dist)
+          if ((*dists)[j] > eps)
           {
-            double proximity = min_error_dist / (*dists)[j];
-            Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
-            Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
-            chunk.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+            chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+            if ((*dists)[j] > min_error_dist)
+            {
+              double proximity = min_error_dist / (*dists)[j];
+              Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+              Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
+              chunk.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+            }
           }
           j++;
         }
+        else
+          chunk.addRay(starts[i], ends[i], times[i], colours[i]);
       }
       writer.writeChunk(chunk);
     };
