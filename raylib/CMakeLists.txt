@@ -20,6 +20,7 @@ set(PUBLIC_HEADERS
   rayconcavehull.h
   rayconvexhull.h
   raydecimation.h
+  raydiffer.h
   rayellipsoid.h
   rayfinealignment.h
   rayforestgen.h
@@ -73,6 +74,7 @@ set(SOURCES
   rayconcavehull.cpp
   rayconvexhull.cpp
   raydecimation.cpp
+  raydiffer.cpp
   rayellipsoid.cpp
   rayfinealignment.cpp
   rayforestgen.cpp
