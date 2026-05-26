@@ -9,11 +9,13 @@
 #include <iostream>
 #include <chrono>
 #include <nabo/nabo.h>
+#include <limits>
 
 #include "raylib/raycloud.h"
 #include "raylib/rayparse.h"
 #include "raylib/raycuboid.h"
 #include "raylib/rayply.h"
+#include "raylib/raycloudwriter.h"
 // we look for a uniform distribution of best fit given a correlation dimension k
 //  if the points are in a line   then k=1
 //  if the points are in a plane  then k=2
@@ -34,70 +36,70 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
-void calcNearestNeighbourDistances(const ray::Cloud &cloud1, const ray::Cloud &cloud2, std::vector<double> &distances)
+void calcNearestNeighbourDistances(const std::vector<Eigen::Vector3f> &cloud1, const std::vector<Eigen::Vector3f> &cloud2, std::vector<float> &distances)
 {
-  Nabo::NNSearchD *nns;
+  Nabo::NNSearchF *nns;
  // Nabo::Parameters params("bucketSize", 8);
   int num_bounded = 0, num_bounded2 = 0;
-  for (unsigned int i = 0; i < cloud1.ends.size(); i++)
-    if (cloud1.rayBounded(i))
+  for (unsigned int i = 0; i < cloud1.size(); i++)
+    if (cloud1[i][0] != std::numeric_limits<float>::max())
       num_bounded++;
-  for (unsigned int i = 0; i < cloud2.ends.size(); i++)
-    if (cloud2.rayBounded(i))
+  for (unsigned int i = 0; i < cloud2.size(); i++)
+    if (cloud2[i][0] != std::numeric_limits<float>::max())
       num_bounded2++;
-  Eigen::MatrixXd points_p(3, num_bounded);
+  Eigen::MatrixXf points_p(3, num_bounded);
   int j = 0;
-  for (unsigned int i = 0; i < cloud1.ends.size(); i++) 
+  for (unsigned int i = 0; i < cloud1.size(); i++) 
   {
-    if (cloud1.rayBounded(i))
-      points_p.col(j++) = cloud1.ends[i];
+    if (cloud1[i][0] != std::numeric_limits<float>::max())
+      points_p.col(j++) = cloud1[i];
   }
-  nns = Nabo::NNSearchD::createKDTreeLinearHeap(points_p, 3);
+  nns = Nabo::NNSearchF::createKDTreeLinearHeap(points_p, 3);
 
-  Eigen::MatrixXd points_q(3, num_bounded2);
+  Eigen::MatrixXf points_q(3, num_bounded2);
   j = 0;
-  for (unsigned int i = 0; i < cloud2.ends.size(); i++) 
+  for (unsigned int i = 0; i < cloud2.size(); i++) 
   {
-    if (cloud2.rayBounded(i))
-      points_q.col(j++) = cloud2.ends[i];
+    if (cloud2[i][0] != std::numeric_limits<float>::max())
+      points_q.col(j++) = cloud2[i];
   }
   Eigen::MatrixXi indices;
-  Eigen::MatrixXd dists2;
+  Eigen::MatrixXf dists2;
   // Run the search
   const int search_size = 1;
   indices.resize(search_size, num_bounded2);
   dists2.resize(search_size, num_bounded2);
-  nns->knn(points_q, indices, dists2, search_size, ray::kNearestNeighbourEpsilon, Nabo::NNSearchD::SearchOptionFlags::SORT_RESULTS | Nabo::NNSearchD::SearchOptionFlags::ALLOW_SELF_MATCH);
+  nns->knn(points_q, indices, dists2, search_size, (float)ray::kNearestNeighbourEpsilon, Nabo::NNSearchF::SearchOptionFlags::SORT_RESULTS | Nabo::NNSearchF::SearchOptionFlags::ALLOW_SELF_MATCH);
+  delete nns;
   distances.resize(num_bounded2);
   for (int i = 0; i<num_bounded2; i++)
   {
-    distances[i] = std::sqrt(dists2(0,i));
+    distances[i] = (float)std::sqrt(dists2(0,i));
   }
-  delete nns;
 }
 
-double getShoulder(double k, std::vector<double> sorted_dists, double &min_error_dist, double &similarity)
+double getShoulder(double k, std::vector<float> sorted_dists, double &min_error_dist, double &similarity)
 {
   int num = (int)sorted_dists.size();
 
   // 1. transform the result to make the distances uniform if their 3D points are uniformly distributed
   for (int i = 0; i<num; i++)
   {
-    sorted_dists[i] = std::pow(sorted_dists[i], k); 
+    sorted_dists[i] = (float)std::pow((double)sorted_dists[i], k); 
   }
 
   // 2. accumulate outside term backwards
-  std::vector<double> outside_const(num+1, 0.0);
-  std::vector<double> outside_linear(num+1, 0.0);
-  std::vector<double> outside_square(num+1, 0.0);
+  std::vector<float> outside_const(num+1, 0.0);
+  std::vector<float> outside_linear(num+1, 0.0);
+  std::vector<float> outside_square(num+1, 0.0);
   for (int i = num-1; i>=0; i--)
   {
     double d = sorted_dists.back() - sorted_dists[i];
     double yN = (num-1);
-    double I = (double)i - yN;
-    outside_const[i] = outside_const[i+1] + I*I;
-    outside_linear[i] = outside_linear[i+1] + 2.0*I*d;
-    outside_square[i] = outside_square[i+1] + d*d;      
+    double I = (float)i - yN;
+    outside_const[i] = (float)((double)outside_const[i+1] + I*I);
+    outside_linear[i] = (float)((double)outside_linear[i+1] + 2.0*I*d);
+    outside_square[i] =(float)((double)outside_square[i+1] + d*d);      
   }
 
   // 3. accumulate linear term forwards, but store only best results
@@ -153,28 +155,53 @@ int rayDiff(int argc, char *argv[])
     usage();
   }
 
-  ray::Cloud cloud1, cloud2;
-  if (!cloud1.load(cloud1_name.name()) || !cloud2.load(cloud2_name.name()))
+  // low memory raydiff requires offsets to support float vectors, and careful avoidance of duplicating large arrays
+  // step 1: get points only
+  std::vector<Eigen::Vector3f> points1, points2;
+  std::vector<Eigen::Vector3f> *points = &points1;
+  Eigen::Vector3d start_pos(0,0,0);
+  bool has_start_pos = false;
+  auto getPoints = [&](std::vector<Eigen::Vector3d> &, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &, std::vector<ray::RGBA> &colours) 
   {
-    usage();
-  }
+    if (!has_start_pos && !ends.empty())
+    {
+      start_pos = ends[0];
+      has_start_pos = true;
+    }
+    for (size_t i = 0; i<ends.size(); i++)
+    {
+      if (colours[i].alpha == 0)
+        points->push_back(Eigen::Vector3f(std::numeric_limits<float>::max(), 0,0)); // flag as unbounded
+      else
+        points->push_back((ends[i] - start_pos).cast<float>());
+    }
+  };
 
+  if (!ray::Cloud::read(cloud1_name.name(), getPoints))
+    return false;  
+  points = &points2;
+  if (!ray::Cloud::read(cloud2_name.name(), getPoints))
+    return false;  
+  
   // Primary goal - get an overall similarity percentage and return it as the return value, so it can be used in bash scripts
   // this needs to include colour and location, but be insensitive to changes in density. i.e. it needs to work usefully on a repeat scan.
-  std::vector<double> dists_to_cloud2, dists_to_cloud1;
+  std::vector<float> dists_to_cloud2, dists_to_cloud1;
   std::cout << "calculating cloud2 neighbours of cloud1..." << std::endl;
-  calcNearestNeighbourDistances(cloud1, cloud2, dists_to_cloud2);
+  calcNearestNeighbourDistances(points1, points2, dists_to_cloud2);
   std::cout << "calculating cloud1 neighbours of cloud2..." << std::endl;
-  calcNearestNeighbourDistances(cloud2, cloud1, dists_to_cloud1);
+  calcNearestNeighbourDistances(points2, points1, dists_to_cloud1);
+  points1.clear(); points1.shrink_to_fit();
+  points2.clear(); points2.shrink_to_fit();
 
   // 1. max distance
-  double max_dist = 0.0;
+  float max_dist = 0.0;
   for (int i = 0; i<(int)dists_to_cloud2.size(); i++)
     max_dist = std::max(max_dist, dists_to_cloud2[i]);
   for (int i = 0; i<(int)dists_to_cloud1.size(); i++)
     max_dist = std::max(max_dist, dists_to_cloud1[i]);
 
-  std::vector<double> sorted_dists = dists_to_cloud2;
+  std::vector<float> sorted_dists = dists_to_cloud2;
   sorted_dists.insert(sorted_dists.end(), dists_to_cloud1.begin(), dists_to_cloud1.end());
 
   double min_error_dist = distance_threshold.value();
@@ -198,6 +225,20 @@ int rayDiff(int argc, char *argv[])
   }
   else
   {
+    // prune out distance 0
+    for (int i = sorted_dists.size()-1; i>=0; i--)
+    {
+      if (sorted_dists[i] <= 0.0)
+      {
+        sorted_dists[i] = sorted_dists.back();
+        sorted_dists.pop_back();
+      }
+    }
+    if (sorted_dists.empty())
+    {
+      std::cerr << "No difference detect between files. Exiting" << std::endl;
+      return 0;
+    }
     std::cout << "sorting differences..." << std::endl;
     std::sort(sorted_dists.begin(), sorted_dists.end());
     double min_error = 0;
@@ -245,48 +286,85 @@ int rayDiff(int argc, char *argv[])
   std::cout << std::endl;
 
   std::cout << "saving out coloured red for matches beyond shoulder difference:" << std::endl;
+  
   // now render visuals
+  ray::CloudWriter writer;
+  if (!writer.begin(cloud1_name.nameStub() + "_diff.ply"))
+    return false;
+
+  // By maintaining these buffers below, we avoid almost all memory fragmentation
+  ray::Cloud chunk;
+  std::map<Eigen::Vector3i, Eigen::Vector2i, ray::Vector3iLess> voxel_map;
+  std::vector<Eigen::Vector3i> samples;
+
   int j = 0;
   Eigen::Vector3d diff_col(255,0,0);
-  for (int i = 0; i<(int)cloud1.ends.size(); i++)
+  std::vector<float> *dists = &dists_to_cloud1;
+  auto colour = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                    std::vector<double> &times, std::vector<ray::RGBA> &colours) 
   {
-    if (cloud1.rayBounded(i))
+    // firstly we store a count per cell
+    chunk.starts = starts;
+    chunk.ends = ends;
+    chunk.times = times;
+    chunk.colours = colours;
+    for (size_t i = 0; i<ends.size(); i++)
     {
-      if (dists_to_cloud1[j] > min_error_dist)
+      if (colours[i].alpha > 0)
       {
-        double proximity = min_error_dist / dists_to_cloud1[j];
-        Eigen::Vector3d col(cloud1.colours[i].red, cloud1.colours[i].green, cloud1.colours[i].blue);
-        Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
-        cloud1.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud1.colours[i].alpha);
-      }
-      j++;
-    }
-  }
-  j = 0;
-  if (unified.isSet())
-  {
-    Eigen::Vector3d diff2_col(0,255,0);
-    int imin = cloud1.ends.size();
-    cloud1.starts.insert(cloud1.starts.end(), cloud2.starts.begin(), cloud2.starts.end()); 
-    cloud1.ends.insert(cloud1.ends.end(), cloud2.ends.begin(), cloud2.ends.end()); 
-    cloud1.times.insert(cloud1.times.end(), cloud2.times.begin(), cloud2.times.end()); 
-    cloud1.colours.insert(cloud1.colours.end(), cloud2.colours.begin(), cloud2.colours.end()); 
-    for (int i = 0; i<(int)cloud2.ends.size(); i++)
-    {
-      int I = i + imin;
-      if (cloud2.rayBounded(i))
-      {
-        if (dists_to_cloud2[j] > min_error_dist)
+        if ((*dists)[j] > min_error_dist)
         {
-          double proximity = min_error_dist / dists_to_cloud2[j];
-          Eigen::Vector3d col(cloud2.colours[i].red, cloud2.colours[i].green, cloud2.colours[i].blue);
-          Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
-          cloud1.colours[I] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud2.colours[i].alpha);
+          double proximity = min_error_dist / (*dists)[j];
+          Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+          Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
+          chunk.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
         }
         j++;
       }
     }
-    cloud1.save(cloud1_name.nameStub() + "_diff.ply");
+    writer.writeChunk(chunk);
+  };
+
+  if (!ray::Cloud::read(cloud1_name.name(), colour))
+    return false;
+  j = 0;
+  dists_to_cloud1.clear();
+  dists_to_cloud1.shrink_to_fit();
+  Eigen::Vector3d diff2_col(0,255,0);
+
+  dists = &dists_to_cloud2;
+  if (unified.isSet())
+  {
+
+    auto colour2 = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+    {
+      // firstly we store a count per cell
+      chunk.starts = starts;
+      chunk.ends = ends;
+      chunk.times = times;
+      chunk.colours = colours;
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        if (colours[i].alpha > 0)
+        {
+          if ((*dists)[j] > min_error_dist)
+          {
+            double proximity = min_error_dist / (*dists)[j];
+            Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+            Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
+            chunk.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+          }
+          j++;
+        }
+      }
+      writer.writeChunk(chunk);
+    };
+
+    if (!ray::Cloud::read(cloud2_name.name(), colour2))
+      return false;
+    writer.end();
+
     if (visualise.isSet())
     {
       std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply";
@@ -295,22 +373,14 @@ int rayDiff(int argc, char *argv[])
   }
   else
   {
-    cloud1.save(cloud1_name.nameStub() + "_diff.ply");
-    for (int i = 0; i<(int)cloud2.ends.size(); i++)
-    {
-      if (cloud2.rayBounded(i))
-      {
-        if (dists_to_cloud2[j] > min_error_dist)
-        {
-          double proximity = min_error_dist / dists_to_cloud2[j];
-          Eigen::Vector3d col(cloud2.colours[i].red, cloud2.colours[i].green, cloud2.colours[i].blue);
-          Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
-          cloud2.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), cloud2.colours[i].alpha);
-        }
-        j++;
-      }
-    }
-    cloud2.save(cloud2_name.nameStub() + "_diff.ply");
+    writer.end();
+    diff_col = diff2_col;
+    if (!writer.begin(cloud2_name.nameStub() + "_diff.ply"))
+      return false;
+
+    if (!ray::Cloud::read(cloud2_name.name(), colour))
+      return false;
+    writer.end();
     if (visualise.isSet())
     {
       std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply " + cloud2_name.nameStub() + "_diff.ply";
