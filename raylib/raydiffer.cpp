@@ -5,6 +5,9 @@
 // Author: Tom Lowe
 #include <nabo/nabo.h>
 #include "raydiffer.h"
+#include "raylib/raycloud.h"
+#include "raylib/rayply.h"
+#include "raylib/raycloudwriter.h"
 // we look for a uniform distribution of best fit given a correlation dimension k
 //  if the points are in a line   then k=1
 //  if the points are in a plane  then k=2
@@ -47,7 +50,7 @@ void calcNearestNeighbourDistances(const std::vector<Eigen::Vector3f> &cloud1, c
   const int search_size = 1;
   indices.resize(search_size, num_bounded2);
   dists2.resize(search_size, num_bounded2);
-  nns->knn(points_q, indices, dists2, search_size, (float)ray::kNearestNeighbourEpsilon, Nabo::NNSearchF::SearchOptionFlags::SORT_RESULTS | Nabo::NNSearchF::SearchOptionFlags::ALLOW_SELF_MATCH);
+  nns->knn(points_q, indices, dists2, search_size, (float)kNearestNeighbourEpsilon, Nabo::NNSearchF::SearchOptionFlags::SORT_RESULTS | Nabo::NNSearchF::SearchOptionFlags::ALLOW_SELF_MATCH);
   delete nns;
   distances.resize(num_bounded2);
   for (int i = 0; i<num_bounded2; i++)
@@ -97,21 +100,21 @@ double getShoulder(double k, std::vector<float> sorted_dists, double &min_error_
   min_error_dist = 0.0;
   for (int i = 0; i<num; i++)
   {
-    inside_const += ray::sqr((double)i);
+    inside_const += sqr((double)i);
     inside_linear -= 2.0*(double)i*sorted_dists[i];
-    inside_square += ray::sqr(sorted_dists[i]);
+    inside_square += sqr(sorted_dists[i]);
 
     // ai^2 + bi + c = 0
     double yN = (double)(num-1);
     double d = sorted_dists.back() - sorted_dists[i];
-    double square = outside_square[i]/ray::sqr(d);
+    double square = outside_square[i]/sqr(d);
     double linear = outside_linear[i]/d;
     double a = square;
     double b = -linear - 2.0*yN*square;
     double c = outside_const[i] + linear*yN + square*yN*yN; 
 
     // add the inside part
-    a += inside_square/ray::sqr(sorted_dists[i]); // the division is to match the gradient to y
+    a += inside_square/sqr(sorted_dists[i]); // the division is to match the gradient to y
     b += inside_linear/sorted_dists[i];
     c += inside_const;
 
@@ -223,4 +226,119 @@ double printDistanceStatistics(const std::vector<float> &dists_to_cloud1, const 
   std::cout << std::endl;
   return similarity;
 }
+
+bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::string &cloud2_namestub, std::vector<float> &dists_to_cloud1, 
+   std::vector<float> &dists_to_cloud2, double dist_threshold, bool individual_files, bool visualise)
+{
+  std::cout << "saving out differences, coloured red for differences to " << cloud1_namestub << ".ply and green for differences in " << cloud2_namestub << ".ply" << std::endl;
+
+  // now render visuals
+  CloudWriter writer;
+  if (!writer.begin(cloud1_namestub + "_diff.ply"))
+    return false;
+
+  // By maintaining these buffers below, we avoid almost all memory fragmentation
+  Cloud chunk;
+  std::map<Eigen::Vector3i, Eigen::Vector2i, Vector3iLess> voxel_map;
+  std::vector<Eigen::Vector3i> samples;
+
+  int j = 0;
+  Eigen::Vector3d diff_col(255,0,0);
+  std::vector<float> *dists = &dists_to_cloud1;
+  const float eps = 1e-8f; // in case there is inaccuracy in the KNN distance estimation for co-located point pairs
+  auto colour = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                    std::vector<double> &times, std::vector<RGBA> &colours) 
+  {
+    // firstly we store a count per cell
+    chunk.clear();
+    for (size_t i = 0; i<ends.size(); i++)
+    {
+      if (colours[i].alpha > 0)
+      {
+        if ((*dists)[j] > eps)
+        {
+          chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+          if ((*dists)[j] > dist_threshold)
+          {
+            double proximity = dist_threshold / (*dists)[j];
+            Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+            Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
+            chunk.colours.back() = RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+          }
+        }
+        j++;
+      }
+      else
+        chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+    }
+    writer.writeChunk(chunk);
+  };
+
+  if (!Cloud::read(cloud1_namestub + ".ply", colour))
+    return false;
+  j = 0;
+  dists_to_cloud1.clear();
+  dists_to_cloud1.shrink_to_fit();
+  Eigen::Vector3d diff2_col(0,255,0);
+
+  dists = &dists_to_cloud2;
+  if (!individual_files)
+  {
+    auto colour2 = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                      std::vector<double> &times, std::vector<RGBA> &colours) 
+    {
+      // firstly we store a count per cell
+      chunk.clear();
+      for (size_t i = 0; i<ends.size(); i++)
+      {
+        if (colours[i].alpha > 0)
+        {
+          if ((*dists)[j] > eps)
+          {
+            chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+            if ((*dists)[j] > dist_threshold)
+            {
+              double proximity = dist_threshold / (*dists)[j];
+              Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
+              Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
+              chunk.colours[i] = RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+            }
+          }
+          j++;
+        }
+        else
+          chunk.addRay(starts[i], ends[i], times[i], colours[i]);
+      }
+      writer.writeChunk(chunk);
+    };
+
+    if (!Cloud::read(cloud2_namestub + ".ply", colour2))
+      return false;
+    writer.end();
+
+    if (visualise)
+    {
+      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_namestub + "_diff.ply";
+      system(command.c_str());  
+    }
+  }
+  else
+  {
+    writer.end();
+    diff_col = diff2_col;
+    if (!writer.begin(cloud2_namestub + "_diff.ply"))
+      return false;
+
+    if (!Cloud::read(cloud2_namestub + ".ply", colour))
+      return false;
+    writer.end();
+    if (visualise)
+    {
+      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_namestub + "_diff.ply " + cloud2_namestub + "_diff.ply";
+      system(command.c_str());  
+    }
+  }
+  return true;
+}
+
 }  // namespace ray
