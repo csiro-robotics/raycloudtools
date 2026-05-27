@@ -8,14 +8,10 @@
 #include <cstring>
 #include <iostream>
 #include <chrono>
-#include <nabo/nabo.h>
 #include <limits>
 
 #include "raylib/raycloud.h"
 #include "raylib/rayparse.h"
-#include "raylib/raycuboid.h"
-#include "raylib/rayply.h"
-#include "raylib/raycloudwriter.h"
 #include "raylib/raydiffer.h"
 
 void usage(int exit_code = 1)
@@ -85,114 +81,10 @@ int rayDiff(int argc, char *argv[])
 
   double dist_threshold = distance_threshold.value();
   double similarity = ray::printDistanceStatistics(dists_to_cloud1, dists_to_cloud2, dist_threshold);
-
-  std::cout << "saving out coloured red for matches beyond shoulder difference:" << std::endl;
   
-  // now render visuals
-  ray::CloudWriter writer;
-  if (!writer.begin(cloud1_name.nameStub() + "_diff.ply"))
-    return false;
-
-  // By maintaining these buffers below, we avoid almost all memory fragmentation
-  ray::Cloud chunk;
-  std::map<Eigen::Vector3i, Eigen::Vector2i, ray::Vector3iLess> voxel_map;
-  std::vector<Eigen::Vector3i> samples;
-
-  int j = 0;
-  Eigen::Vector3d diff_col(255,0,0);
-  std::vector<float> *dists = &dists_to_cloud1;
-  const float eps = 1e-8f; // in case there is inaccuracy in the KNN distance estimation for co-located point pairs
-  auto colour = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                    std::vector<double> &times, std::vector<ray::RGBA> &colours) 
+  if (!ray::writeDifferencesToRayClouds(cloud1_name.nameStub(), cloud2_name.nameStub(), dists_to_cloud1, dists_to_cloud2, dist_threshold, individual.isSet(), visualise.isSet()))
   {
-    // firstly we store a count per cell
-    chunk.clear();
-    for (size_t i = 0; i<ends.size(); i++)
-    {
-      if (colours[i].alpha > 0)
-      {
-        if ((*dists)[j] > eps)
-        {
-          chunk.addRay(starts[i], ends[i], times[i], colours[i]);
-          if ((*dists)[j] > dist_threshold)
-          {
-            double proximity = dist_threshold / (*dists)[j];
-            Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
-            Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
-            chunk.colours.back() = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
-          }
-        }
-        j++;
-      }
-      else
-        chunk.addRay(starts[i], ends[i], times[i], colours[i]);
-    }
-    writer.writeChunk(chunk);
-  };
-
-  if (!ray::Cloud::read(cloud1_name.name(), colour))
-    return false;
-  j = 0;
-  dists_to_cloud1.clear();
-  dists_to_cloud1.shrink_to_fit();
-  Eigen::Vector3d diff2_col(0,255,0);
-
-  dists = &dists_to_cloud2;
-  if (!individual.isSet())
-  {
-    auto colour2 = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                      std::vector<double> &times, std::vector<ray::RGBA> &colours) 
-    {
-      // firstly we store a count per cell
-      chunk.clear();
-      for (size_t i = 0; i<ends.size(); i++)
-      {
-        if (colours[i].alpha > 0)
-        {
-          if ((*dists)[j] > eps)
-          {
-            chunk.addRay(starts[i], ends[i], times[i], colours[i]);
-            if ((*dists)[j] > dist_threshold)
-            {
-              double proximity = dist_threshold / (*dists)[j];
-              Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
-              Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
-              chunk.colours[i] = ray::RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
-            }
-          }
-          j++;
-        }
-        else
-          chunk.addRay(starts[i], ends[i], times[i], colours[i]);
-      }
-      writer.writeChunk(chunk);
-    };
-
-    if (!ray::Cloud::read(cloud2_name.name(), colour2))
-      return false;
-    writer.end();
-
-    if (visualise.isSet())
-    {
-      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply";
-      system(command.c_str());  
-    }
-  }
-  else
-  {
-    writer.end();
-    diff_col = diff2_col;
-    if (!writer.begin(cloud2_name.nameStub() + "_diff.ply"))
-      return false;
-
-    if (!ray::Cloud::read(cloud2_name.name(), colour))
-      return false;
-    writer.end();
-    if (visualise.isSet())
-    {
-      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_name.nameStub() + "_diff.ply " + cloud2_name.nameStub() + "_diff.ply";
-      system(command.c_str());  
-    }
+    return 1;
   }
 
   return (int)similarity;

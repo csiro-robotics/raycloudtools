@@ -20,6 +20,13 @@ void RAYLIB_EXPORT getDistancesBetweenPoints(const std::vector<Eigen::Vector3f> 
 /// returns the similarity (percentage under the distance threshold)
 double RAYLIB_EXPORT printDistanceStatistics(const std::vector<float> &dists_to_cloud1, const std::vector<float> &dists_to_cloud2, double &distance_threshold);
 
+/// output differences as colours on the ray cloud:
+/// 1. distances more than dist_threshold from cloud1 are red
+/// 2. distances more than dist_threshold from cloud2 are green
+/// 3. distances less than a tiny epsilon are not shown. So if you merge onto a large base map and raydiff with that map, it only shows where the differences are
+bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::string &cloud2_namestub, std::vector<float> &dists_to_cloud1, 
+   std::vector<float> &dists_to_cloud2, double distance_threshold, bool individual_files, bool visualise);
+
 }  // namespace ray
 
 #endif  // RAYDIFFER_H
