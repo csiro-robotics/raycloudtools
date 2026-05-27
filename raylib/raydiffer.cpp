@@ -260,7 +260,7 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
           chunk.addRay(starts[i], ends[i], times[i], colours[i]);
           if ((*dists)[j] > dist_threshold)
           {
-            double proximity = dist_threshold / (*dists)[j];
+            double proximity = 0.25 + 0.75 * dist_threshold / (*dists)[j]; // go to only 75% so you can still see what it is
             Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
             Eigen::Vector3d new_col = diff_col + (col - diff_col) * proximity;
             chunk.colours.back() = RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
