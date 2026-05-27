@@ -268,8 +268,6 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
         }
         j++;
       }
-      else
-        chunk.addRay(starts[i], ends[i], times[i], colours[i]);
     }
     writer.writeChunk(chunk);
   };
@@ -301,13 +299,11 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
               double proximity = dist_threshold / (*dists)[j];
               Eigen::Vector3d col(colours[i].red, colours[i].green, colours[i].blue);
               Eigen::Vector3d new_col = diff2_col + (col - diff2_col) * proximity;
-              chunk.colours[i] = RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
+              chunk.colours.back() = RGBA((uint8_t)(new_col[0]+0.5), (uint8_t)(new_col[1]+0.5), (uint8_t)(new_col[2]+0.5), colours[i].alpha);
             }
           }
           j++;
         }
-        else
-          chunk.addRay(starts[i], ends[i], times[i], colours[i]);
       }
       writer.writeChunk(chunk);
     };
