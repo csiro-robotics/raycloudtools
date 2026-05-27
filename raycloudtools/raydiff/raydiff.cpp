@@ -22,7 +22,7 @@ void usage(int exit_code = 1)
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
   std::cout << "                              --distance 0 - optional threshold in m for colouring differences. Default auto-detects distribution shoulder" << std::endl;
   std::cout << "                              --individual - output as two clouds, to show differences on each." << std::endl;
-  std::cout << "                              --visualise  - open in the default visualisation tool" << std::endl;
+  std::cout << "                              --view       - open in the default visualisation tool" << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -30,7 +30,7 @@ void usage(int exit_code = 1)
 int rayDiff(int argc, char *argv[])
 {
   ray::FileArgument cloud1_name, cloud2_name;
-  ray::OptionalFlagArgument visualise("visualise", 'v'), individual("individual", 'i');
+  ray::OptionalFlagArgument visualise("view", 'v'), individual("individual", 'i');
   ray::DoubleArgument distance_threshold(0.0, 1000.0, 0.0);
   ray::OptionalKeyValueArgument distance_option("distance", 'd', &distance_threshold);
   if (!ray::parseCommandLine(argc, argv, { &cloud1_name, &cloud2_name }, { &distance_option, &visualise, &individual }))
