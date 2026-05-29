@@ -29,7 +29,6 @@ RUN apt-get update && apt-get upgrade -y && \
 # Clone, build and clean up LASzip (3.x supports LAS 1.4 via laszip_api.h C API)
 RUN git clone https://github.com/LASzip/LASzip.git && \
     cd LASzip && \
-    git checkout tags/3.4.4 && \
     mkdir build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \

@@ -2,7 +2,8 @@
     "name": "RayCloudTools Development",
     "build": {
         "dockerfile": "Dockerfile",
-        "context": ".."
+        "context": "..",
+        "options": ["--progress=plain"]
     },
     "customizations": {
         "vscode": {
