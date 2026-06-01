@@ -38,7 +38,6 @@ RUN git clone https://github.com/LASzip/LASzip.git && \
 # Clone, build and clean up Qhull
 RUN git clone https://github.com/qhull/qhull.git && \
     cd qhull && \
-    git checkout tags/v7.3.2 && \
     cd build && \
     cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true && \
     make -j$(nproc) && \
@@ -48,7 +47,6 @@ RUN git clone https://github.com/qhull/qhull.git && \
 # Clone, build and clean up libnabo
 RUN git clone https://github.com/ethz-asl/libnabo.git && \
     cd libnabo && \
-    git checkout tags/1.0.7 && \
     mkdir build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo && \
     make -j$(nproc) && \
