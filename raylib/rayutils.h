@@ -424,7 +424,11 @@ inline int viewFile(const std::string &file_name, const std::string &file2_name 
   std::string command = "QT_QPA_PLATFORM=xcb " + std::string(R_VISTOOL) + " " + file_name;
   if (file2_name != "")
     command += " " + file2_name;
-  return system(command.c_str());
+  const auto status = system(command.c_str());
+  if (status != 0) {
+    std::cerr << "failed to view file with command: " << command << std::endl;
+  }
+  return status;
 }
 
 }  // namespace ray
