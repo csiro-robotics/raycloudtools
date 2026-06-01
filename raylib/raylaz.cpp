@@ -153,6 +153,7 @@ bool readLas(const std::string &file_name,
   std::cout << "loaded " << file_name << " with " << number_of_points << " points" << std::endl;
   return true;
 #else   // RAYLIB_WITH_LAS
+  RAYLIB_UNUSED(offset_to_remove);
   RAYLIB_UNUSED(max_intensity);
   RAYLIB_UNUSED(file_name);
   RAYLIB_UNUSED(apply);
@@ -169,8 +170,7 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
 {
   std::vector<Eigen::Vector3d> starts;  // dummy as lax just reads in point clouds, not ray clouds
   auto apply = [&](std::vector<Eigen::Vector3d> &start_points, std::vector<Eigen::Vector3d> &end_points,
-                   std::vector<double> &time_points, std::vector<RGBA> &colour_values)
-  {
+                   std::vector<double> &time_points, std::vector<RGBA> &colour_values) {
     starts.insert(starts.end(), start_points.begin(), start_points.end());
     positions.insert(positions.end(), end_points.begin(), end_points.end());
     times.insert(times.end(), time_points.begin(), time_points.end());
