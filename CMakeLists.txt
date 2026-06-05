@@ -28,6 +28,10 @@ option(RAYCLOUD_BUILD_DOXYGEN "Build doxgen documentation?" OFF)
 option(RAYCLOUD_BUILD_TESTS "Build unit tests?" OFF)
 # Setup LeakTrack
 option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
+set(RAY_VISTOOL meshlab CACHE STRING "command to use to visualise point cloud / mesh files")
+set(RAY_IMAGETOOL kolourpaint CACHE STRING "command to use to visualise image files")
+add_compile_definitions(R_VISTOOL="${RAY_VISTOOL}")
+add_compile_definitions(R_IMAGETOOL="${RAY_IMAGETOOL}")
 
 # WITH_ build options.
 option(WITH_LAS "With liblas for las file support?" OFF)
