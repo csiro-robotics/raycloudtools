@@ -106,6 +106,13 @@ If not there already, add to your ~/.bashrc:
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib 
 '''
 
+## Visualising Ray Clouds:
+free software such as Meshlab and CloudCompare can view ray clouds. 
+
+The build variables RAY_VISTOOL and RAY_IMAGETOOL allow the --view (-v) flag to view command-line results immediately.
+They default to meshlab and kolourpaint respectively but can be changed with ccmake or with the -D cmake argument. 
+You will need to install these programs if you want the --view flag to work.
+
 ## File format:
 Raycloud files are loaded and saved in binary .ply format, the header section is text and follows this format:
 ```console
