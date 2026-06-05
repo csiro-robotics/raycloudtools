@@ -31,6 +31,8 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
+static std::string save_file = ""; // this is used to move the view tool outside of the memory check
+
 int rayImport(int argc, char *argv[])
 {
   ray::DoubleArgument max_intensity(0.0, 1e8, 100.0);
@@ -53,7 +55,6 @@ int rayImport(int argc, char *argv[])
     std::cerr << "Error: some ray cloud functions require rays to have a length. Please enter a non-zero vector for ray argument" << std::endl;
     usage();
   }
-  ray::Cloud cloud;
   const std::string &traj_file = trajectory_file.name();
   // Sensors we use have 0 to 100 for normal output, and to 255 for special reflective surfaces
   double maximum_intensity = max_intensity.value();
@@ -87,7 +88,7 @@ int rayImport(int argc, char *argv[])
       usage();
   }
 
-  std::string save_file = cloud_file.nameStub();
+  save_file = cloud_file.nameStub();
   if (cloud_file.nameExt() == "ply")
     save_file += "_raycloud";
   save_file += ".ply";
@@ -226,12 +227,17 @@ int rayImport(int argc, char *argv[])
  //   std::cout.precision(10);
     std::cout << "start position: " << std::setprecision(5) << std::fixed << start_pos.transpose() << " removed from all points" << std::endl;
   }
-  if (view_flag.isSet())
-    ray::viewFile(save_file);
+  if (!view_flag.isSet())
+    save_file = "";
   return 0;
 }
 
 int main(int argc, char *argv[])
 {
-  return ray::runWithMemoryCheck(rayImport, argc, argv);
+  int res = ray::runWithMemoryCheck(rayImport, argc, argv);
+  // For some reason viewFile won't open the file if inside the rayImport function. Even when the .ply file is tiny.
+  // So it is going here instead. 
+  if (save_file != "")
+    ray::viewFile(save_file); 
+  return res;
 }
