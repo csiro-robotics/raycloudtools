@@ -20,7 +20,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Generates simple example ray clouds" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raycreate room 3 - generates a room using the seed 3. Also:" << std::endl;
   std::cout << "          building" << std::endl;
   std::cout << "          tree" << std::endl;
@@ -29,7 +29,7 @@ void usage(int exit_code = 1)
   std::cout << "          field" << std::endl;
   std::cout << std::endl;
   std::cout << "          forest trees.txt - generate from a comma-separated list of x,y,z,radius trees" << std::endl;
-  std::cout << "          terrain mesh.ply      - generate from a ground mesh" << std::endl;
+  std::cout << "          terrain mesh.ply - generate from a ground mesh" << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -40,9 +40,10 @@ int rayCreate(int argc, char *argv[])
 {
   ray::KeyChoice cloud_type({ "room", "building", "tree", "forest", "terrain", "field" });
   ray::IntArgument seed(1, 1000000);
+  ray::OptionalFlagArgument view_flag("view", 'v');
   ray::FileArgument input_file;
-  bool from_seed = ray::parseCommandLine(argc, argv, { &cloud_type, &seed });
-  bool from_file = ray::parseCommandLine(argc, argv, { &cloud_type, &input_file });
+  bool from_seed = ray::parseCommandLine(argc, argv, { &cloud_type, &seed }, { &view_flag });
+  bool from_file = ray::parseCommandLine(argc, argv, { &cloud_type, &input_file }, { &view_flag });
   if (!from_seed && !from_file)
     usage();
 
@@ -241,6 +242,8 @@ int rayCreate(int argc, char *argv[])
   else
     usage();
   cloud.save(type + ".ply");
+  if (view_flag.isSet())
+    ray::viewFile(type + ".ply");
 
   return 0;
 }

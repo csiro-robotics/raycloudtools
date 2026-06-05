@@ -13,9 +13,6 @@
 
 #include <nabo/nabo.h>
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <complex>
 #include <iostream>
 
@@ -24,10 +21,10 @@ void usage(int exit_code = 1)
   // clang-format off
   std::cout << "Align raycloudA onto raycloudB, rigidly. Outputs the transformed version of raycloudA." << std::endl;
   std::cout << "This method is for when there is more than approximately 30% overlap between clouds." << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "rayalign raycloudA raycloudB" << std::endl;
   std::cout << "                             --nonrigid - nonrigid (quadratic) alignment" << std::endl;
-  std::cout << "                             --verbose  - outputs FFT images and the coarse alignment cloud" << std::endl;
+  std::cout << "                             --debug    - outputs FFT images and the coarse alignment cloud" << std::endl;
   std::cout << "                             --local    - fine alignment only, assumes clouds are already approximately aligned" << std::endl;
   std::cout << "rayalign raycloud  - axis aligns to the walls, placing the major walls at (0,0,0), biggest along y." << std::endl;
   // clang-format on
@@ -37,8 +34,8 @@ void usage(int exit_code = 1)
 int rayAlign(int argc, char *argv[])
 {
   ray::FileArgument cloud_a, cloud_b;
-  ray::OptionalFlagArgument nonrigid("nonrigid", 'n'), is_verbose("verbose", 'v'), local("local", 'l');
-  bool cross_align = ray::parseCommandLine(argc, argv, { &cloud_a, &cloud_b }, { &nonrigid, &is_verbose, &local });
+  ray::OptionalFlagArgument nonrigid("nonrigid", 'n'), is_verbose("debug", 'd'), local("local", 'l'), view_flag("view", 'v');
+  bool cross_align = ray::parseCommandLine(argc, argv, { &cloud_a, &cloud_b }, { &nonrigid, &is_verbose, &local, &view_flag });
   bool self_align = ray::parseCommandLine(argc, argv, { &cloud_a });
   if (!cross_align && !self_align)
     usage();
@@ -103,6 +100,8 @@ int rayAlign(int argc, char *argv[])
 
     clouds[0].save(aligned_name);
   }
+  if (view_flag.isSet())
+    ray::viewFile(aligned_name);
   return 0;
 }
 

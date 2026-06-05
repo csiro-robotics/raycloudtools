@@ -23,7 +23,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Splits a raycloud into the transient rays and the fixed part" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raytransients min raycloud 20 rays - splits out positive transients (objects that have since moved)." << std::endl;
   std::cout << "                                     20 is number of pass through rays to classify as transient." << std::endl;
   std::cout << "              max    - finds negative transients, such as a hallway exposed when a door opens." << std::endl;
@@ -40,8 +40,8 @@ int rayTransients(int argc, char *argv[])
   ray::FileArgument cloud_file;
   ray::DoubleArgument num_rays(0.1, 100.0);
   ray::TextArgument text("rays");
-  ray::OptionalFlagArgument colour("colour", 'c');
-  if (!ray::parseCommandLine(argc, argv, { &merge_type, &cloud_file, &num_rays, &text }, { &colour }))
+  ray::OptionalFlagArgument colour("colour", 'c'), view_flag("view", 'v');
+  if (!ray::parseCommandLine(argc, argv, { &merge_type, &cloud_file, &num_rays, &text }, { &colour, &view_flag }))
     usage();
 
   ray::Cloud cloud;
@@ -85,8 +85,11 @@ int rayTransients(int argc, char *argv[])
   const ray::Cloud &transient = filter.differenceCloud();
   const ray::Cloud &fixed = filter.fixedCloud();
 
-  transient.save(cloud_file.nameStub() + "_transient.ply");
+  std::string transient_file = cloud_file.nameStub() + "_transient.ply";
+  transient.save(transient_file);
   fixed.save(cloud_file.nameStub() + "_fixed.ply");
+  if (view_flag.isSet())
+    ray::viewFile(transient_file);
   return 0;
 }
 

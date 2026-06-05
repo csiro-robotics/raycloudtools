@@ -17,7 +17,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Smooth a ray cloud. Nearby off-surface points are moved onto the nearest surface." << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raysmooth raycloud" << std::endl;
   // clang-format on
   exit(exit_code);
@@ -26,7 +26,8 @@ void usage(int exit_code = 1)
 int raySmooth(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
-  if (!ray::parseCommandLine(argc, argv, { &cloud_file }))
+  ray::OptionalFlagArgument view_flag("view", 'v');
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file }, { &view_flag }))
     usage();
 
   ray::Cloud cloud;
@@ -65,8 +66,10 @@ int raySmooth(int argc, char *argv[])
     cloud.ends[i] += normals[i] * (centroids[i] - cloud.ends[i]).dot(normals[i]);
   }
 
-  cloud.save(cloud_file.nameStub() + "_smooth.ply");
-
+  std::string output_file = cloud_file.nameStub() + "_smooth.ply";
+  cloud.save(output_file);
+  if (view_flag.isSet())
+    ray::viewFile(output_file);
   return 0;
 }
 

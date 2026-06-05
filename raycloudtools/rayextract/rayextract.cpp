@@ -28,7 +28,7 @@ void usage(int exit_code = 1)
   const bool none = extract_type != "terrain" && extract_type != "trunks" && extract_type != "forest" && extract_type != "trees" && extract_type != "leaves";
   // clang-format off
   std::cout << "Extract natural features into a text file or mesh file" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   if (extract_type == "terrain" || none)
   {
     std::cout << "rayextract terrain cloud.ply                - extract terrain undersurface to mesh. Slow, so consider decimating first." << std::endl;
@@ -76,7 +76,7 @@ void usage(int exit_code = 1)
     std::cout << "                            --leaf_area 0.002    - area for each leaf." << std::endl;
     std::cout << "                            --leaf_droop 0.1     - drop per square horizontal distance." << std::endl;
     std::cout << "                            --stalks             - include stalks to closest branch." << std::endl;
-    std::cout << "                                 --verbose  - extra debug output." << std::endl;
+    std::cout << "                                 --debug  - (-u) extra debug output." << std::endl;
   }
   // clang-format on
   exit(exit_code);
@@ -91,6 +91,7 @@ int rayExtract(int argc, char *argv[])
     extract_type = std::string(argv[1]);
   }
   ray::FileArgument cloud_file, mesh_file, trunks_file, trees_file, leaf_file;
+  ray::OptionalFlagArgument view_flag("view", 'v');
   ray::TextArgument forest("forest"), trees("trees"), trunks("trunks"), terrain("terrain"), leaves("leaves");
   ray::OptionalKeyValueArgument groundmesh_option("ground", 'g', &mesh_file);
   ray::OptionalKeyValueArgument trunks_option("trunks", 't', &trunks_file);
@@ -126,20 +127,19 @@ int rayExtract(int argc, char *argv[])
   ray::OptionalKeyValueArgument width_option("width", 'w', &width), smooth_option("smooth", 's', &smooth),
     drop_option("drop_ratio", 'd', &drop);
 
-  ray::OptionalFlagArgument verbose("verbose", 'v');
+  ray::OptionalFlagArgument verbose("debug", 'u');
 
-  bool extract_terrain = ray::parseCommandLine(argc, argv, { &terrain, &cloud_file }, { &gradient_option, &verbose });
-  bool extract_trunks = ray::parseCommandLine(argc, argv, { &trunks, &cloud_file }, { &exclude_rays, &verbose });
+  bool extract_terrain = ray::parseCommandLine(argc, argv, { &terrain, &cloud_file }, { &gradient_option, &verbose, &view_flag });
+  bool extract_trunks = ray::parseCommandLine(argc, argv, { &trunks, &cloud_file }, { &exclude_rays, &verbose, &view_flag });
   bool extract_forest = ray::parseCommandLine(
     argc, argv, { &forest, &cloud_file },
-    { &groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose });
+    { &groundmesh_option, &trunks_option, &width_option, &smooth_option, &drop_option, &verbose, &view_flag });
   bool extract_trees = ray::parseCommandLine(
     argc, argv, { &trees, &cloud_file, &mesh_file },
     { &max_diameter_option, &distance_limit_option, &height_min_option, &crop_length_option, &girth_height_ratio_option,
       &cylinder_length_to_width_option, &gap_ratio_option, &span_ratio_option, &gravity_factor_option,
-      &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &use_rays, &verbose });
-  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_option, &leaf_area_option, &leaf_droop_option, &stalks });
-
+      &segment_branches, &grid_width_option, &global_taper_option, &global_taper_factor_option, &use_rays, &verbose, &view_flag });
+  bool extract_leaves = ray::parseCommandLine(argc, argv, { &leaves, &cloud_file, &trees_file }, { &leaf_option, &leaf_area_option, &leaf_droop_option, &stalks, &view_flag });
 
   if (!extract_trunks && !extract_forest && !extract_terrain && !extract_trees && !extract_leaves)
   {
@@ -147,6 +147,7 @@ int rayExtract(int argc, char *argv[])
   }
 
   // finds cylindrical trunks in the data and saves them to an _trunks.txt file
+  std::string output_file = "";
   if (extract_trunks)
   {
     ray::Cloud cloud;
@@ -247,7 +248,8 @@ int rayExtract(int argc, char *argv[])
     }
     ray::Mesh tree_mesh;
     forest.generateSmoothMesh(tree_mesh, -1, 1, 1, 1);
-    ray::writePlyMesh(cloud_file.nameStub() + "_trees_mesh.ply", tree_mesh, true);    
+    output_file = cloud_file.nameStub() + "_trees_mesh.ply";
+    ray::writePlyMesh(output_file, tree_mesh, true);    
   }
   // extract the tree locations from a larger, aerial view of a forest
   else if (extract_forest)
@@ -302,15 +304,24 @@ int rayExtract(int argc, char *argv[])
 
     ray::Terrain terrain;
     terrain.extract(cloud, offset, cloud_file.nameStub(), gradient.value(), verbose.isSet());
+    output_file = cloud_file.nameStub() + "_mesh.ply";
   }
   else if (extract_leaves)
   {
     ray::generateLeaves(cloud_file.nameStub(), trees_file.name(), leaf_file.name(), 
       leaf_area.value(), leaf_droop.value(), stalks.isSet());
+    output_file = cloud_file.nameStub() + "_leaves.ply";
   }
   else
   {
     usage(true);
+  }
+  if (view_flag.isSet())
+  {
+    if (output_file == "")
+      std::cout << "Warning: cannot view the output file type" << std::endl;
+    else
+      ray::viewFile(output_file);
   }
   return 0;
 }

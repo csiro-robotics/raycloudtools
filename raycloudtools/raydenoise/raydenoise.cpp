@@ -16,7 +16,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Remove noise from ray clouds. In particular edge noise and isolated point noise." << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raydenoise raycloud 4 cm     - removes rays that contact more than 4 cm from any other," << std::endl;
   std::cout << "raydenoise raycloud 3 sigmas - removes points more than 3 sigmas from nearest points" << std::endl;
   std::cout << "                    range 4 cm - remove mixed-signal noise that occurs at a range gap." << std::endl;
@@ -32,10 +32,11 @@ int rayDenoise(int argc, char *argv[])
   ray::TextArgument range_text("range");
   ray::DoubleArgument range(1.0, 1000.0);
   ray::TextArgument cm_text("cm");
+  ray::OptionalFlagArgument view_flag("view", 'v');
   ray::ValueKeyChoice quantity({ &vox_width, &sigmas, &range }, { "cm", "sigmas" });
 
-  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &quantity });
-  bool range_noise = ray::parseCommandLine(argc, argv, { &cloud_file, &range_text, &range, &cm_text });
+  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &quantity }, { &view_flag });
+  bool range_noise = ray::parseCommandLine(argc, argv, { &cloud_file, &range_text, &range, &cm_text }, { &view_flag });
   if (!standard_format && !range_noise)
     usage();
 
@@ -150,6 +151,8 @@ int rayDenoise(int argc, char *argv[])
   }
 
   new_cloud.save(cloud_file.nameStub() + "_denoised.ply");
+  if (view_flag.isSet())
+    ray::viewFile(cloud_file.nameStub() + "_denoised.ply");
   return 0;
 }
 
