@@ -64,4 +64,10 @@
 #define RAYLIB_WITH_NORMAL_FIELD @WITH_NORMAL_FIELD@
 #define RAYLIB_DOUBLE_RAYS @DOUBLE_RAYS@
 
+// String-configured helper tools (configured in top-level CMakeLists.txt).
+// Exposed here so downstream users including raylib headers (e.g. rayutils.h)
+// can resolve these macros from this generated config header alone.
+#define R_VISTOOL "@RAY_VISTOOL@"
+#define R_IMAGETOOL "@RAY_IMAGETOOL@"
+
 #endif  // RAYLIB_CONFIG_H
