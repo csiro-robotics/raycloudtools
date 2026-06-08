@@ -18,7 +18,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Translate a raycloud" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raytranslate raycloud 0,0,1 - translation (x,y,z) in metres" << std::endl;
   std::cout << "                      0,0,1,24.3 - optional 4th component translates time" << std::endl;
   std::cout << "                      subtract ground_mesh.ply  - translate vertically to remove ground_mesh heights" << std::endl;
@@ -31,13 +31,14 @@ int rayTranslate(int argc, char *argv[])
 {
   ray::FileArgument cloud_file, ground_file;
   ray::TextArgument subtract("subtract"), add("add");
+  ray::OptionalFlagArgument view_flag("view", 'v');
   ray::Vector3dArgument translation3;
   ray::Vector4dArgument translation4;
 
-  bool vec3_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation3 });
-  bool vec4_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation4 });
-  bool ground_subtract_format = ray::parseCommandLine(argc, argv, { &cloud_file, &subtract, &ground_file });
-  bool ground_add_format = ray::parseCommandLine(argc, argv, { &cloud_file, &add, &ground_file });
+  bool vec3_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation3 }, { &view_flag });
+  bool vec4_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation4 }, { &view_flag });
+  bool ground_subtract_format = ray::parseCommandLine(argc, argv, { &cloud_file, &subtract, &ground_file }, { &view_flag });
+  bool ground_add_format = ray::parseCommandLine(argc, argv, { &cloud_file, &add, &ground_file }, { &view_flag });
   if (!vec3_format && !vec4_format && !ground_subtract_format && !ground_add_format)
     usage();
 
@@ -202,7 +203,8 @@ int rayTranslate(int argc, char *argv[])
     std::cout << "Warning: " << num_totally_missed << " points have no laterally overlapping triangles, so the ground_file is not a full coverage. Point translation ignored" << std::endl;
   }
   std::rename(temp_name.c_str(), cloud_file.name().c_str());
-
+  if (view_flag.isSet())
+    ray::viewFile(cloud_file.name());
   return 0;
 }
 

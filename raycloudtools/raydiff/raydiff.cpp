@@ -18,11 +18,10 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Difference between two ray clouds output a coloured cloud, cloud1 differences in red, cloud2 differences in green, and similarity printed to screen." << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raydiff cloud1.ply cloud2.ply" << std::endl;
   std::cout << "                              --distance 0 - optional threshold in m for colouring differences. Default auto-detects distribution shoulder" << std::endl;
   std::cout << "                              --individual - output as two clouds, to show differences on each." << std::endl;
-  std::cout << "                              --view       - open in the default visualisation tool" << std::endl;
   // clang-format on
   exit(exit_code);
 }

@@ -15,6 +15,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -22,6 +24,7 @@
 #include <set>
 #include <string>
 #include <vector>
+
 #define VISUALISE_TOOL "QT_QPA_PLATFORM=xcb meshlab" // the first term fixed opening problems on some platforms
 
 namespace ray
@@ -407,6 +410,16 @@ void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &objec
     }          
   }     
 }
+
+inline int viewFile(const std::string &file_name, const std::string &file2_name = "")
+{ 
+  // Force Qt to use X11 platform (not Wayland). Can remove the first string if wish to use default render platform
+  std::string command = "QT_QPA_PLATFORM=xcb " + std::string(R_VISTOOL) + " " + file_name;
+  if (file2_name != "")
+    command += " " + file2_name;
+  return system(command.c_str());
+}  
+
 }  // namespace ray
 
 #endif  // RAYLIB_RAYUTILS_H

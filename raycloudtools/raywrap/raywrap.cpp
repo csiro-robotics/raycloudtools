@@ -20,10 +20,10 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Extracts the ground surface as a mesh." << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raywrap raycloud upwards 1.0 - wraps raycloud from the bottom upwards, or: downwards, inwards, outwards" << std::endl;
   std::cout << "                               the 1.0 is the maximum curvature to bend to" << std::endl;
-  std::cout << "--full                       - the full (slower) method accounts for overhangs." << std::endl;
+  std::cout << "                     --full  - the full (slower) method accounts for overhangs." << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -33,8 +33,8 @@ int rayWrap(int argc, char *argv[])
   ray::FileArgument cloud_file;
   ray::KeyChoice direction({ "upwards", "downwards", "inwards", "outwards" });
   ray::DoubleArgument curvature;
-  ray::OptionalFlagArgument full("full", 'f');
-  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &direction, &curvature }, { &full }))
+  ray::OptionalFlagArgument full("full", 'f'), view_flag("view", 'v');
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &direction, &curvature }, { &full, &view_flag }))
     usage();
 
   ray::Cloud cloud;
@@ -43,6 +43,7 @@ int rayWrap(int argc, char *argv[])
   cloud.removeUnboundedRays();
   Eigen::Vector3d offset = cloud.removeStartPos();
 
+  std::string output_file = cloud_file.nameStub() + "_mesh.ply";
   if (full.isSet())
   {
     ray::ConcaveHull concave_hull(cloud.ends);
@@ -58,7 +59,7 @@ int rayWrap(int argc, char *argv[])
       usage();
 
     concave_hull.mesh().translate(offset);
-    writePlyMesh(cloud_file.nameStub() + "_mesh.ply", concave_hull.mesh(), true);
+    writePlyMesh(output_file, concave_hull.mesh(), true);
   }
   else
   {
@@ -76,10 +77,12 @@ int rayWrap(int argc, char *argv[])
 
     convex_hull.mesh().reduce();
     convex_hull.mesh().translate(offset);
-    writePlyMesh(cloud_file.nameStub() + "_mesh.ply", convex_hull.mesh(), true);
+    writePlyMesh(output_file, convex_hull.mesh(), true);
   }
 
   std::cout << "Completed, output: " << cloud_file.nameStub() << "_mesh.ply" << std::endl;
+  if (view_flag.isSet())
+    ray::viewFile(output_file);
   return 0;
 }
 

@@ -19,7 +19,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Decimate a ray cloud spatially or temporally" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raydecimate raycloud 3 cm   - reduces to one end point every 3 cm. A spatially even subsampling" << std::endl;
   std::cout << "raydecimate raycloud 4 rays - reduces to every fourth ray. A temporally even subsampling (if rays are chronological)" << std::endl;
   std::cout << "advanced methods not supported in rayrestore:" << std::endl;
@@ -53,10 +53,11 @@ int rayDecimate(int argc, char *argv[])
   ray::IntArgument width_for_ray(1, 10000);
   ray::DoubleArgument vox_width(0.01, 100.0);
   ray::DoubleArgument radius_per_length(0.01, 100.0);
+  ray::OptionalFlagArgument view_flag("view", 'v');
   ray::ValueKeyChoice quantity({ &vox_width, &num_rays, &radius_per_length, &width_for_ray }, { "cm", "rays", "cm/m", "cm/ray" });
   ray::TextArgument cm("cm"), points("points"); 
-  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &quantity });
-  bool double_format_points = ray::parseCommandLine(argc, argv, { &cloud_file, &vox_width, &cm, &num_rays, &points });
+  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &quantity }, { &view_flag });
+  bool double_format_points = ray::parseCommandLine(argc, argv, { &cloud_file, &vox_width, &cm, &num_rays, &points }, { &view_flag });
   if (!standard_format && !double_format_points)
     usage();
 
@@ -83,7 +84,8 @@ int rayDecimate(int argc, char *argv[])
   }
   if (!res)
     usage();
-
+  if (view_flag.isSet())
+    ray::viewFile(cloud_file.nameStub() + "_decimated.ply");
   return 0;
 }
 

@@ -17,7 +17,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Render a ray cloud as an image, from a specified viewpoint" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "rayrender raycloudfile.ply top ends        - render from the top (plan view) the end points" << std::endl;
   std::cout << "                           left            - facing negative x axis" << std::endl;
   std::cout << "                           right           - facing positive x axis" << std::endl;
@@ -53,7 +53,7 @@ int rayRender(int argc, char *argv[])
   ray::DoubleArgument pixel_width(0.0001, 1000.0), grid_width(0.01, 1000000.0);
   ray::IntArgument resolution(1,20000, 512);
   ray::FileArgument cloud_file, image_file, transform_file, projection_file(false);
-  ray::OptionalFlagArgument mark_origin("mark_origin", 'm');
+  ray::OptionalFlagArgument mark_origin("mark_origin", 'm'), view_flag("view", 'v');;
   ray::OptionalKeyValueArgument resolution_option("resolution", 'r', &resolution);
   ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'g', &grid_width);
@@ -62,7 +62,7 @@ int rayRender(int argc, char *argv[])
   ray::OptionalKeyValueArgument transform_file_option("output_transform", 't', &transform_file);
   if (!ray::parseCommandLine(
         argc, argv, { &cloud_file, &viewpoint, &style },
-        { &resolution_option, &pixel_width_option, &output_file_option, &mark_origin, &transform_file_option, &grid_width_option, &projection_file_option }))
+        { &resolution_option, &pixel_width_option, &output_file_option, &view_flag, &mark_origin, &transform_file_option, &grid_width_option, &projection_file_option }))
   {
     usage();
   }
@@ -142,7 +142,8 @@ int rayRender(int argc, char *argv[])
   {
     usage();
   }
-
+  if (view_flag.isSet())
+    std::system((std::string(R_IMAGETOOL) + " " + image_file.name()).c_str());
   return 0;
 }
 

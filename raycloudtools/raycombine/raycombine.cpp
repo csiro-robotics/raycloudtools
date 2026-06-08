@@ -22,7 +22,7 @@ void usage(int exit_code = 1)
   // clang-format off
   std::cout << "Combines multiple ray clouds. Clouds are not moved but rays are omitted in the combined cloud according to the merge type specified." << std::endl;
   std::cout << "Outputs the combined cloud and the residual cloud of differences." << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raycombine all raycloud1 raycloud2 ... raycloudN   - concatenate all the rays in the _combined.ply cloud ('all' is optional)" << std::endl;
   std::cout << "           min raycloud1 ... raycloudN 20 rays - combines into one cloud with minimal objects at differences" << std::endl;
   std::cout << "                                                 20 is the number of pass through rays to define " << std::endl;
@@ -44,21 +44,22 @@ int rayCombine(int argc, char *argv[])
   ray::FileArgumentList cloud_files(2);
   ray::DoubleArgument num_rays(0.0, 100.0);
   ray::TextArgument rays_text("rays"), all_text("all");
+  ray::OptionalFlagArgument view_flag("view", 'v');
 
   // Below: false = allow unusual file extensions, for auto-merging, which occurs on non-standard temporary file names
   ray::FileArgument base_cloud(false), cloud_1(false), cloud_2(false), output_file(false);
   ray::OptionalKeyValueArgument output("output", 'o', &output_file);
 
   // three-way merge option
-  bool standard_format = ray::parseCommandLine(argc, argv, { &merge_type, &cloud_files, &num_rays, &rays_text }, { &output });
-  bool concatenate_all = ray::parseCommandLine(argc, argv, { &all_text, &cloud_files }, { &output });
+  bool standard_format = ray::parseCommandLine(argc, argv, { &merge_type, &cloud_files, &num_rays, &rays_text }, { &output, &view_flag });
+  bool concatenate_all = ray::parseCommandLine(argc, argv, { &all_text, &cloud_files }, { &output, &view_flag });
   bool threeway = ray::parseCommandLine(
-    argc, argv, { &base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text }, { &output });
+    argc, argv, { &base_cloud, &merge_type, &cloud_1, &cloud_2, &num_rays, &rays_text }, { &output, &view_flag });
   bool threeway_concatenate =
-    ray::parseCommandLine(argc, argv, { &base_cloud, &all_text, &cloud_1, &cloud_2 }, { &output });
+    ray::parseCommandLine(argc, argv, { &base_cloud, &all_text, &cloud_1, &cloud_2 }, { &output, &view_flag });
   if (!standard_format && !concatenate_all && !threeway && !threeway_concatenate)
   {
-    concatenate_all = ray::parseCommandLine(argc, argv, { &cloud_files }, { &output }); // a bit more ambiguous, so only try if the other formats failed
+    concatenate_all = ray::parseCommandLine(argc, argv, { &cloud_files }, { &output, &view_flag }); // a bit more ambiguous, so only try if the other formats failed
     if (!concatenate_all)
     {
       usage();
@@ -140,6 +141,8 @@ int rayCombine(int argc, char *argv[])
         usage();
     }
     writer.end();    
+    if (view_flag.isSet())
+      ray::viewFile(combined_file);
     return 0;
   }
 
@@ -166,6 +169,8 @@ int rayCombine(int argc, char *argv[])
 
   progress_thread.join();
   fixed_cloud->save(combined_file);
+  if (view_flag.isSet())
+    ray::viewFile(combined_file);
   return 0;
 }
 

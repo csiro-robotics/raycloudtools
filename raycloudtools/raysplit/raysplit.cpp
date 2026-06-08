@@ -20,7 +20,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Split a ray cloud relative to the supplied triangle mesh, generating two cropped ray clouds" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "raysplit raycloud plane 10,0,0           - splits around plane at 10 m along x axis" << std::endl;
   std::cout << "                  colour                 - splits by colour, one cloud per colour" << std::endl;
   std::cout << "                  colour 0.5,0,0         - splits by colour, around half red component" << std::endl;
@@ -36,8 +36,8 @@ void usage(int exit_code = 1)
   std::cout << "                  grid wx,wy,wz          - splits into a 0,0,0 centred grid of files, cell width wx,wy,wz. 0 for unused axes." << std::endl;
   std::cout << "                  grid wx,wy,wz 1        - same as above, but with a 1 metre overlap between cells." << std::endl;
   std::cout << "                  grid wx,wy,wz,wt       - splits into a grid of files, cell width wx,wy,wz and period wt. 0 for unused axes." << std::endl;
-  std::cout << "                  capsule 1,2,3 10,11,12 5  - splits within a capsule using start, end and radius" << std::endl;
-  // clang-format on
+  std::cout << "                  capsule 1,2,3 5,8,12 7 - splits within a capsule using start, end and radius" << std::endl;
+// clang-format on
   exit(exit_code);
 }
 
@@ -45,6 +45,7 @@ void usage(int exit_code = 1)
 int raySplit(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
+  ray::OptionalFlagArgument view_flag("view", 'v');
   double max_val = std::numeric_limits<double>::max();
   ray::Vector3dArgument plane, colour(0.0, 1.0), single_colour(0.0, 255.0), raydir(-1.0, 1.0),
     box_centre, box_radius(0.0, max_val), cell_width(0.0, max_val), capsule_start, capsule_end;
@@ -57,17 +58,17 @@ int raySplit(int argc, char *argv[])
   ray::TextArgument distance_text("distance"), time_text("time"), percent_text("%");
   ray::TextArgument box_text("box"), grid_text("grid"), colour_text("colour"), seg_colour_text("seg_colour"), capsule_text("capsule");
   ray::DoubleArgument mesh_offset;
-  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice });
-  bool colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_text });
-  bool seg_colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &seg_colour_text });
-  bool time_percent = ray::parseCommandLine(argc, argv, { &cloud_file, &time_text, &time, &percent_text });
-  bool box_format = ray::parseCommandLine(argc, argv, { &cloud_file, &box_text, &box_centre, &box_radius });
-  bool grid_format = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width });
-  bool grid_format2 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width2 });
-  bool grid_format3 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width, &overlap });
-  bool mesh_split = ray::parseCommandLine(argc, argv, { &cloud_file, &mesh_file, &distance_text, &mesh_offset });
+  bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &choice }, { &view_flag });
+  bool colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_text }, { &view_flag });
+  bool seg_colour_format = ray::parseCommandLine(argc, argv, { &cloud_file, &seg_colour_text }, { &view_flag });
+  bool time_percent = ray::parseCommandLine(argc, argv, { &cloud_file, &time_text, &time, &percent_text }, { &view_flag });
+  bool box_format = ray::parseCommandLine(argc, argv, { &cloud_file, &box_text, &box_centre, &box_radius }, { &view_flag });
+  bool grid_format = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width }, { &view_flag });
+  bool grid_format2 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width2 }, { &view_flag });
+  bool grid_format3 = ray::parseCommandLine(argc, argv, { &cloud_file, &grid_text, &cell_width, &overlap }, { &view_flag });
+  bool mesh_split = ray::parseCommandLine(argc, argv, { &cloud_file, &mesh_file, &distance_text, &mesh_offset }, { &view_flag });
   bool capsule_split =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &capsule_text, &capsule_start, &capsule_end, &capsule_radius });
+    ray::parseCommandLine(argc, argv, { &cloud_file, &capsule_text, &capsule_start, &capsule_end, &capsule_radius }, { &view_flag });
   if (!standard_format && !colour_format && !seg_colour_format && !box_format && !grid_format && !grid_format2 && !grid_format3 &&
       !mesh_split && !time_percent && !capsule_split)
   {
@@ -280,6 +281,8 @@ int raySplit(int argc, char *argv[])
   }
   if (!res)
     usage();
+  if (view_flag.isSet())
+    ray::viewFile(in_name, out_name);
   return 0;
 }
 

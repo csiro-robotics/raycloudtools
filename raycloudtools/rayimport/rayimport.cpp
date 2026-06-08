@@ -18,7 +18,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Import a point cloud and trajectory file into a ray cloud" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "rayimport pointcloudfile trajectoryfile  - pointcloudfile can be a .laz, .las or .ply file" << std::endl;
   std::cout << "                                           trajectoryfile is a text file using 'time x y z' format per line" << std::endl;
   std::cout << "rayimport pointcloudfile 0,0,0           - use 0,0,0 as the sensor location" << std::endl;
@@ -31,20 +31,22 @@ void usage(int exit_code = 1)
   exit(exit_code);
 }
 
+static std::string save_file = ""; // this is used to move the view tool outside of the memory check
+
 int rayImport(int argc, char *argv[])
 {
   ray::DoubleArgument max_intensity(0.0, 1e8, 100.0);
   ray::Vector3dArgument position, ray_vec;
   ray::TextArgument ray_text("ray");
   ray::OptionalKeyValueArgument max_intensity_option("max_intensity", 'm', &max_intensity);
-  ray::OptionalFlagArgument remove("remove_start_pos", 'r');
+  ray::OptionalFlagArgument remove("remove_start_pos", 'r'), view_flag("view", 'v');
   ray::FileArgument cloud_file, trajectory_file;
   bool standard_format =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &trajectory_file }, { &max_intensity_option, &remove });
+    ray::parseCommandLine(argc, argv, { &cloud_file, &trajectory_file }, { &max_intensity_option, &remove, &view_flag });
   bool position_format =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &position }, { &max_intensity_option, &remove });
+    ray::parseCommandLine(argc, argv, { &cloud_file, &position }, { &max_intensity_option, &remove, &view_flag });
   bool ray_format =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &ray_text, &ray_vec }, { &max_intensity_option, &remove });
+    ray::parseCommandLine(argc, argv, { &cloud_file, &ray_text, &ray_vec }, { &max_intensity_option, &remove, &view_flag });
   if (!standard_format && !position_format && !ray_format)
     usage();
 
@@ -53,7 +55,6 @@ int rayImport(int argc, char *argv[])
     std::cerr << "Error: some ray cloud functions require rays to have a length. Please enter a non-zero vector for ray argument" << std::endl;
     usage();
   }
-  ray::Cloud cloud;
   const std::string &traj_file = trajectory_file.name();
   // Sensors we use have 0 to 100 for normal output, and to 255 for special reflective surfaces
   double maximum_intensity = max_intensity.value();
@@ -87,13 +88,14 @@ int rayImport(int argc, char *argv[])
       usage();
   }
 
-  std::string save_file = cloud_file.nameStub();
+  save_file = cloud_file.nameStub();
   if (cloud_file.nameExt() == "ply")
     save_file += "_raycloud";
+  save_file += ".ply";
   size_t num_bounded;
   std::ofstream ofs;
   ray::RayPlyBuffer buffer;
-  if (!ray::writeRayCloudChunkStart(save_file + ".ply", ofs))
+  if (!ray::writeRayCloudChunkStart(save_file, ofs))
     usage();
   Eigen::Vector3d start_pos(0, 0, 0);
   bool has_warned = false;
@@ -225,10 +227,17 @@ int rayImport(int argc, char *argv[])
  //   std::cout.precision(10);
     std::cout << "start position: " << std::setprecision(5) << std::fixed << start_pos.transpose() << " removed from all points" << std::endl;
   }
+  if (!view_flag.isSet())
+    save_file = "";
   return 0;
 }
 
 int main(int argc, char *argv[])
 {
-  return ray::runWithMemoryCheck(rayImport, argc, argv);
+  int res = ray::runWithMemoryCheck(rayImport, argc, argv);
+  // For some reason viewFile won't open the file if inside the rayImport function. Even when the .ply file is tiny.
+  // So it is going here instead. 
+  if (save_file != "")
+    ray::viewFile(save_file); 
+  return res;
 }

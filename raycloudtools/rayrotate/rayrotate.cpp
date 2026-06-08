@@ -16,7 +16,7 @@ void usage(int exit_code = 1)
 {
   // clang-format off
   std::cout << "Rotate a raycloud about the origin" << std::endl;
-  std::cout << "usage:" << std::endl;
+  std::cout << "usage (--view / -v to view results):" << std::endl;
   std::cout << "rayrotate raycloud 30,0,0  - rotation (rx,ry,rz) is a rotation vector in degrees:" << std::endl;
   std::cout << "                             so this example rotates the cloud by 30 degrees in the x axis." << std::endl;
   // clang-format on
@@ -27,7 +27,8 @@ int rayRotate(int argc, char *argv[])
 {
   ray::FileArgument cloud_file;
   ray::Vector3dArgument rotation_arg(-360, 360);
-  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &rotation_arg }))
+  ray::OptionalFlagArgument view_flag("view", 'v');
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &rotation_arg }, { &view_flag }))
     usage();
 
   Eigen::Vector3d rot = rotation_arg.value();
@@ -45,6 +46,8 @@ int rayRotate(int argc, char *argv[])
     usage();
 
   std::rename(temp_name.c_str(), cloud_file.name().c_str());
+  if (view_flag.isSet())
+    ray::viewFile(cloud_file.name());
   return 0;
 }
 
