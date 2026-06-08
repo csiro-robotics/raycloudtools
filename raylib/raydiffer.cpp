@@ -313,10 +313,7 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
     writer.end();
 
     if (visualise)
-    {
-      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_namestub + "_diff.ply";
-      system(command.c_str());  
-    }
+      viewFile(cloud1_namestub + "_diff.ply");
   }
   else
   {
@@ -329,10 +326,7 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
       return false;
     writer.end();
     if (visualise)
-    {
-      std::string command = std::string(VISUALISE_TOOL) + std::string(" ") + cloud1_namestub + "_diff.ply " + cloud2_namestub + "_diff.ply";
-      system(command.c_str());  
-    }
+      viewFile(cloud1_namestub + "_diff.ply", cloud2_namestub + "_diff.ply");
   }
   return true;
 }
