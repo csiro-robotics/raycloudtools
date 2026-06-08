@@ -404,10 +404,12 @@ void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &insid
   {
     for (auto &segment: tree.segments())
     {
-      if (segment.parent_id != -1)
+      if (segment.parent_id != -1 || tree.segments().size()==1)
       {
-        Eigen::Vector3d pos1 = tree.segments()[segment.parent_id].tip;
+        Eigen::Vector3d pos1 = tree.segments()[std::max(0,segment.parent_id)].tip;
         Eigen::Vector3d pos2 = segment.tip;
+        if (segment.parent_id == -1)
+          pos2[2] += 1000.0; // just do cylindrical split on trunk-only files
         double r = segment.radius;
         Eigen::Vector3d dir = (pos2 - pos1).normalized();
         pos1 -= dir*offset;
