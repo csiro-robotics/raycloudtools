@@ -9,6 +9,7 @@
 #include "../rayply.h"
 #include "../rayprogress.h"
 #include "../rayprogressthread.h"
+#include "../rayrandom.h"
 
 #if RAYLIB_WITH_TBB
 #include <tbb/enumerable_thread_specific.h>
@@ -49,8 +50,8 @@ struct Node
   {
     num_visits++;
 // This checks in a cone rather than just the corner of a cube shape that you would get
-// from a raw Pareto front calculation    
-#define CONE_CHECK  
+// from a raw Pareto front calculation
+#define CONE_CHECK
     Vector4d dif = corner - pos;
     if (dif == Vector4d(0, 0, 0, 0))
     {
@@ -123,7 +124,7 @@ void constructOctalSpacePartition(std::vector<Node> &nodes, std::vector<Vector4d
   int i = 0;
   while (points.size() > 0)
   {
-    const int ind = rand() % static_cast<int>(points.size());
+    const int ind = ::ray::rand() % static_cast<int>(points.size());
     nodes[i++].pos = points[ind];
     points[ind] = points.back();
     points.pop_back();
@@ -177,7 +178,7 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
 #if RAYLIB_WITH_TBB
   tbb::parallel_for<size_t>(0, nodes.size(), process_rays);
 #else
-  #pragma omp parallel for
+#pragma omp parallel for
   for (size_t n = 0; n < nodes.size(); n++)
   {
     process_rays(n);
@@ -200,7 +201,7 @@ void Terrain::getParetoFront(const std::vector<Vector4d> &points, std::vector<Ve
 void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double gradient)
 {
 #if RAYLIB_WITH_QHULL
-  // The idea behind ground extraction is to tilt the upwards vector to the (1,1,1) direction then 
+  // The idea behind ground extraction is to tilt the upwards vector to the (1,1,1) direction then
   // find the Pareto front in the three principle axes. https://en.wikipedia.org/wiki/Pareto_front
   //
   // Efficient Pareto front calculation is based on: Algorithms and Analyses for Maximal Vector Computation. Godfrey
@@ -255,6 +256,10 @@ void Terrain::growUpwards(const std::vector<Eigen::Vector3d> &positions, double 
 
   mesh_.indexList() = hull.mesh().indexList();
   mesh_.vertices() = vecs;
+#else
+  RAYLIB_UNUSED(positions);
+  RAYLIB_UNUSED(gradient);
+  std::cerr << "growUpwards: extracting terrain requires QHull, see README instructions for installation" << std::endl;
 #endif
 }
 
@@ -349,11 +354,20 @@ void Terrain::growUpwardsFast(const std::vector<Eigen::Vector3d> &ends, double p
   std::cout << "size before: " << ends.size() << ", size after: " << points.size() << std::endl;
 
   growUpwards(points, gradient);
+#else
+  RAYLIB_UNUSED(ends);
+  RAYLIB_UNUSED(pixel_width);
+  RAYLIB_UNUSED(min_bound);
+  RAYLIB_UNUSED(max_bound);
+  RAYLIB_UNUSED(gradient);
+  std::cerr << "growUpwardsFast: extracting terrain requires QHull, see README instructions for installation"
+            << std::endl;
 #endif
 }
 
-// Convert the @c cloud input to the mesh_ member variable. 
-void Terrain::extract(const Cloud &cloud, const Eigen::Vector3d &offset, const std::string &file_prefix, double gradient, bool verbose)
+// Convert the @c cloud input to the mesh_ member variable.
+void Terrain::extract(const Cloud &cloud, const Eigen::Vector3d &offset, const std::string &file_prefix,
+                      double gradient, bool verbose)
 {
 #if RAYLIB_WITH_QHULL
   // preprocessing to make the cloud smaller.
@@ -386,6 +400,11 @@ void Terrain::extract(const Cloud &cloud, const Eigen::Vector3d &offset, const s
     local_cloud.save(file_prefix + "_terrain.ply");
   }
 #else
+  RAYLIB_UNUSED(cloud);
+  RAYLIB_UNUSED(offset);
+  RAYLIB_UNUSED(file_prefix);
+  RAYLIB_UNUSED(gradient);
+  RAYLIB_UNUSED(verbose);
   std::cerr << "Error: extracting terrain requires QHull, see README instructions for installation" << std::endl;
 #endif
 }

@@ -18,12 +18,13 @@ namespace ray
 /// This is about ~5x faster then using the standard std::rand() method with no additional drawbacks.
 class RAYLIB_EXPORT PCGRandomGenerator
 {
-public:
+private:
   PCGRandomGenerator()
   {
     seed(12748, 3147, 792751, 14992);
   }  // we can't initialise using std::rand, as it isn't platform independent
 
+public:
   /// The minimum possible result value (inclusive). For compatibility with @c std::shuffle()
   static constexpr unsigned min() { return std::numeric_limits<unsigned int>::min(); }
   /// The maximum possible result value (inclusive). For compatibility with @c std::shuffle()
@@ -62,14 +63,14 @@ private:
 };
 
 /// Return a random number using some magic engine behind the hood.
-/// Use this over std::rand() as there's a good chance this will be faster/better.
+/// Use this over std::rand() as it will be consistent across platforms.
 unsigned int RAYLIB_EXPORT rand();
 void RAYLIB_EXPORT srand(unsigned int seed);
 
 /// Return a uniformed number between [0,1).
 inline double randUniformDouble()
 {
-  return static_cast<double>(ray::rand() % std::numeric_limits<int>::max()) /
+  return static_cast<double>(::ray::rand() % std::numeric_limits<int>::max()) /
          static_cast<double>(std::numeric_limits<int>::max());
 }
 }  // namespace ray

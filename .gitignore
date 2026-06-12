@@ -1,4 +1,4 @@
-.vscode/
 .idea/
 build*/
 cmake-build*/
+treetools/

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <queue>
 #include "../rayply.h"
+#include "../rayrandom.h"
 
 namespace ray
 {
@@ -39,9 +40,9 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
         continue;
       }
       srand(1 + ind);
-      colour.red = (uint8_t)(rand() % 256);
-      colour.green = (uint8_t)(rand() % 256);
-      colour.blue = (uint8_t)(rand() % 256);
+      colour.red = (uint8_t)(::ray::rand() % 256);
+      colour.green = (uint8_t)(::ray::rand() % 256);
+      colour.blue = (uint8_t)(::ray::rand() % 256);
       Eigen::Vector3d pos =
         min_bounds_ + voxel_width_ * Eigen::Vector3d(0.5 + static_cast<double>(x), 0.5 + static_cast<double>(y), 0);
       pos[2] = original_heightfield_(x, y);
@@ -54,10 +55,10 @@ void Forest::renderWatershed(const std::string &cloud_name_stub, std::vector<Tre
   for (auto &ind : indices)
   {
     Eigen::Vector3d tip;
-    srand(1 + ind);
-    colour.red = (uint8_t)(rand() % 256);
-    colour.green = (uint8_t)(rand() % 256);
-    colour.blue = (uint8_t)(rand() % 256);
+    ::ray::srand(1 + ind);
+    colour.red = (uint8_t)(::ray::rand() % 256);
+    colour.green = (uint8_t)(::ray::rand() % 256);
+    colour.blue = (uint8_t)(::ray::rand() % 256);
     if (trees[ind].area < min_area_)
     {
       continue;
