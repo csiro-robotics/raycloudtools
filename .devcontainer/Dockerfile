@@ -56,6 +56,10 @@ RUN git clone https://github.com/ethz-asl/libnabo.git && \
 # Update ldconfig
 RUN ldconfig /usr/local/lib
 
+# Copy build script into image
+COPY .devcontainer/commands/compile_install.sh /usr/local/bin/compile_install.sh
+RUN chmod +x /usr/local/bin/compile_install.sh
+
 # Set the working directory
 WORKDIR /workspaces/raycloudtools
 
