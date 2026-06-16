@@ -230,7 +230,7 @@ double printDistanceStatistics(const std::vector<float> &dists_to_cloud1, const 
 bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::string &cloud2_namestub, std::vector<float> &dists_to_cloud1,
    std::vector<float> &dists_to_cloud2, double dist_threshold, bool individual_files, bool visualise)
 {
-  std::cout << "saving out differences, coloured red for differences to " << cloud1_namestub << ".ply and green for differences in " << cloud2_namestub << ".ply" << std::endl;
+  std::cout << "saving out differences, coloured scarlet for differences to " << cloud1_namestub << ".ply and green/cyan for differences in " << cloud2_namestub << ".ply" << std::endl;
 
   // now render visuals
   CloudWriter writer;
@@ -243,7 +243,7 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
   std::vector<Eigen::Vector3i> samples;
 
   int j = 0;
-  Eigen::Vector3d diff_col(255,0,0);
+  Eigen::Vector3d diff_col(255,0,127);
   std::vector<float> *dists = &dists_to_cloud1;
   const float eps = 1e-8f; // in case there is inaccuracy in the KNN distance estimation for co-located point pairs
   auto colour = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
@@ -277,7 +277,7 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
   j = 0;
   dists_to_cloud1.clear();
   dists_to_cloud1.shrink_to_fit();
-  Eigen::Vector3d diff2_col(0,255,0);
+  Eigen::Vector3d diff2_col(0,255,127);
 
   dists = &dists_to_cloud2;
   if (!individual_files)
