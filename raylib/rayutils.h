@@ -10,6 +10,7 @@
 #include "rayrandom.h"
 
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #include <Eigen/Dense>
 #pragma GCC diagnostic pop
@@ -421,7 +422,7 @@ void walkGrid(const Eigen::Vector3d &start, const Eigen::Vector3d &end, T &objec
 inline int viewFile(const std::string &file_name, const std::string &file2_name = "")
 {
   // Force Qt to use X11 platform (not Wayland). Can remove the first string if wish to use default render platform
-  std::string command = "QT_QPA_PLATFORM=xcb " + std::string(R_VISTOOL) + " " + file_name;
+  std::string command = "QT_QPA_PLATFORM=xcb " + std::string(RAYLIB_VISTOOL) + " " + file_name;
   if (file2_name != "")
     command += " " + file2_name;
   const auto status = system(command.c_str());

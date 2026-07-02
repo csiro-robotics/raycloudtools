@@ -13,10 +13,10 @@ cmake .. \
     -DGeoTIFF_LIBRARY=/usr/lib/x86_64-linux-gnu/libgeotiff.so \
     -DPROJ_INCLUDE_DIR=/usr/include/proj \
     -DPROJ_LIBRARY=/usr/lib/x86_64-linux-gnu/libproj.so \
-    -DWITH_QHULL=ON \
-    -DWITH_LAS=ON \
-    -DDOUBLE_RAYS=ON \
-    -DWITH_TIFF=ON \
+    -DRAYLIB_WITH_QHULL=ON \
+    -DRAYLIB_WITH_LAS=ON \
+    -DRAYLIB_DOUBLE_RAYS=ON \
+    -DRAYLIB_WITH_TIFF=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DRAYCLOUD_BUILD_TESTS=ON
 

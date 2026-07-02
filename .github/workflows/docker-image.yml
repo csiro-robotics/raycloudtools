@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Build and push Docker image
 
 on:
   push:
@@ -17,14 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GitHub container registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build and Push Docker image
+      - name: Build and push Docker image
         run: |
           IMAGE_ID=ghcr.io/${{ github.repository_owner }}/raycloudtools
 

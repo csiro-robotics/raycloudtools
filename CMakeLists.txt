@@ -12,7 +12,29 @@ project(raycloudtools VERSION 0.1.0
   LANGUAGES CXX
 )
 
+
+# Add project level options here.
+# Setup doxygen
+option(RAYCLOUD_BUILD_DOXYGEN "Build doxgen documentation?" OFF)
+# Setup unit tests
+option(RAYCLOUD_BUILD_TESTS "Build unit tests?" OFF)
+# Setup LeakTrack
+option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
+set(RAYLIB_VISTOOL meshlab CACHE STRING "command to use to visualise point cloud / mesh files")
+set(RAYLIB_IMAGETOOL kolourpaint CACHE STRING "command to use to visualise image files")
+
+# WITH_ build options.
+option(RAYLIB_WITH_LAS "With LASzip for las/laz file support (LAS 1.0-1.4)?" OFF)
+option(RAYLIB_WITH_QHULL "With libqhull support?" OFF)
+option(RAYLIB_WITH_TIFF "With libgeotiff support?" OFF)
+option(RAYLIB_WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
+option(RAYLIB_WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
+option(RAYLIB_DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
+
+# Setup CMake options.
+set(CMAKE_DEBUG_POSTFIX "d")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+include(GenerateExportHeader)
 
 # Setup compiler warnings and options.
 add_compile_options(
@@ -25,26 +47,6 @@ add_compile_options(
   "-fdiagnostics-color=always"
 )
 
-
-# Add project level options here.
-# Setup doxygen
-option(RAYCLOUD_BUILD_DOXYGEN "Build doxgen documentation?" OFF)
-# Setup unit tests
-option(RAYCLOUD_BUILD_TESTS "Build unit tests?" OFF)
-# Setup LeakTrack
-option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
-set(RAY_VISTOOL meshlab CACHE STRING "command to use to visualise point cloud / mesh files")
-set(RAY_IMAGETOOL kolourpaint CACHE STRING "command to use to visualise image files")
-
-# WITH_ build options.
-option(WITH_LAS "With LASzip for las/laz file support (LAS 1.0-1.4)?" OFF)
-option(WITH_QHULL "With libqhull support?" OFF)
-option(WITH_TIFF "With libgeotiff support?" OFF)
-option(WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
-option(WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
-option(DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
-
-
 # Required packages.
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
@@ -55,71 +57,68 @@ set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
 set(RAYTOOLS_LINK ${libnabo_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
 
 # Optionally configured packages.
-if(WITH_LAS)
+if(RAYLIB_WITH_LAS)
   find_package(LASzip REQUIRED)
   list(APPEND RAYTOOLS_INCLUDE ${LASzip_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${LASzip_LIBRARIES})
-endif(WITH_LAS)
+endif(RAYLIB_WITH_LAS)
 
-if(WITH_QHULL)
-  # Find the qhull that provides a config with targets first
-  find_package(Qhull CONFIG QUIET)
-  # Otherwise we try and use our own findQhull.cmake script
-  if(NOT Qhull_FOUND)
-    find_package(Qhull REQUIRED)
-  endif(NOT Qhull_FOUND)
-  
+if(RAYLIB_WITH_QHULL)
+  find_package(Qhull REQUIRED)
+  get_target_property(QHULL_INCLUDE_DIRS Qhull::qhullcpp INTERFACE_INCLUDE_DIRECTORIES)
+  set(QHULL_LIBRARIES Qhull::qhullcpp)
   list(APPEND RAYTOOLS_INCLUDE ${QHULL_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${QHULL_LIBRARIES})
-endif(WITH_QHULL)
+endif(RAYLIB_WITH_QHULL)
 
-if (WITH_TIFF)
-    # Find and configure GeoTIFF
-    find_package(GeoTIFF REQUIRED)
-  
-    if(GeoTIFF_FOUND)
-      list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIR})
-      list(APPEND RAYTOOLS_LINK ${GeoTIFF_LIBRARIES})
-    else()
-      message(FATAL_ERROR "GeoTIFF library not found.")
-    endif()
+if(RAYLIB_WITH_TIFF)
+  # Find and configure GeoTIFF
+  find_package(GeoTIFF REQUIRED)
 
-    # Find and configure TIFF
-    find_package(TIFF REQUIRED)
-    if (TIFF_FOUND)
-        list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
-        list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
-    else()
-        message(FATAL_ERROR "TIFF library not found.")
-    endif()
+  if(GeoTIFF_FOUND)
+    list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIR})
+    list(APPEND RAYTOOLS_LINK ${GeoTIFF_LIBRARIES})
+  else()
+    message(FATAL_ERROR "GeoTIFF library not found.")
+  endif()
 
-    # Find and configure PROJ
-    find_package(PROJ REQUIRED)
-    if (PROJ_FOUND)
-        list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIRS})
-        list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
-    else()
-        message(FATAL_ERROR "PROJ library not found.")
-    endif()
-endif (WITH_TIFF)
+  # Find and configure TIFF
+  find_package(TIFF REQUIRED)
+  if(TIFF_FOUND)
+    list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
+    list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
+  else()
+    message(FATAL_ERROR "TIFF library not found.")
+  endif()
 
-if(WITH_TBB)
-# Helper macro to Find TBB prefering TBBConfig, falling back to FindTBB. TBB_LIBRARIES will be defined in both cases.
-# TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.
-macro(find_tbb)
-  # Try find TBB config file.
-  find_package(TBB QUIET CONFIG)
-  if(TBB_FOUND)
-    message(STATUS "TBB found using TBBConfig.cmake")
-    set(TBB_LIBRARIES "${TBB_IMPORTED_TARGETS}")
-  else(TBB_FOUND)
-    # No TBB config file. Try FindTBB.cmake
-    find_package(TBB QUIET)
+  # Find and configure PROJ
+  find_package(PROJ REQUIRED)
+  if(PROJ_FOUND)
+    list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIRS})
+    list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
+  else()
+    message(FATAL_ERROR "PROJ library not found.")
+  endif()
+endif(RAYLIB_WITH_TIFF)
+
+if(RAYLIB_WITH_TBB)
+  # Helper macro to Find TBB preferring TBBConfig, falling back to FindTBB.
+  # TBB_LIBRARIES will be defined in both cases.
+  # TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.
+  macro(find_tbb)
+    # Try find TBB config file.
+    find_package(TBB QUIET CONFIG)
     if(TBB_FOUND)
-      message(STATUS "TBB found using FindTBB.cmake")
+      message(STATUS "TBB found using TBBConfig.cmake")
+      set(TBB_LIBRARIES "${TBB_IMPORTED_TARGETS}")
+    else(TBB_FOUND)
+      # No TBB config file. Try FindTBB.cmake
+      find_package(TBB QUIET)
+      if(TBB_FOUND)
+        message(STATUS "TBB found using FindTBB.cmake")
+      endif(TBB_FOUND)
     endif(TBB_FOUND)
-  endif(TBB_FOUND)
-endmacro(find_tbb)
+  endmacro(find_tbb)
   # First try newer TBB versions which support TBBConfig.cmake
   find_package(TBB QUIET CONFIG)
   if(TBB_FOUND)
@@ -131,7 +130,7 @@ endmacro(find_tbb)
     list(APPEND RAYTOOLS_INCLUDE ${TBB_INCLUDE_DIRS})
     list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
   endif(TBB_FOUND)
-endif(WITH_TBB)
+endif(RAYLIB_WITH_TBB)
 
 # Create libs
 add_subdirectory(3rd-party)
@@ -174,7 +173,6 @@ endif(RAYCLOUD_BUILD_DOXYGEN)
 # Installation
 include(InstallRequiredSystemLibraries)
 include(CMakePackageConfigHelpers)
-
 
 install(EXPORT ${CMAKE_PROJECT_NAME}-targets
   FILE ${CMAKE_PROJECT_NAME}-targets.cmake

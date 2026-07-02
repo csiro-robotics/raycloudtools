@@ -57,17 +57,17 @@
 #define GLM_FORCE_XYZW_ONLY
 #define GLM_FORCE_SIZE_T_LENGTH
 
-#define RAYLIB_WITH_LAS @WITH_LAS@
-#define RAYLIB_WITH_QHULL @WITH_QHULL@
-#define RAYLIB_WITH_TBB @WITH_TBB@
-#define RAYLIB_WITH_TIFF @WITH_TIFF@
-#define RAYLIB_WITH_NORMAL_FIELD @WITH_NORMAL_FIELD@
-#define RAYLIB_DOUBLE_RAYS @DOUBLE_RAYS@
+#cmakedefine01 RAYLIB_DOUBLE_RAYS
+#cmakedefine01 RAYLIB_WITH_LAS
+#cmakedefine01 RAYLIB_WITH_NORMAL_FIELD
+#cmakedefine01 RAYLIB_WITH_QHULL
+#cmakedefine01 RAYLIB_WITH_TBB
+#cmakedefine01 RAYLIB_WITH_TIFF
 
 // String-configured helper tools (configured in top-level CMakeLists.txt).
 // Exposed here so downstream users including raylib headers (e.g. rayutils.h)
 // can resolve these macros from this generated config header alone.
-#define R_VISTOOL "@RAY_VISTOOL@"
-#define R_IMAGETOOL "@RAY_IMAGETOOL@"
+#cmakedefine RAYLIB_VISTOOL
+#cmakedefine RAYLIB_IMAGETOOL
 
 #endif  // RAYLIB_CONFIG_H

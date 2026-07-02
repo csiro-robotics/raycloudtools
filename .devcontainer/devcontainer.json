@@ -16,12 +16,15 @@
       ]
     }
   },
-  "mounts": [
-    "type=bind,source=${localWorkspaceFolder}/.devcontainer/commands/compile_install.sh,target=/usr/local/bin/compile_install.sh",
-  ],
-  "remoteUser": "ubuntu",
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/workspaces/raycloudtools/.devcontainer/commands"
+  },
   "forwardPorts": [],
+  "mounts": [
+    "type=bind,source=${localWorkspaceFolder}/.devcontainer/commands/compile_install.sh,target=/usr/local/bin/compile_install.sh"
+  ],
   "postCreateCommand": "compile_install.sh",
+  "remoteUser": "ubuntu",
   "runArgs": [
     "--security-opt=label=disable"
   ],

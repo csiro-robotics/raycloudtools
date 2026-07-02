@@ -3,13 +3,13 @@ A set of command line tools for processing ray clouds, together with an associat
 
 
 Ray clouds are point clouds with the sensor origin stored per point (currently encoded in the 'normal' field of .ply files).
-Ray clouds represent free space as well as surfaces. This allows processing that cannot be done on point cloud data alone. 
+Ray clouds represent free space as well as surfaces. This allows processing that cannot be done on point cloud data alone.
 
 This is an open-source research library, a place to release new techniques in ray cloud analysis and manipulation. So if you would like to contribute with a new or improved method, do suggest it in our discussions page: https://github.com/csiro-robotics/raycloudtools/discussions.
 
 ## Citation
 
-If you use the RayCloudTools library in your reseach, please cite:
+If you use the RayCloudTools library in your research, please cite:
 
 > Lowe, Thomas, and Kazys Stepanas. "RayCloudTools: A Concise Interface for Analysis and Manipulation of Ray Clouds." IEEE Access (2021).
 
@@ -103,14 +103,14 @@ To run the rayXXXX tools from anywhere either sudo make install, or place in you
 
 If not there already, add to your ~/.bashrc:
 '''console
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib 
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 '''
 
 ## Visualising Ray Clouds:
-free software such as Meshlab and CloudCompare can view ray clouds. 
+free software such as Meshlab and CloudCompare can view ray clouds.
 
-The build variables RAY_VISTOOL and RAY_IMAGETOOL allow the --view (-v) flag to view command-line results immediately.
-They default to meshlab and kolourpaint respectively but can be changed with ccmake or with the -D cmake argument. 
+The build variables RAYLIB_VISTOOL and RAYLIB_IMAGETOOL allow the --view (-v) flag to view command-line results immediately.
+They default to meshlab and kolourpaint respectively but can be changed with ccmake or with the -D cmake argument.
 You will need to install these programs if you want the --view flag to work.
 
 ## File format:
@@ -147,20 +147,20 @@ property <float/double> z
 property <float/double> time
 property <float/double> intensity
 end_header
-``` 
+```
 The range of this intensity mapped onto the raycloud's 0-255 alpha value using rayimport's max_intensity optional parameter.
 
-The imported .laz point cloud format is the 3D point, time and intensity fields. Plus the optional colour field. 
+The imported .laz point cloud format is the 3D point, time and intensity fields. Plus the optional colour field.
 
 ## Visual Guide:
 
-This gives an example of how the command line tools could be sequenced to analyse (top down) and generate (bottom up) ray clouds. 
+This gives an example of how the command line tools could be sequenced to analyse (top down) and generate (bottom up) ray clouds.
 
 <p align="center"><img img width="480" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/raycloudtools_cheatsheet.png?at=refs%2Fheads%2Fmaster"/></p>
 
 ## Individual Examples:
 
-**rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line. 
+**rayimport forest.laz forest_traj.txt** &nbsp;&nbsp;&nbsp; Import point cloud and trajectory to a single raycloud file forest.ply. forest_traj.txt is space separated 'time x y z' per line.
 
 **raycreate room 1** &nbsp;&nbsp;&nbsp; Generate a single room with a window and door, using random seed 1.
 <p align="center">
@@ -201,7 +201,7 @@ This gives an example of how the command line tools could be sequenced to analys
 <img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayrender_room_top_density_rgb.png?at=refs%2Fheads%2Fmaster"/>
 </p>
 
-**raytransients min room.ply 2 rays** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when matter has been re-observed as missing by 2 or more rays. 
+**raytransients min room.ply 2 rays** &nbsp;&nbsp;&nbsp; Segment out moving or moved objects during the scan, when matter has been re-observed as missing by 2 or more rays.
 
 &nbsp;&nbsp;&nbsp; Leaving the ***minimum*** of geometry when transient.
 
@@ -219,19 +219,19 @@ This gives an example of how the command line tools could be sequenced to analys
 
 <p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_combined_all.png?at=refs%2Fheads%2Fmaster"/></p>
 
-**raycombine min room.ply room2.ply 1 rays** &nbsp;&nbsp;&nbsp; Combine the two ray clouds keeping only the ***minimum*** of geometry where there is a difference. 
+**raycombine min room.ply room2.ply 1 rays** &nbsp;&nbsp;&nbsp; Combine the two ray clouds keeping only the ***minimum*** of geometry where there is a difference.
 
-&nbsp;&nbsp;&nbsp; This is a form of union of the two volumes. 
+&nbsp;&nbsp;&nbsp; This is a form of union of the two volumes.
 
 <p align="center"><img img width="320" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/room_combined_min.png?at=refs%2Fheads%2Fmaster"/></p>
 
-**rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity 
+**rayalign room.ply room2.ply** &nbsp;&nbsp;&nbsp; Aligns room onto room2, allowing for a small about of non-rigidity
 
-**rayextract terrain cloud.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh based on a conical height condition. 
+**rayextract terrain cloud.ply** &nbsp;&nbsp;&nbsp; extracts a ground mesh based on a conical height condition.
 
 <p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_terrain.png?at=refs%2Fheads%2Fmaster"/></p>
 
-**rayextract trees forest.ply forest_mesh.ply** &nbsp;&nbsp;&nbsp; extracts tree structures to text file, and segments forest. 
+**rayextract trees forest.ply forest_mesh.ply** &nbsp;&nbsp;&nbsp; extracts tree structures to text file, and segments forest.
 
 <p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_trees.png?at=refs%2Fheads%2Fmaster"/></p>
 
@@ -240,21 +240,21 @@ This gives an example of how the command line tools could be sequenced to analys
 
 For rayimport/rayexport to work with .las and .laz files (LAS 1.0 through 1.4, including COPC):
 * git clone https://github.com/LASzip/LASzip.git, git checkout tags/3.4.4, then mkdir build, cd build, cmake .. -DCMAKE_BUILD_TYPE=Release, make, sudo make install.
-* in raycloudtools/build: cmake .. -DWITH_LAS=ON  (or ccmake .. to turn on/off WITH_LAS)
+* in raycloudtools/build: cmake .. -DRAYLIB_WITH_LAS=ON  (or ccmake .. to turn on/off RAYLIB_WITH_LAS)
 * note that you may need to add the LASzip install path into LD_LIBRARY_PATH, normally this can be done with the following line in your ~/.bashrc: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
 For raywrap:
 
 * git clone http://github.com/qhull/qhull.git, git checkout tags/v7.3.2
-* In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install. 
-* in raycloudtools/build: cmake .. -DWITH_QHULL=ON (or ccmake .. to turn on/off WITH_QHULL)
+* In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install.
+* in raycloudtools/build: cmake .. -DRAYLIB_WITH_QHULL=ON (or ccmake .. to turn on/off RAYLIB_WITH_QHULL)
 
-To render clouds to geotif (.tif) images:
+To render clouds to geotiff (.tif) images:
 
 * git clone https://github.com/OSGeo/libgeotiff.git
-* follow the build instructions in its README.md, note that the "DCMAKE_C_FLAGS" parameter needs a preceeding "-"
-* copy a FindGeoTIFF.cmake file to your cmake folder, such as from here: https://github.com/ufz/geotiff 
-* in raycloudtools/build: cmake .. -DWITH_TIFF=ON (or ccmake .. to turn on/off WITH_TIFF)
+* follow the build instructions in its README.md, note that the "DCMAKE_C_FLAGS" parameter needs a preceding "-"
+* copy a FindGeoTIFF.cmake file to your cmake folder, such as from here: https://github.com/ufz/geotiff
+* in raycloudtools/build: cmake .. -DRAYLIB_WITH_TIFF=ON (or ccmake .. to turn on/off RAYLIB_WITH_TIFF)
 
 ## Unit Tests
 

@@ -9,7 +9,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "imagewrite.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
 #include "simple_fft/fft.h"
+#pragma GCC diagnostic pop
 
 #include <cinttypes>
 #include <complex>

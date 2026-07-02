@@ -46,7 +46,7 @@ set(PUBLIC_HEADERS
   extraction/raytrunks.h
   extraction/rayclusters.h
   extraction/rayleaves.h
-  extraction/rayterrain.h 
+  extraction/rayterrain.h
   extraction/raytrees.h
   extraction/rayforest.h
   extraction/raysegment.h
@@ -107,29 +107,43 @@ set(SOURCES
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
 add_compile_options(-fPIC)
 
-if(WITH_QHULL)
-set(QHULL_LIBS
+if(RAYLIB_WITH_QHULL)
+  set(QHULL_LIBS
     Qhull::qhullcpp
-    Qhull::qhullstatic_r)
-else(WITH_QHULL)
-set(QHULL_LIBS)
-endif(WITH_QHULL)
+    Qhull::qhullstatic_r
+  )
+else(RAYLIB_WITH_QHULL)
+  set(QHULL_LIBS)
+endif(RAYLIB_WITH_QHULL)
 
-add_library(raylib SHARED ${SOURCES} ${PUBLIC_HEADERS} ${PRIVATE_HEADERS})
+add_library(raylib SHARED ${SOURCES})
 
-target_link_libraries(raylib PUBLIC ${RAYTOOLS_LINK} PRIVATE ${QHULL_LIBS})
+generate_export_header(raylib)
+
 target_compile_options(raylib PUBLIC ${OpenMP_CXX_FLAGS})
+target_include_directories(raylib PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+  ${RAYTOOLS_INCLUDE}
+  ${SIMPLE_FFT_INCLUDE_DIRS}
+)
+target_link_libraries(raylib PUBLIC ${RAYTOOLS_LINK} PRIVATE ${QHULL_LIBS})
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h DESTINATION "${INCLUDE_INSTALL_DIR}/raylib")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h DESTINATION include/raylib)
 
-install(FILES ${PUBLIC_HEADERS} DESTINATION "${INCLUDE_INSTALL_DIR}/raylib")
+install(FILES ${PUBLIC_HEADERS} DESTINATION include/raylib)
 
-install (TARGETS raylib
+install(TARGETS raylib
   EXPORT ${CMAKE_PROJECT_NAME}-targets
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   INCLUDES DESTINATION include/raylib
+)
+install(
+  EXPORT ${CMAKE_PROJECT_NAME}-targets
+  DESTINATION lib/${CMAKE_PROJECT_NAME}
+  NAMESPACE raycloud::
 )
 
 # ras_add_library(raylib

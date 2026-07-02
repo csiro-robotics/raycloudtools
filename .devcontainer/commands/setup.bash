@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -o errexit
+RAYCLOUDTOOLS_ROOT="$(realpath "$(dirname "${BASH_SOURCE}")/../..")"
+PARALLEL_WORKERS="$(("$(nproc)" - 2))"
+
+# CMake options
+if test -z "${RAYCLOUDTOOLS_TEST}"; then
+    RAYCLOUDTOOLS_TEST=ON
+fi
+if test -z "${TREETOOLS_TEST}"; then
+    TREETOOLS_TEST=ON
+fi
+declare -a CMAKE_ARGS=(
+    "-DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo"
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON"
+    "-DCMAKE_INSTALL_PREFIX:STRING=${RAYCLOUDTOOLS_ROOT}/install"
+    "-DGeoTIFF_INCLUDE_DIR:STRING=/usr/include/geotiff"
+    "-DGeoTIFF_LIBRARY:STRING=/usr/lib/x86_64-linux-gnu/libgeotiff.so"
+    "-DPROJ_INCLUDE_DIR:STRING=/usr/include/proj"
+    "-DPROJ_LIBRARY:STRING=/usr/lib/x86_64-linux-gnu/libproj.so"
+)
+declare -a RAYCLOUDTOOLS_CMAKE_ARGS=(
+    "${CMAKE_ARGS[@]}"
+    "-DRAYCLOUD_BUILD_TESTS:BOOL=${RAYCLOUDTOOLS_TEST}"
+    "-DRAYLIB_DOUBLE_RAYS:BOOL=ON"
+    "-DRAYLIB_WITH_LAS:BOOL=ON"
+    "-DRAYLIB_WITH_QHULL:BOOL=ON"
+    "-DRAYLIB_WITH_TIFF:BOOL=ON"
+)
+declare -a TREETOOLS_CMAKE_ARGS=(
+    "${CMAKE_ARGS[@]}"
+    "-DTREE_BUILD_TESTS:BOOL=${TREETOOLS_TEST}"
+    "-DWITH_TIFF:BOOL=ON"
+)

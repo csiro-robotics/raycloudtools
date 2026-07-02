@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Build and test
 
 on:
   pull_request:
@@ -38,7 +38,7 @@ jobs:
           make -j$(nproc)
           sudo make install
 
-      - name: Build and Test
+      - name: Build and test
         run: |
           mkdir build
           cd build

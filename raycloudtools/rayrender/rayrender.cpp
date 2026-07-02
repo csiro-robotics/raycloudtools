@@ -75,7 +75,7 @@ int rayRender(int argc, char *argv[])
   if (projection_file_option.isSet())
   {
 #if !RAYLIB_WITH_TIFF
-    std::cerr << "Error: georeferencing requires the WITH_TIFF build flag enabled. See README.md." << std::endl;
+    std::cerr << "Error: georeferencing requires the RAYLIB_WITH_TIFF build flag enabled. See README.md." << std::endl;
     usage();
 #endif
     if (image_file.nameExt() != "tif")
@@ -105,14 +105,14 @@ int rayRender(int argc, char *argv[])
     min_bound[1] = grid_width.value() * std::round(mid[1] / grid_width.value()) - 0.5*grid_width.value();
     max_bound[0] = min_bound[0] + grid_width.value();
     max_bound[1] = min_bound[1] + grid_width.value();
-    if (min_bound[0] > bounds.min_bound_[0] || min_bound[1] > bounds.min_bound_[1] || 
+    if (min_bound[0] > bounds.min_bound_[0] || min_bound[1] > bounds.min_bound_[1] ||
         max_bound[0] < bounds.max_bound_[0] || max_bound[1] < bounds.max_bound_[1])
     {
       std::cout << "Warning: cloud overlaps grid cell of width: " << grid_width.value() << " image bounds extended" << std::endl;
     }
     bounds.min_bound_ = ray::minVector(bounds.min_bound_, min_bound);
     bounds.max_bound_ = ray::maxVector(bounds.max_bound_, max_bound);
-  }  
+  }
   double pix_width = pixel_width.value();
   if (!pixel_width_option.isSet())
   {
@@ -142,8 +142,13 @@ int rayRender(int argc, char *argv[])
   {
     usage();
   }
-  if (view_flag.isSet())
-    std::system((std::string(R_IMAGETOOL) + " " + image_file.name()).c_str());
+  if (view_flag.isSet()) {
+    const std::string command = std::string(RAYLIB_IMAGETOOL) + " " + image_file.name();
+    if (std::system(command.c_str()) != 0)
+    {
+      std::cerr << "failed to view file with command: " << command << std::endl;
+    }
+  }
   return 0;
 }
 
