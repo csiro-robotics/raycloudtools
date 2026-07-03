@@ -40,12 +40,21 @@ jobs:
 
       - name: Build and test
         run: |
-          mkdir build
-          cd build
-          cmake ../ -DRAYCLOUD_BUILD_TESTS=ON
-          make -j$(nproc)
-          cd bin
-          ./raytest --gtest_output=xml:report.xml
+          BUILD_ROOT="$(pwd)/build/raycloudtools"
+          INSTALL_ROOT="$(pwd)/install"
+          mkdir --parents "${BUILD_ROOT}" "${INSTALL_ROOT}"
+          cmake \
+            -B "${BUILD_ROOT}" \
+            -DCMAKE_INSTALL_PREFIX:STRING="${INSTALL_ROOT}" \
+            -DRAYCLOUD_BUILD_TESTS:BOOL=ON
+          make \
+            -C "${BUILD_ROOT}" \
+            -j "$(nproc)" \
+            install
+          export "LD_LIBRARY_PATH=${INSTALL_ROOT}/lib:${LD_LIBRARY_PATH}"
+          export "PATH=${INSTALL_ROOT}/bin:${PATH}"
+          cd "${INSTALL_ROOT}/bin"
+          "${BUILD_ROOT}/tests/raytest/raytest" --gtest_output=xml:report.xml
 
   build-noble:
     runs-on: ubuntu-24.04
