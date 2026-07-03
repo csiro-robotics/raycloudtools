@@ -3,9 +3,9 @@
 # ABN 41 687 119 230
 #
 # Author: Kazys Stepanas
+
 cmake_minimum_required(VERSION 3.10)
 
-# Setup project details.
 project(useraylib)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,3 +15,4 @@ find_package(raycloudtools)
 
 add_executable(useraylib useraylib.cpp)
 target_link_libraries(useraylib raycloud::raylib)
+install(TARGETS useraylib RUNTIME DESTINATION bin)

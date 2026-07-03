@@ -45,10 +45,17 @@ find_package(PkgConfig REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
 find_package(OpenMP REQUIRED)
-find_package(Threads)
+find_package(Threads REQUIRED)
 
-set(RAYTOOLS_INCLUDE ${EIGEN3_INCLUDE_DIRS} ${libnabo_INCLUDE_DIRS})
-set(RAYTOOLS_LINK ${libnabo_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
+set(RAYTOOLS_INCLUDE
+  ${EIGEN3_INCLUDE_DIRS}
+  ${libnabo_INCLUDE_DIRS}
+)
+set(RAYTOOLS_LINK
+  libnabo::nabo
+  OpenMP::OpenMP_CXX
+  Threads::Threads
+)
 
 # Optionally configured packages.
 if(RAYLIB_WITH_LAS)
@@ -125,6 +132,23 @@ endif(RAYLIB_WITH_TBB)
 add_subdirectory(3rd-party)
 add_subdirectory(raylib)
 add_subdirectory(raycloudtools)
+
+# Export targets.
+include(CMakePackageConfigHelpers)
+install(
+  EXPORT "${CMAKE_PROJECT_NAME}-targets"
+  DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
+  NAMESPACE "raycloud::"
+)
+configure_package_config_file(
+  "cmake/Config.in.cmake"
+  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
+  INSTALL_DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
+)
+install(
+  FILES "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
+  DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
+)
 
 # Test setup.
 if(RAYCLOUD_BUILD_TESTS)

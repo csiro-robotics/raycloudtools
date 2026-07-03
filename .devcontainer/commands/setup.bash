@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -o errexit
+
+# Constants.
 RAYCLOUDTOOLS_ROOT="$(realpath "$(dirname "${BASH_SOURCE}")/../..")"
 PARALLEL_WORKERS="$(("$(nproc)" - 2))"
 
-# CMake options
+# Options.
+if test -z "${EXAMPLES_ENABLE}"; then
+    EXAMPLES_ENABLE=true
+fi
 if test -z "${RAYCLOUDTOOLS_TEST}"; then
     RAYCLOUDTOOLS_TEST=ON
 fi
@@ -13,6 +18,8 @@ fi
 if test -z "${TREETOOLS_TEST}"; then
     TREETOOLS_TEST=ON
 fi
+
+# CMake options.
 declare -a CMAKE_ARGS=(
     "-DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo"
     "-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON"

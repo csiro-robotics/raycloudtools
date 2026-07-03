@@ -4,10 +4,10 @@
 //
 // Author: Thomas Lowe
 
-#include <raylib/raycloud.h>
-
 #include <cstdlib>
 #include <iostream>
+
+#include "raylib/raycloud.h"
 
 void usage(int exit_code = 1)
 {

@@ -123,14 +123,19 @@ generate_export_header(raylib)
 
 target_compile_options(raylib PUBLIC ${OpenMP_CXX_FLAGS})
 target_include_directories(raylib PUBLIC
-  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
   ${RAYTOOLS_INCLUDE}
   ${SIMPLE_FFT_INCLUDE_DIRS}
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(raylib PUBLIC ${RAYTOOLS_LINK} PRIVATE ${QHULL_LIBS})
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h DESTINATION include/raylib)
+install(
+  FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/raylib_export.h"
+    "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h"
+  DESTINATION include/raylib)
 
 install(FILES ${PUBLIC_HEADERS} DESTINATION include/raylib)
 
@@ -140,9 +145,4 @@ install(TARGETS raylib
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   INCLUDES DESTINATION include/raylib
-)
-install(
-  EXPORT ${CMAKE_PROJECT_NAME}-targets
-  DESTINATION lib/${CMAKE_PROJECT_NAME}
-  NAMESPACE raycloud::
 )
