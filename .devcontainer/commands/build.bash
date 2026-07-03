@@ -20,12 +20,18 @@ make \
 export CMAKE_MODULE_PATH="${RAYCLOUDTOOLS_ROOT}/install/lib/cmake/raycloudtools"
 
 # treetools
-mkdir --parents "${RAYCLOUDTOOLS_ROOT}/build/treetools"
-cmake \
-    -S "${RAYCLOUDTOOLS_ROOT}/treetools" \
-    -B "${RAYCLOUDTOOLS_ROOT}/build/treetools" \
-    "${TREETOOLS_CMAKE_ARGS[@]}"
-make \
-    -C "${RAYCLOUDTOOLS_ROOT}/build/treetools" \
-    -j "${PARALLEL_WORKERS}" \
-    install
+if test "${TREETOOLS_ENABLE}" = "true"; then
+    mkdir --parents "${RAYCLOUDTOOLS_ROOT}/build/treetools"
+    cmake \
+        -S "${RAYCLOUDTOOLS_ROOT}/treetools" \
+        -B "${RAYCLOUDTOOLS_ROOT}/build/treetools" \
+        "${TREETOOLS_CMAKE_ARGS[@]}"
+    make \
+        -C "${RAYCLOUDTOOLS_ROOT}/build/treetools" \
+        -j "${PARALLEL_WORKERS}" \
+        install
+elif test "${TREETOOLS_ENABLE}" = "false"; then
+    echo "Skipping treetools."
+else
+    echo "TREETOOLS_ENABLE must be true or false but it is ${TREETOOLS_ENABLE}."
+fi

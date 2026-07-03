@@ -4,6 +4,7 @@
 #
 # Author: Kazys Stepanas
 # Author: Rod Taylor
+
 cmake_minimum_required(VERSION 3.22) # Ubuntu 22.04 has CMake 3.22.
 
 # Setup project details.
@@ -12,29 +13,21 @@ project(raycloudtools VERSION 0.1.0
   LANGUAGES CXX
 )
 
-
 # Add project level options here.
-# Setup doxygen
-option(RAYCLOUD_BUILD_DOXYGEN "Build doxgen documentation?" OFF)
-# Setup unit tests
 option(RAYCLOUD_BUILD_TESTS "Build unit tests?" OFF)
-# Setup LeakTrack
-option(RAYCLOUD_LEAK_TRACK "Enable memory leak tracking?" OFF)
-set(RAYLIB_VISTOOL meshlab CACHE STRING "command to use to visualise point cloud / mesh files")
 set(RAYLIB_IMAGETOOL kolourpaint CACHE STRING "command to use to visualise image files")
+set(RAYLIB_VISTOOL meshlab CACHE STRING "command to use to visualise point cloud / mesh files")
 
 # WITH_ build options.
-option(RAYLIB_WITH_LAS "With LASzip for las/laz file support (LAS 1.0-1.4)?" OFF)
-option(RAYLIB_WITH_QHULL "With libqhull support?" OFF)
-option(RAYLIB_WITH_TIFF "With libgeotiff support?" OFF)
-option(RAYLIB_WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
-option(RAYLIB_WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
 option(RAYLIB_DOUBLE_RAYS "Store ray ends as doubles, so distances can be large" OFF)
+option(RAYLIB_WITH_LAS "With LASzip for las/laz file support (LAS 1.0-1.4)?" OFF)
+option(RAYLIB_WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
+option(RAYLIB_WITH_QHULL "With libqhull support?" OFF)
+option(RAYLIB_WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
+option(RAYLIB_WITH_TIFF "With libgeotiff support?" OFF)
 
 # Setup CMake options.
-set(CMAKE_DEBUG_POSTFIX "d")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-include(GenerateExportHeader)
 
 # Setup compiler warnings and options.
 add_compile_options(
@@ -48,6 +41,7 @@ add_compile_options(
 )
 
 # Required packages.
+find_package(PkgConfig REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -73,14 +67,9 @@ endif(RAYLIB_WITH_QHULL)
 
 if(RAYLIB_WITH_TIFF)
   # Find and configure GeoTIFF
-  find_package(GeoTIFF REQUIRED)
-
-  if(GeoTIFF_FOUND)
-    list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIR})
-    list(APPEND RAYTOOLS_LINK ${GeoTIFF_LIBRARIES})
-  else()
-    message(FATAL_ERROR "GeoTIFF library not found.")
-  endif()
+  pkg_check_modules(GeoTIFF REQUIRED libgeotiff)
+  list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIR})
+  list(APPEND RAYTOOLS_LINK ${GeoTIFF_LIBRARIES})
 
   # Find and configure TIFF
   find_package(TIFF REQUIRED)
@@ -132,13 +121,10 @@ if(RAYLIB_WITH_TBB)
   endif(TBB_FOUND)
 endif(RAYLIB_WITH_TBB)
 
-# Create libs
+# Create libraries and executables.
 add_subdirectory(3rd-party)
 add_subdirectory(raylib)
 add_subdirectory(raycloudtools)
-
-# Create apps
-# add_subdirectory(apps)
 
 # Test setup.
 if(RAYCLOUD_BUILD_TESTS)
@@ -146,55 +132,3 @@ if(RAYCLOUD_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif(RAYCLOUD_BUILD_TESTS)
-
-# Doxygen setup.
-if(RAYCLOUD_BUILD_DOXYGEN)
-  find_package(Doxygen)
-  if(DOXYGEN_FOUND)
-
-    set(DOXYGEN_PROJECT_VERSION ${raycloudtools_VERSION})
-    set(DOXYGEN_DOCSET_BUNDLE_ID "au.csiro.raycloudtools")
-    set(DOXYGEN_DOCSET_PUBLISHER_ID "au.csiro")
-    set(DOXYGEN_DOCSET_PUBLISHER_NAME "CSIRO")
-
-    doxygen_add_docs(
-      src
-      doc
-      ALL
-    )
-    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html DESTINATION share/doc/${CMAKE_PROJECT_NAME} COMPONENT Devel)
-
-  else(DOXYGEN_FOUND)
-    message(FATAL_ERROR "Told to build Doxygen Documentation, but failed to find Doxygen")
-  endif(DOXYGEN_FOUND)
-
-endif(RAYCLOUD_BUILD_DOXYGEN)
-
-# Installation
-include(InstallRequiredSystemLibraries)
-include(CMakePackageConfigHelpers)
-
-install(EXPORT ${CMAKE_PROJECT_NAME}-targets
-  FILE ${CMAKE_PROJECT_NAME}-targets.cmake
-  NAMESPACE ${PACKAGE_NAMESPACE}
-  DESTINATION lib/cmake/${CMAKE_PROJECT_NAME}
-)
-
-write_basic_package_version_file(
-  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-version.cmake"
-  VERSION ${raycloudtools_VERSION}
-  COMPATIBILITY SameMajorVersion
-  #COMPATIBILITY <AnyNewerVersion|SameMajorVersion|SameMinorVersion|ExactVersion>
-)
-
-configure_package_config_file(
-    "cmake/Config.in.cmake"
-    "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
-    INSTALL_DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
-)
-
-# Install package files
-install(FILES
-  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
-  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-version.cmake"
-  DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}")

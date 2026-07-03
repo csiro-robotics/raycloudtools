@@ -8,50 +8,42 @@ ENV LC_ALL=C
 ENV LANGUAGE=
 
 # Update, install dependencies and cleanup
-RUN apt-get update && apt-get upgrade -y && \
+RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y \
-    git \
-    build-essential \
-    gdb \
-    cmake \
-    cmake-curses-gui \
-    clang-tidy \
-    libeigen3-dev \
-    libproj-dev \
-    libgeotiff-dev \
-    libboost-all-dev \
-    wget \
-    libnetcdf-dev \
-    libnetcdf-c++4-dev \
-    libgtest-dev && \
+        build-essential \
+        clang-tidy \
+        cmake \
+        cmake-curses-gui \
+        gdb \
+        git \
+        kolourpaint \
+        libboost-all-dev \
+        libeigen3-dev \
+        libgeotiff-dev \
+        libgtest-dev \
+        liblaszip-dev \
+        libnetcdf-c++4-dev \
+        libnetcdf-dev \
+        libproj-dev \
+        libqhull-dev \
+        libtbb-dev \
+        libtiff-dev \
+        meshlab \
+        sudo \
+        wget && \
     rm -rf /var/lib/apt/lists/*
-
-# Clone, build and clean up LASzip (3.x supports LAS 1.4 via laszip_api.h C API)
-RUN git clone https://github.com/LASzip/LASzip.git && \
-    cd LASzip && \
-    mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make -j$(nproc) && \
-    make install && \
-    cd ../.. && rm -rf LASzip
-
-# Clone, build and clean up Qhull
-RUN git clone https://github.com/qhull/qhull.git && \
-    cd qhull && \
-    cd build && \
-    cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true && \
-    make -j$(nproc) && \
-    make install && \
-    cd ../.. && rm -rf qhull
 
 # Clone, build and clean up libnabo
 RUN git clone https://github.com/ethz-asl/libnabo.git && \
     cd libnabo && \
-    mkdir build && cd build && \
+    mkdir build && \
+    cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo && \
-    make -j$(nproc) && \
+    make -j "$(nproc)" && \
     make install && \
-    cd ../.. && rm -rf libnabo
+    cd ../.. && \
+    rm -rf libnabo
 
 # Update ldconfig
 RUN ldconfig /usr/local/lib
@@ -65,3 +57,6 @@ WORKDIR /workspaces/raycloudtools
 
 # Set the default shell to bash
 SHELL ["/bin/bash", "-c"]
+
+# Allow ubuntu user to use sudo.
+RUN echo "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers

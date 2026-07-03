@@ -8,12 +8,24 @@
 configure_file(raylibconfig.in.h "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h")
 
 set(PUBLIC_HEADERS
+  extraction/rayclusters.h
+  extraction/rayforest.h
+  extraction/raygrid2d.h
+  extraction/rayleaves.h
+  extraction/raysegment.h
+  extraction/rayterrain.h
+  extraction/raytreenode.h
+  extraction/raytrees.h
+  extraction/raytrunk.h
+  extraction/raytrunks.h
   rayalignment.h
   rayaxisalign.h
+  raybuildinggen.h
   raycloud.h
   raycloudwriter.h
   rayconcavehull.h
   rayconvexhull.h
+  raycuboid.h
   raydecimation.h
   raydiffer.h
   rayellipsoid.h
@@ -24,14 +36,15 @@ set(PUBLIC_HEADERS
   raylaz.h
   raymerger.h
   raymesh.h
+  rayparse.h
   rayply.h
   raypose.h
   rayprogress.h
   rayprogressthread.h
+  rayrandom.h
+  rayrenderer.h
   rayroomgen.h
   raysplitter.h
-  raybuildinggen.h
-  raycuboid.h
   rayterraingen.h
   raythreads.h
   raytrajectory.h
@@ -39,19 +52,6 @@ set(PUBLIC_HEADERS
   raytreestructure.h
   rayunused.h
   rayutils.h
-  rayparse.h
-  rayrandom.h
-  rayrenderer.h
-  extraction/raytrunk.h
-  extraction/raytrunks.h
-  extraction/rayclusters.h
-  extraction/rayleaves.h
-  extraction/rayterrain.h
-  extraction/raytrees.h
-  extraction/rayforest.h
-  extraction/raysegment.h
-  extraction/raytreenode.h
-  extraction/raygrid2d.h
 )
 
 set(PRIVATE_HEADERS
@@ -60,14 +60,27 @@ set(PRIVATE_HEADERS
 )
 
 set(SOURCES
-  ${PUBLIC_HEADERS}
   ${PRIVATE_HEADERS}
+  ${PUBLIC_HEADERS}
+  extraction/rayclusters.cpp
+  extraction/rayforest_draw.cpp
+  extraction/rayforest_watershed.cpp
+  extraction/rayforest.cpp
+  extraction/raygrid2d.cpp
+  extraction/rayleaves.cpp
+  extraction/raysegment.cpp
+  extraction/rayterrain.cpp
+  extraction/raytrees.cpp
+  extraction/raytrunk.cpp
+  extraction/raytrunks.cpp
   rayalignment.cpp
   rayaxisalign.cpp
+  raybuildinggen.cpp
   raycloud.cpp
   raycloudwriter.cpp
   rayconcavehull.cpp
   rayconvexhull.cpp
+  raycuboid.cpp
   raydecimation.cpp
   raydiffer.cpp
   rayellipsoid.cpp
@@ -77,31 +90,18 @@ set(SOURCES
   raylaz.cpp
   raymerger.cpp
   raymesh.cpp
+  rayparse.cpp
   rayply.cpp
   rayprogressthread.cpp
+  rayrandom.cpp
+  rayrenderer.cpp
   rayroomgen.cpp
   raysplitter.cpp
-  raybuildinggen.cpp
-  raycuboid.cpp
   rayterraingen.cpp
   raythreads.cpp
   raytrajectory.cpp
   raytreegen.cpp
   raytreestructure.cpp
-  rayparse.cpp
-  rayrandom.cpp
-  rayrenderer.cpp
-  extraction/raygrid2d.cpp
-  extraction/raytrunk.cpp
-  extraction/raytrunks.cpp
-  extraction/rayclusters.cpp
-  extraction/rayleaves.cpp
-  extraction/rayterrain.cpp
-  extraction/raytrees.cpp
-  extraction/rayforest.cpp
-  extraction/rayforest_draw.cpp
-  extraction/rayforest_watershed.cpp
-  extraction/raysegment.cpp
 )
 
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
@@ -118,6 +118,7 @@ endif(RAYLIB_WITH_QHULL)
 
 add_library(raylib SHARED ${SOURCES})
 
+include(GenerateExportHeader)
 generate_export_header(raylib)
 
 target_compile_options(raylib PUBLIC ${OpenMP_CXX_FLAGS})
@@ -145,25 +146,3 @@ install(
   DESTINATION lib/${CMAKE_PROJECT_NAME}
   NAMESPACE raycloud::
 )
-
-# ras_add_library(raylib
-#   TYPE SHARED
-#   INCLUDE_PREFIX "raylib"
-#   PROJECT_FOLDER "raylib"
-#   INCLUDE
-#     PUBLIC_SYSTEM
-#       ${RAYTOOLS_INCLUDE}
-#     PRIVATE_SYSTEM
-#       # Add the simple_fft include directories as PRIVATE system headers to prevent them generating compiler warnings.
-#       # The simple_fft dependency is also added as an INTERFACE library, which will be propagated in the dependency
-#       # chain.
-#       "${SIMPLE_FFT_INCLUDE_DIRS}"
-#   LIBS
-#     PUBLIC
-#       ${RAYTOOLS_LINK}
-#     PRIVATE
-#       ${QHULL_LIBS}
-#   PUBLIC_HEADERS ${PUBLIC_HEADERS}
-#   GENERATED PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h"
-#   SOURCES ${SOURCES}
-# )
