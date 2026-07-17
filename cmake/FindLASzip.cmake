@@ -1,5 +1,5 @@
-# This module searches for the standalone LASzip library (3.x+, with LAS 1.4 support)
-# and defines:
+# This module searches for the standalone LASzip library
+# (3.x+, with LAS 1.4 support) and defines:
 #   LASzip_LIBRARIES    - link libraries
 #   LASzip_INCLUDE_DIRS - include directories (contains laszip/laszip_api.h)
 #   LASzip_FOUND        - true if found
@@ -20,7 +20,13 @@ set(LASzip_LIBRARIES ${LASzip_LIBRARY})
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(LASzip
-  REQUIRED_VARS LASzip_LIBRARIES LASzip_INCLUDE_DIRS
+  REQUIRED_VARS
+    LASzip_INCLUDE_DIRS
+    LASzip_LIBRARIES
 )
 
-mark_as_advanced(LASzip_INCLUDE_DIRS LASzip_LIBRARIES LASzip_LIBRARY)
+mark_as_advanced(
+  LASzip_INCLUDE_DIRS
+  LASzip_LIBRARIES
+  LASzip_LIBRARY
+)

@@ -41,10 +41,10 @@ add_compile_options(
 )
 
 # Required packages.
-find_package(PkgConfig REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
 set(RAYTOOLS_INCLUDE
@@ -73,18 +73,18 @@ if(RAYLIB_WITH_QHULL)
 endif(RAYLIB_WITH_QHULL)
 
 if(RAYLIB_WITH_TIFF)
-  # Find and configure GeoTIFF
-  pkg_check_modules(GeoTIFF REQUIRED libgeotiff)
+  # Find and configure GeoTIFF.
+  find_package(GeoTIFF REQUIRED)
   list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${GeoTIFF_LIBRARIES})
 
-  # Find and configure TIFF
+  # Find and configure TIFF.
   find_package(TIFF REQUIRED)
   list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
 
-  # Find and configure PROJ
-  find_package(PROJ REQUIRED)
+  # Find and configure PROJ.
+  pkg_check_modules(PROJ REQUIRED proj)
   list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
 endif(RAYLIB_WITH_TIFF)
@@ -115,8 +115,15 @@ configure_package_config_file(
   INSTALL_DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
 )
 install(
-  FILES "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
+  FILES
+    "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
   DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
+)
+install(
+  FILES
+    "cmake/FindGeoTIFF.cmake"
+    "cmake/FindLASzip.cmake"
+  DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}/cmake"
 )
 
 # Test setup.
