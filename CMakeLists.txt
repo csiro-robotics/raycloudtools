@@ -23,7 +23,7 @@ option(RAYLIB_DOUBLE_RAYS "Store ray ends as doubles, so distances can be large"
 option(RAYLIB_WITH_LAS "With LASzip for las/laz file support (LAS 1.0-1.4)?" OFF)
 option(RAYLIB_WITH_NORMAL_FIELD "Stores rays in the PLY normal field nx,ny,nz. Else rayx,rayy,rayz" ON)
 option(RAYLIB_WITH_QHULL "With libqhull support?" OFF)
-option(RAYLIB_WITH_TBB "With Intel Threading Building Blocks support multi-threadding?" OFF)
+option(RAYLIB_WITH_TBB "With Intel Threading Building Blocks support multi-threading?" OFF)
 option(RAYLIB_WITH_TIFF "With libgeotiff support?" OFF)
 
 # Setup CMake options.

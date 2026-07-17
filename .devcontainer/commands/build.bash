@@ -6,7 +6,7 @@ set -o xtrace
 
 mkdir --parents "${RAYCLOUDTOOLS_ROOT}/install"
 
-# raycloudtools
+# raycloudtools.
 mkdir --parents "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools"
 cmake \
     -S "${RAYCLOUDTOOLS_ROOT}" \
@@ -19,7 +19,7 @@ make \
 
 export CMAKE_MODULE_PATH="${RAYCLOUDTOOLS_ROOT}/install/lib/raycloudtools"
 
-# examples
+# Examples.
 if test "${EXAMPLES_ENABLE}" = "true"; then
     for EXAMPLE_ROOT in "${RAYCLOUDTOOLS_ROOT}/examples/"*; do
         EXAMPLE_NAME="$(basename "${EXAMPLE_ROOT}")"
@@ -40,7 +40,7 @@ else
     echo "EXAMPLES_ENABLE must be true or false but it is ${EXAMPLES_ENABLE}."
 fi
 
-# treetools
+# treetools.
 if test "${TREETOOLS_ENABLE}" = "true"; then
     mkdir --parents "${RAYCLOUDTOOLS_ROOT}/build/treetools"
     cmake \
