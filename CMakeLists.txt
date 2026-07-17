@@ -122,6 +122,7 @@ install(
   FILES
     "cmake/FindGeoTIFF.cmake"
     "cmake/FindLASzip.cmake"
+    "cmake/FindPROJ.cmake"
   DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}/cmake"
 )
 
