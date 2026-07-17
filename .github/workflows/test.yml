@@ -21,12 +21,18 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             ca-certificates \
+            cmake \
             curl \
             git \
-            cmake \
+            libboost-all-dev \
             libeigen3-dev \
+            libgeotiff-dev \
             libgtest-dev \
-            libboost-all-dev
+            liblaszip-dev \
+            libproj-dev \
+            libqhull-dev \
+            libtbb-dev \
+            libtiff-dev
 
       - name: Build and install libnabo
         run: |
