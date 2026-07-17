@@ -44,7 +44,6 @@ add_compile_options(
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
 find_package(OpenMP REQUIRED)
-find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
 set(RAYTOOLS_INCLUDE
@@ -84,7 +83,7 @@ if(RAYLIB_WITH_TIFF)
   list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
 
   # Find and configure PROJ.
-  pkg_check_modules(PROJ REQUIRED proj)
+  find_package(PROJ REQUIRED)
   list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
 endif(RAYLIB_WITH_TIFF)
