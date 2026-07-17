@@ -1,5 +1,8 @@
 @PACKAGE_INIT@
 
+# find_dependency.
+include(CMakeFindDependencyMacro)
+
 # Let CMake find included Find*.cmake files.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
