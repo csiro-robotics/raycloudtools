@@ -58,5 +58,11 @@ WORKDIR /workspaces/raycloudtools
 # Set the default shell to bash
 SHELL ["/bin/bash", "-c"]
 
-# Allow ubuntu user to use sudo.
-RUN echo "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers
+# Make sure ubuntu user exists and allow them to use sudo.
+RUN if ! id -u ubuntu; then \
+        useradd \
+            --create-home \
+            --groups=sudo \
+            ubuntu; \
+    fi && \
+    echo "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers

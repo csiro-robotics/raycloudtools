@@ -5,21 +5,21 @@
 #### date: June 24, 2023
 ---
 
-The provided dockerfile allows easy building. It is based on [Ubuntu22.04](https://hub.docker.com/_/ubuntu/).
+The provided dockerfile allows easy building. It is based on [Ubuntu 26.04](https://hub.docker.com/_/ubuntu/).
 
 Be sure to have the latest [Docker](https://docs.docker.com/engine/install/) installed in your system. To build the raycloudtools image, run:
 
 ```
-docker build -f Dockerfile -t raycloudtools .
+docker build -f docker/Dockerfile -t raycloudtools .
 ```
 
 Or on Windows:
 
 ```
-docker build -f Dockerfile.txt -t raycloudtools .
+docker build -f docker/Dockerfile.txt -t raycloudtools .
 ```
 
-This image will download and compile raycloudtools and all its dependencies (including treetools, so you can process rayextract outputs). You can then run the `raycloudtools` image as a standalone executable. The basic command is `docker run -v your/local/datadir:/data raycloudtools` followed by the specific tool you want to use, as in: 
+This image will download and compile raycloudtools and all its dependencies (including treetools, so you can process rayextract outputs). You can then run the `raycloudtools` image as a standalone executable. The basic command is `docker run -v your/local/datadir:/data raycloudtools` followed by the specific tool you want to use, as in:
 
 ```
 docker run -v your/local/datadir:/data raycloudtools rayimport
@@ -32,8 +32,8 @@ Here's an example of a pipeline to process a forest plot:
 mkdir mydata
 cd mydata
 
-# [optional] create a local environment variable with the arguments you 
-# want to pass to docker - so you don't have to rewrite it everytime
+# [optional] create a local environment variable with the arguments you
+# want to pass to docker - so you don't have to rewrite it every time
 CMD="run --rm -u $(id -u $USER) -v $PWD:/data raycloudtools"
 
 # generate some sample data
