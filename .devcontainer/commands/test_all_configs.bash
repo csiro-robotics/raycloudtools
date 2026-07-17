@@ -16,15 +16,12 @@ trap on_exit EXIT
 # raycloudtools
 PROJECT=raycloudtools
 declare -a OPTIONS=(
-    "RAYCLOUD_BUILD_DOXYGEN"
-    "RAYCLOUD_BUILD_TESTS"
-    "RAYCLOUD_LEAK_TRACK"
-    "RAYLIB_WITH_LAS"
-    "RAYLIB_WITH_QHULL"
-    "RAYLIB_WITH_TIFF"
-    "RAYLIB_WITH_TBB"
-    "RAYLIB_WITH_NORMAL_FIELD"
     "RAYLIB_DOUBLE_RAYS"
+    "RAYLIB_WITH_LAS"
+    "RAYLIB_WITH_NORMAL_FIELD"
+    "RAYLIB_WITH_QHULL"
+    "RAYLIB_WITH_TBB"
+    "RAYLIB_WITH_TIFF"
 )
 for ENABLE_OPTION in "${OPTIONS[@]}"; do
     declare -a OPTION_CMAKE_ARGS=()
@@ -35,9 +32,14 @@ for ENABLE_OPTION in "${OPTIONS[@]}"; do
             OPTION_CMAKE_ARGS+=("-D${OPTION}:BOOL=OFF")
         fi
     done
+    cd "${RAYCLOUDTOOLS_ROOT}"
+
+    # Clean.
     rm --force --recursive \
         "${RAYCLOUDTOOLS_ROOT}/build" \
         "${RAYCLOUDTOOLS_ROOT}/install"
+
+    # raycloudtools.
     mkdir --parents "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools"
     cmake \
         -S "${RAYCLOUDTOOLS_ROOT}" \
@@ -48,6 +50,33 @@ for ENABLE_OPTION in "${OPTIONS[@]}"; do
         -C "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools" \
         -j "${PARALLEL_WORKERS}" \
         install
+
+    # Make sure options are set.
+    for OPTION in "${OPTIONS[@]}"; do
+        if test "${OPTION}" = "${ENABLE_OPTION}"; then
+            grep "${OPTION}:BOOL=ON" "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools/CMakeCache.txt"
+            grep "#define ${OPTION} 1" "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools/raylib/raylibconfig.h"
+        else
+            grep "${OPTION}:BOOL=OFF" "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools/CMakeCache.txt"
+            grep "#define ${OPTION} 0" "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools/raylib/raylibconfig.h"
+        fi
+    done
+
+    # Examples.
+    for EXAMPLE_ROOT in "${RAYCLOUDTOOLS_ROOT}/examples/"*; do
+        EXAMPLE_NAME="$(basename "${EXAMPLE_ROOT}")"
+        mkdir --parents "${RAYCLOUDTOOLS_ROOT}/build/examples/${EXAMPLE_NAME}"
+        cmake \
+            -S "${RAYCLOUDTOOLS_ROOT}/examples/${EXAMPLE_NAME}" \
+            -B "${RAYCLOUDTOOLS_ROOT}/build/examples/${EXAMPLE_NAME}" \
+            "${CMAKE_ARGS[@]}"
+        make \
+            -C "${RAYCLOUDTOOLS_ROOT}/build/examples/${EXAMPLE_NAME}" \
+            -j "${PARALLEL_WORKERS}" \
+            install
+    done
+
+    # Test.
     mkdir --parents "${RAYCLOUDTOOLS_ROOT}/test_results"
     cd "${RAYCLOUDTOOLS_ROOT}/build/raycloudtools"
     ctest \

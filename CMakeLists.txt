@@ -80,29 +80,21 @@ if(RAYLIB_WITH_TIFF)
 
   # Find and configure TIFF
   find_package(TIFF REQUIRED)
-  if(TIFF_FOUND)
-    list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
-    list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
-  else()
-    message(FATAL_ERROR "TIFF library not found.")
-  endif()
+  list(APPEND RAYTOOLS_INCLUDE ${TIFF_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${TIFF_LIBRARIES})
 
   # Find and configure PROJ
   find_package(PROJ REQUIRED)
-  if(PROJ_FOUND)
-    list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIRS})
-    list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
-  else()
-    message(FATAL_ERROR "PROJ library not found.")
-  endif()
+  list(APPEND RAYTOOLS_INCLUDE ${PROJ_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${PROJ_LIBRARIES})
 endif(RAYLIB_WITH_TIFF)
 
 if(RAYLIB_WITH_TBB)
-  # Helper macro to Find TBB preferring TBBConfig, falling back to FindTBB.
-  # TBB_LIBRARIES will be defined in both cases.
-  # TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.
   find_package(TBB REQUIRED)
-  list(APPEND RAYTOOLS_LINK TBB::tbb)
+  get_target_property(TBB_INCLUDE_DIRS TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
+  set(TBB_LIBRARIES TBB::tbb)
+  list(APPEND RAYTOOLS_INCLUDE ${TBB_INCLUDE_DIRS})
+  list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
 endif(RAYLIB_WITH_TBB)
 
 # Create libraries and executables.
