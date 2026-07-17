@@ -9,8 +9,8 @@
 #include "raylib/raylibconfig.h"
 #include "rayparse.h"
 #if RAYLIB_WITH_TIFF   // build option to support outputting to geotif (.tif) format
-#include "geotiffio.h" /* for GeoTIFF */
-#include "xtiffio.h"   /* for TIFF */
+#include "geotiff/geotiffio.h" /* for GeoTIFF */
+#include "geotiff/xtiffio.h"   /* for TIFF */
 #endif
 #include <fstream>
 #include <algorithm>
@@ -448,7 +448,7 @@ void DensityGrid::calculatePeaks(const std::string &file_name)
       }
     }
   };
-  Cloud::read(file_name, calc_peaks); 
+  Cloud::read(file_name, calc_peaks);
 }
 
 /// Calculate the surface area per cubic metre within each voxel of the grid. Assuming an unbiased distribution
@@ -477,7 +477,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
 }
 
 // When the cloud has a sharp change in density at the top (e.g. grass or wheat field) between air and the crop, then
-// this function adjusts the density estimation based on this two-phase density, rather than assuming the top voxel is 
+// this function adjusts the density estimation based on this two-phase density, rather than assuming the top voxel is
 // uniform density
 void DensityGrid::flatTopCompensation()
 {
@@ -672,7 +672,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[ax2] = y;
             double d = grid.voxels()[grid.getIndex(ind)].density();
 #if defined FLAT_TOP_COMPENSATION
-            if (z == top_z-shift) 
+            if (z == top_z-shift)
             {
               d *= p - (double)top_z;
             }

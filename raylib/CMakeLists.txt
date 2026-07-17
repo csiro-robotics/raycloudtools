@@ -60,7 +60,6 @@ set(PRIVATE_HEADERS
 )
 
 set(SOURCES
-  ${PRIVATE_HEADERS}
   ${PUBLIC_HEADERS}
   extraction/rayclusters.cpp
   extraction/rayforest_draw.cpp
@@ -107,15 +106,6 @@ set(SOURCES
 get_target_property(SIMPLE_FFT_INCLUDE_DIRS simple_fft INTERFACE_INCLUDE_DIRECTORIES)
 add_compile_options(-fPIC)
 
-if(RAYLIB_WITH_QHULL)
-  set(QHULL_LIBS
-    Qhull::qhullcpp
-    Qhull::qhullstatic_r
-  )
-else(RAYLIB_WITH_QHULL)
-  set(QHULL_LIBS)
-endif(RAYLIB_WITH_QHULL)
-
 add_library(raylib SHARED ${SOURCES})
 
 include(GenerateExportHeader)
@@ -129,7 +119,7 @@ target_include_directories(raylib PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(raylib PUBLIC ${RAYTOOLS_LINK} PRIVATE ${QHULL_LIBS})
+target_link_libraries(raylib PUBLIC ${RAYTOOLS_LINK})
 
 install(
   FILES

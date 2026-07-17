@@ -75,7 +75,7 @@ endif(RAYLIB_WITH_QHULL)
 if(RAYLIB_WITH_TIFF)
   # Find and configure GeoTIFF
   pkg_check_modules(GeoTIFF REQUIRED libgeotiff)
-  list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIR})
+  list(APPEND RAYTOOLS_INCLUDE ${GeoTIFF_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${GeoTIFF_LIBRARIES})
 
   # Find and configure TIFF
@@ -101,31 +101,8 @@ if(RAYLIB_WITH_TBB)
   # Helper macro to Find TBB preferring TBBConfig, falling back to FindTBB.
   # TBB_LIBRARIES will be defined in both cases.
   # TBB_INCLUDE_DIRS will be empty for TBBConfig, and populated for FindTBB.
-  macro(find_tbb)
-    # Try find TBB config file.
-    find_package(TBB QUIET CONFIG)
-    if(TBB_FOUND)
-      message(STATUS "TBB found using TBBConfig.cmake")
-      set(TBB_LIBRARIES "${TBB_IMPORTED_TARGETS}")
-    else(TBB_FOUND)
-      # No TBB config file. Try FindTBB.cmake
-      find_package(TBB QUIET)
-      if(TBB_FOUND)
-        message(STATUS "TBB found using FindTBB.cmake")
-      endif(TBB_FOUND)
-    endif(TBB_FOUND)
-  endmacro(find_tbb)
-  # First try newer TBB versions which support TBBConfig.cmake
-  find_package(TBB QUIET CONFIG)
-  if(TBB_FOUND)
-    # Found using TBBConfig. Use import targets
-    list(APPEND RAYTOOLS_LINK ${TBB_IMPORTED_TARGETS})
-  else(TBB_FOUND)
-    # Failed. Fall back to FindTBB.cmake
-    find_package(TBB REQUIRED)
-    list(APPEND RAYTOOLS_INCLUDE ${TBB_INCLUDE_DIRS})
-    list(APPEND RAYTOOLS_LINK ${TBB_LIBRARIES})
-  endif(TBB_FOUND)
+  find_package(TBB REQUIRED)
+  list(APPEND RAYTOOLS_LINK TBB::tbb)
 endif(RAYLIB_WITH_TBB)
 
 # Create libraries and executables.
