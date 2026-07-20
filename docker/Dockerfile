@@ -71,6 +71,7 @@ RUN mkdir /build && \
 # Clone and build TreeTools
 RUN git clone https://github.com/csiro-robotics/treetools.git && \
     cd treetools && \
+    rm --force cmake/FindQhull.cmake cmake/FindTBB.cmake && \
     mkdir -p build && \
     cd build && \
     cmake .. \

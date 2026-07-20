@@ -127,7 +127,10 @@ install(
     "${CMAKE_CURRENT_BINARY_DIR}/raylibconfig.h"
   DESTINATION include/raylib)
 
-install(FILES ${PUBLIC_HEADERS} DESTINATION include/raylib)
+foreach(PUBLIC_HEADER ${PUBLIC_HEADERS})
+  get_filename_component(PUBLIC_HEADER_DIRECTORY ${PUBLIC_HEADER} DIRECTORY)
+  install(FILES ${PUBLIC_HEADER} DESTINATION include/raylib/${PUBLIC_HEADER_DIRECTORY})
+endforeach()
 
 install(TARGETS raylib
   EXPORT ${CMAKE_PROJECT_NAME}-targets
