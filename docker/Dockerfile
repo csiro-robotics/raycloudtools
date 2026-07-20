@@ -7,10 +7,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C
 ENV LANGUAGE=
 
-WORKDIR /src
-
-COPY . .
-
 # Update, install dependencies and cleanup
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -52,6 +48,8 @@ RUN git clone https://github.com/ethz-asl/libnabo.git && \
     rm -rf libnabo
 
 WORKDIR /src
+
+COPY . .
 
 # Build and install raycloudtools
 RUN mkdir /build && \

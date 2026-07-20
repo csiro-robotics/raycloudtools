@@ -15,6 +15,7 @@ RUN apt-get update && \
         clang-tidy \
         cmake \
         cmake-curses-gui \
+        doxygen \
         gdb \
         git \
         kolourpaint \
