@@ -6,7 +6,7 @@
 
 #include "gtest/gtest.h"
 
-#include "environment.hpp"
+#include "environment.h"
 
 int main(int argc, char **argv)
 {

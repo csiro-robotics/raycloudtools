@@ -40,12 +40,12 @@ std::string trim(const std::string &s)
   std::string::size_type b = 0;
   while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b])))
   {
-    ++b
+    ++b;
   }
   std::string::size_type e = s.size();
   while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1])))
   {
-    --e
+    --e;
   }
   return s.substr(b, e - b);
 }

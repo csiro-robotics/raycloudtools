@@ -4,7 +4,7 @@
 //
 // Author: Thomas Hines <thomas.hines@csiro.au>
 
-#include "environment.hpp"
+#include "environment.h"
 
 #include <filesystem>
 #include <iostream>

@@ -42,6 +42,7 @@ void InitialiseInitialThreadCount()
 }
 
 #endif  // RAYLIB_WITH_TBB
+
 }  // namespace
 
 int Threads::availableThreads()

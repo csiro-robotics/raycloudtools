@@ -15,7 +15,7 @@ namespace ray
 /// A utility class for initialising the thread pool size.
 ///
 /// Typical usage is to call @c init() at the start of your program. This is
-/// optional and it not specified, all available threads will be used.
+/// optional and if not specified, all available threads will be used.
 ///
 /// Note: Some parts of the program may use threads even when Intel TBB is not
 ///       available (via OpenMP).
@@ -35,12 +35,14 @@ public:
   static const int MaxRecommendedThreads = 8;
 
   /// Returns the number of available threads. When built with Intel TBB, this
-  /// returns the number of  available processors. Without TBB, this returns 1.
+  /// returns the number of available processors. Without TBB, this returns 1.
+  /// Not affected by @c thread_count argument given to @c init() .
   static int availableThreads();
 
   /// Query the recommended thread count. This is set at least two threads if
   /// available, preferring one less than the @c availableThreads() up to
   /// @c MaxRecommendedThreads threads.
+  /// Not affected by @c thread_count argument given to @c init() .
   static int recommendedThreadCount();
 
   /// Initialise the thread count.

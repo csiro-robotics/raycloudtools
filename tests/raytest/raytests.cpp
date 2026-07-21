@@ -9,13 +9,22 @@
 
 #include "gtest/gtest.h"
 
+#include "raylib/raylibconfig.h"
+
+#if RAYLIB_WITH_TBB
+#include <oneapi/tbb/blocked_range.h>
+#include <oneapi/tbb/global_control.h>
+#include <oneapi/tbb/parallel_for.h>
+#endif  // RAYLIB_WITH_TBB
+
 #include "raylib/raycloud.h"
 #include "raylib/rayforeststructure.h"
 #include "raylib/raylaz.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
+#include "raylib/raythreads.h"
 
-#include "environment.hpp"
+#include "environment.h"
 
 /// Raycloud testing framework. In each test, the statistics of the resulting clouds are compared to the statistics
 /// of the cloud when it was confirmed to be operating correctly.
@@ -267,6 +276,85 @@ TEST(Basic, RaySplit)
                                          1.57353,   3.67521,  2.64766,  0.485084, 17.3995, 10.279,   0.311066, 0.759795,
                                          0.425206,  0.951355, 0.321609, 0.226785, 0.39073, 0.215125 }),
     cloud.getMoments().size());
+}
+
+/// Call functions defined in raythreads and then, if TBB is enabled, try to use
+/// TBB and check if it actually works.
+TEST(Basic, RayThreads)
+{
+  const int original_available_threads = ray::Threads::availableThreads();
+  const int original_recommended_thread_count = ray::Threads::recommendedThreadCount();
+  for (int thread_count = -2; thread_count <= 2; ++thread_count)
+  {
+    if (thread_count >= -1)
+    {
+      EXPECT_NO_THROW(ray::Threads::init(thread_count));
+    }
+    const int available_threads = ray::Threads::availableThreads();
+    const int recommended_thread_count = ray::Threads::recommendedThreadCount();
+    EXPECT_EQ(available_threads, original_available_threads);
+    EXPECT_EQ(recommended_thread_count, original_recommended_thread_count);
+#if RAYLIB_WITH_TBB
+    // Check that the global limit was applied.
+    const int tbb_thread_count =
+      static_cast<int>(oneapi::tbb::global_control::active_value(oneapi::tbb::global_control::max_allowed_parallelism));
+    switch (thread_count)
+    {
+    case -2:
+      EXPECT_EQ(tbb_thread_count, original_available_threads);
+      break;
+    case -1:
+      EXPECT_EQ(tbb_thread_count, original_available_threads);
+      break;
+    case 0:
+      EXPECT_EQ(tbb_thread_count, original_recommended_thread_count);
+      break;
+    case 1:
+      EXPECT_EQ(tbb_thread_count, 1);
+      break;
+    default:
+      EXPECT_EQ(tbb_thread_count, std::min(thread_count, original_available_threads));
+      break;
+    }
+    // Check that the threads can actually be used.
+    std::atomic<size_t> active_threads = 0;
+    std::atomic<size_t> active_threads_max = 0;
+    oneapi::tbb::parallel_for(
+      oneapi::tbb::blocked_range<size_t>(0, 1024),
+      [&active_threads, &active_threads_max](const oneapi::tbb::blocked_range<size_t> &) {
+        // Spin a bit while other threads start.
+        ++active_threads;
+        for (size_t count = 0; count < 9999; ++count)
+        {
+          std::sqrt(rand());
+        }
+        // Track max number of active threads.
+        while (true)
+        {
+          auto old_active_threads_max = active_threads_max.load();
+          const auto new_active_threads_max = std::max({
+            active_threads.load(),
+            old_active_threads_max,
+          });
+          if (active_threads_max.compare_exchange_weak(old_active_threads_max, new_active_threads_max))
+          {
+            break;
+          }
+        }
+        // Spin a bit while other threads track max number of active threads.
+        for (size_t count = 0; count < 9999; ++count)
+        {
+          std::sqrt(rand());
+        }
+        --active_threads;
+      },
+      oneapi::tbb::static_partitioner());
+    // This isn't particularly reliable so just check it's in the expected
+    // range.
+    EXPECT_GE(active_threads_max, 1);
+    EXPECT_LE(active_threads_max, tbb_thread_count);
+  }
+#endif  // RAYLIB_WITH_TBB
 }
 
 /// Creates a room and runs raytransients, comparing the identified transients ray cloud to the expected results
