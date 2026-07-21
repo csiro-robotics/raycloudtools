@@ -14,6 +14,7 @@
 
 namespace ray
 {
+#if RAYLIB_WITH_LAS
 /// Write header fields to std::cout.
 /// For debugging.
 void printHeader(const std::string &prefix, const laszip_header_struct *const header)
@@ -72,6 +73,7 @@ void printHeader(const std::string &prefix, const laszip_header_struct *const he
   std::cout << prefix << "user_data_in_header_size: " << header->user_data_in_header_size << "\n";
   std::cout << prefix << "user_data_after_header_size: " << header->user_data_after_header_size << "\n";
 }
+#endif  // RAYLIB_WITH_LAS
 
 bool readLas(const std::string &file_name,
              std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
