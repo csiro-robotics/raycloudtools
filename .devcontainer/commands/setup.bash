@@ -19,6 +19,15 @@ if test -z "${TREETOOLS_TEST}"; then
     TREETOOLS_TEST=ON
 fi
 
+# Check for treetools.
+if test "${TREETOOLS_ENABLE}" = "true" && ! test -d "${RAYCLOUDTOOLS_ROOT}/treetools"; then
+    echo "TREETOOLS_ENABLE is true but treetools could not be found."
+    echo "To use treetools, clone it to ${RAYCLOUDTOOLS_ROOT}/treetools"
+    echo "To not use treetools, export TREETOOLS_ENABLE=false"
+    echo "https://github.com/csiro-robotics/treetools"
+    exit 1
+fi
+
 # CMake options.
 declare -a CMAKE_ARGS=(
     "-DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo"
