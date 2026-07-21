@@ -102,9 +102,9 @@ To run the rayXXXX tools from anywhere either sudo make install, or place in you
 ```
 
 If not there already, add to your ~/.bashrc:
-'''console
+```console
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-'''
+```
 
 ## Visualising Ray Clouds:
 free software such as Meshlab and CloudCompare can view ray clouds.
@@ -235,30 +235,35 @@ This gives an example of how the command line tools could be sequenced to analys
 
 <p align="center"><img img width="640" src="https://raw.githubusercontent.com/csiro-robotics/raycloudtools/main/pics/rayextract_trees.png?at=refs%2Fheads%2Fmaster"/></p>
 
-
 *Optional build dependencies:*
 
 For rayimport/rayexport to work with .las and .laz files (LAS 1.0 through 1.4, including COPC):
-* git clone https://github.com/LASzip/LASzip.git, git checkout tags/3.4.4, then mkdir build, cd build, cmake .. -DCMAKE_BUILD_TYPE=Release, make, sudo make install.
+* Do one of:
+    * sudo apt update, sudo apt install liblaszip-dev
+    * git clone https://github.com/LASzip/LASzip.git, git checkout tags/3.4.4, then mkdir build, cd build, cmake .. -DCMAKE_BUILD_TYPE=Release, make, sudo make install.
 * in raycloudtools/build: cmake .. -DRAYLIB_WITH_LAS=ON  (or ccmake .. to turn on/off RAYLIB_WITH_LAS)
 * note that you may need to add the LASzip install path into LD_LIBRARY_PATH, normally this can be done with the following line in your ~/.bashrc: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
 For raywrap:
 
-* git clone http://github.com/qhull/qhull.git, git checkout tags/v7.3.2
-* In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install.
+* Do one of:
+    * sudo apt update, sudo apt install libqhull-dev
+    * git clone http://github.com/qhull/qhull.git, git checkout tags/v7.3.2
+        * In qhull: mkdir build, cd build, cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true, make, sudo make install.
 * in raycloudtools/build: cmake .. -DRAYLIB_WITH_QHULL=ON (or ccmake .. to turn on/off RAYLIB_WITH_QHULL)
 
 To render clouds to geotiff (.tif) images:
 
-* git clone https://github.com/OSGeo/libgeotiff.git
-* follow the build instructions in its README.md, note that the "DCMAKE_C_FLAGS" parameter needs a preceding "-"
-* copy a FindGeoTIFF.cmake file to your cmake folder, such as from here: https://github.com/ufz/geotiff
+* Do one of:
+    * sudo apt update, sudo apt install libgeotiff-dev
+    * git clone https://github.com/OSGeo/libgeotiff.git
+        * follow the build instructions in its README.md, note that the "DCMAKE_C_FLAGS" parameter needs a preceding "-"
+        * copy a FindGeoTIFF.cmake file to your cmake folder, such as from here: https://github.com/ufz/geotiff
 * in raycloudtools/build: cmake .. -DRAYLIB_WITH_TIFF=ON (or ccmake .. to turn on/off RAYLIB_WITH_TIFF)
 
 ## Unit Tests
 
-Unit tests must be enabled at build time before running. To build with unit tests, the CMake variable `RAYCLOUD_BUILD_TESTS` must be `ON`. This can be done in the initial project configuration by running the following command from the `build` directory: `cmake  -DRAYCLOUD_BUILD_TESTS=ON ..`
+Unit tests must be enabled at build time before running. To build with unit tests, the CMake variable `RAYCLOUD_BUILD_TESTS` must be `ON`. This can be done in the initial project configuration by running the following command from the `build` directory: `cmake -DRAYCLOUD_BUILD_TESTS=ON ..`
 
 Unit tests may then be run directly or using `CTest`.
 
@@ -290,7 +295,10 @@ This project provides a `.devcontainer` directory for consistent development env
     * VS Code should automatically detect the `.devcontainer` folder and prompt you to "Reopen in Container". Click it.
     * If you're not prompted, open the command palette (Ctrl+Shift+P or Cmd+Shift+P) and type "Remote-Containers: Reopen in Container".
 
-That's it! VS Code will handle building and running the development container for you.  If you choose not to use the devcontainer, you will need to ensure your local environment matches the project's dependencies and requirements.
+That's it! VS Code will handle building and running the development container for you. If you choose not to use the devcontainer, you will need to ensure your local environment matches the project's dependencies and requirements.
+
+The scripts in [`.devcontainer/commands`](.devcontainer/commands) are available on PATH in the devcontainer and can be used to build, test and run raycloudtools and treetools. See [`.devcontainer/commands/setup.bash`](.devcontainer/commands/setup.bash) to configure CMake options and such.
 
 ## Acknowledgements
+
 This research was supported by funding from CSIRO's Data61, Land and Water, Wine Australia, and the Department of Agriculture's Rural R&D for Profit program. The authors gratefully acknowledge the support of these groups, which has helped in making this library possible.
