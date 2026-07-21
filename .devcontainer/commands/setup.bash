@@ -13,7 +13,11 @@ if test -z "${RAYCLOUDTOOLS_TEST}"; then
     RAYCLOUDTOOLS_TEST=ON
 fi
 if test -z "${TREETOOLS_ENABLE}"; then
-    TREETOOLS_ENABLE=true
+    if test -d "${RAYCLOUDTOOLS_ROOT}/treetools"; then
+        TREETOOLS_ENABLE=true
+    else
+        TREETOOLS_ENABLE=false
+    fi
 fi
 if test -z "${TREETOOLS_TEST}"; then
     TREETOOLS_TEST=ON

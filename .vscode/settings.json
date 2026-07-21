@@ -11,6 +11,7 @@
     "**/.vscode": true,
     "build/**": true
   },
+  "cmake.useCMakePresets": "always",
   "editor.formatOnSave": true,
   "editor.rulers": [
     80,
