@@ -57,9 +57,9 @@ void printHeader(const std::string & prefix, const laszip_header_struct * const 
   for (size_t index = 0; index < 15; ++index) {
     std::cout << prefix << "extended_number_of_points_by_return[" << index << "]: " << header->extended_number_of_points_by_return[index] << "\n";
   }
-  std::cout << prefix << "max_gps_time: " << header->max_gps_time << "\n";
-  std::cout << prefix << "min_gps_time: " << header->min_gps_time << "\n";
-  std::cout << prefix << "time_offset: " << header->time_offset << "\n";
+  // std::cout << prefix << "max_gps_time: " << header->max_gps_time << "\n";  // Requires LASzip >= 3.5.0.
+  // std::cout << prefix << "min_gps_time: " << header->min_gps_time << "\n";  // Requires LASzip >= 3.5.0.
+  // std::cout << prefix << "time_offset: " << header->time_offset << "\n";    // Requires LASzip >= 3.5.0.
   std::cout << prefix << "user_data_in_header_size: " << header->user_data_in_header_size << "\n";
   std::cout << prefix << "user_data_after_header_size: " << header->user_data_after_header_size << "\n";
 }
