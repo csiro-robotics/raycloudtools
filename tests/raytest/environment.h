@@ -17,11 +17,11 @@ namespace raytest
 class Environment : public ::testing::Environment
 {
 public:
-  Environment(const int argc, const char * const * const argv);
+  Environment(const int argc, const char *const *const argv);
 
   /// Issues the specified system command, including the required prefix on
   /// non-Windows systems.
-  static int Command(const std::string & system_command);
+  static int Command(const std::string &system_command);
 
 private:
   ///

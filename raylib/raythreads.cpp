@@ -21,10 +21,10 @@ namespace
 {
 #if RAYLIB_WITH_TBB
 /// TODO(TH)
-std::optional<int> initial_thread_count{std::nullopt};
+std::optional<int> initial_thread_count{ std::nullopt };
 
 /// TODO(TH)
-std::unique_ptr<oneapi::tbb::global_control> thread_count_global_control{nullptr};
+std::unique_ptr<oneapi::tbb::global_control> thread_count_global_control{ nullptr };
 
 /// Store the current value of
 /// @c oneapi::tbb::global_control::max_allowed_parallelism in
@@ -34,9 +34,10 @@ std::unique_ptr<oneapi::tbb::global_control> thread_count_global_control{nullptr
 /// in order to get the unconstrained value.
 void InitialiseInitialThreadCount()
 {
-  if (!initial_thread_count.has_value() && (thread_count_global_control == nullptr)) {
-    initial_thread_count = oneapi::tbb::global_control::active_value(
-      oneapi::tbb::global_control::max_allowed_parallelism);
+  if (!initial_thread_count.has_value() && (thread_count_global_control == nullptr))
+  {
+    initial_thread_count =
+      oneapi::tbb::global_control::active_value(oneapi::tbb::global_control::max_allowed_parallelism);
   }
 }
 
@@ -62,7 +63,8 @@ int Threads::recommendedThreadCount()
   // thread free and unused for the system and other processes.
   const int target_thread_count = MaxRecommendedThreads;
   int thread_count = availableThreads();
-  if (thread_count > 2) {
+  if (thread_count > 2)
+  {
     thread_count = std::min(thread_count - 1, target_thread_count);
   }
   return thread_count;
@@ -77,16 +79,17 @@ void Threads::init(const int thread_count)
   InitialiseInitialThreadCount();
   // Translate to TBB thread count
   int init_thread_count;
-  switch (thread_count) {
-    case ThreadCountAll:
-      init_thread_count = availableThreads();
-      break;
-    case ThreadCountRecommended:
-      init_thread_count = recommendedThreadCount();
-      break;
-    default:
-      init_thread_count = std::max(1, thread_count);
-      break;
+  switch (thread_count)
+  {
+  case ThreadCountAll:
+    init_thread_count = availableThreads();
+    break;
+  case ThreadCountRecommended:
+    init_thread_count = recommendedThreadCount();
+    break;
+  default:
+    init_thread_count = std::max(1, thread_count);
+    break;
   }
   thread_count_global_control = std::make_unique<oneapi::tbb::global_control>(
     oneapi::tbb::global_control::max_allowed_parallelism, init_thread_count);

@@ -16,7 +16,8 @@ namespace ray
 {
 /// Write header fields to std::cout.
 /// For debugging.
-void printHeader(const std::string & prefix, const laszip_header_struct * const header) {
+void printHeader(const std::string &prefix, const laszip_header_struct *const header)
+{
   std::cout << prefix << "file_source_ID: " << header->file_source_ID << "\n";
   std::cout << prefix << "global_encoding: " << header->global_encoding << "\n";
   std::cout << prefix << "project_ID_GUID_data_1: " << header->project_ID_GUID_data_1 << "\n";
@@ -35,8 +36,10 @@ void printHeader(const std::string & prefix, const laszip_header_struct * const 
   std::cout << prefix << "point_data_format: " << static_cast<int>(header->point_data_format) << "\n";
   std::cout << prefix << "point_data_record_length: " << header->point_data_record_length << "\n";
   std::cout << prefix << "number_of_point_records: " << header->number_of_point_records << "\n";
-  for (size_t index = 0; index < 5; ++index) {
-    std::cout << prefix << "number_of_points_by_return[" << index << "]: " << header->number_of_points_by_return[index] << "\n";
+  for (size_t index = 0; index < 5; ++index)
+  {
+    std::cout << prefix << "number_of_points_by_return[" << index << "]: " << header->number_of_points_by_return[index]
+              << "\n";
   }
   std::cout << prefix << "x_scale_factor: " << header->x_scale_factor << "\n";
   std::cout << prefix << "y_scale_factor: " << header->y_scale_factor << "\n";
@@ -50,12 +53,18 @@ void printHeader(const std::string & prefix, const laszip_header_struct * const 
   std::cout << prefix << "min_y: " << header->min_y << "\n";
   std::cout << prefix << "max_z: " << header->max_z << "\n";
   std::cout << prefix << "min_z: " << header->min_z << "\n";
-  std::cout << prefix << "start_of_waveform_data_packet_record: " << header->start_of_waveform_data_packet_record << "\n";
-  std::cout << prefix << "start_of_first_extended_variable_length_record: " << header->start_of_first_extended_variable_length_record << "\n";
-  std::cout << prefix << "number_of_extended_variable_length_records: " << header->number_of_extended_variable_length_records << "\n";
+  std::cout << prefix << "start_of_waveform_data_packet_record: " << header->start_of_waveform_data_packet_record
+            << "\n";
+  std::cout << prefix << "start_of_first_extended_variable_length_record: "
+            << header->start_of_first_extended_variable_length_record << "\n";
+  std::cout << prefix
+            << "number_of_extended_variable_length_records: " << header->number_of_extended_variable_length_records
+            << "\n";
   std::cout << prefix << "extended_number_of_point_records: " << header->extended_number_of_point_records << "\n";
-  for (size_t index = 0; index < 15; ++index) {
-    std::cout << prefix << "extended_number_of_points_by_return[" << index << "]: " << header->extended_number_of_points_by_return[index] << "\n";
+  for (size_t index = 0; index < 15; ++index)
+  {
+    std::cout << prefix << "extended_number_of_points_by_return[" << index
+              << "]: " << header->extended_number_of_points_by_return[index] << "\n";
   }
   // std::cout << prefix << "max_gps_time: " << header->max_gps_time << "\n";  // Requires LASzip >= 3.5.0.
   // std::cout << prefix << "min_gps_time: " << header->min_gps_time << "\n";  // Requires LASzip >= 3.5.0.
@@ -103,10 +112,9 @@ bool readLas(const std::string &file_name,
   }
 
   // LAS 1.4 uses a 64-bit point count; legacy uses the 32-bit field
-  const size_t number_of_points =
-    (header->version_minor >= 4 && header->extended_number_of_point_records > 0)
-      ? static_cast<size_t>(header->extended_number_of_point_records)
-      : static_cast<size_t>(header->number_of_point_records);
+  const size_t number_of_points = (header->version_minor >= 4 && header->extended_number_of_point_records > 0) ?
+                                    static_cast<size_t>(header->extended_number_of_point_records) :
+                                    static_cast<size_t>(header->number_of_point_records);
 
   const uint8_t format = header->point_data_format;
   // Formats 1,3,4,5 have GPS time in LAS 1.0-1.3; formats 6-10 always have GPS time (LAS 1.4)
@@ -321,10 +329,12 @@ LasWriter::~LasWriter()
 #if RAYLIB_WITH_LAS
   if (writer_handle_)
   {
-    if (laszip_close_writer(writer_handle_)) {
+    if (laszip_close_writer(writer_handle_))
+    {
       std::cerr << "Error: laszip_close_writer failed.\n";
     }
-    if (laszip_destroy(writer_handle_)) {
+    if (laszip_destroy(writer_handle_))
+    {
       std::cerr << "Error: laszip_destroy failed.\n";
     }
   }
@@ -334,9 +344,8 @@ LasWriter::~LasWriter()
 #endif
 }
 
-bool LasWriter::writeChunk(
-  const std::vector<Eigen::Vector3d> & points, const std::vector<double> & times,
-  const std::vector<RGBA> & colours)
+bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
+                           const std::vector<RGBA> &colours)
 {
 #if RAYLIB_WITH_LAS
   if (points.size() == 0)
@@ -355,26 +364,31 @@ bool LasWriter::writeChunk(
     const laszip_F64 coords[3] = { points[i][0], points[i][1], points[i][2] };
     laszip_set_coordinates(writer_handle_, coords);
     point_->intensity = colours[i].alpha;
-    if (!times.empty()) {
+    if (!times.empty())
+    {
       point_->gps_time = times[i];
     }
-    if (!colours.empty()) {
+    if (!colours.empty())
+    {
       point_->rgb[0] = static_cast<laszip_U16>(colours[i].red);
       point_->rgb[1] = static_cast<laszip_U16>(colours[i].green);
       point_->rgb[2] = static_cast<laszip_U16>(colours[i].blue);
       point_->rgb[3] = static_cast<laszip_U16>(colours[i].alpha);
     }
-    if (laszip_write_point(writer_handle_)) {
+    if (laszip_write_point(writer_handle_))
+    {
       std::cerr << "Error: laszip_write_point failed.\n";
       return false;
     }
-    if (laszip_update_inventory(writer_handle_)) {
+    if (laszip_update_inventory(writer_handle_))
+    {
       std::cerr << "Error: laszip_update_inventory failed.\n";
       return false;
     }
   }
   int64_t wrote_points = -1;
-  if (laszip_get_point_count(writer_handle_, &wrote_points)) {
+  if (laszip_get_point_count(writer_handle_, &wrote_points))
+  {
     std::cerr << "Error: laszip_get_point_count failed.\n";
     return false;
   }

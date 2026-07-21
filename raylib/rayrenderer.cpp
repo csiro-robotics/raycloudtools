@@ -8,14 +8,14 @@
 #include "raycloud.h"
 #include "raylib/raylibconfig.h"
 #include "rayparse.h"
-#if RAYLIB_WITH_TIFF   // build option to support outputting to geotif (.tif) format
+#if RAYLIB_WITH_TIFF           // build option to support outputting to geotif (.tif) format
 #include "geotiff/geotiffio.h" /* for GeoTIFF */
 #include "geotiff/xtiffio.h"   /* for TIFF */
 #endif
-#include <fstream>
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <fstream>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -39,10 +39,14 @@ std::string trim(const std::string &s)
 {
   std::string::size_type b = 0;
   while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b])))
-    ++b;
+  {
+    ++b
+  }
   std::string::size_type e = s.size();
   while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1])))
-    --e;
+  {
+    --e
+  }
   return s.substr(b, e - b);
 }
 
@@ -189,7 +193,7 @@ std::string defaultEllpsForDatum(const std::string &datum)
   return datum;
 }
 
-}
+}  // namespace
 
 // save to geotif format using floating-point per-channel colour data. This function passes a projection file in order
 // to geolocate the image
@@ -345,10 +349,10 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
         projected_cs_type = 7800 + zone_value;  // MGA2020 zones, e.g. zone 55 -> EPSG:7855
     }
 
-    std::cout << "proj: " << proj_value << ", false_easting: " << false_easting << ", false_northing: " << false_northing
-              << ", using_south_flag: " << (is_south ? "true" : "false") << ", ellps: " << ellps_value
-              << ", datum: " << datum_value << ", coord_long: " << coord_long << ", coord_lat: " << coord_lat
-              << " zone: " << zone_value << std::endl;
+    std::cout << "proj: " << proj_value << ", false_easting: " << false_easting
+              << ", false_northing: " << false_northing << ", using_south_flag: " << (is_south ? "true" : "false")
+              << ", ellps: " << ellps_value << ", datum: " << datum_value << ", coord_long: " << coord_long
+              << ", coord_lat: " << coord_lat << " zone: " << zone_value << std::endl;
 
     const double scales[3] = { pixel_width, pixel_width, pixel_width };
     TIFFSetField(tif, TIFFTAG_GEOPIXELSCALE, 3, scales);  // set the width of a pixel
@@ -377,7 +381,7 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
       GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, false_northing);
     else if (is_south)
     {
-      GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, 10000000.0); // false northing
+      GTIFKeySet(gtif, ProjFalseNorthingGeoKey, TYPE_DOUBLE, 1, 10000000.0);  // false northing
       // Usually paired with the Latitude of Natural Origin (Equator)
       GTIFKeySet(gtif, ProjNatOriginLatGeoKey, TYPE_DOUBLE, 1, 0.0);
     }
@@ -430,19 +434,20 @@ bool writeGeoTiffFloat(const std::string &filename, int x, int y, const float *d
 void DensityGrid::calculatePeaks(const std::string &file_name)
 {
   auto calc_peaks = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends, std::vector<double> &,
-                       std::vector<RGBA> &colours) {
+                        std::vector<RGBA> &colours) {
     for (size_t i = 0; i < ends.size(); ++i)
     {
       Eigen::Vector3d start = starts[i];
       Eigen::Vector3d end = ends[i];
       if (!bounds_.clipRay(start, end, 1e-10))
       {
-        continue; // ray is outside of bounds
+        continue;  // ray is outside of bounds
       }
       if (colours[i].alpha > 0)
       {
         const Eigen::Vector3d vox_end = (end - bounds_.min_bound_) / voxel_width_;
-        const Eigen::Vector3i target = Eigen::Vector3d(std::floor(vox_end[0]), std::floor(vox_end[1]), std::floor(vox_end[2])).cast<int>();
+        const Eigen::Vector3i target =
+          Eigen::Vector3d(std::floor(vox_end[0]), std::floor(vox_end[1]), std::floor(vox_end[2])).cast<int>();
         int peak_id = target[0] + target[1] * voxel_dims_[0];
         peaks_[peak_id] = std::max(peaks_[peak_id], vox_end[2]);
       }
@@ -463,7 +468,7 @@ void DensityGrid::calculateDensities(const std::string &file_name)
       Eigen::Vector3d end = ends[i];
       if (!bounds_.clipRay(start, end, 1e-10))
       {
-        continue; // ray is outside of bounds
+        continue;  // ray is outside of bounds
       }
       bounded_ = colours[i].alpha > 0;
       const Eigen::Vector3d vox_start = (start - bounds_.min_bound_) / voxel_width_;
@@ -485,17 +490,19 @@ void DensityGrid::flatTopCompensation()
   {
     for (int y = 0; y < voxel_dims_[1]; y++)
     {
-      double p = peaks_[x + voxel_dims_[0]*y];
+      double p = peaks_[x + voxel_dims_[0] * y];
       if (p < -10000.0)
         continue;
       int z = (int)std::floor(p);
       if (z < 0 || z >= voxel_dims_[2])
         continue;
-      int ind = getIndex(Eigen::Vector3i(x,y,z));
+      int ind = getIndex(Eigen::Vector3i(x, y, z));
 
       float r = voxels_[ind].numRays();
       if (r > 2.0f)
-        voxels_[ind].numHits() *= (r - 2.0f)/(r - 1.0f); // unbiased estimator reduces density estimation slightly in a manner that is equivalent to choosing a grass height slightly above the peak point height
+        voxels_[ind].numHits() *=
+          (r - 2.0f) / (r - 1.0f);  // unbiased estimator reduces density estimation slightly in a manner that is
+                                    // equivalent to choosing a grass height slightly above the peak point height
     }
   }
 }
@@ -640,7 +647,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       int shift = 0;
 #if DENSITY_MIN_RAYS > 0
       shift = 1;
-      dims += 2*Eigen::Vector3i(shift, shift, shift);  // so that we have extra space to convolve
+      dims += 2 * Eigen::Vector3i(shift, shift, shift);  // so that we have extra space to convolve
       grid_bounds.min_bound_ -= Eigen::Vector3d(pix_width, pix_width, pix_width);
 #endif
       DensityGrid grid(grid_bounds, pix_width, dims);
@@ -660,7 +667,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       {
         for (int y = 0; y < height; y++)
         {
-          double p = grid.peaks_[(x+shift) + grid.dimensions()[0]*(y+shift)]; // the location before it was shifted
+          double p =
+            grid.peaks_[(x + shift) + grid.dimensions()[0] * (y + shift)];  // the location before it was shifted
           int top_z = p < -10000.0 ? -1 : (int)std::floor(p);
 
           double total_density = 0.0;
@@ -672,7 +680,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
             ind[ax2] = y;
             double d = grid.voxels()[grid.getIndex(ind)].density();
 #if defined FLAT_TOP_COMPENSATION
-            if (z == top_z-shift)
+            if (z == top_z - shift)
             {
               d *= p - (double)top_z;
             }
@@ -718,8 +726,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           case RenderStyle::Sum:
             pix += Eigen::Vector4d(col[0], col[1], col[2], 1.0);
             break;
-          case RenderStyle::Rays:
-          {
+          case RenderStyle::Rays: {
             Eigen::Vector3d cloud_start = starts[i];
             Eigen::Vector3d cloud_end = ends[i];
             // clip to within the image (since we exclude unbounded rays from the image bounds)
@@ -811,8 +818,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
         case RenderStyle::Rays:
           col3d /= colour[3];  // simple mean
           break;
-        case RenderStyle::Height:
-        {
+        case RenderStyle::Height: {
           double shade =
             dir == 1.0 ? (colour[3] - min_val) / (max_val - min_val) : (colour[3] - max_val) / (min_val - max_val);
           col3d = Eigen::Vector3d(shade, shade, shade);
@@ -823,8 +829,7 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           if (!is_hdr)
             col3d /= max_val;  // rescale to within limited colour range
           break;
-        case RenderStyle::Density_rgb:
-        {
+        case RenderStyle::Density_rgb: {
           if (is_hdr)
           {
             // brightness doubles and hue cycles every power of 10
@@ -834,10 +839,10 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
           {
             col3d = 0.7 * std::pow(colour[0], 0.3) * redGreenBlueSpectrum(std::log10(std::max(1e-6, colour[0])));
 
-//            double shade = colour[0] / max_val;
-//            col3d = redGreenBlueGradient(shade);
-//            if (shade < 0.05)
-//              col3d *= 20.0 * shade;  // this blends the lowest densities down to black
+            // double shade = colour[0] / max_val;
+            // col3d = redGreenBlueGradient(shade);
+            // if (shade < 0.05)
+            //   col3d *= 20.0 * shade;  // this blends the lowest densities down to black
           }
           break;
         }
@@ -973,7 +978,8 @@ bool renderCloud(const std::string &cloud_file, const Cuboid &bounds, ViewDirect
       const Eigen::Vector3d pos = -(origin - bounds.min_bound_);
       const double x = pos[ax1], y = pos[ax2] + static_cast<double>(height - 1) * pix_width;
 
-      std::cout << std::setprecision(3) << std::fixed << "x: " << x << ", y: " << y << ", absy: " << pos[ax2] << std::endl;
+      std::cout << std::setprecision(3) << std::fixed << "x: " << x << ", y: " << y << ", absy: " << pos[ax2]
+                << std::endl;
       // generate the geotiff file
       writeGeoTiffFloat(image_file, width, height, &float_pixel_colours[0], pix_width, false, projection_file, x, y);
     }

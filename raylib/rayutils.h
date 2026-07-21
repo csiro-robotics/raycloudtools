@@ -18,8 +18,8 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
@@ -426,7 +426,8 @@ inline int viewFile(const std::string &file_name, const std::string &file2_name 
   if (file2_name != "")
     command += " " + file2_name;
   const auto status = system(command.c_str());
-  if (status != 0) {
+  if (status != 0)
+  {
     std::cerr << "failed to view file with command: " << command << std::endl;
   }
   return status;

@@ -51,18 +51,18 @@ int rayRender(int argc, char *argv[])
   ray::KeyChoice viewpoint({ "top", "left", "right", "front", "back" });
   ray::KeyChoice style({ "ends", "mean", "sum", "starts", "rays", "height", "density", "density_rgb" });
   ray::DoubleArgument pixel_width(0.0001, 1000.0), grid_width(0.01, 1000000.0);
-  ray::IntArgument resolution(1,20000, 512);
+  ray::IntArgument resolution(1, 20000, 512);
   ray::FileArgument cloud_file, image_file, transform_file, projection_file(false);
-  ray::OptionalFlagArgument mark_origin("mark_origin", 'm'), view_flag("view", 'v');;
+  ray::OptionalFlagArgument mark_origin("mark_origin", 'm'), view_flag("view", 'v');
   ray::OptionalKeyValueArgument resolution_option("resolution", 'r', &resolution);
   ray::OptionalKeyValueArgument pixel_width_option("pixel_width", 'p', &pixel_width);
   ray::OptionalKeyValueArgument grid_width_option("grid_width", 'g', &grid_width);
   ray::OptionalKeyValueArgument output_file_option("output", 'o', &image_file);
   ray::OptionalKeyValueArgument projection_file_option("georeference", 'g', &projection_file);
   ray::OptionalKeyValueArgument transform_file_option("output_transform", 't', &transform_file);
-  if (!ray::parseCommandLine(
-        argc, argv, { &cloud_file, &viewpoint, &style },
-        { &resolution_option, &pixel_width_option, &output_file_option, &view_flag, &mark_origin, &transform_file_option, &grid_width_option, &projection_file_option }))
+  if (!ray::parseCommandLine(argc, argv, { &cloud_file, &viewpoint, &style },
+                             { &resolution_option, &pixel_width_option, &output_file_option, &view_flag, &mark_origin,
+                               &transform_file_option, &grid_width_option, &projection_file_option }))
   {
     usage();
   }
@@ -96,19 +96,20 @@ int rayRender(int argc, char *argv[])
     usage();
   }
   ray::Cuboid bounds = info.ends_bound;  // exclude the unbounded ray lengths (e.g. up into the sky)
-  if (grid_width_option.isSet()) // adjust min_bound to be well-aligned
+  if (grid_width_option.isSet())         // adjust min_bound to be well-aligned
   {
-    Eigen::Vector3d mid = (bounds.min_bound_ + bounds.max_bound_)/2.0;
+    Eigen::Vector3d mid = (bounds.min_bound_ + bounds.max_bound_) / 2.0;
     Eigen::Vector3d min_bound = bounds.min_bound_;
     Eigen::Vector3d max_bound = bounds.max_bound_;
-    min_bound[0] = grid_width.value() * std::round(mid[0] / grid_width.value()) - 0.5*grid_width.value();
-    min_bound[1] = grid_width.value() * std::round(mid[1] / grid_width.value()) - 0.5*grid_width.value();
+    min_bound[0] = grid_width.value() * std::round(mid[0] / grid_width.value()) - 0.5 * grid_width.value();
+    min_bound[1] = grid_width.value() * std::round(mid[1] / grid_width.value()) - 0.5 * grid_width.value();
     max_bound[0] = min_bound[0] + grid_width.value();
     max_bound[1] = min_bound[1] + grid_width.value();
     if (min_bound[0] > bounds.min_bound_[0] || min_bound[1] > bounds.min_bound_[1] ||
         max_bound[0] < bounds.max_bound_[0] || max_bound[1] < bounds.max_bound_[1])
     {
-      std::cout << "Warning: cloud overlaps grid cell of width: " << grid_width.value() << " image bounds extended" << std::endl;
+      std::cout << "Warning: cloud overlaps grid cell of width: " << grid_width.value() << " image bounds extended"
+                << std::endl;
     }
     bounds.min_bound_ = ray::minVector(bounds.min_bound_, min_bound);
     bounds.max_bound_ = ray::maxVector(bounds.max_bound_, max_bound);
@@ -142,7 +143,8 @@ int rayRender(int argc, char *argv[])
   {
     usage();
   }
-  if (view_flag.isSet()) {
+  if (view_flag.isSet())
+  {
     const std::string command = std::string(RAYLIB_IMAGETOOL) + " " + image_file.name();
     if (std::system(command.c_str()) != 0)
     {
