@@ -20,10 +20,13 @@ using namespace ray;
 namespace
 {
 #if RAYLIB_WITH_TBB
-/// TODO(TH)
+/// The initial value of the max_allowed_parallelism global_control.
+/// Assumed to be the native available thread count.
+/// Set in @c InitialiseInitialThreadCount() .
 std::optional<int> initial_thread_count{ std::nullopt };
 
-/// TODO(TH)
+/// The active max_allowed_parallelism global_control, if any.
+/// Set in @c ray::Threads::init(int) .
 std::unique_ptr<oneapi::tbb::global_control> thread_count_global_control{ nullptr };
 
 /// Store the current value of

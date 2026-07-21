@@ -245,8 +245,8 @@ bool readLas(std::string file_name, std::vector<Eigen::Vector3d> &positions, std
     readLas(file_name, apply, num_bounded, max_intensity, offset_to_remove, std::numeric_limits<size_t>::max());
   if (num_bounded == 0)
   {
-    std::cout << "warning: all laz file intensities are 0, which would make all rays unbounded. Setting them to 1."
-              << std::endl;
+    std::cout << "warning: all laz file intensities are 0, which would make all rays unbounded. "
+              << "Setting them to 1." << std::endl;
     for (auto &c : colours) c.alpha = 255;
   }
   return success;
@@ -321,8 +321,8 @@ LasWriter::LasWriter(const std::string &file_name)
   : file_name_(file_name)
 {
   RAYLIB_UNUSED(file_name);
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
-            << std::endl;
+  std::cerr << "writeLas: cannot write file as RAYLIB_WITH_LAS not enabled. "
+            << "Enable using: cmake .. -DRAYLIB_WITH_LAS:BOOL=ON" << std::endl;
 }
 #endif  // RAYLIB_WITH_LAS
 
@@ -341,8 +341,8 @@ LasWriter::~LasWriter()
     }
   }
 #else
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
-            << std::endl;
+  std::cerr << "writeLas: cannot write file as RAYLIB_WITH_LAS not enabled. "
+            << "Enable using: cmake .. -DRAYLIB_WITH_LAS:BOOL=ON" << std::endl;
 #endif
 }
 
@@ -400,8 +400,8 @@ bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, const std
   RAYLIB_UNUSED(points);
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
-            << std::endl;
+  std::cerr << "writeLas: cannot write file as RAYLIB_WITH_LAS not enabled. "
+            << "Enable using: cmake .. -DRAYLIB_WITH_LAS:BOOL=ON" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
 }
