@@ -11,6 +11,7 @@
 
 #include "raylib/raycloud.h"
 #include "raylib/rayforeststructure.h"
+#include "raylib/raylaz.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayply.h"
 
@@ -133,6 +134,52 @@ namespace raytest
     EXPECT_TRUE(cloud.load("room_denoised.ply"));
     EXPECT_EQ(compareMoments(cloud.getMoments(), {-0.108066, -0.0410134, 0.052168, 8.67026e-08, 8.81787e-08, 2.24394e-08, -0.464107, -0.113806, 0.161496, 2.82122, 2.34281, 1.35279, 17.81, 10.2005, 0.297047, 0.758802, 0.440232, 0.975166, 0.317215, 0.226682, 0.390971, 0.155618}), cloud.getMoments().size());
   }
+
+  #if RAYLIB_WITH_LAS
+    /// Create a forest as .ply, load it as .ply, save it as .laz, load it as
+    /// .laz, make sure the clouds loaded as .ply and .laz match.
+    TEST(Basic, RayLaz)
+    {
+      // Write .ply.
+      EXPECT_EQ(command("raycreate forest 1"), 0);
+
+      // Read .ply.
+      ray::Cloud ply_cloud;
+      EXPECT_TRUE(ply_cloud.load("forest.ply"));
+
+      // Check.
+      const auto size = ply_cloud.ends.size();
+      EXPECT_EQ(ply_cloud.ends.size(), size);
+      EXPECT_EQ(ply_cloud.times.size(), size);
+      EXPECT_EQ(ply_cloud.colours.size(), size);
+
+      // Write .laz.
+      EXPECT_TRUE(ray::writeLas("forest.laz", ply_cloud.ends, ply_cloud.times, ply_cloud.colours));
+
+      // Read .laz.
+      ray::Cloud laz_cloud;
+      const double max_intensity = 255.0;
+      EXPECT_TRUE(ray::readLas(
+        "forest.laz", laz_cloud.ends, laz_cloud.times, laz_cloud.colours, max_intensity));
+
+      // Check.
+      EXPECT_EQ(laz_cloud.ends.size(), size);
+      EXPECT_EQ(laz_cloud.times.size(), size);
+      EXPECT_EQ(laz_cloud.colours.size(), size);
+
+      // Compare.
+      for (size_t index = 0; index < size; ++index) {
+        EXPECT_NEAR(ply_cloud.ends[index].x(), laz_cloud.ends[index].x(), 1e-4);
+        EXPECT_NEAR(ply_cloud.ends[index].y(), laz_cloud.ends[index].y(), 1e-4);
+        EXPECT_NEAR(ply_cloud.ends[index].z(), laz_cloud.ends[index].z(), 1e-4);
+        EXPECT_EQ(ply_cloud.colours[index].red, laz_cloud.colours[index].red);
+        EXPECT_EQ(ply_cloud.colours[index].green, laz_cloud.colours[index].green);
+        EXPECT_EQ(ply_cloud.colours[index].blue, laz_cloud.colours[index].blue);
+        EXPECT_EQ(ply_cloud.colours[index].alpha, laz_cloud.colours[index].alpha);
+        EXPECT_EQ(ply_cloud.times[index], laz_cloud.times[index]);
+      }
+    }
+  #endif  // RAYLIB_WITH_LAS
 
   /// Creates two rooms, the second is decimated and transformed, then rayrestore is called to apply this transformation to
   /// the first (high resolution) room

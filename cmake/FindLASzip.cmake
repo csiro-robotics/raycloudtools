@@ -5,9 +5,9 @@
 #   LASzip_FOUND        - true if found
 
 find_path(LASzip_INCLUDE_DIRS
-  NAMES laszip/laszip_api.h
+  NAMES laszip_api.h
   HINTS ENV LASzip_ROOT
-  PATH_SUFFIXES include
+  PATH_SUFFIXES include/laszip
 )
 
 find_library(LASzip_LIBRARY

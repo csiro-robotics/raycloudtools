@@ -9,11 +9,61 @@
 #include "rayunused.h"
 
 #if RAYLIB_WITH_LAS
-#include <laszip/laszip_api.h>
+#include "laszip_api.h"
 #endif  // RAYLIB_WITH_LAS
 
 namespace ray
 {
+/// Write header fields to std::cout.
+/// For debugging.
+void printHeader(const std::string & prefix, const laszip_header_struct * const header) {
+  std::cout << prefix << "file_source_ID: " << header->file_source_ID << "\n";
+  std::cout << prefix << "global_encoding: " << header->global_encoding << "\n";
+  std::cout << prefix << "project_ID_GUID_data_1: " << header->project_ID_GUID_data_1 << "\n";
+  std::cout << prefix << "project_ID_GUID_data_2: " << header->project_ID_GUID_data_2 << "\n";
+  std::cout << prefix << "project_ID_GUID_data_3: " << header->project_ID_GUID_data_3 << "\n";
+  std::cout << prefix << "project_ID_GUID_data_4: " << header->project_ID_GUID_data_4 << "\n";
+  std::cout << prefix << "version_major: " << static_cast<int>(header->version_major) << "\n";
+  std::cout << prefix << "version_minor: " << static_cast<int>(header->version_minor) << "\n";
+  std::cout << prefix << "system_identifier: " << header->system_identifier << "\n";
+  std::cout << prefix << "generating_software: " << header->generating_software << "\n";
+  std::cout << prefix << "file_creation_day: " << header->file_creation_day << "\n";
+  std::cout << prefix << "file_creation_year: " << header->file_creation_year << "\n";
+  std::cout << prefix << "header_size: " << header->header_size << "\n";
+  std::cout << prefix << "offset_to_point_data: " << header->offset_to_point_data << "\n";
+  std::cout << prefix << "number_of_variable_length_records: " << header->number_of_variable_length_records << "\n";
+  std::cout << prefix << "point_data_format: " << static_cast<int>(header->point_data_format) << "\n";
+  std::cout << prefix << "point_data_record_length: " << header->point_data_record_length << "\n";
+  std::cout << prefix << "number_of_point_records: " << header->number_of_point_records << "\n";
+  for (size_t index = 0; index < 5; ++index) {
+    std::cout << prefix << "number_of_points_by_return[" << index << "]: " << header->number_of_points_by_return[index] << "\n";
+  }
+  std::cout << prefix << "x_scale_factor: " << header->x_scale_factor << "\n";
+  std::cout << prefix << "y_scale_factor: " << header->y_scale_factor << "\n";
+  std::cout << prefix << "z_scale_factor: " << header->z_scale_factor << "\n";
+  std::cout << prefix << "x_offset: " << header->x_offset << "\n";
+  std::cout << prefix << "y_offset: " << header->y_offset << "\n";
+  std::cout << prefix << "z_offset: " << header->z_offset << "\n";
+  std::cout << prefix << "max_x: " << header->max_x << "\n";
+  std::cout << prefix << "min_x: " << header->min_x << "\n";
+  std::cout << prefix << "max_y: " << header->max_y << "\n";
+  std::cout << prefix << "min_y: " << header->min_y << "\n";
+  std::cout << prefix << "max_z: " << header->max_z << "\n";
+  std::cout << prefix << "min_z: " << header->min_z << "\n";
+  std::cout << prefix << "start_of_waveform_data_packet_record: " << header->start_of_waveform_data_packet_record << "\n";
+  std::cout << prefix << "start_of_first_extended_variable_length_record: " << header->start_of_first_extended_variable_length_record << "\n";
+  std::cout << prefix << "number_of_extended_variable_length_records: " << header->number_of_extended_variable_length_records << "\n";
+  std::cout << prefix << "extended_number_of_point_records: " << header->extended_number_of_point_records << "\n";
+  for (size_t index = 0; index < 15; ++index) {
+    std::cout << prefix << "extended_number_of_points_by_return[" << index << "]: " << header->extended_number_of_points_by_return[index] << "\n";
+  }
+  std::cout << prefix << "max_gps_time: " << header->max_gps_time << "\n";
+  std::cout << prefix << "min_gps_time: " << header->min_gps_time << "\n";
+  std::cout << prefix << "time_offset: " << header->time_offset << "\n";
+  std::cout << prefix << "user_data_in_header_size: " << header->user_data_in_header_size << "\n";
+  std::cout << prefix << "user_data_after_header_size: " << header->user_data_after_header_size << "\n";
+}
+
 bool readLas(const std::string &file_name,
              std::function<void(std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
                                 std::vector<double> &times, std::vector<RGBA> &colours)>
@@ -42,6 +92,8 @@ bool readLas(const std::string &file_name,
 
   laszip_header_struct *header;
   laszip_get_header_pointer(reader, &header);
+
+  // printHeader("read_header.", header);
 
   Eigen::Vector3d offset(header->x_offset, header->y_offset, header->z_offset);
   if (offset_to_remove)
@@ -111,9 +163,10 @@ bool readLas(const std::string &file_name,
     if (using_colour)
     {
       RGBA col;
-      col.red = static_cast<uint8_t>(point->rgb[0]);
-      col.green = static_cast<uint8_t>(point->rgb[1]);
-      col.blue = static_cast<uint8_t>(point->rgb[2]);
+      col.red = static_cast<uint8_t>(point->rgb[0] & 0x00FF);
+      col.green = static_cast<uint8_t>(point->rgb[1] & 0x00FF);
+      col.blue = static_cast<uint8_t>(point->rgb[2] & 0x00FF);
+      col.alpha = static_cast<uint8_t>(point->rgb[3] & 0x00FF);
       colours.push_back(col);
     }
     times.push_back(point->gps_time);
@@ -160,7 +213,8 @@ bool readLas(const std::string &file_name,
   RAYLIB_UNUSED(num_bounded);
   RAYLIB_UNUSED(chunk_size);
   RAYLIB_UNUSED(max_intensity);
-  std::cerr << "readLas: cannot read file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true" << std::endl;
+  std::cerr << "readLas: cannot read file as RAYLIB_WITH_LAS not enabled. "
+            << "Enable using: cmake .. -DRAYLIB_WITH_LAS:BOOL=ON" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
 }
@@ -193,65 +247,15 @@ bool RAYLIB_EXPORT writeLas(std::string file_name, const std::vector<Eigen::Vect
 {
 #if RAYLIB_WITH_LAS
   std::cout << "saving LAZ file" << std::endl;
-
-  laszip_POINTER writer;
-  if (laszip_create(&writer))
-  {
-    std::cerr << "writeLas: failed to create LASzip writer" << std::endl;
-    return false;
-  }
-
-  laszip_header_struct *header;
-  laszip_get_header_pointer(writer, &header);
-
-  header->version_major = 1;
-  header->version_minor = 2;
-  header->point_data_format = 1;  // GPS time only
-  const double scale = 1e-4;
-  header->x_scale_factor = scale;
-  header->y_scale_factor = scale;
-  header->z_scale_factor = scale;
-  header->x_offset = 0.0;
-  header->y_offset = 0.0;
-  header->z_offset = 0.0;
-  header->number_of_point_records = static_cast<laszip_U32>(points.size());
-
-  const bool is_laz = file_name.find(".laz") != std::string::npos;
-  std::cout << "Saving points to " << file_name << std::endl;
-
-  if (laszip_open_writer(writer, file_name.c_str(), is_laz ? 1 : 0))
-  {
-    laszip_CHAR *error;
-    laszip_get_error(writer, &error);
-    std::cerr << "writeLas: failed to open file for writing: " << error << std::endl;
-    laszip_destroy(writer);
-    return false;
-  }
-
-  laszip_point_struct *point;
-  laszip_get_point_pointer(writer, &point);
-
-  for (size_t i = 0; i < points.size(); i++)
-  {
-    laszip_F64 coords[3] = { points[i][0], points[i][1], points[i][2] };
-    laszip_set_coordinates(writer, coords);
-    point->intensity = colours[i].alpha;
-    if (!times.empty())
-      point->gps_time = times[i];
-    laszip_write_point(writer);
-  }
-
-  laszip_update_inventory(writer);
-  laszip_close_writer(writer);
-  laszip_destroy(writer);
-  return true;
+  auto writer = LasWriter(file_name);
+  return writer.writeChunk(points, times, colours);
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(file_name);
   RAYLIB_UNUSED(points);
   RAYLIB_UNUSED(times);
   RAYLIB_UNUSED(colours);
-  std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
-            << std::endl;
+  std::cerr << "writeLas: cannot write file as RAYLIB_WITH_LAS not enabled. "
+            << "Enable using: cmake .. -DRAYLIB_WITH_LAS:BOOL=ON" << std::endl;
   return false;
 #endif  // RAYLIB_WITH_LAS
 }
@@ -272,9 +276,11 @@ LasWriter::LasWriter(const std::string &file_name)
 
   laszip_get_header_pointer(writer_handle_, &header_);
 
-  header_->version_major = 1;
-  header_->version_minor = 2;
-  header_->point_data_format = 1;  // GPS time only
+  // https://www.lvermgeo.sachsen-anhalt.de/datei/anzeigen/id/624579,501/asprs_las_format_v12.pdf
+  // https://downloads.rapidlasso.de/doc/LAZ_Specification_1.4_R1.pdf
+
+  laszip_set_point_type_and_size(writer_handle_, 3, 34);  // Point10 + GPSTime11 + RGB12
+
   const double scale = 1e-4;
   header_->x_scale_factor = scale;
   header_->y_scale_factor = scale;
@@ -282,6 +288,8 @@ LasWriter::LasWriter(const std::string &file_name)
   header_->x_offset = 0.0;
   header_->y_offset = 0.0;
   header_->z_offset = 0.0;
+
+  // printHeader("write_header.", header_);
 
   const bool is_laz = file_name_.find(".laz") != std::string::npos;
   std::cout << "Saving points to " << file_name_ << std::endl;
@@ -313,9 +321,12 @@ LasWriter::~LasWriter()
 #if RAYLIB_WITH_LAS
   if (writer_handle_)
   {
-    laszip_update_inventory(writer_handle_);
-    laszip_close_writer(writer_handle_);
-    laszip_destroy(writer_handle_);
+    if (laszip_close_writer(writer_handle_)) {
+      std::cerr << "Error: laszip_close_writer failed.\n";
+    }
+    if (laszip_destroy(writer_handle_)) {
+      std::cerr << "Error: laszip_destroy failed.\n";
+    }
   }
 #else
   std::cerr << "writeLas: cannot write file as WITHLAS not enabled. Enable using: cmake .. -DWITH_LAS=true"
@@ -323,13 +334,16 @@ LasWriter::~LasWriter()
 #endif
 }
 
-bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, const std::vector<double> &times,
-                           const std::vector<RGBA> &colours)
+bool LasWriter::writeChunk(
+  const std::vector<Eigen::Vector3d> & points, const std::vector<double> & times,
+  const std::vector<RGBA> & colours)
 {
 #if RAYLIB_WITH_LAS
   if (points.size() == 0)
   {
-    return true;  // this is acceptable behaviour. It avoids calling function checking for emptiness each time
+    // This is acceptable behaviour. It avoids calling function checking for
+    // emptiness each time.
+    return true;
   }
   if (!writer_handle_ || !point_)
   {
@@ -338,13 +352,33 @@ bool LasWriter::writeChunk(const std::vector<Eigen::Vector3d> &points, const std
   }
   for (size_t i = 0; i < points.size(); i++)
   {
-    laszip_F64 coords[3] = { points[i][0], points[i][1], points[i][2] };
+    const laszip_F64 coords[3] = { points[i][0], points[i][1], points[i][2] };
     laszip_set_coordinates(writer_handle_, coords);
     point_->intensity = colours[i].alpha;
-    if (!times.empty())
+    if (!times.empty()) {
       point_->gps_time = times[i];
-    laszip_write_point(writer_handle_);
+    }
+    if (!colours.empty()) {
+      point_->rgb[0] = static_cast<laszip_U16>(colours[i].red);
+      point_->rgb[1] = static_cast<laszip_U16>(colours[i].green);
+      point_->rgb[2] = static_cast<laszip_U16>(colours[i].blue);
+      point_->rgb[3] = static_cast<laszip_U16>(colours[i].alpha);
+    }
+    if (laszip_write_point(writer_handle_)) {
+      std::cerr << "Error: laszip_write_point failed.\n";
+      return false;
+    }
+    if (laszip_update_inventory(writer_handle_)) {
+      std::cerr << "Error: laszip_update_inventory failed.\n";
+      return false;
+    }
   }
+  int64_t wrote_points = -1;
+  if (laszip_get_point_count(writer_handle_, &wrote_points)) {
+    std::cerr << "Error: laszip_get_point_count failed.\n";
+    return false;
+  }
+  std::cout << "Wrote " << wrote_points << " points.\n";
   return true;
 #else   // RAYLIB_WITH_LAS
   RAYLIB_UNUSED(points);
