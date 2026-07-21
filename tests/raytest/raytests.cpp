@@ -353,8 +353,8 @@ TEST(Basic, RayThreads)
     // range.
     EXPECT_GE(active_threads_max, 1);
     EXPECT_LE(active_threads_max, tbb_thread_count);
-  }
 #endif  // RAYLIB_WITH_TBB
+  }
 }
 
 /// Creates a room and runs raytransients, comparing the identified transients ray cloud to the expected results
