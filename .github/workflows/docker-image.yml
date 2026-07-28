@@ -39,8 +39,11 @@ jobs:
 
           docker build \
             --file=docker/Dockerfile \
-            --label=org.opencontainers.image.revision=${{ github.sha }} \
-            --label=org.opencontainers.image.source=${{ github.repositoryUrl }} \
+            --label="org.opencontainers.image.created=$(date --iso-8601=seconds --utc)" \
+            --label="org.opencontainers.image.description=Command line tools for processing ray clouds, together with an associated C++ library. Ray clouds are point clouds with sensor location included per point." \
+            --label="org.opencontainers.image.revision=${{ github.sha }}" \
+            --label="org.opencontainers.image.source=${{ github.repositoryUrl }}" \
+            --label="org.opencontainers.image.title=raycloudtools" \
             --tag="${IMAGE_ID}:${VERSION}" \
             .
           docker push "${IMAGE_ID}:${VERSION}"
