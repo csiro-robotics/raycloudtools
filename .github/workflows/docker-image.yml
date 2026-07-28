@@ -26,16 +26,21 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/raycloudtools
+          IMAGE_ID="ghcr.io/${{ github.repository_owner }}/raycloudtools"
 
           # Change all uppercase to lowercase
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          IMAGE_ID="$(echo "${IMAGE_ID}" | tr '[A-Z]' '[a-z]')"
 
           # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          VERSION="$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')"
 
           # Use Docker `latest` tag convention
-          [ "$VERSION" == "main" ] && VERSION=latest
+          [ "${VERSION}" == "main" ] && VERSION=latest
 
-          docker build -f ./docker/Dockerfile -t $IMAGE_ID:$VERSION .
-          docker push $IMAGE_ID:$VERSION
+          docker build \
+            --file=docker/Dockerfile \
+            --label=org.opencontainers.image.revision=${{ github.sha }} \
+            --label=org.opencontainers.image.source=${{ github.repositoryUrl }} \
+            --tag="${IMAGE_ID}:${VERSION}" \
+            .
+          docker push "${IMAGE_ID}:${VERSION}"
