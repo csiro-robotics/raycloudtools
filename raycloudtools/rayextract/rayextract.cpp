@@ -252,6 +252,8 @@ int rayExtract(int argc, char *argv[])
     forest.generateSmoothMesh(tree_mesh, -1, 1, 1, 1);
     output_file = cloud_file.nameStub() + "_trees_mesh.ply";
     ray::writePlyMesh(output_file, tree_mesh, true);    
+    std::cout << "note: branch radii rely on priors (Leonardo's rule at splits, self-similar taper) that can bias branch" << std::endl;
+    std::cout << "      measurements. Only use these results if the mechanism and its implications are understood." << std::endl;
   }
   // extract the tree locations from a larger, aerial view of a forest
   else if (extract_forest)
