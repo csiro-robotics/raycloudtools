@@ -5,7 +5,7 @@ set -e
 echo "Building RayCloudTools..."
 cd /workspaces/raycloudtools
 mkdir -p build
-cd build 
+cd build
 
 # Construct the cmake command
 cmake .. \

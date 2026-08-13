@@ -13,7 +13,7 @@
 //  if the points are in a plane  then k=2
 //  if the points are in a volume then k=3
 // this macro finds the k that best fit the uniform distribution. Otherwise we default to k=2
-#define FIND_CORRELATION_DIMENSION 
+#define FIND_CORRELATION_DIMENSION
 
 namespace ray
 {
@@ -30,7 +30,7 @@ void calcNearestNeighbourDistances(const std::vector<Eigen::Vector3f> &cloud1, c
       num_bounded2++;
   Eigen::MatrixXf points_p(3, num_bounded);
   int j = 0;
-  for (unsigned int i = 0; i < cloud1.size(); i++) 
+  for (unsigned int i = 0; i < cloud1.size(); i++)
   {
     if (cloud1[i][0] != std::numeric_limits<float>::max())
       points_p.col(j++) = cloud1[i];
@@ -39,7 +39,7 @@ void calcNearestNeighbourDistances(const std::vector<Eigen::Vector3f> &cloud1, c
 
   Eigen::MatrixXf points_q(3, num_bounded2);
   j = 0;
-  for (unsigned int i = 0; i < cloud2.size(); i++) 
+  for (unsigned int i = 0; i < cloud2.size(); i++)
   {
     if (cloud2[i][0] != std::numeric_limits<float>::max())
       points_q.col(j++) = cloud2[i];
@@ -74,7 +74,7 @@ double getShoulder(double k, std::vector<float> sorted_dists, double &min_error_
   // 1. transform the result to make the distances uniform if their 3D points are uniformly distributed
   for (int i = 0; i<num; i++)
   {
-    sorted_dists[i] = (float)std::pow((double)sorted_dists[i], k); 
+    sorted_dists[i] = (float)std::pow((double)sorted_dists[i], k);
   }
 
   // 2. accumulate outside term backwards
@@ -88,7 +88,7 @@ double getShoulder(double k, std::vector<float> sorted_dists, double &min_error_
     double I = (float)i - yN;
     outside_const[i] = (float)((double)outside_const[i+1] + I*I);
     outside_linear[i] = (float)((double)outside_linear[i+1] + 2.0*I*d);
-    outside_square[i] =(float)((double)outside_square[i+1] + d*d);      
+    outside_square[i] =(float)((double)outside_square[i+1] + d*d);
   }
 
   // 3. accumulate linear term forwards, but store only best results
@@ -96,7 +96,7 @@ double getShoulder(double k, std::vector<float> sorted_dists, double &min_error_
   double inside_linear = 0.0;
   double inside_square = 0.0;
   double min_error_sqr = 0.0;
-  double min_error_i = 0.0; 
+  double min_error_i = 0.0;
   min_error_dist = 0.0;
   for (int i = 0; i<num; i++)
   {
@@ -111,7 +111,7 @@ double getShoulder(double k, std::vector<float> sorted_dists, double &min_error_
     double linear = outside_linear[i]/d;
     double a = square;
     double b = -linear - 2.0*yN*square;
-    double c = outside_const[i] + linear*yN + square*yN*yN; 
+    double c = outside_const[i] + linear*yN + square*yN*yN;
 
     // add the inside part
     a += inside_square/sqr(sorted_dists[i]); // the division is to match the gradient to y
@@ -227,10 +227,10 @@ double printDistanceStatistics(const std::vector<float> &dists_to_cloud1, const 
   return similarity;
 }
 
-bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::string &cloud2_namestub, std::vector<float> &dists_to_cloud1, 
+bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::string &cloud2_namestub, std::vector<float> &dists_to_cloud1,
    std::vector<float> &dists_to_cloud2, double dist_threshold, bool individual_files, bool visualise)
 {
-  std::cout << "saving out differences, coloured red for differences to " << cloud1_namestub << ".ply and green for differences in " << cloud2_namestub << ".ply" << std::endl;
+  std::cout << "saving out differences, coloured scarlet for differences to " << cloud1_namestub << ".ply and green/cyan for differences in " << cloud2_namestub << ".ply" << std::endl;
 
   // now render visuals
   CloudWriter writer;
@@ -243,11 +243,11 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
   std::vector<Eigen::Vector3i> samples;
 
   int j = 0;
-  Eigen::Vector3d diff_col(255,0,0);
+  Eigen::Vector3d diff_col(255,0,127);
   std::vector<float> *dists = &dists_to_cloud1;
   const float eps = 1e-8f; // in case there is inaccuracy in the KNN distance estimation for co-located point pairs
   auto colour = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                    std::vector<double> &times, std::vector<RGBA> &colours) 
+                    std::vector<double> &times, std::vector<RGBA> &colours)
   {
     // firstly we store a count per cell
     chunk.clear();
@@ -277,13 +277,13 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
   j = 0;
   dists_to_cloud1.clear();
   dists_to_cloud1.shrink_to_fit();
-  Eigen::Vector3d diff2_col(0,255,0);
+  Eigen::Vector3d diff2_col(0,255,127);
 
   dists = &dists_to_cloud2;
   if (!individual_files)
   {
     auto colour2 = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
-                      std::vector<double> &times, std::vector<RGBA> &colours) 
+                      std::vector<double> &times, std::vector<RGBA> &colours)
     {
       // firstly we store a count per cell
       chunk.clear();
@@ -313,7 +313,9 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
     writer.end();
 
     if (visualise)
+    {
       viewFile(cloud1_namestub + "_diff.ply");
+    }
   }
   else
   {
@@ -326,7 +328,9 @@ bool writeDifferencesToRayClouds(const std::string &cloud1_namestub, const std::
       return false;
     writer.end();
     if (visualise)
+    {
       viewFile(cloud1_namestub + "_diff.ply", cloud2_namestub + "_diff.ply");
+    }
   }
   return true;
 }

@@ -74,6 +74,8 @@ int rayInfo(int argc, char *argv[])
   double min_ray_length = std::numeric_limits<double>::max();
   double max_ray_length = std::numeric_limits<double>::lowest();
   double max_bounded_ray_length = std::numeric_limits<double>::lowest();
+  double mean_bounded_ray_length = 0.0;
+  int mean_count = 0;
   ray::RGBA min_col(255, 255, 255, 255), max_col(0, 0, 0, 0);
   int num_pixels_covered = 0;
   const double voxel_width = 0.5;
@@ -125,6 +127,8 @@ int rayInfo(int argc, char *argv[])
       if (colours[i].alpha > 0)
       {
         max_bounded_ray_length = std::max(max_bounded_ray_length, ray_length);
+        mean_bounded_ray_length += ray_length;
+        mean_count++;
 
         min_col.red = std::min(min_col.red, colours[i].red);
         min_col.green = std::min(min_col.green, colours[i].green);
@@ -145,6 +149,7 @@ int rayInfo(int argc, char *argv[])
   {
     usage();
   }
+  mean_bounded_ray_length /= (double)mean_count;
 
   // print the results to screen
   std::cout << std::endl;
@@ -196,7 +201,7 @@ int rayInfo(int argc, char *argv[])
       std::cout << num_minutes << " mins ";
     std::cout << seconds << " s \t(in seconds: " << path_period << ")" << std::endl;
   }
-  std::cout << "  ray length: \t\t" << min_ray_length << " to " << max_ray_length << " m, max end point ray length: " << max_bounded_ray_length << " m" << std::endl;
+  std::cout << "  ray length: \t\t" << min_ray_length << " to " << max_ray_length << " m, max end point ray length: " << max_bounded_ray_length << " m, mean: " << mean_bounded_ray_length << std::endl;
   std::cout << "  colour range (RGBA): \t" << (int)min_col.red << "," << (int)min_col.green << "," << (int)min_col.blue << "," << (int)min_col.alpha << " to " << 
                                             (int)max_col.red << "," << (int)max_col.green << "," << (int)max_col.blue << "," << (int)max_col.alpha << std::endl;
  
