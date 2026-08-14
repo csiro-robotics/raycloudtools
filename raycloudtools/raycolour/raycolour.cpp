@@ -8,7 +8,10 @@
 #include "raylib/raycloudwriter.h"
 #include "raylib/rayparse.h"
 #define STB_IMAGE_IMPLEMENTATION
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
 #include "raylib/imageread.h"
+#pragma GCC diagnostic pop
 
 #include <nabo/nabo.h>
 #include <cstdio>
@@ -107,7 +110,8 @@ int rayColour(int argc, char *argv[])
   const bool standard_format = ray::parseCommandLine(argc, argv, { &cloud_file, &colour_type }, { &lit, &view_flag });
   const bool flat_colour = ray::parseCommandLine(argc, argv, { &cloud_file, &col }, { &lit, &view_flag });
   const bool flat_alpha = ray::parseCommandLine(argc, argv, { &cloud_file, &alpha_text, &alpha }, { &lit, &view_flag });
-  const bool image_format = ray::parseCommandLine(argc, argv, { &cloud_file, &image_text, &image_file }, { &lit, &view_flag });
+  const bool image_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &image_text, &image_file }, { &lit, &view_flag });
   if (!standard_format && !flat_colour && !flat_alpha && !image_format)
     usage();
 

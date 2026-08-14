@@ -14,29 +14,35 @@ namespace ray
 {
 /// A utility class for initialising the thread pool size.
 ///
-/// Typical usage is to call @c init() at the start of your program. This is optional and it not specified, all
-/// available threads will be used.
+/// Typical usage is to call @c init() at the start of your program. This is
+/// optional and if not specified, all available threads will be used.
 ///
-/// Note: some parts of the program may use threads even when Intel TBB is not availabe (via OpenMP).
+/// Note: Some parts of the program may use threads even when Intel TBB is not
+///       available (via OpenMP).
 ///
 /// @todo Also cap OpenMP thread usage.
 class RAYLIB_EXPORT Threads
 {
 public:
-  /// Argument for use with @c init() indicating all @c availableThreads() should be used.
+  /// Argument for use with @c init() indicating all @c availableThreads()
+  /// should be used.
   static const int ThreadCountAll = -1;
-  /// Argument for use with @c init() indicating the @c recommendedThreadCount() should be used.
+  /// Argument for use with @c init() indicating the @c recommendedThreadCount()
+  /// should be used.
   static const int ThreadCountRecommended = 0;
 
   /// The maximum number of threads to use for @c recommendedThreadCount() .
   static const int MaxRecommendedThreads = 8;
 
-  /// Returns the number of available threads. When built with Intel TBB, this returns the number of available
-  /// processors. Without TBB, this returns 1.
+  /// Returns the number of available threads. When built with Intel TBB, this
+  /// returns the number of available processors. Without TBB, this returns 1.
+  /// Not affected by @c thread_count argument given to @c init() .
   static int availableThreads();
 
-  /// Query the recommended thread count. This is set at least two threads if available, prefering one less than the
-  /// @c availableThreads() up to @c MaxRecommendedThreads threads.
+  /// Query the recommended thread count. This is set at least two threads if
+  /// available, preferring one less than the @c availableThreads() up to
+  /// @c MaxRecommendedThreads threads.
+  /// Not affected by @c thread_count argument given to @c init() .
   static int recommendedThreadCount();
 
   /// Initialise the thread count.

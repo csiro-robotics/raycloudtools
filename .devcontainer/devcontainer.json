@@ -16,12 +16,13 @@
       ]
     }
   },
-  "mounts": [
-    "type=bind,source=${localWorkspaceFolder}/.devcontainer/commands/compile_install.sh,target=/usr/local/bin/compile_install.sh",
-  ],
-  "remoteUser": "root",
+  "remoteEnv": {
+    "LD_LIBRARY_PATH": "${containerEnv:LD_LIBRARY_PATH}:/workspaces/raycloudtools/install/lib",
+    "PATH": "${containerEnv:PATH}:/workspaces/raycloudtools/.devcontainer/commands:/workspaces/raycloudtools/install/bin"
+  },
   "forwardPorts": [],
-  "postCreateCommand": "compile_install.sh",
+  "postCreateCommand": "build.bash",
+  "remoteUser": "ubuntu",
   "runArgs": [
     "--security-opt=label=disable"
   ],

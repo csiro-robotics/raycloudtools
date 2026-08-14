@@ -10,7 +10,7 @@
 #include "rayutils.h"
 
 #if RAYLIB_WITH_LAS
-#include <laszip/laszip_api.h>
+#include "laszip_api.h"
 #endif  // RAYLIB_WITH_LAS
 
 

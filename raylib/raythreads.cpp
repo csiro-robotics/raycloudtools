@@ -5,10 +5,14 @@
 // Author: Kazys Stepanas
 #include "raythreads.h"
 
+#include <memory>
+#include <optional>
+
 #include "rayunused.h"
 
 #if RAYLIB_WITH_TBB
-#include <tbb/task_scheduler_init.h>
+#include <oneapi/tbb/global_control.h>
+#include <oneapi/tbb/info.h>
 #endif  // RAYLIB_WITH_TBB
 
 using namespace ray;
@@ -16,25 +20,51 @@ using namespace ray;
 namespace
 {
 #if RAYLIB_WITH_TBB
-std::unique_ptr<tbb::task_scheduler_init> scheduler;
+/// The initial value of the max_allowed_parallelism global_control.
+/// Assumed to be the native available thread count.
+/// Set in @c InitialiseInitialThreadCount() .
+std::optional<int> initial_thread_count{ std::nullopt };
+
+/// The active max_allowed_parallelism global_control, if any.
+/// Set in @c ray::Threads::init(int) .
+std::unique_ptr<oneapi::tbb::global_control> thread_count_global_control{ nullptr };
+
+/// Store the current value of
+/// @c oneapi::tbb::global_control::max_allowed_parallelism in
+/// @c initial_thread_count .
+/// This must be run before any call to
+/// @c oneapi::tbb::global_control(oneapi::tbb::global_control::max_allowed_parallelism)
+/// in order to get the unconstrained value.
+void InitialiseInitialThreadCount()
+{
+  if (!initial_thread_count.has_value() && (thread_count_global_control == nullptr))
+  {
+    initial_thread_count =
+      oneapi::tbb::global_control::active_value(oneapi::tbb::global_control::max_allowed_parallelism);
+  }
+}
+
 #endif  // RAYLIB_WITH_TBB
+
 }  // namespace
 
 int Threads::availableThreads()
 {
 #if RAYLIB_WITH_TBB
-  return tbb::task_scheduler_init::default_num_threads();
+  InitialiseInitialThreadCount();
+  return initial_thread_count.value();
 #else   // RAYLIB_WITH_TBB
   return 1;  // Single threaded.
 #endif  // RAYLIB_WITH_TBB
 }
 
-
 int Threads::recommendedThreadCount()
 {
 #if RAYLIB_WITH_TBB
-  // Thread performance seems to peek between 4-6. For optimal threads, we use at least 2 threads (if available) up to
-  // 6 threads. We try to leave one thread free and unused for the system and other processes.
+  InitialiseInitialThreadCount();
+  // Thread performance seems to peek between 4-6. For optimal threads, we use
+  // at least 2 threads (if available) up to 6 threads. We try to leave one
+  // thread free and unused for the system and other processes.
   const int target_thread_count = MaxRecommendedThreads;
   int thread_count = availableThreads();
   if (thread_count > 2)
@@ -47,24 +77,26 @@ int Threads::recommendedThreadCount()
 #endif  // RAYLIB_WITH_TBB
 }
 
-
-void Threads::init(int thread_count)
+void Threads::init(const int thread_count)
 {
 #if RAYLIB_WITH_TBB
-  if (!scheduler)
+  InitialiseInitialThreadCount();
+  // Translate to TBB thread count
+  int init_thread_count;
+  switch (thread_count)
   {
-    // Translate to TBB thread count
-    int init_thread_count = tbb::task_scheduler_init::automatic;
-    if (thread_count == ThreadCountRecommended)
-    {
-      init_thread_count = recommendedThreadCount();
-    }
-    else if (thread_count > 0)
-    {
-      init_thread_count = thread_count;
-    }
-    scheduler = std::make_unique<tbb::task_scheduler_init>(init_thread_count);
+  case ThreadCountAll:
+    init_thread_count = availableThreads();
+    break;
+  case ThreadCountRecommended:
+    init_thread_count = recommendedThreadCount();
+    break;
+  default:
+    init_thread_count = std::max(1, thread_count);
+    break;
   }
+  thread_count_global_control = std::make_unique<oneapi::tbb::global_control>(
+    oneapi::tbb::global_control::max_allowed_parallelism, init_thread_count);
 #else   // RAYLIB_WITH_TBB
   RAYLIB_UNUSED(thread_count);
 #endif  // RAYLIB_WITH_TBB
