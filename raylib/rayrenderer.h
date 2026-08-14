@@ -9,7 +9,8 @@
 #include "raycuboid.h"
 #include "raypose.h"
 #include "rayutils.h"
-#define FLAT_TOP_COMPENSATION // use a 2-medium model for the top of the cloud, so only the cloud's density is estimated, not the air above it
+#define FLAT_TOP_COMPENSATION  // use a 2-medium model for the top of the cloud, so only the cloud's density is
+                               // estimated, not the air above it
 
 namespace ray
 {
@@ -45,8 +46,8 @@ bool RAYLIB_EXPORT renderCloud(const std::string &cloud_file, const Cuboid &boun
 #if RAYLIB_WITH_TIFF
 // save to geotif format using floating-point per-channel colour data. This function passes a projection file in order
 // to geolocate the image
-bool RAYLIB_EXPORT writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width, bool scalar,
-                       const std::string &projection_file, double origin_x, double origin_y);
+bool RAYLIB_EXPORT writeGeoTiffFloat(const std::string &filename, int x, int y, const float *data, double pixel_width,
+                                     bool scalar, const std::string &projection_file, double origin_x, double origin_y);
 #endif
 
 /// This is used for estimating the per-voxel density of a ray cloud
@@ -65,6 +66,23 @@ struct RAYLIB_EXPORT DensityGrid
     , voxel_width_(vox_width)
     , voxel_dims_(dims)
   {
+    // 3D dimensions are stored in a vector of 32-bit signed ints. It's fairly
+    // easy to overflow when calculating voxel counts or 1D indices. Make sure
+    // this won't happen.
+    const std::size_t voxel_count =
+      static_cast<std::size_t>(dims[0]) * static_cast<std::size_t>(dims[1]) * static_cast<std::size_t>(dims[2]);
+    if (voxel_count > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+    {
+      std::cerr << "                        dims[0]: " << dims[0] << '\n';
+      std::cerr << "                        dims[1]: " << dims[1] << '\n';
+      std::cerr << "                        dims[2]: " << dims[2] << '\n';
+      std::cerr << "    dims[0] * dims[1] * dims[2]: " << voxel_count << '\n';
+      std::cerr << "std::numeric_limits<int>::max(): " << std::numeric_limits<int>::max() << '\n';
+      throw std::runtime_error("Dimensions given to ray::DensityGrid are too large. "
+                               "Their product must be less than std::numeric_limits<int>::max().");
+    }
+
+    // Allocate.
     voxels_.resize(dims[0] * dims[1] * dims[2]);
     peaks_.resize(dims[0] * dims[1], std::numeric_limits<double>::lowest());
   }
@@ -111,13 +129,14 @@ struct RAYLIB_EXPORT DensityGrid
   inline int getIndexFromPos(const Eigen::Vector3d &pos) const;
   /// Return the vector of density voxels
   inline const std::vector<Voxel> &voxels() const { return voxels_; }
-  inline Eigen::Vector3i dimensions(){ return voxel_dims_; }
-  inline Cuboid bounds(){ return bounds_; }
+  inline Eigen::Vector3i dimensions() { return voxel_dims_; }
+  inline Cuboid bounds() { return bounds_; }
   inline double voxelWidth() const { return voxel_width_; }
   // used in walking grid only
-  inline bool operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length);
+  inline bool operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length,
+                         double max_length);
 
-  std::vector<double> peaks_; // highest points
+  std::vector<double> peaks_;  // highest points
 private:
   Cuboid bounds_;
   std::vector<Voxel> voxels_;
@@ -137,7 +156,7 @@ double DensityGrid::Voxel::numerator() const
 }
 double DensityGrid::Voxel::denominator() const
 {
-  const double eps = 1e-10; // avoid division by 0
+  const double eps = 1e-10;  // avoid division by 0
   return eps + num_rays_ * path_length_;
 }
 double DensityGrid::Voxel::density() const
@@ -146,7 +165,7 @@ double DensityGrid::Voxel::density() const
   {
     return 0.0;
   }
-  const double eps = 1e-10; // avoid division by 0
+  const double eps = 1e-10;  // avoid division by 0
   // below -1.0 should be -2.0 when min length is estimated (e.g. when initially air)
   return spherical_distribution_scale * (num_rays_ - 1.0) * num_hits_ / (eps + num_rays_ * path_length_);
 }
@@ -184,7 +203,8 @@ int DensityGrid::getIndexFromPos(const Eigen::Vector3d &pos) const
   Eigen::Vector3d gridspace = (pos - bounds_.min_bound_) / voxel_width_;
   return getIndex(gridspace.cast<int>());
 }
-inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length, double out_length, double max_length)
+inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vector3i &target, double in_length,
+                                    double out_length, double max_length)
 {
   int index = getIndex(p);
   double end_length = std::min(out_length, max_length);
@@ -192,12 +212,15 @@ inline bool DensityGrid::operator()(const Eigen::Vector3i &p, const Eigen::Vecto
 #if defined FLAT_TOP_COMPENSATION
   int peak_id = p[0] + p[1] * voxel_dims_[0];
   double peak = peaks_[peak_id];
-  double in_height = source_[2] + dir_[2]*in_length;
-  double end_height = source_[2] + dir_[2]*end_length;
-  if (dir_[2] < 0.0 && in_height > peak && end_height <= peak) // currently only supported on downwards rays
+  double in_height = source_[2] + dir_[2] * in_length;
+  double end_height = source_[2] + dir_[2] * end_length;
+  if (dir_[2] < 0.0 && in_height > peak && end_height <= peak)  // currently only supported on downwards rays
   {
-    double t = (in_height - peak)/(in_height - end_height);
-    in_length += (end_length - in_length) * std::max(0.0, std::min(t, 0.99)); // 0.99 because 1 can cause very tiny distances, which can give density outliers
+    double t = (in_height - peak) / (in_height - end_height);
+    in_length +=
+      (end_length - in_length) *
+      std::max(0.0,
+               std::min(t, 0.99));  // 0.99 because 1 can cause very tiny distances, which can give density outliers
   }
 #endif
 
