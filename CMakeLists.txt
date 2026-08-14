@@ -51,7 +51,7 @@ set(RAYTOOLS_INCLUDE
   ${libnabo_INCLUDE_DIRS}
 )
 set(RAYTOOLS_LINK
-  libnabo::nabo
+  ${libnabo_LIBRARIES}
   OpenMP::OpenMP_CXX
   Threads::Threads
 )
@@ -66,7 +66,7 @@ endif(RAYLIB_WITH_LAS)
 if(RAYLIB_WITH_QHULL)
   find_package(Qhull REQUIRED)
   get_target_property(QHULL_INCLUDE_DIRS Qhull::qhullcpp INTERFACE_INCLUDE_DIRECTORIES)
-  set(QHULL_LIBRARIES Qhull::qhullcpp)
+  set(QHULL_LIBRARIES Qhull::qhullcpp Qhull::qhullstatic_r)
   list(APPEND RAYTOOLS_INCLUDE ${QHULL_INCLUDE_DIRS})
   list(APPEND RAYTOOLS_LINK ${QHULL_LIBRARIES})
 endif(RAYLIB_WITH_QHULL)
