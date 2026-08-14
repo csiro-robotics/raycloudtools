@@ -9,8 +9,8 @@
 #include "raylib/raylibconfig.h"
 #include "rayparse.h"
 #if RAYLIB_WITH_TIFF           // build option to support outputting to geotif (.tif) format
-#include "geotiff/geotiffio.h" /* for GeoTIFF */
-#include "geotiff/xtiffio.h"   /* for TIFF */
+#include "geotiffio.h" /* for GeoTIFF */
+#include "xtiffio.h"   /* for TIFF */
 #endif
 #include <algorithm>
 #include <cctype>

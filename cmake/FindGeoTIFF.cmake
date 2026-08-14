@@ -4,7 +4,7 @@
 #   GeoTIFF_FOUND        - true if found
 
 find_path(GeoTIFF_INCLUDE_DIRS
-  NAMES geotiff/geotiff.h
+  NAMES geotiff.h
   HINTS ENV GeoTIFF_ROOT
   PATH_SUFFIXES include
 )
