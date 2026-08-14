@@ -1,12 +1,12 @@
 # This module searches for the standalone GeoTIFF library and defines:
 #   GeoTIFF_LIBRARIES    - link libraries
-#   GeoTIFF_INCLUDE_DIRS - include directories (contains geotiff/geotiff.h)
+#   GeoTIFF_INCLUDE_DIRS - include directories (contains geotiff.h)
 #   GeoTIFF_FOUND        - true if found
 
 find_path(GeoTIFF_INCLUDE_DIRS
   NAMES geotiff.h
   HINTS ENV GeoTIFF_ROOT
-  PATH_SUFFIXES include
+  PATH_SUFFIXES include include/geotiff
 )
 
 find_library(GeoTIFF_LIBRARY

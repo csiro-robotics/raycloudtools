@@ -110,13 +110,14 @@ install(
 )
 configure_package_config_file(
   "cmake/Config.in.cmake"
-  "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
+  "${PROJECT_BINARY_DIR}/config.cmake"
   INSTALL_DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
 )
 install(
   FILES
-    "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}-config.cmake"
+    "${PROJECT_BINARY_DIR}/config.cmake"
   DESTINATION "lib/cmake/${CMAKE_PROJECT_NAME}"
+  RENAME "${CMAKE_PROJECT_NAME}-config.cmake"
 )
 install(
   FILES
