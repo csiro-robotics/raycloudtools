@@ -1,39 +1,39 @@
 {
-    "buildPresets": [
-        {
-            "configurePreset": "default",
-            "description": "default",
-            "displayName": "default",
-            "name": "default"
-        }
-    ],
-    "configurePresets": [
-        {
-            "binaryDir": "${sourceDir}/build",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
-                "RAYCLOUD_BUILD_TESTS": "ON",
-                "RAYLIB_DOUBLE_RAYS": "ON",
-                "RAYLIB_WITH_LAS": "ON",
-                "RAYLIB_WITH_NORMAL_FIELD": "ON",
-                "RAYLIB_WITH_QHULL": "ON",
-                "RAYLIB_WITH_TIFF": "ON"
-            },
-            "description": "default",
-            "displayName": "default",
-            "generator": "Unix Makefiles",
-            "name": "default"
-        }
-    ],
-    "testPresets": [
-        {
-            "configurePreset": "default",
-            "description": "default",
-            "displayName": "default",
-            "name": "default"
-        }
-    ],
-    "version": 8
+  "buildPresets": [
+    {
+      "configurePreset": "default",
+      "description": "default",
+      "displayName": "default",
+      "name": "default"
+    }
+  ],
+  "configurePresets": [
+    {
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
+        "RAYCLOUD_BUILD_TESTS": "ON",
+        "RAYLIB_DOUBLE_RAYS": "ON",
+        "RAYLIB_WITH_LAS": "ON",
+        "RAYLIB_WITH_NORMAL_FIELD": "ON",
+        "RAYLIB_WITH_QHULL": "ON",
+        "RAYLIB_WITH_TIFF": "ON"
+      },
+      "description": "default",
+      "displayName": "default",
+      "generator": "Unix Makefiles",
+      "name": "default"
+    }
+  ],
+  "testPresets": [
+    {
+      "configurePreset": "default",
+      "description": "default",
+      "displayName": "default",
+      "name": "default"
+    }
+  ],
+  "version": 8
 }
