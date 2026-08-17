@@ -3,15 +3,18 @@
 // ABN 41 687 119 230
 //
 // Author: Thomas Lowe
-#include "raylib/raycloud.h"
-#include "raylib/raymesh.h"
-#include "raylib/rayparse.h"
-#include "raylib/rayply.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <optional>
+
+#include "raylib/raycloud.h"
+#include "raylib/raymesh.h"
+#include "raylib/rayparse.h"
+#include "raylib/rayply.h"
+
 #define DETAILED_GROUND_SUBTRACTION  // ground lookup per-point. Otherwise it quantises to a height grid
 
 void usage(int exit_code = 1)
@@ -23,6 +26,9 @@ void usage(int exit_code = 1)
   std::cout << "                      0,0,1,24.3 - optional 4th component translates time" << std::endl;
   std::cout << "                      subtract ground_mesh.ply  - translate vertically to remove ground_mesh heights" << std::endl;
   std::cout << "                      add ground_mesh.ply- translate vertically to add ground_mesh heights" << std::endl;
+  std::cout << "                     --split_untranslated - write any points that could not be" << std::endl;
+  std::cout << "                                            translated to a new file (otherwise" << std::endl;
+  std::cout << "                                            leave as they were in output raycloud)" << std::endl;
   // clang-format on
   exit(exit_code);
 }
@@ -34,12 +40,16 @@ int rayTranslate(int argc, char *argv[])
   ray::OptionalFlagArgument view_flag("view", 'v');
   ray::Vector3dArgument translation3;
   ray::Vector4dArgument translation4;
+  ray::OptionalFlagArgument split_untranslated("split_untranslated", 'u');
 
-  bool vec3_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation3 }, { &view_flag });
-  bool vec4_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation4 }, { &view_flag });
+  bool vec3_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &translation3 }, { &view_flag, &split_untranslated });
+  bool vec4_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &translation4 }, { &view_flag, &split_untranslated });
   bool ground_subtract_format =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &subtract, &ground_file }, { &view_flag });
-  bool ground_add_format = ray::parseCommandLine(argc, argv, { &cloud_file, &add, &ground_file }, { &view_flag });
+    ray::parseCommandLine(argc, argv, { &cloud_file, &subtract, &ground_file }, { &view_flag, &split_untranslated });
+  bool ground_add_format =
+    ray::parseCommandLine(argc, argv, { &cloud_file, &add, &ground_file }, { &view_flag, &split_untranslated });
   if (!vec3_format && !vec4_format && !ground_subtract_format && !ground_add_format)
     usage();
 
@@ -126,7 +136,12 @@ int rayTranslate(int argc, char *argv[])
   const std::string temp_name = cloud_file.nameStub() + "~.ply";  // tilde is a common suffix for temporary files
   int num_missed_triangles = 0, num_totally_missed = 0;
 
-  auto translate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &) {
+  std::vector<Eigen::Vector3d> untranslated_starts;
+  std::vector<Eigen::Vector3d> untranslated_ends;
+  std::vector<double> untranslated_times;
+  std::vector<ray::RGBA> untranslated_colours;
+
+  auto translate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &colour) {
     if (ground_subtract_format || ground_add_format)
     {
 #if defined DETAILED_GROUND_SUBTRACTION
@@ -141,7 +156,7 @@ int rayTranslate(int argc, char *argv[])
       pos_base[2] = min_bound[2];
       auto &tris = grid.cell(x, y, 0).data;
       // search the triangles in this cell 'bucket'
-      double height = 0.0;
+      std::optional<double> height = std::nullopt;
       double mean_depth = 0.0;
       double mean_count = 0.0;
       for (auto &tri : tris)
@@ -158,7 +173,7 @@ int rayTranslate(int argc, char *argv[])
           mean_count++;
         }
       }
-      if (height == 0.0)
+      if (!height.has_value())
       {
         if (mean_count > 0)
         {
@@ -172,18 +187,33 @@ int rayTranslate(int argc, char *argv[])
         }
       }
 #else
-      Eigen::Vector3i index = ((end - info.ends_bound.min_bound_) / voxel_width).cast<int>();
-      double height = ground_heights(index[0], index[1]);
+      const Eigen::Vector3i index = ((end - info.ends_bound.min_bound_) / voxel_width).cast<int>();
+      const std::optional<double> height = ground_heights(index[0], index[1]);
 #endif
-      if (ground_subtract_format)
+      if (height.has_value())
       {
-        start[2] -= height;
-        end[2] -= height;
+        if (ground_subtract_format)
+        {
+          start[2] -= height.value();
+          end[2] -= height.value();
+        }
+        else
+        {
+          start[2] += height.value();
+          end[2] += height.value();
+        }
       }
-      else
+      else if (split_untranslated.isSet())
       {
-        start[2] += height;
-        end[2] += height;
+        untranslated_starts.push_back(start);
+        untranslated_ends.push_back(end);
+        untranslated_times.push_back(time);
+        untranslated_colours.push_back(colour);
+
+        start = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+        end = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+        time = std::numeric_limits<double>::quiet_NaN();
+        colour = ray::RGBA(0, 0, 0, 0);
       }
     }
     else
@@ -200,15 +230,27 @@ int rayTranslate(int argc, char *argv[])
   {
     std::cout << num_missed_triangles
               << " cloud points not overlapping triangles, if this is large the ground file may not be a lateral "
-                 "coverage of the ray cloud"
+                 "coverage of the ray cloud."
               << std::endl;
   }
   if (num_totally_missed > 0)
   {
     std::cout << "Warning: " << num_totally_missed
-              << " points have no laterally overlapping triangles, so the ground_file is not a full coverage. Point "
-                 "translation ignored"
+              << " cloud points have no laterally overlapping triangles, so the ground_file is not a full coverage."
               << std::endl;
+    if (split_untranslated.isSet())
+    {
+      const std::string untranslated_name = cloud_file.nameStub() + "_untranslated.ply";
+      ray::writePlyRayCloud(untranslated_name, untranslated_starts, untranslated_ends, untranslated_times,
+                            untranslated_colours);
+      std::cout << "Wrote " << num_totally_missed << " rays that had no laterally overlapping triangles to "
+                << untranslated_name << std::endl;
+    }
+    else
+    {
+      std::cout << "Left " << num_totally_missed << " rays that had no laterally overlapping triangles as they were in "
+                << cloud_file.name() << std::endl;
+    }
   }
   std::rename(temp_name.c_str(), cloud_file.name().c_str());
   if (view_flag.isSet())
