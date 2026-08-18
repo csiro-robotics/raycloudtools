@@ -42,13 +42,16 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   std::hash<std::string> hasher;
 
   size_t attribute_hash = 0;
-  for (auto &attribute: trees[0].treeAttributeNames())
+  if (!trees.empty())
   {
-    attribute_hash += hasher(attribute);
-  }
-  for (auto &attribute: trees[0].attributeNames())
-  {
-    attribute_hash += hasher(attribute);
+    for (auto &attribute: trees[0].treeAttributeNames())
+    {
+      attribute_hash += hasher(attribute);
+    }
+    for (auto &attribute: trees[0].attributeNames())
+    {
+      attribute_hash += hasher(attribute);
+    }
   }
   double sum_tree_attributes = 0.0; // a total over all the tree attributes
   for (auto &tree: trees)
@@ -75,7 +78,7 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   sum_attributes /= static_cast<double>(trees.size());
   sum_attributes /= static_cast<double>(num_segments);
   // keep the hash small enough to be represented uniquely by a double
-  attribute_hash = attribute_hash % 100000; 
+  attribute_hash = attribute_hash % 100000;
   moments[1] = sum.norm();
   moments[2] = sum_sqr.norm();
   moments[3] = rad;
@@ -112,7 +115,7 @@ bool ForestStructure::load(const std::string &filename)
       comments.push_back(line);
     }
   } while (line[0] == '#');
-  if (!ifs) 
+  if (!ifs)
   {
     return false;
   }
@@ -180,7 +183,7 @@ bool ForestStructure::load(const std::string &filename)
     {
       // let the user know what attributes it found
       std::cout << "reading extra " << (att==0 ? "tree" : "branch") << " attributes: ";
-      for (auto &at : attributes[att]) 
+      for (auto &at : attributes[att])
       {
         std::cout << at << "; ";
       }
@@ -219,7 +222,7 @@ bool ForestStructure::load(const std::string &filename)
         break;
       }
       tree.treeAttributes().push_back(std::stod(token.c_str()));  // whole tree attributes
-    }    
+    }
 
     // for each segment...
     for (int c = commas_per_tree; c < num_commas; c += commas_per_segment)
@@ -274,7 +277,7 @@ bool ForestStructure::load(const std::string &filename)
 #if defined OUTPUT_MOMENTS  // enabled to provide results for the unit tests
   Eigen::Array<double, 9, 1> mom = getMoments();
   std::cout << "load stats: " << std::endl;
-  for (int i = 0; i < mom.rows(); i++) 
+  for (int i = 0; i < mom.rows(); i++)
   {
     std::cout << ", " << mom[i];
   }
@@ -294,7 +297,7 @@ bool ForestStructure::save(const std::string &filename)
 #if defined OUTPUT_MOMENTS  // enabled to provide results for the unit tests
   Eigen::Array<double, 9, 1> mom = getMoments();
   std::cout << "save stats: " << std::endl;
-  for (int i = 0; i < mom.rows(); i++) 
+  for (int i = 0; i < mom.rows(); i++)
   {
     std::cout << ", " << mom[i];
   }
@@ -316,7 +319,7 @@ bool ForestStructure::save(const std::string &filename)
   else
   {
     for (auto &line: comments)
-    {  
+    {
       ofs << line << std::endl;
     }
   }
@@ -367,11 +370,11 @@ bool ForestStructure::save(const std::string &filename)
       // save the mandatory attributes
       ofs << segment.tip[0] << "," << segment.tip[1] << "," << segment.tip[2] << "," << segment.radius;
       if (tree.segments().size() > 1)
-      {  
+      {
         ofs << "," << segment.parent_id;    // save the special-case parent_id
       }
       for (auto &att : segment.attributes)  // save the user attributes
-      {  
+      {
         ofs << "," << att;
       }
     }
@@ -382,12 +385,12 @@ bool ForestStructure::save(const std::string &filename)
 
 void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside)
 {
-  // first implementation is gonna be slow I guess... 
+  // first implementation is gonna be slow I guess...
   // I could either grid up the cylinder indices, or I could grid up the point indices.... I wonder what is better...
-  // points are easier in that they have no width... 
+  // points are easier in that they have no width...
   double voxel_width = 0.2; // TODO: where to get grid cell size from
   Eigen::Vector3d minbound = cloud.calcMinBound();
-  Grid<int> grid(minbound, cloud.calcMaxBound(), voxel_width); 
+  Grid<int> grid(minbound, cloud.calcMaxBound(), voxel_width);
   // fill the acceleration structure
   for (size_t i = 0; i<cloud.ends.size(); i++)
   {
