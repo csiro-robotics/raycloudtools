@@ -5,8 +5,8 @@
 // Author: Thomas Lowe
 #include "rayforeststructure.h"
 // #define OUTPUT_MOMENTS  // used in unit tests
-#include <unordered_map>
 #include <complex>
+#include <unordered_map>
 
 namespace ray
 {
@@ -42,31 +42,34 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   std::hash<std::string> hasher;
 
   size_t attribute_hash = 0;
-  for (auto &attribute: trees[0].treeAttributeNames())
+  if (!trees.empty())
   {
-    attribute_hash += hasher(attribute);
+    for (auto &attribute : trees[0].treeAttributeNames())
+    {
+      attribute_hash += hasher(attribute);
+    }
+    for (auto &attribute : trees[0].attributeNames())
+    {
+      attribute_hash += hasher(attribute);
+    }
   }
-  for (auto &attribute: trees[0].attributeNames())
+  double sum_tree_attributes = 0.0;  // a total over all the tree attributes
+  for (auto &tree : trees)
   {
-    attribute_hash += hasher(attribute);
-  }
-  double sum_tree_attributes = 0.0; // a total over all the tree attributes
-  for (auto &tree: trees)
-  {
-    for (auto &att: tree.treeAttributes())
+    for (auto &att : tree.treeAttributes())
     {
       sum_tree_attributes += att;
     }
   }
   sum_tree_attributes /= static_cast<double>(trees.size());
-  double sum_attributes = 0.0; // a total over all the attributes
+  double sum_attributes = 0.0;  // a total over all the attributes
   int num_segments = 0;
-  for (auto &tree: trees)
+  for (auto &tree : trees)
   {
-    for (auto &segment: tree.segments())
+    for (auto &segment : tree.segments())
     {
       num_segments++;
-      for (auto &att: segment.attributes)
+      for (auto &att : segment.attributes)
       {
         sum_attributes += att;
       }
@@ -75,7 +78,7 @@ Eigen::Array<double, 9, 1> ForestStructure::getMoments() const
   sum_attributes /= static_cast<double>(trees.size());
   sum_attributes /= static_cast<double>(num_segments);
   // keep the hash small enough to be represented uniquely by a double
-  attribute_hash = attribute_hash % 100000; 
+  attribute_hash = attribute_hash % 100000;
   moments[1] = sum.norm();
   moments[2] = sum_sqr.norm();
   moments[3] = rad;
@@ -112,7 +115,7 @@ bool ForestStructure::load(const std::string &filename)
       comments.push_back(line);
     }
   } while (line[0] == '#');
-  if (!ifs) 
+  if (!ifs)
   {
     return false;
   }
@@ -128,7 +131,7 @@ bool ForestStructure::load(const std::string &filename)
   std::string lines[2];
   if (found > 1)
   {
-    lines[0] = line.substr(0, found-2);
+    lines[0] = line.substr(0, found - 2);
   }
   lines[1] = line.substr(found);
 
@@ -174,13 +177,13 @@ bool ForestStructure::load(const std::string &filename)
       }
     }
   }
-  for (int att = 0; att<2; att++)
+  for (int att = 0; att < 2; att++)
   {
     if (attributes[att].size() > 0)
     {
       // let the user know what attributes it found
-      std::cout << "reading extra " << (att==0 ? "tree" : "branch") << " attributes: ";
-      for (auto &at : attributes[att]) 
+      std::cout << "reading extra " << (att == 0 ? "tree" : "branch") << " attributes: ";
+      for (auto &at : attributes[att])
       {
         std::cout << at << "; ";
       }
@@ -191,7 +194,7 @@ bool ForestStructure::load(const std::string &filename)
 
   int line_number = 0;
   // now parse the data, one line at a time
-  for (std::string line; std::getline(ifs, line); )
+  for (std::string line; std::getline(ifs, line);)
   {
     if (line.length() == 0 || line[0] == '#')  // ignore empty and comment lines
     {
@@ -203,9 +206,10 @@ bool ForestStructure::load(const std::string &filename)
     tree.treeAttributeNames() = attributes[0];
     tree.attributeNames() = attributes[1];
     // make sure the number of commas is what we expect
-    if ((num_commas-commas_per_tree) % commas_per_segment != 0)
+    if ((num_commas - commas_per_tree) % commas_per_segment != 0)
     {
-      std::cerr << "Error: line " << line_number << " contains " << num_commas << " commas, which is not " << commas_per_tree << " plus a multiple of " << commas_per_segment << std::endl;
+      std::cerr << "Error: line " << line_number << " contains " << num_commas << " commas, which is not "
+                << commas_per_tree << " plus a multiple of " << commas_per_segment << std::endl;
       return false;
     }
 
@@ -219,7 +223,7 @@ bool ForestStructure::load(const std::string &filename)
         break;
       }
       tree.treeAttributes().push_back(std::stod(token.c_str()));  // whole tree attributes
-    }    
+    }
 
     // for each segment...
     for (int c = commas_per_tree; c < num_commas; c += commas_per_segment)
@@ -274,7 +278,7 @@ bool ForestStructure::load(const std::string &filename)
 #if defined OUTPUT_MOMENTS  // enabled to provide results for the unit tests
   Eigen::Array<double, 9, 1> mom = getMoments();
   std::cout << "load stats: " << std::endl;
-  for (int i = 0; i < mom.rows(); i++) 
+  for (int i = 0; i < mom.rows(); i++)
   {
     std::cout << ", " << mom[i];
   }
@@ -294,7 +298,7 @@ bool ForestStructure::save(const std::string &filename)
 #if defined OUTPUT_MOMENTS  // enabled to provide results for the unit tests
   Eigen::Array<double, 9, 1> mom = getMoments();
   std::cout << "save stats: " << std::endl;
-  for (int i = 0; i < mom.rows(); i++) 
+  for (int i = 0; i < mom.rows(); i++)
   {
     std::cout << ", " << mom[i];
   }
@@ -311,12 +315,14 @@ bool ForestStructure::save(const std::string &filename)
   ofs << std::setprecision(4) << std::fixed;
   if (comments.empty())
   {
-    ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and any additional per-segment attributes:" << std::endl;
+    ofs << "# Tree file. Optional per-tree attributes (e.g. 'height,crown_radius, ') followed by 'x,y,z,radius' and "
+           "any additional per-segment attributes:"
+        << std::endl;
   }
   else
   {
-    for (auto &line: comments)
-    {  
+    for (auto &line : comments)
+    {
       ofs << line << std::endl;
     }
   }
@@ -348,7 +354,7 @@ bool ForestStructure::save(const std::string &filename)
   for (auto &tree : trees)
   {
     // whole tree attributes:
-    for (auto &att: tree.treeAttributes())
+    for (auto &att : tree.treeAttributes())
     {
       ofs << att << ",";
     }
@@ -367,11 +373,11 @@ bool ForestStructure::save(const std::string &filename)
       // save the mandatory attributes
       ofs << segment.tip[0] << "," << segment.tip[1] << "," << segment.tip[2] << "," << segment.radius;
       if (tree.segments().size() > 1)
-      {  
-        ofs << "," << segment.parent_id;    // save the special-case parent_id
+      {
+        ofs << "," << segment.parent_id;  // save the special-case parent_id
       }
       for (auto &att : segment.attributes)  // save the user attributes
-      {  
+      {
         ofs << "," << att;
       }
     }
@@ -382,14 +388,14 @@ bool ForestStructure::save(const std::string &filename)
 
 void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &inside, Cloud &outside)
 {
-  // first implementation is gonna be slow I guess... 
+  // first implementation is gonna be slow I guess...
   // I could either grid up the cylinder indices, or I could grid up the point indices.... I wonder what is better...
-  // points are easier in that they have no width... 
-  double voxel_width = 0.2; // TODO: where to get grid cell size from
+  // points are easier in that they have no width...
+  double voxel_width = 0.2;  // TODO: where to get grid cell size from
   Eigen::Vector3d minbound = cloud.calcMinBound();
-  Grid<int> grid(minbound, cloud.calcMaxBound(), voxel_width); 
+  Grid<int> grid(minbound, cloud.calcMaxBound(), voxel_width);
   // fill the acceleration structure
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  for (size_t i = 0; i < cloud.ends.size(); i++)
   {
     if (!cloud.rayBounded(i))
     {
@@ -400,33 +406,35 @@ void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &insid
 
   // now find all ends that we can remove on a per-segment basis:
   std::vector<bool> remove(cloud.ends.size(), false);
-  for (auto &tree: trees)
+  for (auto &tree : trees)
   {
-    for (auto &segment: tree.segments())
+    for (auto &segment : tree.segments())
     {
-      if (segment.parent_id != -1 || tree.segments().size()==1)
+      if (segment.parent_id != -1 || tree.segments().size() == 1)
       {
-        Eigen::Vector3d pos1 = tree.segments()[std::max(0,segment.parent_id)].tip;
+        Eigen::Vector3d pos1 = tree.segments()[std::max(0, segment.parent_id)].tip;
         Eigen::Vector3d pos2 = segment.tip;
         if (segment.parent_id == -1)
-          pos2[2] += 1000.0; // just do cylindrical split on trunk-only files
+        {
+          pos2[2] += 1000.0;  // just do cylindrical split on trunk-only files
+        }
         double r = segment.radius;
         Eigen::Vector3d dir = (pos2 - pos1).normalized();
-        pos1 -= dir*offset;
-        pos2 += dir*offset;
+        pos1 -= dir * offset;
+        pos2 += dir * offset;
         r += offset;
         double len = (pos2 - pos1).norm();
-        Eigen::Vector3d one(1,1,1);
-        Eigen::Vector3i minindex = grid.index(minVector(pos1, pos2) - r*one);
-        Eigen::Vector3i maxindex = grid.index(maxVector(pos1, pos2) + r*one);
-        for (int i = minindex[0]; i<=maxindex[0]; i++)
+        Eigen::Vector3d one(1, 1, 1);
+        Eigen::Vector3i minindex = grid.index(minVector(pos1, pos2) - r * one);
+        Eigen::Vector3i maxindex = grid.index(maxVector(pos1, pos2) + r * one);
+        for (int i = minindex[0]; i <= maxindex[0]; i++)
         {
-          for (int j = minindex[1]; j<=maxindex[1]; j++)
+          for (int j = minindex[1]; j <= maxindex[1]; j++)
           {
-            for (int k = minindex[2]; k<=maxindex[2]; k++)
+            for (int k = minindex[2]; k <= maxindex[2]; k++)
             {
-              auto &cell = grid.cell(i,j,k);
-              for (auto id: cell.data)
+              auto &cell = grid.cell(i, j, k);
+              for (auto id : cell.data)
               {
                 // intersect the point cloud.ends[id] with segment:
                 const Eigen::Vector3d &p = cloud.ends[id];
@@ -435,9 +443,9 @@ void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &insid
                 {
                   continue;
                 }
-                Eigen::Vector3d closest = pos1 + dir*d;
+                Eigen::Vector3d closest = pos1 + dir * d;
                 double r2 = (p - closest).squaredNorm();
-                if (r2 < r*r) // inside the cylinder
+                if (r2 < r * r)  // inside the cylinder
                 {
                   remove[id] = true;
                 }
@@ -449,7 +457,7 @@ void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &insid
     }
   }
 
-  for (size_t i = 0; i<cloud.ends.size(); i++)
+  for (size_t i = 0; i < cloud.ends.size(); i++)
   {
     Cloud &dest = remove[i] ? inside : outside;
     dest.addRay(cloud.starts[i], cloud.ends[i], cloud.times[i], cloud.colours[i]);
@@ -458,11 +466,13 @@ void ForestStructure::splitCloud(const Cloud &cloud, double offset, Cloud &insid
 
 // add a single section of a capsule. Each one is like a node in the polyline with a radius.
 void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eigen::Vector3d &side1,
-                     const Eigen::Vector3d &side2, double radius, const RGBA &rgba, bool cap_start, bool cap_end, bool add_uvs)
+                     const Eigen::Vector3d &side2, double radius, const RGBA &rgba, bool cap_start, bool cap_end,
+                     bool add_uvs)
 {
-  // this is the square root of the volume of a cylinder divided by the volume of the 14 sided polyhderon
-  // representing the cylinder (a kind of twisted hexagonal prism). This constant only works for this hexagonal polyhedron
-  const double radius_scale = 1.07234; // to keep the volume about equal to that of the cylinder
+  // This is the square root of the volume of a cylinder divided by the volume
+  // of the 14 sided polyhderon representing the cylinder (a kind of twisted
+  // hexagonal prism). This constant only works for this hexagonal polyhedron.
+  const double radius_scale = 1.07234;  // to keep the volume about equal to that of the cylinder
   const int start_index = static_cast<int>(mesh.vertices().size());
   const Eigen::Vector3i start_indices(start_index, start_index, start_index);  // start indices
   std::vector<Eigen::Vector3i> &indices = mesh.indexList();
@@ -487,7 +497,7 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
       indices.push_back(start_indices + Eigen::Vector3i(0, 1 + i, 1 + ((i + 1) % 6)));
       if (add_uvs)
       {
-        uv[0] = uv[1] = uv[2] = Comp(0.0f,0.0f);
+        uv[0] = uv[1] = uv[2] = Comp(0.0f, 0.0f);
         uvs.push_back(uv);
       }
     }
@@ -495,14 +505,14 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
     {
       if (add_uvs)
       {
-        double I = ((double)i + 0.5*(double)wind) / 6.0;
-        uv[2] = Comp(I + 0.0/6.0, 0.0);
-        uv[1] = Comp(I + 0.5/6.0, 1.0);
-        uv[0] = Comp(I + 1.0/6.0, 0.0);
+        double I = ((double)i + 0.5 * (double)wind) / 6.0;
+        uv[2] = Comp(I + 0.0 / 6.0, 0.0);
+        uv[1] = Comp(I + 0.5 / 6.0, 1.0);
+        uv[0] = Comp(I + 1.0 / 6.0, 0.0);
         uvs.push_back(uv);
-        uv[2] = Comp(I + 1.5/6.0, 1.0);
-        uv[1] = Comp(I + 1.0/6.0, 0.0);
-        uv[0] = Comp(I + 0.5/6.0, 1.0);
+        uv[2] = Comp(I + 1.5 / 6.0, 1.0);
+        uv[1] = Comp(I + 1.0 / 6.0, 0.0);
+        uv[0] = Comp(I + 0.5 / 6.0, 1.0);
         uvs.push_back(uv);
       }
       indices.push_back(start_indices + Eigen::Vector3i(i - 6, i, ((i + 1) % 6) - 6));
@@ -516,7 +526,7 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
     {
       if (add_uvs)
       {
-        uv[0] = uv[1] = uv[2] = Comp(0.0f,1.0f);
+        uv[0] = uv[1] = uv[2] = Comp(0.0f, 1.0f);
         uvs.push_back(uv);
       }
       indices.push_back(start_indices + Eigen::Vector3i(6, (i + 1) % 6, i));
@@ -539,8 +549,8 @@ void addCapsulePiece(Mesh &mesh, int wind, const Eigen::Vector3d &pos, const Eig
 /// @param red_scale scale on the red colour component
 /// @param green_scale scale on the green channel
 /// @param blue_scale scale on the blue channel
-void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scale,
-                        double green_scale, double blue_scale, bool add_uvs)
+void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scale, double green_scale,
+                                         double blue_scale, bool add_uvs)
 {
   for (const auto &tree : trees)
   {
@@ -576,7 +586,8 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
 
       // we iterate through this list and grow it at the same time
       std::vector<int> childlist = { root_id };
-      int wind = 0;  // this is what rotates the vertices half a triangle width at each segment, to keep the triangles isoceles
+      int wind = 0;  // this is what rotates the vertices half a triangle width
+                     // at each segment, to keep the triangles isoceles
       for (size_t j = 0; j < childlist.size(); j++)
       {
         int child_id = childlist[j];
@@ -586,7 +597,7 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
         Eigen::Vector3d axis1 = normal.cross(dir).normalized();
         Eigen::Vector3d axis2 = axis1.cross(dir);
         rgba = RGBA::treetrunk();  // standardised colour in raycloudtools
-        if (red_id != -1)               // use the per-segment colour if it exists (e.g. from treecolour)
+        if (red_id != -1)          // use the per-segment colour if it exists (e.g. from treecolour)
         {
           rgba.red = uint8_t(std::min(red_scale * segments[child_id].attributes[red_id], 255.0));
           rgba.green = uint8_t(std::min(green_scale * segments[child_id].attributes[red_id + 1], 255.0));
@@ -595,14 +606,16 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
 
         if (child_id == root_id)  // add the base cap of the cylinder if we are at the root of the branch
         {
-          addCapsulePiece(mesh, wind, segments[par_id].tip, axis1, axis2, segments[child_id].radius, rgba, true, false, add_uvs);
+          addCapsulePiece(mesh, wind, segments[par_id].tip, axis1, axis2, segments[child_id].radius, rgba, true, false,
+                          add_uvs);
         }
 
         wind++;
         std::vector<int> kids = children[child_id];
         if (kids.empty())  // add the end cap of the cylinder if we are at the end of the whole branch
         {
-          addCapsulePiece(mesh, wind, segments[child_id].tip, axis1, axis2, segments[child_id].radius, rgba, false, true, add_uvs);
+          addCapsulePiece(mesh, wind, segments[child_id].tip, axis1, axis2, segments[child_id].radius, rgba, false,
+                          true, add_uvs);
           break;
         }
         // now find the maximum radius subbranch
@@ -645,7 +658,7 @@ void ForestStructure::generateSmoothMesh(Mesh &mesh, int red_id, double red_scal
 
 void ForestStructure::reindex()
 {
-  for (auto &tree: trees)
+  for (auto &tree : trees)
   {
     tree.reindex();
   }
