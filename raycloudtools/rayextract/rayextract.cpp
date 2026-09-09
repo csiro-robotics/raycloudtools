@@ -260,10 +260,10 @@ int rayExtract(int argc, char *argv[])
                   << ", but every point is black (unlabelled)" << std::endl;
         usage(true);
       }
-      params.point_labels = &point_labels;
     }
 
-    ray::Trees trees(cloud, offset, mesh, params, verbose.isSet());
+    ray::Trees trees(cloud, offset, mesh, params, verbose.isSet(),
+                     segmented.isSet() ? &point_labels : nullptr);
 
     // output the picewise cylindrical description of the trees
     trees.save(cloud_file.nameStub() + "_trees.txt", offset, verbose.isSet());

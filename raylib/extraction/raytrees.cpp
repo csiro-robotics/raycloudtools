@@ -23,20 +23,21 @@ TreesParams::TreesParams()
   , segment_branches(false)
   , global_taper(0.012)
   , global_taper_factor(0.3)
-  , point_labels(nullptr)
 {}
 
 /// The main reconstruction algorithm
 /// It is based on finding the shortest paths using Djikstra's algorithm, followed
 /// by an agglomeration of paths, with repeated splitting from root to tips
-Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose)
+Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose,
+             const std::vector<int> *point_labels)
 {
   // firstly, get the full set of shortest paths from ground to tips, and the set of roots
   params_ = &params;
+  point_labels_ = point_labels;
 
   std::vector<std::vector<int>> roots_list =
     getRootsAndSegment(points_, cloud, mesh, params_->max_diameter, params_->distance_limit, params_->height_min,
-                       params_->gravity_factor, params_->point_labels);
+                       params_->gravity_factor, point_labels_);
 
   // Now we want to convert these paths into a set of branch sections, from root to tips
   // splitting as we go up...
@@ -148,7 +149,7 @@ Trees::Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, cons
     sections_[sec_].ends = best_ends;
     nodes = best_nodes;
     // when the trees are pre-labelled we trust the labels, so we don't split a trunk into several trees
-    if (!params_->point_labels && sections_[sec_].split_count < 2)
+    if (!point_labels_ && sections_[sec_].split_count < 2)
     {
       double thickness = best_dist; 
       bool points_removed = false;
