@@ -7,6 +7,7 @@
 #include <nabo/nabo.h>
 #include "rayterrain.h"
 #include <iostream>
+#include <map>
 #include <queue>
 #include <unordered_map>
 
@@ -164,7 +165,23 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
   {
     labels.reserve(cloud.ends.size());
   }
-  std::unordered_map<int, int> label_ids;  // maps the supplied label values onto a contiguous set of tree indices
+  // maps the supplied label values onto a contiguous set of tree indices, in ascending label order so that
+  // the output trees keep the order (and so the IDs) of the input labels
+  std::map<int, int> label_ids;
+  if (point_labels)
+  {
+    for (unsigned int i = 0; i < cloud.ends.size(); i++)
+    {
+      if (cloud.rayBounded(i) && (*point_labels)[i] >= 0)
+      {
+        label_ids[(*point_labels)[i]] = 0;
+      }
+    }
+    for (auto &label_id : label_ids)
+    {
+      label_id.second = num_labels++;
+    }
+  }
   for (unsigned int i = 0; i < cloud.ends.size(); i++)
   {
     if (cloud.rayBounded(i))
@@ -172,24 +189,9 @@ std::vector<std::vector<int>> getRootsAndSegment(std::vector<Vertex> &points, co
       points.push_back(Vertex(cloud.ends[i], cloud.starts[i]));
       if (point_labels)
       {
+        // negative labels are unlabelled, so these points attach to whichever tree's path reaches them
         const int label = (*point_labels)[i];
-        if (label < 0)  // unlabelled, so it will be attached to whichever tree's path reaches it
-        {
-          labels.push_back(-1);
-        }
-        else
-        {
-          const auto &found = label_ids.find(label);
-          if (found == label_ids.end())
-          {
-            label_ids.insert({ label, num_labels });
-            labels.push_back(num_labels++);
-          }
-          else
-          {
-            labels.push_back(found->second);
-          }
-        }
+        labels.push_back(label < 0 ? -1 : label_ids[label]);
       }
     }
   }
