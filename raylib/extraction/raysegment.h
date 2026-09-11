@@ -42,9 +42,13 @@ struct RAYLIB_EXPORT Vertex
 /// @c max_diameter maximum diameter of a tree trunk
 /// @c distance_limit maximum distance between points that can be connected
 /// @c gravity_factor controls how far laterally the shortest paths can travel
+/// @c point_labels optional tree label per ray in @c cloud. When supplied, one tree is
+/// generated per distinct label, rather than segmenting the trees from the point distribution. Negative
+/// labels mean unlabelled, these points are attached to whichever labelled tree reaches them
 std::vector<std::vector<int>> RAYLIB_EXPORT getRootsAndSegment(std::vector<Vertex> &points, const Cloud &cloud, const Mesh &mesh,
                                                                double max_diameter, double distance_limit, double height_min,
-                                                               double gravity_factor);
+                                                               double gravity_factor,
+                                                               const std::vector<int> *point_labels = nullptr);
 
 }  // namespace ray
 #endif  // RAYLIB_RAYSEGMENT_H

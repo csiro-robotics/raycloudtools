@@ -44,8 +44,11 @@ class RAYLIB_EXPORT Trees
 {
 public:
   /// Constructs the piecewise cylindrical tree structures from the input ray cloud @c cloud
-  /// The ground @c mesh defines the ground and @params are used to control the reconstruction
-  Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose);
+  /// The ground @c mesh defines the ground and @params are used to control the reconstruction.
+  /// When @c point_labels is supplied (one tree label per ray in @c cloud, -1 for unlabelled) the
+  /// cloud is treated as pre-segmented, so only the tree models are estimated, one per label
+  Trees(Cloud &cloud, const Eigen::Vector3d &offset, const Mesh &mesh, const TreesParams &params, bool verbose,
+        const std::vector<int> *point_labels = nullptr);
 
   /// save the trees representation to a text file
   bool save(const std::string &filename, const Eigen::Vector3d &offset, bool verbose) const;
@@ -103,6 +106,7 @@ private:
   // cached data that is used throughout the processing method
   int sec_;
   const TreesParams *params_;
+  const std::vector<int> *point_labels_; // per-ray tree labels when the cloud is pre-segmented, otherwise null
   std::vector<Vertex> points_;
   double forest_taper_{0};
   double forest_weight_{0};
