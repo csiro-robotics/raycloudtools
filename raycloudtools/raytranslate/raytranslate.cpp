@@ -11,6 +11,7 @@
 #include <optional>
 
 #include "raylib/raycloud.h"
+#include "raylib/raycloudwriter.h"
 #include "raylib/raymesh.h"
 #include "raylib/rayparse.h"
 #include "raylib/rayply.h"
@@ -133,14 +134,32 @@ int rayTranslate(int argc, char *argv[])
 #endif
   }
 
-  const std::string temp_name = cloud_file.nameStub() + "~.ply";  // tilde is a common suffix for temporary files
+  // Stats to print at end.
   int num_missed_triangles = 0, num_totally_missed = 0;
 
-  std::vector<Eigen::Vector3d> untranslated_starts;
-  std::vector<Eigen::Vector3d> untranslated_ends;
-  std::vector<double> untranslated_times;
-  std::vector<ray::RGBA> untranslated_colours;
+  // Normal output of translated rays.
+  ray::Cloud translated_chunk;
+  ray::CloudWriter translated_cloud_writer;
+  const std::string temp_name = cloud_file.nameStub() + "~.ply";  // tilde is a common suffix for temporary files
+  if (!translated_cloud_writer.begin(temp_name))
+  {
+    usage();
+  }
 
+  // Alternative output for rays that could not be translated if
+  // --split_untranslated arg is provided.
+  ray::Cloud untranslated_chunk;
+  ray::CloudWriter untranslated_cloud_writer;
+  const std::string untranslated_name = cloud_file.nameStub() + "_untranslated.ply";
+  if (split_untranslated.isSet())
+  {
+    if (!untranslated_cloud_writer.begin(untranslated_name))
+    {
+      usage();
+    }
+  }
+
+  // Translate a ray then push it into the appropriate chunk.
   auto translate = [&](Eigen::Vector3d &start, Eigen::Vector3d &end, double &time, ray::RGBA &colour) {
     if (ground_subtract_format || ground_add_format)
     {
@@ -205,15 +224,13 @@ int rayTranslate(int argc, char *argv[])
       }
       else if (split_untranslated.isSet())
       {
-        untranslated_starts.push_back(start);
-        untranslated_ends.push_back(end);
-        untranslated_times.push_back(time);
-        untranslated_colours.push_back(colour);
-
-        start = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-        end = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-        time = std::numeric_limits<double>::quiet_NaN();
-        colour = ray::RGBA(0, 0, 0, 0);
+        // Push into chunk to be written to untranslated output.
+        untranslated_chunk.starts.push_back(start);
+        untranslated_chunk.ends.push_back(end);
+        untranslated_chunk.times.push_back(time);
+        untranslated_chunk.colours.push_back(colour);
+        // Return to avoid also pushing into the normal output.
+        return;
       }
     }
     else
@@ -222,10 +239,39 @@ int rayTranslate(int argc, char *argv[])
       end += translation;
       time += time_delta;
     }
+    // Push into chunk to be written to normal output.
+    translated_chunk.starts.push_back(start);
+    translated_chunk.ends.push_back(end);
+    translated_chunk.times.push_back(time);
+    translated_chunk.colours.push_back(colour);
   };
-  if (!ray::convertCloud(cloud_file.name(), temp_name, translate))
+  // Translate all rays in a chunk then write the output chunks.
+  auto per_chunk = [&](std::vector<Eigen::Vector3d> &starts, std::vector<Eigen::Vector3d> &ends,
+                       std::vector<double> &times, std::vector<ray::RGBA> &colours) {
+    for (size_t index = 0; index < ends.size(); ++index)
+    {
+      translate(starts[index], ends[index], times[index], colours[index]);
+    }
+    translated_cloud_writer.writeChunk(translated_chunk);
+    translated_chunk.clear();
+    if (split_untranslated.isSet())
+    {
+      untranslated_cloud_writer.writeChunk(untranslated_chunk);
+      untranslated_chunk.clear();
+    }
+  };
+  // Process all chunks.
+  if (!ray::readPly(cloud_file.name(), true, per_chunk, 0))
     usage();
 
+  // Finish writing.
+  translated_cloud_writer.end();
+  if (split_untranslated.isSet())
+  {
+    untranslated_cloud_writer.end();
+  }
+
+  // Log stats.
   if (num_missed_triangles > 2)
   {
     std::cout << num_missed_triangles
@@ -240,9 +286,6 @@ int rayTranslate(int argc, char *argv[])
               << std::endl;
     if (split_untranslated.isSet())
     {
-      const std::string untranslated_name = cloud_file.nameStub() + "_untranslated.ply";
-      ray::writePlyRayCloud(untranslated_name, untranslated_starts, untranslated_ends, untranslated_times,
-                            untranslated_colours);
       std::cout << "Wrote " << num_totally_missed << " rays that had no laterally overlapping triangles to "
                 << untranslated_name << std::endl;
     }
