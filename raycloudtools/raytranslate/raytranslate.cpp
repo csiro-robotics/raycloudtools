@@ -43,10 +43,8 @@ int rayTranslate(int argc, char *argv[])
   ray::Vector4dArgument translation4;
   ray::OptionalFlagArgument split_untranslated("split_untranslated", 'u');
 
-  bool vec3_format =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &translation3 }, { &view_flag, &split_untranslated });
-  bool vec4_format =
-    ray::parseCommandLine(argc, argv, { &cloud_file, &translation4 }, { &view_flag, &split_untranslated });
+  bool vec3_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation3 }, { &view_flag });
+  bool vec4_format = ray::parseCommandLine(argc, argv, { &cloud_file, &translation4 }, { &view_flag });
   bool ground_subtract_format =
     ray::parseCommandLine(argc, argv, { &cloud_file, &subtract, &ground_file }, { &view_flag, &split_untranslated });
   bool ground_add_format =
